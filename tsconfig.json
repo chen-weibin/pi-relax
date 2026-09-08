@@ -1,0 +1,8 @@
+{
+	"files": [],
+	"references": [
+		{ "path": "./packages/relax-agent" },
+		{ "path": "./app/server" },
+		{ "path": "./app/web" }
+	]
+}
