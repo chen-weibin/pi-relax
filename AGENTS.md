@@ -19,3 +19,7 @@
 2. 记录方式：
    - 内容简短：直接写入当前文档；
    - 内容较多：在`docs/`目录新建文档存储，在当前文档标注引用文档路径、内容描述、查阅时机。
+
+## 文档索引
+
+- [`docs/relax-agent.md`](docs/relax-agent.md) — MiniMax 包装层 `createAgent` 用法、支持的模型清单、dev 工作流与历史踩坑。查阅时机：在 `packages/relax-agent/` 或 `app/server/` 下开发、调用 `createAgent`、调整 `dev:server` 编排时。

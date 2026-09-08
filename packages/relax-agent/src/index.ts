@@ -1,3 +1,2 @@
-export function add(a: number, b: number): number {
-	return a + b
-}
+export { createAgent } from "./create-agent"
+export type { CreateAgentOptions, CreateAgentResult } from "./create-agent"
