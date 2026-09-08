@@ -111,3 +111,36 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
 - 不要用字符串拼接构造 class(如 `` `bg-${color}-500` ``),Tailwind 无法识别。
 - 颜色 token 走 `@theme inline` 而不是 `@theme`,否则变量在构建时凝固,无法响应 `[data-theme="light"]` 切换。
 - 自定义 `text-base` / `text-lg` / `text-xl` / `text-2xl` 会覆盖 Tailwind 默认值,这是项目级约定。
+
+## 布局
+
+Cursor 风格四区平级布局,无外层包裹元素,全部由 `App.tsx` 直接组合。
+
+### 目录
+
+```
+src/
+├── App.tsx                       # 持有 settingOpen, 横向 flex 排布三区
+└── components/
+    ├── Sidebar.tsx               # 左 260px, 底部 setting 入口
+    ├── Conversation.tsx          # 中 flex-1
+    ├── Extension.tsx             # 右 570px
+    └── Setting.tsx               # 全屏 fixed inset-0 z-50 覆盖层
+```
+
+### 区段尺寸
+
+| 区 | 宽度 | 位置 |
+|---|---|---|
+| Sidebar | `w-[260px]` | 左 |
+| Conversation | `flex-1` | 中,自适应 |
+| Extension | `w-[570px]` | 右 |
+| Setting | `fixed inset-0` | 开启时覆盖全部 |
+
+`App.tsx` 用 `useState(settingOpen)` 控制 Setting 显隐:`{settingOpen && <Setting onClose={...} />}`。Setting `z-50`,在四区上方全屏渲染。
+
+### 命名约定
+
+- 组件文件名与组件名一致且单数:`Sidebar` / `Conversation` / `Extension` / `Setting`。
+- `className?: string` 用于让父组件控制尺寸/边框(`Conversation`、`Extension`);全幅组件不接 prop(`Sidebar`、`Setting`)。
+- props 命名沿用领域词,不缩写:`onOpenSetting` / `onClose`。
