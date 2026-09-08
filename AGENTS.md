@@ -22,4 +22,4 @@
 
 ## 文档索引
 
-- [`docs/relax-agent.md`](docs/relax-agent.md) — MiniMax 包装层 `createAgent` 用法、支持的模型清单、dev 工作流与历史踩坑。查阅时机：在 `packages/relax-agent/` 或 `app/server/` 下开发、调用 `createAgent`、调整 `dev:server` 编排时。
+- [`docs/relax-agent.md`](docs/relax-agent.md) — MiniMax 包装层 `createAgent` 用法、支持的模型清单、dev 工作流与历史踩坑。查阅时机：在 `packages/agent/` 或 `app/server/` 下开发、调用 `createAgent`、调整 `dev:server` 编排时。

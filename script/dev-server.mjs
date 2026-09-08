@@ -21,4 +21,4 @@ for (const p of procs) {
 }
 
 // ponytail: spawn-and-kill 模式,任一子进程退出即整体退出。
-// tsx watch 监听 relax-agent/dist 变化自动重启 server,无需在此转发。
+// tsx watch 监听 agent/dist 变化自动重启 server,无需在此转发。

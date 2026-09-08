@@ -48,7 +48,7 @@ await session.prompt("你好")
 | `MiniMax-M2.1-highspeed` | 204,800 | text | 不可关 |
 | `MiniMax-M2` | 204,800 | text | 不可关 |
 
-模型清单硬编码在 [`packages/relax-agent/src/create-agent.ts`](../packages/relax-agent/src/create-agent.ts)。**新增模型时只需在该文件追加条目**,无需改其它地方。
+模型清单硬编码在 [`packages/agent/src/create-agent.ts`](../packages/agent/src/create-agent.ts)。**新增模型时只需在该文件追加条目**,无需改其它地方。
 
 ## 实现要点
 
@@ -60,7 +60,7 @@ await session.prompt("你好")
 
 `pnpm dev:server` 一条命令启全部:
 
-1. `tsdown --watch` 监听 [`packages/relax-agent/src/`](../packages/relax-agent/src/),改动后重建 `dist/index.mjs`
+1. `tsdown --watch` 监听 [`packages/agent/src/`](../packages/agent/src/),改动后重建 `dist/index.mjs`
 2. `tsx watch` 监听 `app/server/src/`,发现 `dist/index.mjs` 变化即重启 server
 3. 二者由 [`script/dev-server.mjs`](../script/dev-server.mjs) 编排,SIGINT 同时退出
 
