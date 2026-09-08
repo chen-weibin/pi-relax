@@ -6,7 +6,7 @@ dist/
 .agent/
 .trae/
 .superpowers/
-.node_modules/
+node_modules/
 
 *.tsbuildinfo
 

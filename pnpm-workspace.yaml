@@ -1,0 +1,4 @@
+# pnpm 工作区声明：packages 和 app 下的每个子目录视为一个独立工作区包
+packages:
+  - "packages/*"
+  - "app/*"
