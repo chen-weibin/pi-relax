@@ -1,5 +1,6 @@
 import classNames from 'classnames'
 import { PanelLeftIcon, PanelRightIcon } from '../icons'
+import { IconButton } from '../ui/IconButton'
 
 interface Props {
 	className?: string
@@ -7,28 +8,6 @@ interface Props {
 	onToggleExtension: () => void
 	sidebarOpen: boolean
 	extensionOpen: boolean
-}
-
-function IconButton({
-	onClick,
-	title,
-	children,
-}: {
-	onClick: () => void
-	title: string
-	children: React.ReactNode
-}) {
-	return (
-		<button
-			type="button"
-			onClick={onClick}
-			title={title}
-			aria-label={title}
-			className="cursor-pointer rounded-md p-1.5 text-fg-2 hover:bg-surface-hover hover:text-fg"
-		>
-			{children}
-		</button>
-	)
 }
 
 export function Conversation({
