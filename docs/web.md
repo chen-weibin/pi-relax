@@ -148,6 +148,12 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
 4. 在使用方引入并实测一个具体场景(至少 typecheck + 浏览器手测)。
 5. 同步更新本节"当前内容"表格。
 
+## 图标(`icons/`)
+
+`app/web/src/icons/` 存放项目自绘的 SVG 图标组件,统一以 `*Icon` 命名导出。当前只有 `PanelLeftIcon` / `PanelRightIcon` 两个,供 `Conversation` 顶部 toggle 按钮使用。SVG 根属性已统一(`width=16 height=16 viewBox=0 0 16 16 fill=none stroke=currentColor strokeWidth=1.5`),颜色走 `currentColor`,适配外层 `text-*` 工具类。
+
+新增图标:在 `index.tsx` 内追加一个 `export function NameIcon()`,保持根属性一致即可。
+
 ## 布局
 
 app shell 由两层嵌套的 `react-resizable-panels` Group 组成:外层 `[Sidebar | main]`,内层(挂在 `main` Panel 内)`[Conversation | Extension]`。这样拖 `Sidebar | main` 的分隔条不会影响 Conversation/Extension 的内部比例,反之亦然。
@@ -181,6 +187,8 @@ src/
 │   ├── ResizablePanelGroup.tsx
 │   ├── ResizablePanel.tsx
 │   └── ResizableHandle.tsx
+├── icons/                       # 自绘 SVG 图标(详见上文 "图标 (icons/)" 小节)
+│   └── index.tsx
 └── components/
     ├── Sidebar.tsx               # 左,可被外层 Group 收起(整 Panel 移除)
     ├── Conversation.tsx          # 中,顶部带 toggle 按钮控制 sidebar/extension 收起
