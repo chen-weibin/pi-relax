@@ -1,3 +1,5 @@
+import classNames from 'classnames'
+
 interface Props {
 	className?: string
 	onToggleSidebar: () => void
@@ -54,7 +56,7 @@ export function Conversation({
 	extensionOpen,
 }: Props) {
 	return (
-		<div className={`flex h-full w-full flex-col bg-app text-fg-3 text-sm ${className ?? ''}`}>
+		<div className={classNames('flex h-full w-full flex-col bg-app text-fg-3 text-sm', className)}>
 			<div className="flex items-center justify-between border-b border-border px-4 py-2">
 				<div className="text-fg-2 text-sm">conversation</div>
 				<div className="flex gap-1">

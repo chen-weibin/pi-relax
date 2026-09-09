@@ -230,3 +230,32 @@ reload 后两层各自还原。
 - 组件文件名与组件名一致且单数:`Sidebar` / `Conversation` / `Extension` / `Setting`。
 - `className?: string` 用于让父组件控制尺寸/边框(`Conversation`、`Extension`);全幅组件不接 prop(`Sidebar`、`Setting`)。
 - props 命名沿用领域词,不缩写:`onOpenSetting` / `onClose`。
+
+### `className` 拼接
+
+所有需要拼接/条件拼接 `className` 的场景,**必须**使用 [`classnames`](https://www.npmjs.com/package/classnames)(`classnames@^2.5.1` 已声明在 `package.json`)。禁止再用模板字符串手动拼接(`\`bg-red ${active ? 'ring' : ''}\``),原因:
+
+- `classnames` 自动过滤 `undefined` / `null` / `false` / 空串,不用写 `?? ''` 兜底。
+- 条件类用对象语法 `{ 'ring-2': isActive }` 一眼可读,比三元或 `&&` 字符串拼接更清晰。
+
+```tsx
+import classNames from 'classnames'
+
+// 基础:固定 + 外部传入
+className={classNames('flex items-center px-3', className)}
+
+// 条件类(对象语法)
+className={classNames('btn', {
+  'btn-primary': variant === 'primary',
+  'btn-disabled': disabled,
+})}
+
+// 多条件混合
+className={classNames(
+  'base',
+  isActive && 'active',
+  className,
+)}
+```
+
+不要用字符串拼接构造 Tailwind 类(如 `` `bg-${color}-500` ``),Tailwind 无法识别 — 这条同时已在"踩坑备忘"里。
