@@ -79,24 +79,24 @@ Subtle Accent
 
 主背景：
 
-#141414 ~ #171717
+#171717 ~ #1E1E1E
 
 页面不同区域可以使用非常接近的深色：
 
 App Background:
-#141414
-
-Sidebar:
 #171717
 
-Main Content:
-#141414
-
-Elevated Surface:
+Sidebar:
 #1E1E1E
 
+Main Content:
+#171717
+
+Elevated Surface:
+#242424
+
 Card Surface:
-#202020
+#272727
 
 
 重点：
@@ -345,7 +345,7 @@ Sidebar 是非常重要的一级导航区域。
 视觉：
 
 Background:
-#171717
+#1E1E1E
 
 
 内容结构：
@@ -431,7 +431,7 @@ Background:
 Active：
 
 Background:
-#292929
+#2E2E2E
 
 Text:
 Primary
@@ -648,7 +648,7 @@ feature/1.9.1
 
 Background：
 
-#292929
+#2E2E2E
 
 
 Radius：
@@ -942,7 +942,7 @@ Height:
 Active：
 
 Background:
-#292929
+#2E2E2E
 
 Radius:
 7px
@@ -1827,11 +1827,11 @@ Context Menu
 
 COLOR
 
---color-bg: #141414
---color-sidebar: #171717
---color-surface: #1E1E1E
---color-surface-hover: #242424
---color-surface-active: #292929
+--color-bg: #171717
+--color-sidebar: #1E1E1E
+--color-surface: #242424
+--color-surface-hover: #292929
+--color-surface-active: #2E2E2E
 
 --color-text: #E5E5E5
 --color-text-secondary: #A1A1A1

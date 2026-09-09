@@ -47,8 +47,8 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
 ```css
 :root,
 [data-theme="dark"] {
-  --app: #141414;
-  --surface: #1e1e1e;
+  --app: #171717;
+  --surface: #242424;
   /* ... */
 }
 
@@ -71,11 +71,11 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
 
 | CSS 变量 | Tailwind 类 | 暗色值 | 用途 |
 |---|---|---|---|
-| `--app` | `bg-app` | `#141414` | 主背景 |
-| `--sidebar` | `bg-sidebar` | `#171717` | 侧边栏 |
-| `--surface` | `bg-surface` | `#1E1E1E` | 浮起表面 |
-| `--surface-hover` | `bg-surface-hover` | `#242424` | hover |
-| `--surface-active` | `bg-surface-active` | `#292929` | active |
+| `--app` | `bg-app` | `#171717` | 主背景(中 Conversation、右 Extension、Setting 覆盖层) |
+| `--sidebar` | `bg-sidebar` | `#1E1E1E` | 左 Sidebar |
+| `--surface` | `bg-surface` | `#242424` | 浮起表面(目前仅 scrollbar 用) |
+| `--surface-hover` | `bg-surface-hover` | `#292929` | hover |
+| `--surface-active` | `bg-surface-active` | `#2E2E2E` | active |
 | `--fg` | `text-fg` | `#E5E5E5` | 主文字 |
 | `--fg-2` | `text-fg-2` | `#A1A1A1` | 次文字 |
 | `--fg-3` | `text-fg-3` | `#737373` | 三级文字 |
