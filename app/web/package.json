@@ -10,8 +10,10 @@
 		"typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.node.json"
 	},
 	"dependencies": {
+		"classnames": "^2.5.1",
 		"react": "^19.0.0",
-		"react-dom": "^19.0.0"
+		"react-dom": "^19.0.0",
+		"react-resizable-panels": "^4.12.4"
 	},
 	"devDependencies": {
 		"@tailwindcss/vite": "^4.3.3",

@@ -112,30 +112,116 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
 - 颜色 token 走 `@theme inline` 而不是 `@theme`,否则变量在构建时凝固,无法响应 `[data-theme="light"]` 切换。
 - 自定义 `text-base` / `text-lg` / `text-xl` / `text-2xl` 会覆盖 Tailwind 默认值,这是项目级约定。
 
+## UI 组件库(`ui/`)
+
+`app/web/src/ui/` 是项目的 UI 组件库目录,业务无关、可在多处复用。对内封装第三方库,对上提供与领域词无关的原子组件。
+
+### 何时放进 `ui/`
+
+满足以下**全部**条件:
+
+- **业务无关**:不引用 `Sidebar` / `Conversation` / `Setting` 等任何领域组件,不放领域状态/领域类型。
+- **可复用**:在 app shell 之外(未来的二级页、Modal、设置面板、扩展插件等)有复用场景,或对一组第三方 API 做了有项目风格的统一封装。
+- **稳定**:API 已收敛,有明确的 props 契约和默认行为。
+
+不满足的 → 放 `components/`(领域组件)或 `hooks/`(逻辑复用)。
+
+### 命名 & 文件
+
+- 文件名与导出组件名一致;单文件单组件。
+- props 类型用 `export type {Name}Props`,便于其他模块显式引用。
+- 不依赖 `components/`、`hooks/` 里任何领域代码;如有需要,通过 props 注入。
+
+### 当前内容
+
+| 组件 | 包装的库 | 用途 |
+|---|---|---|
+| `ResizablePanelGroup` | `react-resizable-panels` 的 `Group` | 统一默认 `orientation='horizontal'`,透传其他 props |
+| `ResizablePanel` | `react-resizable-panels` 的 `Panel` | 强制 `id` 必填(库要求,但 TS 类型上是 optional),缺失时 dev 模式报错 |
+| `ResizableHandle` | `react-resizable-panels` 的 `Separator` | 套一层 1px 分割线 + 5px 命中区 + hover 高亮 |
+
+### 新增 UI 组件的流程
+
+1. 在 `docs/design-system.md` 或对应规范里先有该组件的设计/交互定义。
+2. 在 `ui/` 下新建文件,导出 `{Name}` 与 `{Name}Props`。
+3. 若包装第三方库,类型从该库导出;不要二次发明同名 prop。
+4. 在使用方引入并实测一个具体场景(至少 typecheck + 浏览器手测)。
+5. 同步更新本节"当前内容"表格。
+
 ## 布局
 
-Cursor 风格四区平级布局,无外层包裹元素,全部由 `App.tsx` 直接组合。
+app shell 由两层嵌套的 `react-resizable-panels` Group 组成:外层 `[Sidebar | main]`,内层(挂在 `main` Panel 内)`[Conversation | Extension]`。这样拖 `Sidebar | main` 的分隔条不会影响 Conversation/Extension 的内部比例,反之亦然。
+
+### 树结构
+
+```
+<div.h-screen.w-screen>
+  <Group id="app-shell" orientation="horizontal">     ← 外层
+    [optional] <Panel id="sidebar"/>                 ← sidebarOpen=true
+    [optional] <Separator/>
+    <Panel id="main">                                ← 永远存在
+      <Group id="main-area" orientation="horizontal"> ← 内层
+        <Panel id="conversation"/>
+        [optional] <Separator/>                       ← extensionOpen=true
+        [optional] <Panel id="extension"/>
+      </Group>
+    </Panel>
+  </Group>
+</div>
+```
 
 ### 目录
 
 ```
 src/
-├── App.tsx                       # 持有 settingOpen, 横向 flex 排布三区
+├── App.tsx                       # 持有 settingOpen + collapsed 状态, 嵌套两层 Group
+├── hooks/
+│   └── usePersistedPanelLayout.ts # 每个 groupId 一份 layout + collapsed 持久化
+├── ui/                           # 业务无关的可复用 UI 组件(详见上文 "UI 组件库" 小节)
+│   ├── ResizablePanelGroup.tsx
+│   ├── ResizablePanel.tsx
+│   └── ResizableHandle.tsx
 └── components/
-    ├── Sidebar.tsx               # 左 260px, 底部 setting 入口
-    ├── Conversation.tsx          # 中 flex-1
-    ├── Extension.tsx             # 右 570px
+    ├── Sidebar.tsx               # 左,可被外层 Group 收起(整 Panel 移除)
+    ├── Conversation.tsx          # 中,顶部带 toggle 按钮控制 sidebar/extension 收起
+    ├── Extension.tsx             # 右,可被内层 Group 收起(整 Panel 移除)
     └── Setting.tsx               # 全屏 fixed inset-0 z-50 覆盖层
 ```
 
 ### 区段尺寸
 
-| 区 | 宽度 | 位置 |
-|---|---|---|
-| Sidebar | `w-[260px]` | 左 |
-| Conversation | `flex-1` | 中,自适应 |
-| Extension | `w-[570px]` | 右 |
-| Setting | `fixed inset-0` | 开启时覆盖全部 |
+| 区 | `defaultSize` | `minSize` | `maxSize` | `groupResizeBehavior` | 所在 Group |
+|---|---|---|---|---|---|
+| Sidebar | `260`px | 200px | 400px | (默认) | 外层 |
+| main | 剩余空间 | 630px(= 320 + 300 + 分隔条) | — | (默认) | 外层 |
+| Conversation | 剩余空间(无 `defaultSize`) | 320px | — | (默认) | 内层 |
+| Extension | `540`px | 300px | — | `preserve-pixel-size` | 内层 |
+| Setting | `fixed inset-0` | — | — | — | 全屏覆盖 |
+
+**设计意图:**
+
+- `Conversation` 不写 `defaultSize`,library 自动把内层剩余空间全部分给它 — 对话区总是尽可能宽。
+- `Extension` 用绝对值 `540`px + `preserve-pixel-size`,外层 Group 整体宽度变化时,先保住 Extension 的像素宽度,多出的空间让给其他可伸缩面板。适合"右侧固定宽度"的场景。
+- `main` 的 `minSize={630}` 保证内层 conv(320) + ext(300) + 分隔条不会把空间压到不可用。
+- `Sidebar` 的 `maxSize={400}` 防止拖太宽挤掉对话区。
+
+### 收起/展开
+
+`App.tsx` 持有 `{ sidebar: boolean; extension: boolean }` collapsed 状态,持久化到 `localStorage` key `app-shell:layout:app-shell:collapsed`。
+
+收起 = 整 Panel 从所属 Group 中移除(`{sidebarOpen && <Panel/>}` 模式),不是 `collapsedSize:0`。这样展开时回到原记录的宽度。
+
+`Conversation` 顶部提供两个 IconButton 分别 toggle sidebar / extension,标题反映当前状态(`收起 / 展开左侧栏` 等)。
+
+### 持久化
+
+`usePersistedPanelLayout({ groupId, panelIds })` 是库的 `useDefaultLayout` 的薄包装:
+
+- layout 存到 `app-shell:layout:<groupId>`
+- 内层 Group(`groupId='main-area'`)独立持久化自己的 `[conversation, extension]`
+- 外层 Group(`groupId='app-shell'`)持久化 `[sidebar, main]`
+
+reload 后两层各自还原。
 
 `App.tsx` 用 `useState(settingOpen)` 控制 Setting 显隐:`{settingOpen && <Setting onClose={...} />}`。Setting `z-50`,在四区上方全屏渲染。
 
