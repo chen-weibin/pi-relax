@@ -116,21 +116,25 @@ Hierarchy
 
 2.2 Text
 
+Brightest (hover/active/highlight):
+
+#F5F5F5
+
 Primary:
 
 #E5E5E5
 
 Secondary:
 
-#A1A1A1
+#C7C7C7
 
 Tertiary:
 
-#737373
+#A1A1A1
 
 Disabled:
 
-#555555
+#737373
 
 
 文字不使用纯白作为大面积正文。
@@ -1834,9 +1838,10 @@ COLOR
 --color-surface-active: #2E2E2E
 
 --color-text: #E5E5E5
---color-text-secondary: #A1A1A1
---color-text-tertiary: #737373
---color-text-disabled: #555555
+--color-text-bright: #F5F5F5
+--color-text-secondary: #C7C7C7
+--color-text-tertiary: #A1A1A1
+--color-text-disabled: #737373
 
 --color-border: #2A2A2A
 --color-border-hover: #383838
