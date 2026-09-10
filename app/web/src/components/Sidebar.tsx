@@ -1,3 +1,13 @@
+import {
+	SidebarActions,
+	type SidebarActionItem,
+} from './SidebarActions'
+import {
+	SendIcon,
+	SearchIcon,
+	BlocksIcon,
+} from '../icons'
+
 interface Props {
 	onOpenSetting: () => void
 	collapsed?: boolean
@@ -5,9 +15,21 @@ interface Props {
 
 export function Sidebar({ onOpenSetting, collapsed = false }: Props) {
 	if (collapsed) return null
+
+	const actions: SidebarActionItem[] = [
+		{ key: 'newChat', icon: SendIcon, label: '新对话', onClick: () => {} },
+		{ key: 'search', icon: SearchIcon, label: '搜索', onClick: () => {} },
+		{
+			key: 'customize',
+			icon: BlocksIcon,
+			label: '自定义',
+			onClick: () => {},
+		},
+	]
+
 	return (
 		<aside className="flex h-full w-full flex-col border-r border-border bg-sidebar">
-			<div className="px-3 py-3 text-fg-2 text-sm">sidebar</div>
+			<SidebarActions activeKey={null} items={actions} />
 			<div className="mt-auto px-2 py-3">
 				<div
 					onClick={onOpenSetting}

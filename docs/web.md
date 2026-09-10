@@ -77,9 +77,10 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
 | `--surface-hover` | `bg-surface-hover` | `#292929` | hover |
 | `--surface-active` | `bg-surface-active` | `#2E2E2E` | active |
 | `--fg` | `text-fg` | `#E5E5E5` | 主文字 |
-| `--fg-2` | `text-fg-2` | `#A1A1A1` | 次文字 |
-| `--fg-3` | `text-fg-3` | `#737373` | 三级文字 |
-| `--fg-disabled` | `text-fg-disabled` | `#555555` | 禁用 |
+| `--fg-bright` | `text-fg-bright` | `#F5F5F5` | hover / active 高亮 |
+| `--fg-2` | `text-fg-2` | `#C7C7C7` | 次文字 |
+| `--fg-3` | `text-fg-3` | `#A1A1A1` | 三级文字 |
+| `--fg-disabled` | `text-fg-disabled` | `#737373` | 禁用 |
 | `--border` | `border-border` | `#2A2A2A` | 默认边框 |
 | `--border-hover` | `border-border-hover` | `#383838` | hover 边框 |
 | `--accent` | `bg-accent` / `text-accent` | `#3FBF73` | 主交互 / 成功 |
@@ -151,9 +152,18 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
 
 ## 图标(`icons/`)
 
-`app/web/src/icons/` 存放项目自绘的 SVG 图标组件,统一以 `*Icon` 命名导出。当前只有 `PanelLeftIcon` / `PanelRightIcon` 两个,供 `Conversation` 顶部 toggle 按钮使用。SVG 根属性已统一(`width=16 height=16 viewBox=0 0 16 16 fill=none stroke=currentColor strokeWidth=1.5`),颜色走 `currentColor`,适配外层 `text-*` 工具类。
+`app/web/src/icons/` 存放项目自绘的 SVG 图标组件,统一以 `*Icon` 命名导出。颜色走 `currentColor`,适配外层 `text-*` 工具类。
 
-新增图标:在 `index.tsx` 内追加一个 `export function NameIcon()`,保持根属性一致即可。
+目前两种风格共存,按需选用:
+
+| 风格 | 根属性 | 适用 | 现有图标 |
+|---|---|---|---|
+| 描边 | `width=16 height=16 viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"` | 简单几何图形(矩形/直线/圆) | `PanelLeftIcon` / `PanelRightIcon` |
+| 实心 | `width=16 height=16 viewBox="<shape-bbox>" fill="currentColor"` | 来源是第三方/参考 SVG 的填充字形 | `SendIcon` / `SearchIcon` / `BlocksIcon` |
+
+实心图标的关键:**`viewBox` 设成 path 实际可见形状的 bounding box**(不是固定的 `0 0 1024 1024`)。原因:不同来源 SVG 的 path 占据的 bbox 大小差异很大(如一个纸飞机可能只占 viewBox 的 70%,一个 Blocks 网格占 85%),直接用源 viewBox 会导致渲染出来大小不一致。按 bbox 裁切后每个图标都充满 16×16 渲染区,视觉大小一致。bbox 之外留约 3% 内边距(在 viewBox 内侧加 padding),避免图形贴边。
+
+新增图标:在 `index.tsx` 内追加一个 `export function NameIcon()`,根属性按上表选一种;颜色统一走 `currentColor`,不要写死 hex。
 
 ## 布局
 
