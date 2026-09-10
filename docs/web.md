@@ -159,7 +159,7 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
 | 风格 | 根属性 | 适用 | 现有图标 |
 |---|---|---|---|
 | 描边 | `width=16 height=16 viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"` | 简单几何图形(矩形/直线/圆) | `PanelLeftIcon` / `PanelRightIcon` |
-| 实心 | `width=16 height=16 viewBox="<shape-bbox>" fill="currentColor"` | 来源是第三方/参考 SVG 的填充字形 | `SendIcon` / `SearchIcon` / `BlocksIcon` |
+| 实心 | `width=16 height=16 viewBox="<shape-bbox>" fill="currentColor"` | 来源是第三方/参考 SVG 的填充字形 | `SendIcon` / `SearchIcon` / `BlocksIcon` / `SettingsIcon` |
 
 实心图标的关键:**`viewBox` 设成 path 实际可见形状的 bounding box**(不是固定的 `0 0 1024 1024`)。原因:不同来源 SVG 的 path 占据的 bbox 大小差异很大(如一个纸飞机可能只占 viewBox 的 70%,一个 Blocks 网格占 85%),直接用源 viewBox 会导致渲染出来大小不一致。按 bbox 裁切后每个图标都充满 16×16 渲染区,视觉大小一致。bbox 之外留约 3% 内边距(在 viewBox 内侧加 padding),避免图形贴边。
 
@@ -202,9 +202,11 @@ src/
 │   └── index.tsx
 └── components/
     ├── Sidebar.tsx               # 左,可被外层 Group 收起(整 Panel 移除)
+    ├── SidebarActions.tsx        # Sidebar 顶部三个 action 按钮(新对话/搜索/自定义)
     ├── Conversation.tsx          # 中,顶部带 toggle 按钮控制 sidebar/extension 收起
     ├── Extension.tsx             # 右,可被内层 Group 收起(整 Panel 移除)
-    └── Setting.tsx               # 全屏 fixed inset-0 z-50 覆盖层
+    ├── Setting.tsx               # 全屏 fixed inset-0 z-50 覆盖层
+    └── UserBar.tsx               # 用户信息条(头像 + 用户名 + 设置入口),固定高 48px,可在 Sidebar / Setting 左下复用
 ```
 
 ### 区段尺寸
