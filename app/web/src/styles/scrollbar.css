@@ -1,0 +1,37 @@
+/* ============================================================
+ * Scrollbar variants beyond the global default (defined in index.css).
+ *
+ * Consumers import this file and apply the matching class on their
+ * scrollable container. Each variant is independent — does not affect
+ * the global scrollbar.
+ *
+ * Naming convention: class reflects depth vs. global default.
+ * Each tier uses color-mix on --surface so values track theme variables.
+ *   - .scrollbar-deep    : darker thumb  (color-mix black N%)
+ *   - .scrollbar-shallow : lighter thumb (color-mix white N%)
+ * Add new tiers here as needed. Hover (highlight) keeps the global
+ * --surface-hover unchanged unless a tier overrides it explicitly.
+ * ============================================================ */
+
+.scrollbar-shallow {
+	scrollbar-width: thin;
+	scrollbar-color: color-mix(in srgb, var(--surface), white 5%) transparent;
+}
+
+.scrollbar-shallow::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+
+.scrollbar-shallow::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+.scrollbar-shallow::-webkit-scrollbar-thumb {
+	background: color-mix(in srgb, var(--surface), white 5%);
+	border-radius: 4px;
+}
+
+.scrollbar-shallow::-webkit-scrollbar-thumb:hover {
+	background: var(--surface-hover);
+}

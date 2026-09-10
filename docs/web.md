@@ -113,6 +113,25 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
 - 颜色 token 走 `@theme inline` 而不是 `@theme`,否则变量在构建时凝固,无法响应 `[data-theme="light"]` 切换。
 - 自定义 `text-base` / `text-lg` / `text-xl` / `text-2xl` 会覆盖 Tailwind 默认值,这是项目级约定。
 
+### 滚动条变体(`styles/scrollbar.css`)
+
+全局滚动条样式写在 `src/index.css`(thumb 用 `--surface`,hover 用 `--surface-hover`)。当容器背景比全局默认场景**更浅**(例如 Sidebar 的 `--sidebar`),全局的 thumb 反而显得比背景**还深**,在浅底上看不出滚动条。需要把 thumb 往背景方向微调一档,让它在浅底上自然浮现,但仍比 hover 高亮更弱。
+
+新增 `src/styles/scrollbar.css`,集中存放所有"非全局默认"的滚动条变体。**不会**污染 `index.css` 中的全局样式。
+
+**命名约定**(按 thumb 与全局的深浅层级,用 `color-mix` 在 `--surface` 基础上微调):
+
+| class | thumb | 适用 |
+|---|---|---|
+| `.scrollbar-deep` | `color-mix(--surface, black 40%)`(更深一档) | 比 `--surface` 更深的背景(留位) |
+| `.scrollbar-shallow` | `color-mix(--surface, white 5%)`(更浅一档) | 比 `--surface` 更浅的背景,例如 Sidebar |
+
+hover 高亮统一沿用 `--surface-hover`(与全局一致),不做额外覆盖。
+
+**用法**:consumer 在自己的 `.tsx` 顶部 `import '../styles/scrollbar.css'`,把对应 class 加到滚动容器上。例:`Sidebar.tsx` 在 `ProjectSection` 的滚动容器上加 `scrollbar-shallow`。
+
+新增变体直接在 `styles/scrollbar.css` 内追加,不要往 `index.css` 写 — 保持全局样式的纯净。
+
 ## UI 组件库(`ui/`)
 
 `app/web/src/ui/` 是项目的 UI 组件库目录,业务无关、可在多处复用。对内封装第三方库,对上提供与领域词无关的原子组件。

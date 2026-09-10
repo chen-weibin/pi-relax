@@ -9,6 +9,7 @@ import {
 } from '../icons'
 import { ProjectSection } from './ProjectSection'
 import { UserBar } from './UserBar'
+import '../styles/scrollbar.css'
 
 interface Props {
 	onOpenSetting: () => void
@@ -32,7 +33,7 @@ export function Sidebar({ onOpenSetting, collapsed = false }: Props) {
 	return (
 		<aside className="flex h-full w-full flex-col border-r border-border bg-sidebar">
 			<SidebarActions activeKey={null} items={actions} />
-			<div className="mt-1 flex-1 overflow-y-auto">
+			<div className="mt-1 flex-1 overflow-y-auto scrollbar-shallow">
 				<ProjectSection />
 			</div>
 			<UserBar onOpenSetting={onOpenSetting} />
