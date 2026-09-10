@@ -159,7 +159,7 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
 | 风格 | 根属性 | 适用 | 现有图标 |
 |---|---|---|---|
 | 描边 | `width=16 height=16 viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"` | 简单几何图形(矩形/直线/圆) | `PanelLeftIcon` / `PanelRightIcon` |
-| 实心 | `width=16 height=16 viewBox="<shape-bbox>" fill="currentColor"` | 来源是第三方/参考 SVG 的填充字形 | `SendIcon` / `SearchIcon` / `BlocksIcon` / `SettingsIcon` |
+| 实心 | `width=14 height=14 viewBox="<shape-bbox>" fill="currentColor"` | 来源是第三方/参考 SVG 的填充字形 | `SendIcon` / `SearchIcon` / `BlocksIcon` / `SettingsIcon` / `ChevronRightIcon` / `FolderClosedIcon` / `FolderOpenIcon` / `AddFolderIcon` / `FilterIcon` / `PlusIcon` |
 
 实心图标的关键:**`viewBox` 设成 path 实际可见形状的 bounding box**(不是固定的 `0 0 1024 1024`)。原因:不同来源 SVG 的 path 占据的 bbox 大小差异很大(如一个纸飞机可能只占 viewBox 的 70%,一个 Blocks 网格占 85%),直接用源 viewBox 会导致渲染出来大小不一致。按 bbox 裁切后每个图标都充满 16×16 渲染区,视觉大小一致。bbox 之外留约 3% 内边距(在 viewBox 内侧加 padding),避免图形贴边。
 
@@ -203,10 +203,16 @@ src/
 └── components/
     ├── Sidebar.tsx               # 左,可被外层 Group 收起(整 Panel 移除)
     ├── SidebarActions.tsx        # Sidebar 顶部三个 action 按钮(新对话/搜索/自定义)
+    ├── ProjectSection.tsx        # Sidebar 中部"项目"区块(标题行 + 项目列表)
+    ├── ProjectSectionHeader.tsx  # "项目"区块标题行:标题 + hover-only chevron + 过滤 + 添加项目
+    ├── ProjectItem.tsx           # 单个项目行:folder/chevron icon + 名称 + hover-only +;展开后渲染 SessionItem 列表
+    ├── SessionItem.tsx           # 单个会话行:标题 + 相对时间
     ├── Conversation.tsx          # 中,顶部带 toggle 按钮控制 sidebar/extension 收起
     ├── Extension.tsx             # 右,可被内层 Group 收起(整 Panel 移除)
     ├── Setting.tsx               # 全屏 fixed inset-0 z-50 覆盖层
     └── UserBar.tsx               # 用户信息条(头像 + 用户名 + 设置入口),固定高 48px,可在 Sidebar / Setting 左下复用
+└── utils/
+    └── relativeTime.ts           # formatRelativeTime(ms) — "Nm" / "Nh" / "Nd" / "Nw"
 ```
 
 ### 区段尺寸
@@ -245,6 +251,62 @@ src/
 reload 后两层各自还原。
 
 `App.tsx` 用 `useState(settingOpen)` 控制 Setting 显隐:`{settingOpen && <Setting onClose={...} />}`。Setting `z-50`,在四区上方全屏渲染。
+
+### 项目区块(ProjectSection)
+
+`Sidebar` 中部 `flex-1 overflow-y-auto` 容器内嵌 `ProjectSection`,结构自上而下:
+
+```
+ProjectSection
+├── ProjectSectionHeader    "项目" 标题行(sticky top-0 + bg-sidebar,列表滚动时固定在顶)
+│   ├── "项目" + hover-only chevron(10×10,文字右侧,fold/unfold 整块)
+│   └── filter + add-folder(IconButton size=md,始终可见,pr-1 gap-0.5)
+└── ProjectItem[]           每个项目一行(在可滚动区域内)
+    ├── folder / chevron    (folder 14×14 默认;hover 时切 chevron 10×10,展开时 rotate-90)
+    ├── name
+    ├── hover-only + 按钮    (10×10 plus,absolute right-2.5,与 session 时间右边缘对齐)
+    └── SessionItem[]       展开后才渲染,无动画
+```
+
+**视觉规格**(对齐 `docs/design-system.md`):
+
+| 项 | 值 |
+|---|---|
+| header 高 | `h-[30px]`,字号 `text-md`,颜色 `text-fg-2`,hover → `text-fg-bright` |
+| 项目行高 | `h-[30px]`,字号 `text-sm` (12px) |
+| 会话行高 | `h-[30px]`,字号 `text-sm` |
+| 项目间间距 | `gap-0.5` (2px) |
+| 会话间间距 | `gap-0.5` (2px) |
+| section 与上方 | `mt-1` (4px) |
+| header 内 padding | outer `px-1.5` + toggle button `px-2.5`(`项目` 文字从 sidebar 边 16px 开始,与 action 文字对齐) |
+| 项目行 padding | `pl-2.5 pr-2.5`,hover 时 `group-hover/row:pr-8` 腾位给 + 按钮 |
+| 会话行 padding | `pl-8 pr-2.5`(左 32px,文字起始位置与项目文字同列,视觉嵌套) |
+| hover 背景 | `bg-surface-hover`(项目和会话行) |
+| active 背景 | `bg-surface-active` + `text-fg-bright`(仿 action 选中态) |
+| 时间文字色 | `text-fg-3` |
+| chevron 尺寸 | header 与 project 都 10×10(`h-2.5 w-2.5 [&_svg]:h-2.5 [&_svg]:w-2.5` 强制缩 SVG) |
+
+**交互行为**:
+
+- **section 整体折叠**:点 header 中的「项目 + chevron」整块(hover 时 chevron 显形),`sectionExpanded` 切换;折叠时整个项目列表卸载。
+- **header 右侧 IconButton**(filter / add-folder):用 `IconButton` 默认 size(等同 `UserBar` 设置按钮),点击各自 handler;不影响 header toggle。
+- **项目展开/收起**:点项目行 toggle,`expandedIds: Set<string>` 记录状态;展开后才挂载 `SessionItem` 列表,不是 CSS hide — 收起时整段 DOM 卸载,免内存。
+- **项目 icon 切换**:默认显示 folder(展开=open,收起=closed),hover 时切到 chevron(展开=rotate-90 朝下,收起=朝右)。folder 在 14×14 槽内,chevron 缩到 10×10 居中,通过 `group` + `group-hover/row:hidden` / `group-hover/row:flex` 切换,两种 icon 绝对定位重叠占同 14×14 槽,布局不抖。
+- **项目 + 按钮**:`opacity-0 group-hover/row:opacity-100`,加 `pointer-events-none` → `group-hover/row:pointer-events-auto` 让 hover 区域可点击,不在 hover 时穿透。`absolute right-2.5 top-1/2 -translate-y-1/2` 居中,IconButton box 右边缘与 session 时间文字右边缘对齐。
+- **项目行 hover pr 展开**:`group-hover/row:pr-8`(32px),给 + 按钮腾位;非 hover 时 `pr-2.5`(10px),文字贴近右边。
+- **chevron 旋转**:`rotate-0` ↔ `rotate-90`,`transition-transform duration-100`,只动 transform,无 layout 抖动。
+- **header chevron**:`opacity-0 group-hover/header:opacity-100`,hover header 行才显形。
+
+**状态**:
+
+`ProjectSection` 是 self-contained:内部 `useState` 管 `projects`(目前 mock) + `expandedIds` + `sectionExpanded`,**不持久化**。等真实数据接入后,这些 state 上提到 store / props 注入。
+
+**icon 复用**:
+
+- 旋转用 Tailwind 的 `rotate-0` / `rotate-90`,不通过 icon 组件的 props 传 `direction`。
+- 缩放用 wrapper span(`h-2.5 w-2.5 [&_svg]:h-2.5 [&_svg]:w-2.5`)强制覆盖 SVG 的 width/height 属性,不修改 icon 组件 API。
+- `ChevronRightIcon` 的 `viewBox` 选成 `249 15 477 932`(path 几何中心对齐 viewBox 中心),保证 `rotate-90` 展开态视觉居中。
+- `FilterIcon` / `AddFolderIcon` 仅在 `ProjectSectionHeader` 出现;`ChevronRightIcon` / `FolderClosedIcon` / `FolderOpenIcon` / `PlusIcon` 仅在 `ProjectItem` 出现;`SessionItem` 不使用 icon。
 
 ### 命名约定
 
