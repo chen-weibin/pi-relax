@@ -249,7 +249,7 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
 
 ## 布局
 
-app shell 由两层嵌套的 `react-resizable-panels` Group 组成:外层 `[Sidebar | main]`,内层(挂在 `main` Panel 内)`[Conversation | Extension]`。这样拖 `Sidebar | main` 的分隔条不会影响 Conversation/Extension 的内部比例,反之亦然。
+app shell 由两层嵌套的 `react-resizable-panels` Group 组成:外层 `[Sidebar | main]`,内层(挂在 `main` Panel 内)`[content | Extension]`。`content` 承载 `<MainContainer />`,内部根据 `mainView` state 决定渲染 `<Conversation />` 或 `<CustomizeView />`(未来会更多)。这样拖 `Sidebar | main` 的分隔条不会影响 content/Extension 的内部比例,反之亦然。
 
 ### 树结构
 
@@ -260,7 +260,7 @@ app shell 由两层嵌套的 `react-resizable-panels` Group 组成:外层 `[Side
     [optional] <Separator/>
     <Panel id="main">                                ← 永远存在
       <Group id="main-area" orientation="horizontal"> ← 内层
-        <Panel id="conversation"/>
+        <Panel id="content"/>                        ← 挂 MainContainer
         [optional] <Separator/>                       ← extensionOpen=true
         [optional] <Panel id="extension"/>
       </Group>
@@ -273,9 +273,9 @@ app shell 由两层嵌套的 `react-resizable-panels` Group 组成:外层 `[Side
 
 ```
 src/
-├── App.tsx                       # 持有 settingOpen + collapsed 状态, 嵌套两层 Group
+├── App.tsx                       # 持有 settingOpen + sidebarOpen/extensionOpen + mainView 状态, 嵌套两层 Group
 ├── hooks/
-│   └── usePersistedPanelLayout.ts # 每个 groupId 一份 layout + collapsed 持久化
+│   └── usePersistedPanelLayout.ts # 每个 groupId 一份 layout 宽度持久化(无折叠状态持久化)
 ├── ui/                           # 业务无关的可复用 UI 组件(详见上文 "UI 组件库" 小节)
 │   ├── ResizablePanelGroup.tsx
 │   ├── ResizablePanel.tsx
@@ -285,13 +285,15 @@ src/
 ├── icons/                       # 自绘 SVG 图标(详见上文 "图标 (icons/)" 小节)
 │   └── index.tsx
 └── components/
-    ├── Sidebar.tsx               # 左,可被外层 Group 收起(整 Panel 移除)
+    ├── Sidebar.tsx               # 左,可被外层 Group 收起(整 Panel 移除);持有 view/onSelectView 状态
     ├── SidebarActions.tsx        # Sidebar 顶部三个 action 按钮(新对话/搜索/自定义)
     ├── ProjectSection.tsx        # Sidebar 中部"项目"区块(标题行 + 项目列表)
     ├── ProjectSectionHeader.tsx  # "项目"区块标题行:标题 + hover-only chevron + 过滤 + 添加项目
     ├── ProjectItem.tsx           # 单个项目行:folder/chevron icon + 名称 + hover-only +;展开后渲染 SessionItem 列表
     ├── SessionItem.tsx           # 单个会话行:标题 + 相对时间
-    ├── Conversation.tsx          # 中,顶部带 toggle 按钮控制 sidebar/extension 收起
+    ├── MainContainer.tsx         # 中,内层 content Panel 容器;按 mainView 渲染 Conversation / CustomizeView
+    ├── Conversation.tsx          # view: 新对话内容(目前自带 header + toggle)
+    ├── CustomizeView.tsx         # view: 自定义内容(占位)
     ├── Extension.tsx             # 右,可被内层 Group 收起(整 Panel 移除)
     ├── Setting.tsx               # 全屏 fixed inset-0 z-50 覆盖层
     └── UserBar.tsx               # 用户信息条(头像 + 用户名 + 设置入口),固定高 48px,可在 Sidebar / Setting 左下复用
@@ -305,34 +307,49 @@ src/
 |---|---|---|---|---|---|
 | Sidebar | `260`px | 200px | 400px | (默认) | 外层 |
 | main | 剩余空间 | 630px(= 320 + 300 + 分隔条) | — | (默认) | 外层 |
-| Conversation | 剩余空间(无 `defaultSize`) | 320px | — | (默认) | 内层 |
+| content(MainContainer) | 剩余空间(无 `defaultSize`) | 320px | — | (默认) | 内层 |
 | Extension | `540`px | 300px | — | `preserve-pixel-size` | 内层 |
 | Setting | `fixed inset-0` | — | — | — | 全屏覆盖 |
 
 **设计意图:**
 
-- `Conversation` 不写 `defaultSize`,library 自动把内层剩余空间全部分给它 — 对话区总是尽可能宽。
+- `content` Panel 不写 `defaultSize`,library 自动把内层剩余空间全部分给它 — 主展示区总是尽可能宽。
 - `Extension` 用绝对值 `540`px + `preserve-pixel-size`,外层 Group 整体宽度变化时,先保住 Extension 的像素宽度,多出的空间让给其他可伸缩面板。适合"右侧固定宽度"的场景。
-- `main` 的 `minSize={630}` 保证内层 conv(320) + ext(300) + 分隔条不会把空间压到不可用。
-- `Sidebar` 的 `maxSize={400}` 防止拖太宽挤掉对话区。
+- `main` 的 `minSize={630}` 保证内层 content(320) + ext(300) + 分隔条不会把空间压到不可用。
+- `Sidebar` 的 `maxSize={400}` 防止拖太宽挤掉主展示区。
 
 ### 收起/展开
 
-`App.tsx` 持有 `{ sidebar: boolean; extension: boolean }` collapsed 状态,持久化到 `localStorage` key `app-shell:layout:app-shell:collapsed`。
+`App.tsx` 持有 `{ sidebarOpen: boolean; extensionOpen: boolean }` 状态,**不持久化** —— 每次启动 sidebar 默认 `true`(展开)、extension 默认 `false`(收起)。
 
 收起 = 整 Panel 从所属 Group 中移除(`{sidebarOpen && <Panel/>}` 模式),不是 `collapsedSize:0`。这样展开时回到原记录的宽度。
 
-`Conversation` 顶部提供两个 IconButton 分别 toggle sidebar / extension,标题反映当前状态(`收起 / 展开左侧栏` 等)。
+`Conversation` 顶部提供两个 IconButton 分别 toggle sidebar / extension,标题反映当前状态(`收起 / 展开左侧栏` 等)。后续会把 toggle 按钮上提到 `MainContainer` 自身,各 view 共享同一 header;`Conversation` 当前的私有 header 是过渡期产物。
+
+### MainContainer(view 切换)
+
+中区内层 Panel id 叫 `content`,挂的是 `<MainContainer view={mainView} ... />`,**不直接挂**某个具体 view。`mainView: 'conversation' | 'customize'`(目前两个,后续可能扩展)由 `App.tsx` 持有,**不持久化**,默认 `'conversation'`。
+
+切换流程:
+
+1. 用户点 SidebarActions 中的「新对话 / 自定义」按钮 → `Sidebar` 调 `onSelectView(key)`
+2. `App` 更新 `mainView` state
+3. `MainContainer` 根据 `view` 渲染对应 view 组件(`view === 'customize'` 走 `<CustomizeView />`,其它走 `<Conversation />`)
+4. `Sidebar` 内 `SidebarActions` 的 `activeKey` 同步反映当前 view(view→key 映射:'conversation'→'newChat'、'customize'→'customize';`search` 永远不 active)
+
+新增 view 的步骤:在 `MainView` 类型加成员 + `MainContainer` 的 `if/else` 加分支 + `Sidebar.tsx` 的 `viewFromActionKey` / `actionKeyFromView` 加映射 + 新建 view 文件 + SidebarActions 加 action。不引入注册表 / router。
 
 ### 持久化
 
 `usePersistedPanelLayout({ groupId, panelIds })` 是库的 `useDefaultLayout` 的薄包装:
 
 - layout 存到 `app-shell:layout:<groupId>`
-- 内层 Group(`groupId='main-area'`)独立持久化自己的 `[conversation, extension]`
+- 内层 Group(`groupId='main-area'`)独立持久化自己的 `[content, extension]`
 - 外层 Group(`groupId='app-shell'`)持久化 `[sidebar, main]`
 
 reload 后两层各自还原。
+
+**注意:折叠状态(`sidebarOpen` / `extensionOpen`)和 `mainView` 都不持久化。** 每次启动 sidebar 展开、extension 收起、`mainView='conversation'`。如需持久化,在 App.tsx 自行接 `localStorage` —— 不要往 `usePersistedPanelLayout` 加,hook 只管 layout 宽度,职责单一。
 
 `App.tsx` 用 `useState(settingOpen)` 控制 Setting 显隐:`{settingOpen && <Setting onClose={...} />}`。Setting `z-50`,在四区上方全屏渲染。
 

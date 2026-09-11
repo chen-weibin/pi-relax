@@ -10,7 +10,7 @@ export type PersistedLayoutState = {
 	onLayoutChanged: (layout: Layout, meta: LayoutChangedMeta) => void
 }
 
-const STORAGE_PREFIX = 'app-shell:layout'
+const STORAGE_KEY_PREFIX = 'app-shell:layout'
 
 function readStored(key: string): Layout | undefined {
 	try {
@@ -39,7 +39,7 @@ export function usePersistedPanelLayout({
 	groupId: string
 	panelIds: string[]
 }): PersistedLayoutState {
-	const storageKey = `${STORAGE_PREFIX}:${groupId}`
+	const storageKey = `${STORAGE_KEY_PREFIX}:${groupId}`
 
 	const storage = useMemo(
 		() => ({
@@ -71,33 +71,5 @@ export function usePersistedPanelLayout({
 	return {
 		defaultLayout,
 		onLayoutChanged: handleLayoutChanged,
-	}
-}
-
-export function readCollapsedState(groupId: string): { sidebar: boolean; extension: boolean } {
-	try {
-		const raw = localStorage.getItem(`${STORAGE_PREFIX}:${groupId}:collapsed`)
-		if (!raw) return { sidebar: true, extension: true }
-		const parsed = JSON.parse(raw) as { sidebar?: boolean; extension?: boolean }
-		return {
-			sidebar: parsed.sidebar ?? true,
-			extension: parsed.extension ?? true,
-		}
-	} catch {
-		return { sidebar: true, extension: true }
-	}
-}
-
-export function writeCollapsedState(
-	groupId: string,
-	state: { sidebar: boolean; extension: boolean },
-) {
-	try {
-		localStorage.setItem(
-			`${STORAGE_PREFIX}:${groupId}:collapsed`,
-			JSON.stringify(state),
-		)
-	} catch {
-		// ponytail: ignore quota / private mode failures
 	}
 }

@@ -11,32 +11,68 @@ import {
 } from '../icons'
 import { ProjectSection } from './ProjectSection'
 import { UserBar } from './UserBar'
+import type { MainView } from '../App'
 import '../styles/scrollbar.css'
 
 interface Props {
+	view: MainView
+	onSelectView: (view: MainView) => void
 	onOpenSetting: () => void
 	collapsed?: boolean
 }
 
-export function Sidebar({ onOpenSetting, collapsed = false }: Props) {
+function viewFromActionKey(key: string): MainView | null {
+	if (key === 'newChat') return 'conversation'
+	if (key === 'customize') return 'customize'
+	return null
+}
+
+function actionKeyFromView(view: MainView): string | null {
+	if (view === 'conversation') return 'newChat'
+	if (view === 'customize') return 'customize'
+	return null
+}
+
+export function Sidebar({
+	view,
+	onSelectView,
+	onOpenSetting,
+	collapsed = false,
+}: Props) {
 	const [scrollHover, setScrollHover] = useState(false)
 
 	if (collapsed) return null
 
 	const actions: SidebarActionItem[] = [
-		{ key: 'newChat', icon: SendIcon, label: '新对话', onClick: () => {} },
-		{ key: 'search', icon: SearchIcon, label: '搜索', onClick: () => {} },
+		{
+			key: 'newChat',
+			icon: SendIcon,
+			label: '新对话',
+			onClick: () => {
+				const next = viewFromActionKey('newChat')
+				if (next) onSelectView(next)
+			},
+		},
+		{
+			key: 'search',
+			icon: SearchIcon,
+			label: '搜索',
+			onClick: () => {},
+		},
 		{
 			key: 'customize',
 			icon: BlocksIcon,
 			label: '自定义',
-			onClick: () => {},
+			onClick: () => {
+				const next = viewFromActionKey('customize')
+				if (next) onSelectView(next)
+			},
 		},
 	]
 
 	return (
 		<aside className="flex h-full w-full flex-col border-r border-border bg-sidebar">
-			<SidebarActions activeKey={null} items={actions} />
+			<SidebarActions activeKey={actionKeyFromView(view)} items={actions} />
 			<div
 				className={classNames(
 					'mt-1 flex-1 overflow-y-auto scrollbar-shallow',
