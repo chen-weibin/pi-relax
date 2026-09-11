@@ -126,9 +126,15 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
 | `.scrollbar-deep` | `color-mix(--surface, black 40%)`(更深一档) | 比 `--surface` 更深的背景(留位) |
 | `.scrollbar-shallow` | `color-mix(--surface, white 5%)`(更浅一档) | 比 `--surface` 更浅的背景,例如 Sidebar |
 
-hover 高亮统一沿用 `--surface-hover`(与全局一致),不做额外覆盖。
+**不抖动 + hover 才显形(本文件全部变体的默认行为)**:
 
-**用法**:consumer 在自己的 `.tsx` 顶部 `import '../styles/scrollbar.css'`,把对应 class 加到滚动容器上。例:`Sidebar.tsx` 在 `ProjectSection` 的滚动容器上加 `scrollbar-shallow`。
+- `overflow-y: overlay`(Chrome/Safari):滚动条叠加在内容之上,不占布局空间 → 内容宽度不变,无 layout shift。Firefox 不识别 `overlay`,整条声明作废,所以下面紧跟 `overflow-y: auto` 作为 fallback,避免 Firefox 上滚动功能失效。
+- `scrollbar-gutter: stable`:永远预留滚动条槽位宽度,即使 `overlay` 在 Chrome 上生效,gutter 也强制占用 → 内容区宽度始终是 `容器宽 - gutter`,不会因滚动条出现/消失而抖动。
+- thumb 默认 `transparent`,仅当容器带 `--hover` modifier 时显形。`--hover` 由 consumer 通过 `onMouseEnter`/`onMouseLeave` 切换 — 纯 CSS `parent:hover::-webkit-scrollbar-thumb` 不可靠(webkit 伪元素不参与 DOM 事件传播)。
+
+参考: [SegmentFault](https://segmentfault.com/a/1190000017044563)、[张鑫旭](https://www.zhangxinxu.com/wordpress/2015/01/css-page-scrollbar-toggle-center-no-jumping/)。
+
+**用法**:consumer 在自己的 `.tsx` 顶部 `import '../styles/scrollbar.css'`,把对应 class 加到滚动容器上,并用 React state 切 `--hover` modifier。例:`Sidebar.tsx` 在 `ProjectSection` 的滚动容器上加 `scrollbar-shallow` + `scrollbar-shallow--hover`(后者由 `useState` 在 `mouseenter`/`mouseleave` 时切换)。
 
 新增变体直接在 `styles/scrollbar.css` 内追加,不要往 `index.css` 写 — 保持全局样式的纯净。
 
@@ -297,7 +303,8 @@ ProjectSection
 | 项目间间距 | `gap-0.5` (2px) |
 | 会话间间距 | `gap-0.5` (2px) |
 | section 与上方 | `mt-1` (4px) |
-| header 内 padding | outer `px-1.5` + toggle button `px-2.5`(`项目` 文字从 sidebar 边 16px 开始,与 action 文字对齐) |
+| header 内 padding | outer `pl-1.5` + toggle button `px-2.5`(`项目` 文字从 sidebar 边 16px 开始,与 action 文字对齐);右 padding 为 0,因为滚动容器已用 `scrollbar-gutter: stable` 预留 20px gutter(详见上文滚动条变体小节) |
+| 内容容器 padding | `pl-1.5 pb-1.5`(左 6px,底 6px,无右);原因同上 — gutter 已占位,不再额外留白,让项目/会话行的右边缘直接贴 gutter 内边沿,视觉与 header action 按钮对齐 |
 | 项目行 padding | `pl-2.5 pr-2.5`,hover 时 `group-hover/row:pr-8` 腾位给 + 按钮 |
 | 会话行 padding | `pl-8 pr-2.5`(左 32px,文字起始位置与项目文字同列,视觉嵌套) |
 | hover 背景 | `bg-surface-hover`(项目和会话行) |

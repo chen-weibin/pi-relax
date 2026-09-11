@@ -16,7 +16,7 @@ export function ProjectSectionHeader({
 	onAddProject,
 }: ProjectSectionHeaderProps) {
 	return (
-		<div className="group/header flex h-[30px] items-center px-1.5 select-none">
+		<div className="group/header flex h-[30px] items-center pl-1.5 select-none">
 			<button
 				type="button"
 				onClick={onToggleExpand}

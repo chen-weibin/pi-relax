@@ -11,11 +11,27 @@
  *   - .scrollbar-shallow : lighter thumb (color-mix white N%)
  * Add new tiers here as needed. Hover (highlight) keeps the global
  * --surface-hover unchanged unless a tier overrides it explicitly.
+ *
+ * Hover-only visibility is driven via the `.scrollbar-shallow--hover`
+ * modifier (toggled by JS on mouseenter/leave). The pure-CSS
+ * `:hover` selector is unreliable for webkit scrollbar pseudo-elements
+ * (they don't participate in DOM event propagation), so we don't rely
+ * on it. `--hover` is the source of truth.
+ *
+ * No-jump behavior uses `overflow-y: overlay` so the scrollbar
+ * overlays content instead of taking layout space. See
+ *   https://segmentfault.com/a/1190000017044563
+ *   https://www.zhangxinxu.com/wordpress/2015/01/css-page-scrollbar-toggle-center-no-jumping/
+ * Chrome/Safari honor `overlay`; Firefox falls back to classic auto
+ * (still scrolls correctly, just takes layout space — acceptable
+ * per current cross-browser stance).
  * ============================================================ */
 
 .scrollbar-shallow {
-	scrollbar-width: thin;
-	scrollbar-color: color-mix(in srgb, var(--surface), white 5%) transparent;
+	overflow-y: auto;
+	overflow-y: overlay;
+	scrollbar-color: transparent transparent;
+	scrollbar-gutter: stable;
 }
 
 .scrollbar-shallow::-webkit-scrollbar {
@@ -28,10 +44,19 @@
 }
 
 .scrollbar-shallow::-webkit-scrollbar-thumb {
-	background: color-mix(in srgb, var(--surface), white 5%);
+	background: transparent;
 	border-radius: 4px;
+	transition: background-color 120ms ease;
 }
 
-.scrollbar-shallow::-webkit-scrollbar-thumb:hover {
+.scrollbar-shallow--hover::-webkit-scrollbar-thumb {
+	background: color-mix(in srgb, var(--surface), white 5%);
+}
+
+.scrollbar-shallow--hover::-webkit-scrollbar-thumb:hover {
 	background: var(--surface-hover);
+}
+
+.scrollbar-shallow--hover {
+	scrollbar-color: color-mix(in srgb, var(--surface), white 5%) transparent;
 }

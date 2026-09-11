@@ -103,7 +103,7 @@ export function ProjectSection({ className }: ProjectSectionProps) {
 				/>
 			</div>
 			{sectionExpanded && (
-				<div className="flex flex-col gap-0.5 px-1.5 pb-1.5">
+				<div className="flex flex-col gap-0.5 pl-1.5 pb-1.5">
 					{projects.map((p) => (
 						<ProjectItem
 							key={p.id}
