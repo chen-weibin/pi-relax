@@ -166,6 +166,7 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
 | `ResizablePanel` | `react-resizable-panels` 的 `Panel` | 强制 `id` 必填(库要求,但 TS 类型上是 optional),缺失时 dev 模式报错 |
 | `ResizableHandle` | `react-resizable-panels` 的 `Separator` | 套一层 1px 分割线 + 5px 命中区 + hover 高亮 |
 | `IconButton` | (原生 `button`) | 图标按钮;`variant: ghost \| solid`,`size: sm \| md`;`disabled` 自动降透明 + 禁交互;`type` 默认 `button` 防止 form 内误提交;透传其他原生 button 属性(`aria-pressed` / `name` / `value` / `tabIndex` 等) |
+| `Popover` | `@floating-ui/react` | 浮层浮窗;触发器是 `children`,浮层内容走 `content` prop;支持 click / hover / 二者组合;12 种 placement + 主轴/十字轴偏移;hover 模式下 `interactive` 控制"浮层里是否可交互";受控 + 非受控两种用法 |
 
 ### 新增 UI 组件的流程
 
@@ -174,6 +175,62 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
 3. 若包装第三方库,类型从该库导出;不要二次发明同名 prop。
 4. 在使用方引入并实测一个具体场景(至少 typecheck + 浏览器手测)。
 5. 同步更新本节"当前内容"表格。
+
+### Popover
+
+封装自 `@floating-ui/react`(`useFloating` + `useClick` / `useHover` + `useDismiss` + `useRole`),负责"算坐标 + 处理交互"这类底层逻辑,样式由 Popover 自行接管。
+
+**API**:
+
+```tsx
+<Popover
+  trigger={['click']}            // 触发模式,默认 ['click'];支持 ['click'] / ['hover'] / ['click','hover']
+  placement="bottom-start"        // 12 种 Placement:top/bottom/left/right × start/center/end;默认 'bottom-start'
+  offset={6}                      // 主轴偏移(距 trigger),默认 6
+  crossOffset={0}                 // 十字轴偏移(对齐微调),默认 0
+  interactive={false}             // hover 模式下,浮层里是否有可交互内容(按钮/链接等);默认 false
+  open / onOpenChange             // 受控用法;二者都给才走受控,否则内部 state
+  className                       // 透传到浮层容器
+  content={<div>浮层内容</div>}   // 浮层内容(必填)
+>
+  <button>触发器</button>          // children,单个 ReactElement(必填)
+</Popover>
+```
+
+**浮层样式**(内置,无需额外配置):
+
+| 项 | 值 | 来源 |
+|---|---|---|
+| 背景 | `bg-sidebar` (`#1E1E1E`) | 与 Sidebar 同色,"沉下去" |
+| 边框 | `border-border-hover` (`#383838`) | 比背景亮一档,对比明显 |
+| 圆角 | `rounded-lg` (10px) | §34 |
+| 阴影 | `shadow-lg` | 微凸 |
+| 字号 | `text-sm` (12px) | §3.1 |
+| 文字色 | `text-fg-2` | 次级文字 |
+| z-index | `z-[99]` | 全局最高一档(预留 Setting 等覆盖层用更高值) |
+
+> 内 padding 不固定 —— 由 `content` 自己控制(popover 内容差异巨大,tooltip 用 `px-3 py-1.5`,菜单用 `p-1`,信息卡用 `p-3`)。
+
+**interactive 模式**:
+
+`useHover` 默认 `delay.close = 0`,光标离开 trigger 同步关闭,早于 `mouseenter` 浮层,所以浮层里没法放交互元素。设 `interactive` 后:
+
+- `delay: { close: 100 }` — 给 100ms 让 `mouseenter` 浮层先清除关闭定时器
+- `move: false` — 避免 `mousemove { once }` 的边角行为干扰
+
+> 仅在 `trigger` 含 `'hover'` 时生效。click 模式不受影响(click 模式下点浮层内不会自动关)。
+
+**定位与翻转**:
+
+- `whileElementsMounted: autoUpdate` — 滚动 / 窗口 resize 时浮层自动跟随
+- `flip()` — 视口碰撞自动反向(top ↔ bottom, left ↔ right)
+- `shift({ padding: 4 })` — 与视口边缘保持 4px 间距
+
+**踩坑备忘**:
+
+- 触发器(`children`)必须是单个 ReactElement;`cloneElement` 需要 `ref` 注入。如果传了 fragment / 数组 / 字符串,运行时直接 throw。
+- 触发器的原始 `ref` 会被保留(函数式 / object 式都支持)。
+- 浮层挂在 `document.body`(`FloatingPortal` 默认),脱离任何 `overflow:hidden` 祖先。
 
 ## 图标(`icons/`)
 
@@ -222,7 +279,9 @@ src/
 ├── ui/                           # 业务无关的可复用 UI 组件(详见上文 "UI 组件库" 小节)
 │   ├── ResizablePanelGroup.tsx
 │   ├── ResizablePanel.tsx
-│   └── ResizableHandle.tsx
+│   ├── ResizableHandle.tsx
+│   ├── IconButton.tsx
+│   └── Popover.tsx
 ├── icons/                       # 自绘 SVG 图标(详见上文 "图标 (icons/)" 小节)
 │   └── index.tsx
 └── components/
