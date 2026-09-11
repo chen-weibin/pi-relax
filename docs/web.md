@@ -236,14 +236,13 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
 
 `app/web/src/icons/` 存放项目自绘的 SVG 图标组件,统一以 `*Icon` 命名导出。颜色走 `currentColor`,适配外层 `text-*` 工具类。
 
-目前两种风格共存,按需选用:
+目前只有实心风格:
 
 | 风格 | 根属性 | 适用 | 现有图标 |
 |---|---|---|---|
-| 描边 | `width=16 height=16 viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"` | 简单几何图形(矩形/直线/圆) | `PanelLeftIcon` / `PanelRightIcon` |
-| 实心 | `width=14 height=14 viewBox="<shape-bbox>" fill="currentColor"` | 来源是第三方/参考 SVG 的填充字形 | `SendIcon` / `SearchIcon` / `BlocksIcon` / `SettingsIcon` / `ChevronRightIcon` / `FolderClosedIcon` / `FolderOpenIcon` / `AddFolderIcon` / `FilterIcon` / `PlusIcon` |
+| 实心 | `width=14 height=14 viewBox="<shape-bbox>" fill="currentColor"` | 来源是第三方/参考 SVG 的填充字形 | `PanelLeftIcon` / `PanelRightIcon` / `SendIcon` / `SearchIcon` / `BlocksIcon` / `SettingsIcon` / `ChevronRightIcon` / `FolderClosedIcon` / `FolderOpenIcon` / `AddFolderIcon` / `FilterIcon` / `PlusIcon` |
 
-实心图标的关键:**`viewBox` 设成 path 实际可见形状的 bounding box**(不是固定的 `0 0 1024 1024`)。原因:不同来源 SVG 的 path 占据的 bbox 大小差异很大(如一个纸飞机可能只占 viewBox 的 70%,一个 Blocks 网格占 85%),直接用源 viewBox 会导致渲染出来大小不一致。按 bbox 裁切后每个图标都充满 16×16 渲染区,视觉大小一致。bbox 之外留约 3% 内边距(在 viewBox 内侧加 padding),避免图形贴边。
+实心图标的关键:**`viewBox` 设成 path 实际可见形状的 bounding box**(不是固定的 `0 0 1024 1024`)。原因:不同来源 SVG 的 path 占据的 bbox 大小差异很大(如一个纸飞机可能只占 viewBox 的 70%,一个 Blocks 网格占 85%),直接用源 viewBox 会导致渲染出来大小不一致。按 bbox 裁切后每个图标都充满 14×14 渲染区,视觉大小一致。bbox 之外留约 3% 内边距(在 viewBox 内侧加 padding),避免图形贴边。
 
 新增图标:在 `index.tsx` 内追加一个 `export function NameIcon()`,根属性按上表选一种;颜色统一走 `currentColor`,不要写死 hex。
 
@@ -294,8 +293,9 @@ src/
     ├── ProjectSectionHeader.tsx  # "项目"区块标题行:标题 + hover-only chevron + 过滤 + 添加项目
     ├── ProjectItem.tsx           # 单个项目行:folder/chevron icon + 名称 + hover-only +;展开后渲染 SessionItem 列表
     ├── SessionItem.tsx           # 单个会话行:标题 + 相对时间
-    ├── MainContainer.tsx         # 中,内层 content Panel 容器;按 mainView 渲染 Conversation / CustomizeView
-    ├── Conversation.tsx          # view: 新对话内容(目前自带 header + toggle)
+    ├── MainContainer.tsx         # 中,内层 content Panel 容器;顶部挂 MainHeader + 按 mainView 渲染 view
+    ├── MainHeader.tsx            # MainContainer 顶部统一 header(高 36px,无 border/bg,左侧栏 toggle / 右侧栏 toggle)
+    ├── Conversation.tsx          # view: 新对话内容(占位)
     ├── CustomizeView.tsx         # view: 自定义内容(占位)
     ├── Extension.tsx             # 右,可被内层 Group 收起(整 Panel 移除)
     ├── Setting.tsx               # 全屏 fixed inset-0 z-50 覆盖层
@@ -327,11 +327,11 @@ src/
 
 收起 = 整 Panel 从所属 Group 中移除(`{sidebarOpen && <Panel/>}` 模式),不是 `collapsedSize:0`。这样展开时回到原记录的宽度。
 
-`Conversation` 顶部提供两个 IconButton 分别 toggle sidebar / extension,标题反映当前状态(`收起 / 展开左侧栏` 等)。后续会把 toggle 按钮上提到 `MainContainer` 自身,各 view 共享同一 header;`Conversation` 当前的私有 header 是过渡期产物。
+`MainContainer` 顶部挂一个统一的 `<MainHeader />`(高 36px,无 border/bg,与主区域共享 `--app` 背景):左侧 `IconButton` + `PanelLeftIcon` toggle sidebar,右侧 `IconButton` + `PanelRightIcon` toggle extension,标题反映当前状态(`收起 / 展开左侧栏` 等)。各 view 不再自带 header,只渲染占位主体。
 
 ### MainContainer(view 切换)
 
-中区内层 Panel id 叫 `content`,挂的是 `<MainContainer />`,**不直接挂**某个具体 view。`mainView: 'conversation' | 'customize'`(目前两个,后续可能扩展)由 common store 持有,**不持久化**,默认 `'conversation'`。`MainContainer` 切片订阅 `mainView`,无 props。
+中区内层 Panel id 叫 `content`,挂的是 `<MainContainer />`,**不直接挂**某个具体 view。`mainView: 'conversation' | 'customize'`(目前两个,后续可能扩展)由 common store 持有,**不持久化**,默认 `'conversation'`。`MainContainer` 切片订阅 `mainView`,无 props,渲染结构为「统一 `<MainHeader />` + 当前 view」(`view === 'customize'` 走 `<CustomizeView />`,其它走 `<Conversation />`)。`MainContainer` 外层 `flex h-full w-full flex-col bg-app text-fg-3 text-sm` 提供整区背景与基础文字色,header 与 view 共享,view 内部不再重复声明。
 
 切换流程:
 

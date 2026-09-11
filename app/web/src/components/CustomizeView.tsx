@@ -6,12 +6,7 @@ interface Props {
 
 export function CustomizeView({ className }: Props) {
 	return (
-		<div
-			className={classNames(
-				'flex h-full w-full items-center justify-center bg-app text-fg-3 text-sm',
-				className,
-			)}
-		>
+		<div className={classNames('flex flex-1 items-center justify-center', className)}>
 			customize
 		</div>
 	)

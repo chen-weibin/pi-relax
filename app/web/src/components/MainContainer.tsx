@@ -1,13 +1,15 @@
 import { Conversation } from './Conversation'
 import { CustomizeView } from './CustomizeView'
+import { MainHeader } from './MainHeader'
 import { useCommonStore } from '../store'
 
 export function MainContainer() {
 	const view = useCommonStore((s) => s.mainView)
 
-	if (view === 'customize') {
-		return <CustomizeView />
-	}
-
-	return <Conversation />
+	return (
+		<div className="flex h-full w-full flex-col bg-app text-fg-3 text-sm">
+			<MainHeader />
+			{view === 'customize' ? <CustomizeView /> : <Conversation />}
+		</div>
+	)
 }
