@@ -11,15 +11,10 @@ import {
 } from '../icons'
 import { ProjectSection } from './ProjectSection'
 import { UserBar } from './UserBar'
-import type { MainView } from '../App'
+import { useShallow } from 'zustand/react/shallow'
+import { useCommonStore } from '../store'
+import type { MainView } from '../store'
 import '../styles/scrollbar.css'
-
-interface Props {
-	view: MainView
-	onSelectView: (view: MainView) => void
-	onOpenSetting: () => void
-	collapsed?: boolean
-}
 
 function viewFromActionKey(key: string): MainView | null {
 	if (key === 'newChat') return 'conversation'
@@ -33,15 +28,14 @@ function actionKeyFromView(view: MainView): string | null {
 	return null
 }
 
-export function Sidebar({
-	view,
-	onSelectView,
-	onOpenSetting,
-	collapsed = false,
-}: Props) {
+export function Sidebar() {
+	const { view, setMainView } = useCommonStore(
+		useShallow((s) => ({
+			view: s.mainView,
+			setMainView: s.setMainView,
+		})),
+	)
 	const [scrollHover, setScrollHover] = useState(false)
-
-	if (collapsed) return null
 
 	const actions: SidebarActionItem[] = [
 		{
@@ -50,7 +44,7 @@ export function Sidebar({
 			label: '新对话',
 			onClick: () => {
 				const next = viewFromActionKey('newChat')
-				if (next) onSelectView(next)
+				if (next) setMainView(next)
 			},
 		},
 		{
@@ -65,7 +59,7 @@ export function Sidebar({
 			label: '自定义',
 			onClick: () => {
 				const next = viewFromActionKey('customize')
-				if (next) onSelectView(next)
+				if (next) setMainView(next)
 			},
 		},
 	]
@@ -83,7 +77,7 @@ export function Sidebar({
 			>
 				<ProjectSection />
 			</div>
-			<UserBar onOpenSetting={onOpenSetting} />
+			<UserBar />
 		</aside>
 	)
 }

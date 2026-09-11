@@ -273,9 +273,12 @@ app shell 由两层嵌套的 `react-resizable-panels` Group 组成:外层 `[Side
 
 ```
 src/
-├── App.tsx                       # 持有 settingOpen + sidebarOpen/extensionOpen + mainView 状态, 嵌套两层 Group
+├── App.tsx                       # 嵌套两层 Group;shell 状态从 common store 切片读取
 ├── hooks/
 │   └── usePersistedPanelLayout.ts # 每个 groupId 一份 layout 宽度持久化(无折叠状态持久化)
+├── store/                        # 全局状态(详见下文 "状态管理 (store/)" 小节)
+│   ├── index.ts                 #   统一 re-export
+│   └── common.ts                #   common store:shell 状态(toggles + mainView)
 ├── ui/                           # 业务无关的可复用 UI 组件(详见上文 "UI 组件库" 小节)
 │   ├── ResizablePanelGroup.tsx
 │   ├── ResizablePanel.tsx
@@ -285,7 +288,7 @@ src/
 ├── icons/                       # 自绘 SVG 图标(详见上文 "图标 (icons/)" 小节)
 │   └── index.tsx
 └── components/
-    ├── Sidebar.tsx               # 左,可被外层 Group 收起(整 Panel 移除);持有 view/onSelectView 状态
+    ├── Sidebar.tsx               # 左,可被外层 Group 收起(整 Panel 移除);从 store 读 mainView
     ├── SidebarActions.tsx        # Sidebar 顶部三个 action 按钮(新对话/搜索/自定义)
     ├── ProjectSection.tsx        # Sidebar 中部"项目"区块(标题行 + 项目列表)
     ├── ProjectSectionHeader.tsx  # "项目"区块标题行:标题 + hover-only chevron + 过滤 + 添加项目
@@ -320,7 +323,7 @@ src/
 
 ### 收起/展开
 
-`App.tsx` 持有 `{ sidebarOpen: boolean; extensionOpen: boolean }` 状态,**不持久化** —— 每次启动 sidebar 默认 `true`(展开)、extension 默认 `false`(收起)。
+`{ sidebarOpen: boolean; extensionOpen: boolean }` 状态由 common store 持有(`src/store/common.ts`),**不持久化** —— 每次启动 sidebar 默认 `true`(展开)、extension 默认 `false`(收起)。`App.tsx` 切片订阅这两个字段,值翻转时整棵子树重新渲染并决定 Panel 是否挂载。
 
 收起 = 整 Panel 从所属 Group 中移除(`{sidebarOpen && <Panel/>}` 模式),不是 `collapsedSize:0`。这样展开时回到原记录的宽度。
 
@@ -328,13 +331,13 @@ src/
 
 ### MainContainer(view 切换)
 
-中区内层 Panel id 叫 `content`,挂的是 `<MainContainer view={mainView} ... />`,**不直接挂**某个具体 view。`mainView: 'conversation' | 'customize'`(目前两个,后续可能扩展)由 `App.tsx` 持有,**不持久化**,默认 `'conversation'`。
+中区内层 Panel id 叫 `content`,挂的是 `<MainContainer />`,**不直接挂**某个具体 view。`mainView: 'conversation' | 'customize'`(目前两个,后续可能扩展)由 common store 持有,**不持久化**,默认 `'conversation'`。`MainContainer` 切片订阅 `mainView`,无 props。
 
 切换流程:
 
-1. 用户点 SidebarActions 中的「新对话 / 自定义」按钮 → `Sidebar` 调 `onSelectView(key)`
-2. `App` 更新 `mainView` state
-3. `MainContainer` 根据 `view` 渲染对应 view 组件(`view === 'customize'` 走 `<CustomizeView />`,其它走 `<Conversation />`)
+1. 用户点 SidebarActions 中的「新对话 / 自定义」按钮 → `Sidebar` 直接调 `useCommonStore(s => s.setMainView)`
+2. common store 更新 `mainView`
+3. `MainContainer` 重新渲染对应 view 组件(`view === 'customize'` 走 `<CustomizeView />`,其它走 `<Conversation />`)
 4. `Sidebar` 内 `SidebarActions` 的 `activeKey` 同步反映当前 view(view→key 映射:'conversation'→'newChat'、'customize'→'customize';`search` 永远不 active)
 
 新增 view 的步骤:在 `MainView` 类型加成员 + `MainContainer` 的 `if/else` 加分支 + `Sidebar.tsx` 的 `viewFromActionKey` / `actionKeyFromView` 加映射 + 新建 view 文件 + SidebarActions 加 action。不引入注册表 / router。
@@ -349,9 +352,9 @@ src/
 
 reload 后两层各自还原。
 
-**注意:折叠状态(`sidebarOpen` / `extensionOpen`)和 `mainView` 都不持久化。** 每次启动 sidebar 展开、extension 收起、`mainView='conversation'`。如需持久化,在 App.tsx 自行接 `localStorage` —— 不要往 `usePersistedPanelLayout` 加,hook 只管 layout 宽度,职责单一。
+**注意:折叠状态(`sidebarOpen` / `extensionOpen`)、`mainView`、`settingOpen` 都不持久化。** 每次启动 sidebar 展开、extension 收起、`mainView='conversation'`、`settingOpen=false`。这些状态由 common store 持有,详见下文 "状态管理 (store/)"。如需持久化,在 common store 上加 zustand `persist` middleware —— 不要往 `usePersistedPanelLayout` 加,hook 只管 layout 宽度,职责单一。
 
-`App.tsx` 用 `useState(settingOpen)` 控制 Setting 显隐:`{settingOpen && <Setting onClose={...} />}`。Setting `z-50`,在四区上方全屏渲染。
+Setting 由 `settingOpen` 控制显隐(`{settingOpen && <Setting />}`),在 `App.tsx` 内挂载。Setting `z-50`,在四区上方全屏渲染。
 
 ### 项目区块(ProjectSection)
 
@@ -444,3 +447,78 @@ className={classNames(
 ```
 
 不要用字符串拼接构造 Tailwind 类(如 `` `bg-${color}-500` ``),Tailwind 无法识别 — 这条同时已在"踩坑备忘"里。
+
+## 状态管理(`store/`)
+
+`app/web/src/store/` 用 [zustand](https://github.com/pmndrs/zustand) + [immer](https://github.com/immerjs/immer) 集中管理 app shell 的控制状态。`App.tsx` 之前持有的 `settingOpen` / `sidebarOpen` / `extensionOpen` / `mainView` 全部迁入 common store,顺手清掉随之而来的 prop drilling。
+
+### 目录
+
+```
+src/store/
+├── index.ts          # 统一 re-export,对外只暴露这一个入口
+└── common.ts         # common store(shell 状态)
+```
+
+每个 store 一个文件,等文件膨胀再考虑子目录拆分。
+
+### common store
+
+`common.ts` 持有 shell 级别的控制状态:
+
+| 字段 | 类型 | 默认值 | 含义 |
+|---|---|---|---|
+| `settingOpen` | `boolean` | `false` | Setting 全屏覆盖层是否打开 |
+| `sidebarOpen` | `boolean` | `true` | 外层 Group 中 Sidebar Panel 是否挂载 |
+| `extensionOpen` | `boolean` | `false` | 内层 Group 中 Extension Panel 是否挂载 |
+| `mainView` | `MainView` | `'conversation'` | MainContainer 当前渲染哪个 view |
+
+配套 actions:`setSettingOpen` / `toggleSetting` / `setSidebarOpen` / `toggleSidebar` / `setExtensionOpen` / `toggleExtension` / `setMainView`,内部用 immer middleware 写法:
+
+```ts
+toggleSidebar: () => set((s) => { s.sidebarOpen = !s.sidebarOpen })
+```
+
+**不持久化** —— 每次 reload 状态回到默认值,与"折叠状态不持久化"的约定一致(`persist` middleware 按需再加)。
+
+### `MainView` 类型
+
+`MainView` 从 `App.tsx` 迁到 `store/common.ts`,统一从 `import type { MainView } from './store'` 取。`App.tsx` 保留 `export type { MainView }` 兼容旧 import 路径。
+
+### 选择器约定
+
+组件订阅**切片**而不是整个 store,避免无关字段变化触发渲染:
+
+```ts
+// 单字段 — 只在 sidebarOpen 翻转时重渲染
+const sidebarOpen = useCommonStore((s) => s.sidebarOpen)
+```
+
+多字段合并时,用 `useShallow` 做浅比较,把多个 `useCommonStore` 合并成一次订阅:
+
+```ts
+import { useShallow } from 'zustand/react/shallow'
+
+const { sidebarOpen, extensionOpen, toggleSidebar, toggleExtension } = useCommonStore(
+  useShallow((s) => ({
+    sidebarOpen: s.sidebarOpen,
+    extensionOpen: s.extensionOpen,
+    toggleSidebar: s.toggleSidebar,
+    toggleExtension: s.toggleExtension,
+  })),
+)
+```
+
+`useShallow` 工作机制:selector 每次返回新对象,`useShallow` 比对上一次返回对象的字段引用,全部相等时复用旧引用 → 不触发 re-render。actions 是稳定引用,放进选择器也不会触发渲染。`MainContainer` / `Setting` / `UserBar` 各只取一个字段,无需合并。
+
+### 不进 store 的状态(YAGNI)
+
+- **面板宽度**:`usePersistedPanelLayout` 已经自管 localStorage,迁移收益小、改造代价大。
+- **ProjectSection 内部状态**(`projects` / `expandedIds` / `sectionExpanded`):self-contained,无跨组件共享需求。
+- **UI-only 状态**(scrollbar hover / Popover open / Setting 内部):跟随组件生命周期即可。
+
+### 新增 store 的流程
+
+1. 在 `store/` 下新建 `<name>.ts`,用 `create<State>()(immer((set) => ({ ... })))` 模式。
+2. 在 `store/index.ts` 加 `export * from './<name>'`,对外只暴露一个入口。
+3. 组件按需 selector 订阅,跨组件共享的状态才上提,组件内 UI-only state 留在 `useState`。

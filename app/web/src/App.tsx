@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { Sidebar } from './components/Sidebar'
 import { MainContainer } from './components/MainContainer'
 import { Extension } from './components/Extension'
@@ -7,8 +6,11 @@ import { ResizablePanelGroup } from './ui/ResizablePanelGroup'
 import { ResizablePanel } from './ui/ResizablePanel'
 import { ResizableHandle } from './ui/ResizableHandle'
 import { usePersistedPanelLayout } from './hooks/usePersistedPanelLayout'
+import { useShallow } from 'zustand/react/shallow'
+import { useCommonStore } from './store'
+import type { MainView } from './store'
 
-export type MainView = 'conversation' | 'customize'
+export type { MainView }
 
 const OUTER_ID = 'app-shell'
 const INNER_ID = 'main-area'
@@ -16,10 +18,13 @@ const OUTER_PANELS = ['sidebar', 'main']
 const INNER_PANELS = ['content', 'extension']
 
 export function App() {
-	const [settingOpen, setSettingOpen] = useState(false)
-	const [sidebarOpen, setSidebarOpen] = useState(true)
-	const [extensionOpen, setExtensionOpen] = useState(false)
-	const [mainView, setMainView] = useState<MainView>('conversation')
+	const { sidebarOpen, extensionOpen, settingOpen } = useCommonStore(
+		useShallow((s) => ({
+			sidebarOpen: s.sidebarOpen,
+			extensionOpen: s.extensionOpen,
+			settingOpen: s.settingOpen,
+		})),
+	)
 
 	const outerLayout = usePersistedPanelLayout({
 		groupId: OUTER_ID,
@@ -29,9 +34,6 @@ export function App() {
 		groupId: INNER_ID,
 		panelIds: INNER_PANELS,
 	})
-
-	const toggleSidebar = () => setSidebarOpen((v) => !v)
-	const toggleExtension = () => setExtensionOpen((v) => !v)
 
 	return (
 		<div className="flex h-screen w-screen bg-app text-fg">
@@ -43,11 +45,7 @@ export function App() {
 				{sidebarOpen && (
 					<>
 						<ResizablePanel id="sidebar" defaultSize={260} minSize={200} maxSize={400}>
-							<Sidebar
-								view={mainView}
-								onSelectView={setMainView}
-								onOpenSetting={() => setSettingOpen(true)}
-							/>
+							<Sidebar />
 						</ResizablePanel>
 						<ResizableHandle />
 					</>
@@ -60,13 +58,7 @@ export function App() {
 						onLayoutChanged={innerLayout.onLayoutChanged}
 					>
 						<ResizablePanel id="content" minSize={320}>
-							<MainContainer
-								view={mainView}
-								onToggleSidebar={toggleSidebar}
-								onToggleExtension={toggleExtension}
-								sidebarOpen={sidebarOpen}
-								extensionOpen={extensionOpen}
-							/>
+							<MainContainer />
 						</ResizablePanel>
 
 						{extensionOpen && (
@@ -81,7 +73,7 @@ export function App() {
 				</ResizablePanel>
 			</ResizablePanelGroup>
 
-			{settingOpen && <Setting onClose={() => setSettingOpen(false)} />}
+			{settingOpen && <Setting />}
 		</div>
 	)
 }
