@@ -25,3 +25,4 @@
 
 - [`docs/relax-agent.md`](docs/relax-agent.md) — MiniMax 包装层 `createAgent` 用法、支持的模型清单、dev 工作流与历史踩坑。查阅时机：在 `packages/agent/` 或 `app/server/` 下开发、调用 `createAgent`、调整 `dev:server` 编排时。
 - [`docs/web.md`](docs/web.md) — `app/web` 的 Tailwind / 设计 token 接入、Cursor 风四区布局与组件职责。查阅时机：在 `app/web/` 下开发组件、调整三栏尺寸、修改设计 token 时。
+- `app/agenttest/` — agent CLI 试验场，`pnpm dev` 订阅全部 `AgentSessionEvent` 打到终端，用于研究事件流。需要 `MINIMAX_API_KEY` env。查阅时机：调试 `session.subscribe` 行为、看 `message_update` 的 `partial` 累积、或临时跑单次 prompt 验证 agent 输出时。
