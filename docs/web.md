@@ -167,6 +167,62 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
 | `ResizableHandle` | `react-resizable-panels` 的 `Separator` | 套一层 1px 分割线 + 5px 命中区 + hover 高亮 |
 | `IconButton` | (原生 `button`) | 图标按钮;`variant: ghost \| solid`,`size: sm \| md`;`disabled` 自动降透明 + 禁交互;`type` 默认 `button` 防止 form 内误提交;透传其他原生 button 属性(`aria-pressed` / `name` / `value` / `tabIndex` 等) |
 | `Popover` | `@floating-ui/react` | 浮层浮窗;触发器是 `children`,浮层内容走 `content` prop;支持 click / hover / 二者组合;12 种 placement + 主轴/十字轴偏移;hover 模式下 `interactive` 控制"浮层里是否可交互";受控 + 非受控两种用法 |
+| `Editor` | ProseMirror | 智能输入框(仅 paragraph + text);默认 1 行、最高 10 行后滚动;Enter 发送、Shift-Enter 走 `baseKeymap.Enter` |
+
+### Editor
+
+目录 `ui/Editor/`(schema / keymap / serialize / placeholder / 样式),对外只从 `ui/Editor` 导出 `Editor`、`EditorProps`、`EditorHandle`。业务无关,不引用 Conversation / store。
+
+**API**:
+
+```tsx
+<Editor
+  ref={editorRef}
+  placeholder="…"
+  disabled={false}
+  autoFocus={false}
+  onChange={(text) => { /* 纯文本,段落间 \\n */ }}
+  onSubmit={(text) => { /* Enter;空白不回调;调用方自行 clear */ }}
+/>
+
+// EditorHandle: focus() / clear() / getText()
+```
+
+**行为**:
+
+- Schema:`doc → paragraph+ → text*`(自写,不用 `prosemirror-schema-basic`)
+- Keymap:spread `baseKeymap`,把原 `Enter`(换段)挂到 `Shift-Enter`;`Enter` 调 `onSubmit` 并 `return true`
+- 高度:内容盒 `min-height: 22.5px`(1 行 = 15px × 1.5)、`max-height: 225px`(10 行),超出 `overflow-y: auto`;段落 `margin: 0`
+- 字号:15px(仅编辑器内容盒,不改全局 `text-base`)
+- 滚动条:溢出后 thumb 常显(色 `--border-hover`),不依赖 hover 才显形;未溢出不占位
+- 非受控:mount 时建 `EditorView`,不每 render 重建;提交后是否清空由调用方 `ref.clear()`
+
+对话输入外壳见下文 `Composer`(不进 `ui/`)。
+
+### Composer
+
+领域组件 [`src/components/Composer.tsx`](../app/web/src/components/Composer.tsx),包装 `Editor` + 右下发送。不含消息列表 / agent 逻辑。
+
+**API**:
+
+```tsx
+<Composer
+  placeholder="发送消息…"
+  disabled={false}
+  onSubmit={(text) => { /* trim 后非空;内部会 clear + focus */ }}
+/>
+```
+
+**视觉**:
+
+| 项 | 值 |
+|---|---|
+| 外壳 | `bg-surface` + `rounded-pill` + `border-border-hover` |
+| 聚焦边框 | `color-mix(--border-hover, --fg 12%)`,只比默认亮一档 |
+| 发送 | 右下 28px 圆钮;可发送 `bg-fg text-app`,空内容 `bg-surface-active text-fg-disabled` |
+| 图标 | 复用 `SendIcon`(与侧栏「新对话」同一 glyph),视觉居中用 `-translate-x-[0.5px]` |
+
+Enter 与点发送走同一 `onSubmit`。左侧附件 / 模型选择本轮未做。
 
 ### 新增 UI 组件的流程
 
@@ -283,7 +339,8 @@ src/
 │   ├── ResizablePanel.tsx
 │   ├── ResizableHandle.tsx
 │   ├── IconButton.tsx
-│   └── Popover.tsx
+│   ├── Popover.tsx
+│   └── Editor/                   # ProseMirror 智能输入框(paragraph + text)
 ├── icons/                       # 自绘 SVG 图标(详见上文 "图标 (icons/)" 小节)
 │   └── index.tsx
 └── components/
@@ -295,6 +352,7 @@ src/
     ├── SessionItem.tsx           # 单个会话行:标题 + 相对时间
     ├── MainContainer.tsx         # 中,内层 content Panel 容器;顶部挂 MainHeader + 按 mainView 渲染 view
     ├── MainHeader.tsx            # MainContainer 顶部统一 header(高 36px,无 border/bg,左侧栏 toggle / 右侧栏 toggle)
+    ├── Composer.tsx              # 对话输入外壳(Editor + 右下发送);领域组件,暂未挂到 view
     ├── Conversation.tsx          # view: 新对话内容(占位)
     ├── CustomizeView.tsx         # view: 自定义内容(占位)
     ├── Extension.tsx             # 右,可被内层 Group 收起(整 Panel 移除)
