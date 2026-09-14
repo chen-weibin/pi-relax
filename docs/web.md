@@ -351,7 +351,7 @@ src/
     ├── ProjectItem.tsx           # 单个项目行:folder/chevron icon + 名称 + hover-only +;展开后渲染 SessionItem 列表
     ├── SessionItem.tsx           # 单个会话行:标题 + 相对时间
     ├── MainContainer.tsx         # 中,内层 content Panel 容器;顶部挂 MainHeader + 按 mainView 渲染 view
-    ├── MainHeader.tsx            # MainContainer 顶部统一 header(高 36px,无 border/bg,左侧栏 toggle / 右侧栏 toggle)
+    ├── MainHeader.tsx            # MainContainer 顶部统一 header(高 36px,无 border/bg;左侧暂空,右侧并排放 sidebar / extension toggle)
     ├── Composer.tsx              # 对话输入外壳(Editor + 右下发送);领域组件,暂未挂到 view
     ├── Conversation.tsx          # view: 新对话内容(占位)
     ├── CustomizeView.tsx         # view: 自定义内容(占位)
@@ -385,7 +385,7 @@ src/
 
 收起 = 整 Panel 从所属 Group 中移除(`{sidebarOpen && <Panel/>}` 模式),不是 `collapsedSize:0`。这样展开时回到原记录的宽度。
 
-`MainContainer` 顶部挂一个统一的 `<MainHeader />`(高 36px,无 border/bg,与主区域共享 `--app` 背景):左侧 `IconButton` + `PanelLeftIcon` toggle sidebar,右侧 `IconButton` + `PanelRightIcon` toggle extension,标题反映当前状态(`收起 / 展开左侧栏` 等)。各 view 不再自带 header,只渲染占位主体。
+`MainContainer` 顶部挂一个统一的 `<MainHeader />`(高 36px,无 border/bg,与主区域共享 `--app` 背景):左侧暂空,右侧并排 `IconButton` + `PanelLeftIcon` toggle sidebar、`IconButton` + `PanelRightIcon` toggle extension(顺序不变),标题反映当前状态(`收起 / 展开左侧栏` 等)。各 view 不再自带 header,只渲染占位主体。
 
 ### MainContainer(view 切换)
 
