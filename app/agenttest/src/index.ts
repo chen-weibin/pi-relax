@@ -1,68 +1,47 @@
 import { InMemoryCredentialStore } from "@earendil-works/pi-ai";
-import { createAgentSession, ModelRuntime, SessionManager } from "@earendil-works/pi-coding-agent";
+import { createAgentSession, DefaultResourceLoader, ModelRuntime, SessionManager } from "@earendil-works/pi-coding-agent";
+import { model, modelRuntime } from "./model"
 
-const PROVIDER_ID = "minimax"
-const BASE_URL = "https://api.minimax.cn/anthropic"
-const API_KEY = "sk-cp-eghljgHnCn8Yl6eVyD06eB1Xwyqjel5OwJ2sldicdEXFG2X9cc8QsA58ae7hP0CMKlR-qvf1RtL4I4Kf71ytNL8ohQCyrqNiVgKL282zkoxupYKFd6UttLs"
-const DEFAULT_MODEL = "MiniMax-M3"
 
-type ModelConfig = {
-	id: string
-	name: string
-	reasoning: boolean
-	input: ("text" | "image")[]
-	cost: { input: number; output: number; cacheRead: number; cacheWrite: number }
-	contextWindow: number
-	maxTokens: number
-	compat?: { forceAdaptiveThinking?: boolean }
-}
+const workspaceDir = '/Users/chen/Desktop/chen/pi/app/agenttest/src/workspace';
 
-const MINIMAX_MODELS: ModelConfig[] = [
-	{
-		id: "MiniMax-M3",
-		name: "MiniMax M3",
-		reasoning: true,
-		input: ["text", "image"],
-		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-		contextWindow: 1_000_000,
-		maxTokens: 16_384,
-		compat: { forceAdaptiveThinking: true },
+const loader = new DefaultResourceLoader({
+	cwd: workspaceDir,
+	agentDir: workspaceDir,
+	//    覆盖系统提示词。basePrompt空的，不知道为什么  少用，连工具哪些提示词好像也没了
+	//   systemPromptOverride: (basePrompt) => {
+	// 	console.log(basePrompt);
+	// 	return "You are a helpful assistant."
+	//   },
+	// basePrompt也是空的  加载结尾。可以使用这个
+	// appendSystemPromptOverride: (basePrompt) => {
+	// 	console.log(basePrompt);
+	// 	return ['hahah'];
+	// },
+	// 避免向上递归，自己过滤
+	agentsFilesOverride: (base) => {
+		// console.log(base);
+		return {
+			agentsFiles: base.agentsFiles.filter(({ path, content }) => path.startsWith(workspaceDir) && content.trim())
+		};
 	},
-	{
-		id: "MiniMax-M2.7",
-		name: "MiniMax M2.7",
-		reasoning: true,
-		input: ["text"],
-		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-		contextWindow: 204_800,
-		maxTokens: 8_192,
-	}
-]
+});
 
-const modelRuntime = await ModelRuntime.create({
-	credentials: new InMemoryCredentialStore(),
-	refreshOnCreate: true,
-})
-
-
-modelRuntime.registerProvider(PROVIDER_ID, {
-	name: "MiniMax",
-	baseUrl: BASE_URL,
-	api: "anthropic-messages",
-	apiKey: API_KEY,
-	models: MINIMAX_MODELS,
-})
-
-const model = modelRuntime.getModel(PROVIDER_ID, DEFAULT_MODEL)
-if (!model) {
-	throw new Error(`Model "${DEFAULT_MODEL}" not found in provider "${PROVIDER_ID}"`)
-}
+await loader.reload();
 
 const { session } = await createAgentSession({
 	model,
 	modelRuntime,
+	noTools: 'builtin',
 	thinkingLevel: "off",
 	sessionManager: SessionManager.inMemory(),
+	// 会向上搜索 https://pi.dev/docs/latest/sdk#options-reference
+	// cwd: process.cwd(),
+	// 改成这个，但是还是会向上搜索
+	cwd: workspaceDir,
+	agentDir: workspaceDir,
+	// 自定义资源加载器 比如系统提示词，更多的自定义
+	resourceLoader: loader,
 })
 
 session.subscribe((event) => {
@@ -73,10 +52,17 @@ session.subscribe((event) => {
 });
 
 async function main() {
-	// console.log(session.systemPrompt);
-	// console.log('🚀', '-----')
+	// 执行文件的路径  /Users/chen/Desktop/chen/pi/app/agenttest/src
+	// console.log(process.cwd());
 
-	await session.prompt("你好");
+	console.log('---系统提示词---')
+	console.log(session.systemPrompt);
+	console.log('---state-----')
+	const state = session.agent.state;
+	// console.log(state.systemPrompt);
+	// console.log(state.model);
+	// console.log(state.tools);
+	// await session.prompt("你有哪些可用的工具");
 }
 
 main()
