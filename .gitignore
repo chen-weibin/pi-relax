@@ -3,7 +3,8 @@ dist/
 .DS_Store
 
 .cursor/
-.agent/
+.agents/
+skills-lock.json
 .trae/
 .superpowers/
 node_modules/
