@@ -1,0 +1,114 @@
+# 对话区渲染架构
+
+查阅时机：改对话列表、块类型、贴底滚动、打字机、把 mock feed 换成真实 `AgentSessionEvent` 时。布局 / token / 四区 shell 仍看 [`web.md`](web.md)。
+
+## 分层
+
+```
+mock fixture / playMockStream          未来: AgentSessionEvent
+        │                                      │
+        │                                      ▼
+        │                           adapter（未实现）
+        │                                      │
+        └──────────────┬───────────────────────┘
+                       ▼
+              BlockFeedEvent
+                       │
+                       ▼
+         createBlockRuntime()          ← app/web/src/conversation/
+                       │
+                       ▼
+            ConversationSnapshot
+             (blocks + messages + runPhase + revision)
+                       │
+          Conversation（组装：注入 runtime / mock feed）
+                       │
+                       ▼
+              ConversationView          ← 只认 snapshot，不 new runtime
+                       │
+         message 分组 → renderBlock registry[BlockKind]
+                       │
+         User / Thinking / Assistant / Generic
+                       │
+                       ▼
+         ui/（MarkdownView, TypewriterText, DisclosureRow, MessageSurface）
+```
+
+| 层 | 路径 | 职责 |
+|---|---|---|
+| 数据层 | [`app/web/src/conversation/`](../app/web/src/conversation/) | `BlockFeedEvent`、判别联合 `BlockSnapshot`、`createBlockRuntime`、`runPhase` |
+| 组装 | [`Conversation.tsx`](../app/web/src/components/conversation/Conversation.tsx) | 持有 runtime、订 snapshot、把 mock feed / 思考策略注入渲染层 |
+| 渲染 | [`components/conversation/`](../app/web/src/components/conversation/) | 按 message 分组画扁 block 列表；registry 用 `BlockKind` |
+| 观感 | [`ui/`](../app/web/src/ui/) | 无 user/thinking 词 |
+| mock | [`mock/conversation/`](../app/web/src/mock/conversation/) | 仅 fixture、`playMockStream`、`DevToolbar`、`useMockFeed` |
+
+渲染层禁止 `import` mock，禁止在 View 里 `createBlockRuntime()`。
+
+## 数据模型
+
+`BlockSnapshot` 按 `kind: BlockKind` 判别。v1：`user-text` / `thinking` / `text`。每种有自己的 `data`（v1 都是 `{ text: string }`，但类型不共用，方便以后 tool / 图片 / 错误用别的形状）。
+
+块上只保留 `contentPhase` + `data`。已删除 `executionPhase` / `revealPhase` / `snapshotOf`。打字机播放是 Thinking 组件的局部 UI 状态，不回写 runtime。
+
+`ConversationSnapshot`：
+
+- `order` / `byKey`：扁 block 列表（仍用于渲染每一块）
+- `messageOrder` / `messages`：按 `messageId` 分组（复制 / 重试 / 间距的前置；按钮未做）
+- `runPhase`：会话级 `'idle' \| 'running' \| 'awaiting' \| 'complete' \| 'error'`
+- `revision`：每次 emit +1，给贴底滚动当显式依赖
+
+等待态（「生成中」）只看 `runPhase === 'awaiting'`，不嗅探「最后一块是 complete 的 thinking」。
+
+## Runtime
+
+`createBlockRuntime()`：`apply` / `replace` / `subscribe` / `getSnapshot`。
+
+- `applyOne` 对 `BlockFeedEvent.type` 穷尽 `switch`；未知事件在类型上是 `never`，运行时丢弃。
+- 不按 `startsWith('thinking')` 猜 kind。
+- `_delta` 合并到 animation frame，其余立即 flush。
+- `run_start` → `awaiting`；思考/正文 `start`/`delta` → `running`；对应 `end` 且 run 仍在进行 → `awaiting`；`run_end` → `complete`；`run_error` → `error`；`replace` → `idle`。
+
+## 扩展一块
+
+1. `BlockKind` 与 `BlockSnapshot` 加成员（自有 `data`）。
+2. 若有新事件：`BlockFeedEvent` + `applyOne` 分支。
+3. `renderBlock.tsx` 的 `registry: { [K in BlockKind]: ... }` 补渲染器；暂时没 UI 可先指向 `GenericBlock`。
+4. 不要把所有块的 `data` 收成 `{ text: string }`。
+
+## 滚动与打字机
+
+- [`useStickToBottom`](../app/web/src/hooks/useStickToBottom.ts)：`ResizeObserver` 看 scroller + 内容尺寸；`revision` 显式传入；用户滚动离开底部则 unpin，程序 `scrollTop` 打标避免误判。不上虚拟列表。
+- [`TypewriterText`](../app/web/src/ui/TypewriterText.tsx)：grapheme 按前缀增量缓存；只在 `playing` 且未追上时 rAF；追上停帧。`playing={open && streaming}`，折叠时不跑。
+
+## mock vs 真实事件
+
+当前 mock 直接生产 `BlockFeedEvent`。真实链路预留：
+
+`AgentSessionEvent` → **adapter（未写）** → `BlockFeedEvent` → `runtime.apply`。
+
+adapter 建议将来放 `app/web/src/conversation/adaptAgentSession.ts`（或 server 侧先规范化）。未接 [`relax-agent`](relax-agent.md)。
+
+## 打磨 UI
+
+数据层（`src/conversation/`）不要为观感加字段。改外观按层下手：
+
+| 要改的 | 改哪里 | 不要改 |
+|---|---|---|
+| Markdown 排版、代码块、流式样式 | `ui/MarkdownView/` | runtime / snapshot |
+| 打字机节奏、字素切分 | `ui/TypewriterText.tsx` | 不要把播放进度回写 runtime |
+| 折叠行、标题 blink | `ui/DisclosureRow/` | 思考策略文案（仍在 `ThinkingMessage`） |
+| 用户气泡外壳 | `ui/MessageSurface/`（无角色词）+ `UserMessage.tsx` 的对齐/间距 | 不要在 Surface 上加 user/assistant 语义 |
+| 思考行交互与默认开合 | `ThinkingMessage.tsx` + `thinking-mode.ts` | 不要把 `thinkingUiMode` 塞进 snapshot |
+| 列表间距、message 分组、贴底、「生成中」 | `ConversationView.tsx` | 不要为了「生成中」嗅探最后一块 kind |
+| 色/字号/圆角 token | `src/index.css` + [`design-system.md`](design-system.md) | 不要在块组件里写死 hex |
+
+`thinkingUiMode` 仍是组装层临时开关（DevToolbar），不上 settings。Composer 未接 `onSubmit` 到 session。
+
+## 明确不做
+
+- 虚拟列表
+- 接入真实 agent session / `AgentSessionEvent`
+- 复制 / 重试按钮（分组已在 snapshot 里）
+- tool / 图片 / 错误块 UI（类型可加）
+- 把 `revealPhase` 接回 runtime
+- 把 `src/conversation/` 数据层并进 `components/conversation/`（与 UI 分目录；职责见上文分层）

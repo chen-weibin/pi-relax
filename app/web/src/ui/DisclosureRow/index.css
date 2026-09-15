@@ -1,0 +1,15 @@
+@keyframes disclosure-title-blink {
+	50% {
+		opacity: 0.35;
+	}
+}
+
+.disclosure-title-blink {
+	animation: disclosure-title-blink 1s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.disclosure-title-blink {
+		animation: none;
+	}
+}

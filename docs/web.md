@@ -154,7 +154,7 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
 
 ### 命名 & 文件
 
-- 文件名与导出组件名一致;单文件单组件。
+- 文件名与导出组件名一致;单文件单组件,或同名目录 `Name/index.tsx`(有独立样式时再配 `index.css`)。
 - props 类型用 `export type {Name}Props`,便于其他模块显式引用。
 - 不依赖 `components/`、`hooks/` 里任何领域代码;如有需要,通过 props 注入。
 
@@ -168,6 +168,10 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
 | `IconButton` | (原生 `button`) | 图标按钮;`variant: ghost \| solid`,`size: sm \| md`;`disabled` 自动降透明 + 禁交互;`type` 默认 `button` 防止 form 内误提交;透传其他原生 button 属性(`aria-pressed` / `name` / `value` / `tabIndex` 等) |
 | `Popover` | `@floating-ui/react` | 浮层浮窗;触发器是 `children`,浮层内容走 `content` prop;支持 click / hover / 二者组合;12 种 placement + 主轴/十字轴偏移;hover 模式下 `interactive` 控制"浮层里是否可交互";受控 + 非受控两种用法 |
 | `Editor` | ProseMirror | 智能输入框(仅 paragraph + text);默认 1 行、最高 10 行后滚动;Enter 发送、Shift-Enter 走 `baseKeymap.Enter` |
+| `MarkdownView` | `streamdown` | Markdown 渲染;`mode: static \| streaming`;流式时修未闭合语法;不谈 user/assistant |
+| `TypewriterText` | (rAF + `Intl.Segmenter`) | 给定完整 `text` + `playing`,grapheme 增量缓存;只在播放且未追上时 rAF |
+| `DisclosureRow` | 原生 | 标题行 + 展开收起;`blinking` 只作用标题;不写业务文案 |
+| `MessageSurface` | (原生) | 轻量 Surface 卡片外壳;无角色语义 |
 
 ### Editor
 
@@ -223,6 +227,19 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
 | 图标 | 复用 `SendIcon`(与侧栏「新对话」同一 glyph),视觉居中用 `-translate-x-[0.5px]` |
 
 Enter 与点发送走同一 `onSubmit`。左侧附件 / 模型选择本轮未做。
+
+### Conversation(v1)
+
+对话区渲染的分层、数据模型、runtime、滚动/打字机约定、mock 与真实事件边界,见 [`docs/web-conversation.md`](web-conversation.md)(改对话列表、块类型、贴底滚动、打字机,或把 mock feed 换成 `AgentSessionEvent` 时查阅)。打磨消息卡片 / 思考折叠 / Markdown / 打字机观感时也先看该文档的「打磨 UI」节,再改 `ui/` 或 `components/conversation/`。本节只记接入点。
+
+消息列与 Composer 共用 `max-w-[800px]` + `px-4` 居中。贴底滚动:[`hooks/useStickToBottom.ts`](../app/web/src/hooks/useStickToBottom.ts)(观察内容尺寸,依赖 `revision`)。数据层在 [`src/conversation/`](../app/web/src/conversation/)(类型 + runtime,不是 UI);组装与渲染在 [`components/conversation/`](../app/web/src/components/conversation/)。
+
+思考策略 `thinkingUiMode`(默认 `expand-typewriter`,不上 settings):
+
+- `expand-typewriter`:流式可展开 + 展开打字机;标题 blink;结束且用户未 pin 则收起
+- `title-blink-only`:始终收起,只 blink 标题
+
+`src/index.css` 增加 `@source "../node_modules/streamdown/dist/*.js"`,否则 streamdown 内部 Tailwind 类不会生成。
 
 ### 新增 UI 组件的流程
 
@@ -329,8 +346,10 @@ app shell 由两层嵌套的 `react-resizable-panels` Group 组成:外层 `[Side
 ```
 src/
 ├── App.tsx                       # 嵌套两层 Group;shell 状态从 common store 切片读取
+├── conversation/                 # 会话数据层:类型 + createBlockRuntime(详见 docs/web-conversation.md)
 ├── hooks/
-│   └── usePersistedPanelLayout.ts # 每个 groupId 一份 layout 宽度持久化(无折叠状态持久化)
+│   ├── usePersistedPanelLayout.ts # 每个 groupId 一份 layout 宽度持久化
+│   └── useStickToBottom.ts       # 贴底滚动(ResizeObserver + revision;无领域词)
 ├── store/                        # 全局状态(详见下文 "状态管理 (store/)" 小节)
 │   ├── index.ts                 #   统一 re-export
 │   └── common.ts                #   common store:shell 状态(toggles + mainView)
@@ -340,10 +359,14 @@ src/
 │   ├── ResizableHandle.tsx
 │   ├── IconButton.tsx
 │   ├── Popover.tsx
+│   ├── MarkdownView/             # streamdown 封装(static / streaming);index.tsx + index.css
+│   ├── TypewriterText.tsx        # grapheme 增量打字机
+│   ├── DisclosureRow/            # 折叠行 + 标题 blink;index.tsx + index.css
+│   ├── MessageSurface/           # 轻量 Surface 卡片外壳(无角色语义);index.tsx + index.css
 │   └── Editor/                   # ProseMirror 智能输入框(paragraph + text)
 ├── icons/                       # 自绘 SVG 图标(详见上文 "图标 (icons/)" 小节)
 │   └── index.tsx
-└── components/
+├── components/
     ├── Sidebar.tsx               # 左,可被外层 Group 收起(整 Panel 移除);从 store 读 mainView
     ├── SidebarActions.tsx        # Sidebar 顶部三个 action 按钮(新对话/搜索/自定义)
     ├── ProjectSection.tsx        # Sidebar 中部"项目"区块(标题行 + 项目列表)
@@ -352,12 +375,13 @@ src/
     ├── SessionItem.tsx           # 单个会话行:标题 + 相对时间
     ├── MainContainer.tsx         # 中,内层 content Panel 容器;顶部挂 MainHeader + 按 mainView 渲染 view
     ├── MainHeader.tsx            # MainContainer 顶部统一 header(高 36px,无 border/bg;左侧暂空,右侧并排放 sidebar / extension toggle)
-    ├── Composer.tsx              # 对话输入外壳(Editor + 右下发送);领域组件,暂未挂到 view
-    ├── Conversation.tsx          # view: 新对话内容(占位)
+    ├── Composer.tsx              # 对话输入外壳(Editor + 右下发送)
+    ├── conversation/             # 对话 UI: Conversation 组装 + ConversationView + kind 渲染器
     ├── CustomizeView.tsx         # view: 自定义内容(占位)
     ├── Extension.tsx             # 右,可被内层 Group 收起(整 Panel 移除)
     ├── Setting.tsx               # 全屏 fixed inset-0 z-50 覆盖层
     └── UserBar.tsx               # 用户信息条(头像 + 用户名 + 设置入口),固定高 48px,可在 Sidebar / Setting 左下复用
+├── mock/conversation/            # 临时: fixture + playMockStream + DevToolbar(不含 runtime)
 └── utils/
     └── relativeTime.ts           # formatRelativeTime(ms) — "Nm" / "Nh" / "Nd" / "Nw"
 ```

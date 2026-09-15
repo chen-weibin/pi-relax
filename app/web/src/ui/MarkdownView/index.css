@@ -1,0 +1,87 @@
+.markdown-view {
+	line-height: 1.6;
+	word-break: break-word;
+}
+
+.markdown-view :where(p) {
+	margin: 0 0 0.75em;
+}
+
+.markdown-view :where(p:last-child) {
+	margin-bottom: 0;
+}
+
+.markdown-view :where(h1, h2, h3, h4) {
+	color: var(--fg-bright);
+	font-weight: 600;
+	line-height: 1.35;
+	margin: 1em 0 0.5em;
+}
+
+.markdown-view :where(h1) {
+	font-size: 20px;
+}
+
+.markdown-view :where(h2) {
+	font-size: 16px;
+}
+
+.markdown-view :where(h3, h4) {
+	font-size: 14px;
+}
+
+.markdown-view :where(h1:first-child, h2:first-child, h3:first-child) {
+	margin-top: 0;
+}
+
+.markdown-view :where(ul, ol) {
+	margin: 0 0 0.75em;
+	padding-left: 1.25em;
+}
+
+.markdown-view :where(li) {
+	margin: 0.2em 0;
+}
+
+.markdown-view :where(a) {
+	color: var(--info);
+	text-decoration: underline;
+	text-underline-offset: 2px;
+}
+
+.markdown-view :where(code) {
+	font-family: var(--font-mono);
+	font-size: 12px;
+	background: #2e2e2e;
+	border-radius: 4px;
+	padding: 2px 5px;
+}
+
+.markdown-view :where(pre) {
+	margin: 0 0 0.75em;
+	overflow-x: auto;
+	border-radius: 8px;
+	border: 1px solid var(--border);
+	background: var(--surface);
+	padding: 12px;
+}
+
+.markdown-view :where(pre code) {
+	background: transparent;
+	padding: 0;
+	border-radius: 0;
+	font-size: 12px;
+}
+
+.markdown-view :where(blockquote) {
+	margin: 0 0 0.75em;
+	border-left: 2px solid var(--border-hover);
+	padding-left: 12px;
+	color: var(--fg-2);
+}
+
+.markdown-view :where(hr) {
+	border: 0;
+	border-top: 1px solid var(--border);
+	margin: 1em 0;
+}

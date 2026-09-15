@@ -1,4 +1,4 @@
-import { Conversation } from './Conversation'
+import { Conversation } from './conversation'
 import { CustomizeView } from './CustomizeView'
 import { MainHeader } from './MainHeader'
 import { useCommonStore } from '../store'

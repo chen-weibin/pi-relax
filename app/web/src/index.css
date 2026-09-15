@@ -120,6 +120,9 @@
 		ui-monospace, "SF Mono", Monaco, Consolas, "Courier New", monospace;
 }
 
+/* streamdown ships Tailwind classes inside its JS; scan them. */
+@source "../node_modules/streamdown/dist/*.js";
+
 /* ============================================================
  * Base
  * ============================================================ */
