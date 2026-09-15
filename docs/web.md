@@ -83,8 +83,8 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
 | `--fg-disabled` | `text-fg-disabled` | `#737373` | 禁用 |
 | `--border` | `border-border` | `#2A2A2A` | 默认边框 |
 | `--border-hover` | `border-border-hover` | `#383838` | hover 边框 |
-| `--accent` | `bg-accent` / `text-accent` | `#3FBF73` | 主交互 / 成功 |
-| `--success` | `bg-success` | `#3FBF73` | 成功 |
+| `--accent` | `bg-accent` / `text-accent` | `#00C487` | 主交互 / 成功 |
+| `--success` | `bg-success` | `#00C487` | 成功 |
 | `--error` | `bg-error` | `#F05252` | 错误 |
 | `--warning` | `bg-warning` | `#D9A441` | 警告 |
 | `--info` | `bg-info` | `#5B9CF6` | 信息 |

@@ -183,7 +183,7 @@ Border 非常克制。
 
 典型：
 
-#3FBF73
+#00C487
 
 
 Accent 不作为大面积页面主色。
@@ -1846,9 +1846,9 @@ COLOR
 --color-border: #2A2A2A
 --color-border-hover: #383838
 
---color-primary: #3FBF73
+--color-primary: #00C487
 
---color-success: #3FBF73
+--color-success: #00C487
 --color-error: #F05252
 --color-warning: #D9A441
 --color-info: #5B9CF6
