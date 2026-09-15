@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { DisclosureRow } from '../../ui/DisclosureRow'
-import { TypewriterText } from '../../ui/TypewriterText'
+import { MarkdownView } from '../../ui/MarkdownView'
 import type { ThinkingBlock } from '../../conversation'
 
 export type ThinkingMessageProps = {
@@ -14,7 +14,11 @@ export function ThinkingMessage({ block }: ThinkingMessageProps) {
 
 	return (
 		<DisclosureRow title={title} open={open} blinking={streaming} onOpenChange={setOpen}>
-			<TypewriterText text={block.data.text} playing={open && streaming} />
+			<MarkdownView
+				text={block.data.text}
+				mode={streaming ? 'streaming' : 'static'}
+				isAnimating={open && streaming}
+			/>
 		</DisclosureRow>
 	)
 }

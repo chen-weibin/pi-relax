@@ -1,6 +1,6 @@
 # 对话区渲染架构
 
-查阅时机：改对话列表、块类型、贴底滚动、打字机、把 mock feed 换成真实 `AgentSessionEvent` 时。布局 / token / 四区 shell 仍看 [`web.md`](web.md)。
+查阅时机：改对话列表、块类型、贴底滚动、打字机、把 mock feed 换成真实 `AgentSessionEvent` 时。布局 / token / 四区 shell 仍看 [`web.md`](web.md)。UI 组件(用什么 / 别造轮子)见 [`docs/ui.md`](ui.md);原子组件 API / 视觉细节见 [`web.md` §UI 组件库](web.md#ui-组件库ui)。
 
 ## 分层
 
@@ -94,15 +94,18 @@ adapter 建议将来放 `app/web/src/conversation/adaptAgentSession.ts`（或 se
 
 | 要改的 | 改哪里 | 不要改 |
 |---|---|---|
-| Markdown 排版、代码块、流式样式 | `ui/MarkdownView/` | runtime / snapshot |
-| 打字机节奏、字素切分 | `ui/TypewriterText.tsx` | 不要把播放进度回写 runtime |
-| 折叠行、标题 blink | `ui/DisclosureRow/` | 思考策略文案（仍在 `ThinkingMessage`） |
-| 用户气泡外壳 | `ui/MessageSurface/`（无角色词）+ `UserMessage.tsx` 的对齐/间距 | 不要在 Surface 上加 user/assistant 语义 |
+| Markdown 排版、代码块、流式样式 | `ui/MarkdownView/`（见 [`docs/ui.md`](ui.md#markdownview)） | runtime / snapshot |
+| 思考块 Markdown 化(流式 / 静态) | `ThinkingMessage.tsx`(调用 `MarkdownView`,`mode` / `isAnimating` 跟随 `streaming` + `open`) | 不要让 `MarkdownView` 知道 user / assistant |
+| 高度过渡容器 | `ui/Expandable.tsx`(见 [`ui.md#expandable`](ui.md#expandable)) | 不要为单处使用装 `framer-motion` 的 `AnimatePresence` |
+| 折叠行 + chevron + 标题扫光 | `ui/DisclosureRow.tsx` + `ui/ShinyText.tsx`(见 [`ui.md#disclosurerow`](ui.md#disclosurerow) / [`#shinytext`](ui.md#shinytext)) | 思考策略文案(仍在 `ThinkingMessage`);不要把开合状态塞进 snapshot |
+| 用户气泡外壳 | `ui/MessageSurface/`(见 [`ui.md#messagesurface`](ui.md#messagesurface),无角色词)+ `UserMessage.tsx` 的对齐/间距 | 不要在 Surface 上加 user/assistant 语义 |
 | 思考行交互与默认开合 | `ThinkingMessage.tsx` | 不要把开合状态塞进 snapshot |
 | 列表间距、message 分组、贴底、「生成中」 | `ConversationView.tsx` | 不要为了「生成中」嗅探最后一块 kind |
 | 色/字号/圆角 token | `src/index.css` + [`design-system.md`](design-system.md) | 不要在块组件里写死 hex |
 
-思考块：默认收起；历史与流式都可展开/收起；仅流式时标题 blink；`playing={open && streaming}`。Composer 未接 `onSubmit` 到 session。DevToolbar 只有历史渲染与模拟流式。
+> 任何 ui 组件的「何时用 / 何时不用 / API」,查 [`docs/ui.md`](ui.md);不在本表重复。
+
+思考块：默认收起；历史与流式都可展开/收起；流式时标题走 `ShinyText`(由 `DisclosureRow.blinking` 控制);`isAnimating={open && streaming}`。Composer 未接 `onSubmit` 到 session。DevToolbar 只有历史渲染与模拟流式。
 
 ## 明确不做
 

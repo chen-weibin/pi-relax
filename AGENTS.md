@@ -25,6 +25,7 @@
 ## 文档索引
 
 - [`docs/relax-agent.md`](docs/relax-agent.md) — MiniMax 包装层 `createAgent` 用法、支持的模型清单、dev 工作流与历史踩坑。查阅时机：在 `packages/agent/` 或 `app/server/` 下开发、调用 `createAgent`、调整 `dev:server` 编排时。
-- [`docs/web.md`](docs/web.md) — `app/web` 的 Tailwind / 设计 token 接入、Cursor 风四区布局与组件职责。查阅时机：在 `app/web/` 下开发组件、调整三栏尺寸、修改设计 token 时。对话区渲染架构见 [`docs/web-conversation.md`](docs/web-conversation.md)。
+- [`docs/web.md`](docs/web.md) — `app/web` 的 Tailwind / 设计 token 接入、Cursor 风四区布局、Composer 视觉规格。查阅时机：在 `app/web/` 下改 Tailwind 配置、调设计 token、改三栏尺寸、改 Composer / Setting / Sidebar 外壳时。原子组件的「何时用 / API / 视觉」在 [`docs/ui.md`](ui.md)。对话区渲染架构见 [`docs/web-conversation.md`](docs/web-conversation.md)。
 - [`docs/web-conversation.md`](docs/web-conversation.md) — 对话区分层、`BlockSnapshot` 判别联合、runtime、滚动/打字机约定、mock 与真实事件边界、打磨 UI 改哪一层。查阅时机：改对话列表、块类型、贴底滚动、打字机、消息观感，或把 mock feed 换成 `AgentSessionEvent` 时。
+- [`docs/ui.md`](docs/ui.md) — `app/web/src/ui/` 组件库的唯一详细文档。决策表、反例、每个组件的「何时用 / 何时不用 / API / 视觉 / 踩坑 / 查阅时机」全部在此。查阅时机：在 `app/web` 下新增 / 调用 UI 组件、为某需求选组件、判断「该不该自己写」、查阅组件完整 API 时。
 - `app/agenttest/` — agent CLI 试验场，`pnpm dev` 订阅全部 `AgentSessionEvent` 打到终端，用于研究事件流。需要 `MINIMAX_API_KEY` env。查阅时机：调试 `session.subscribe` 行为、看 `message_update` 的 `partial` 累积、或临时跑单次 prompt 验证 agent 输出时。

@@ -142,91 +142,78 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
 
 `app/web/src/ui/` 是项目的 UI 组件库目录,业务无关、可在多处复用。对内封装第三方库,对上提供与领域词无关的原子组件。
 
+> 组件的「何时用 / 何时不用 / API / 视觉 / 踩坑」全部在 [`docs/ui.md`](ui.md)。本文档只覆盖 `app/web` 接入层(Tailwind、token、布局、四区 shell、Composer 等领域外壳)。
+
 ### 何时放进 `ui/`
 
 满足以下**全部**条件:
 
 - **业务无关**:不引用 `Sidebar` / `Conversation` / `Setting` 等任何领域组件,不放领域状态/领域类型。
-- **可复用**:在 app shell 之外(未来的二级页、Modal、设置面板、扩展插件等)有复用场景,或对一组第三方 API 做了有项目风格的统一封装。
+- **可复用**:在 app shell 之外(未来的二级页、Modal、设置面板、扩展插件等)有复用场景,或对一组第三方 API 做了项目风格的统一封装。
 - **稳定**:API 已收敛,有明确的 props 契约和默认行为。
 
 不满足的 → 放 `components/`(领域组件)或 `hooks/`(逻辑复用)。
 
 ### 命名 & 文件
 
-- 文件名与导出组件名一致;单文件单组件,或同名目录 `Name/index.tsx`(有独立样式时再配 `index.css`)。
+- 文件名与导出组件名一致;单文件单组件(`ui/Foo.tsx`),或同名目录 `Foo/index.tsx`(有独立样式时再配 `index.css`,如 `MarkdownView/`、`MessageSurface/`、`Editor/`)。
 - props 类型用 `export type {Name}Props`,便于其他模块显式引用。
 - 不依赖 `components/`、`hooks/` 里任何领域代码;如有需要,通过 props 注入。
 
-### 当前内容
+### 当前组件(指针)
 
-| 组件 | 包装的库 | 用途 |
+| 组件 | 一句话 | 详细 |
 |---|---|---|
-| `ResizablePanelGroup` | `react-resizable-panels` 的 `Group` | 统一默认 `orientation='horizontal'`,透传其他 props |
-| `ResizablePanel` | `react-resizable-panels` 的 `Panel` | 强制 `id` 必填(库要求,但 TS 类型上是 optional),缺失时 dev 模式报错 |
-| `ResizableHandle` | `react-resizable-panels` 的 `Separator` | 套一层 1px 分割线 + 5px 命中区 + hover 高亮 |
-| `IconButton` | (原生 `button`) | 图标按钮;`variant: ghost \| solid`,`size: sm \| md`;`disabled` 自动降透明 + 禁交互;`type` 默认 `button` 防止 form 内误提交;透传其他原生 button 属性(`aria-pressed` / `name` / `value` / `tabIndex` 等) |
-| `Popover` | `@floating-ui/react` | 浮层浮窗;触发器是 `children`,浮层内容走 `content` prop;支持 click / hover / 二者组合;12 种 placement + 主轴/十字轴偏移;hover 模式下 `interactive` 控制"浮层里是否可交互";受控 + 非受控两种用法 |
-| `Editor` | ProseMirror | 智能输入框(仅 paragraph + text);默认 1 行、最高 10 行后滚动;Enter 发送、Shift-Enter 走 `baseKeymap.Enter` |
-| `MarkdownView` | `streamdown` | Markdown 渲染;`mode: static \| streaming`;流式时修未闭合语法;不谈 user/assistant |
-| `TypewriterText` | (rAF + `Intl.Segmenter`) | 给定完整 `text` + `playing`,grapheme 增量缓存;只在播放且未追上时 rAF |
-| `DisclosureRow` | 原生 | 标题行 + 展开收起;`blinking` 只作用标题;不写业务文案 |
-| `MessageSurface` | (原生) | 轻量 Surface 卡片外壳;无角色语义 |
+| `ResizablePanelGroup` / `ResizablePanel` / `ResizableHandle` | 可拖布局三件套,封装 `react-resizable-panels` | [`ui.md#resizablepanels`](ui.md#resizablepanels) |
+| `IconButton` | 图标按钮,统一变体 / 尺寸 / 禁用态 | [`ui.md#iconbutton`](ui.md#iconbutton) |
+| `Popover` | 浮层 / tooltip / 菜单,封装 `@floating-ui/react` | [`ui.md#popover`](ui.md#popover) |
+| `Editor` | ProseMirror 智能输入框 | [`ui.md#editor`](ui.md#editor) |
+| `MarkdownView` | `streamdown` Markdown 渲染(static / streaming) | [`ui.md#markdownview`](ui.md#markdownview) |
+| `TypewriterText` | rAF grapheme 逐字打字机 | [`ui.md#typewritertext`](ui.md#typewritertext) |
+| `ShinyText` | `motion/react` 渐变扫光文字 | [`ui.md#shinytext`](ui.md#shinytext) |
+| `DisclosureRow` | 标题 + chevron + 展开收起;标题可扫光 | [`ui.md#disclosurerow`](ui.md#disclosurerow) |
+| `Expandable` | 高度过渡的展开/收起容器(纯展示,无 header) | [`ui.md#expandable`](ui.md#expandable) |
+| `MessageSurface` | 轻量卡片外壳,无角色语义 | [`ui.md#messagesurface`](ui.md#messagesurface) |
 
-### Editor
+> 用谁 / 别造轮子 → [`docs/ui.md` 决策表](ui.md#决策表该用哪个) + [反例表](ui.md#反例这些事不要做)。
 
-目录 `ui/Editor/`(schema / keymap / serialize / placeholder / 样式),对外只从 `ui/Editor` 导出 `Editor`、`EditorProps`、`EditorHandle`。业务无关,不引用 Conversation / store。
+### 新增 UI 组件的流程
 
-**API**:
+1. 在 [`docs/design-system.md`](design-system.md) 或对应规范里先有该组件的设计/交互定义。
+2. 在 `ui/` 下新建文件,导出 `{Name}` 与 `{Name}Props`。
+3. 若包装第三方库,类型从该库导出;不要二次发明同名 prop。
+4. 在使用方引入并实测一个具体场景(至少 typecheck + 浏览器手测)。
+5. 同步更新 [`docs/ui.md`](ui.md) 的组件小节 + 本节指针表;不要留单边。
 
-```tsx
-<Editor
-  ref={editorRef}
-  placeholder="…"
-  disabled={false}
-  autoFocus={false}
-  onChange={(text) => { /* 纯文本,段落间 \\n */ }}
-  onSubmit={(text) => { /* Enter;空白不回调;调用方自行 clear */ }}
-/>
+### Editor / Composer / Popover
 
-// EditorHandle: focus() / clear() / getText()
-```
+> 完整 API 与使用场景见 [`docs/ui.md`](ui.md) 对应小节。本节仅留接入要点(因为 `Editor` / `Composer` / `Popover` 与 app shell 的接入层紧密相关):
 
-**行为**:
+- **`Editor`**:见 [`ui.md#editor`](ui.md#editor)。对话输入的外壳 `Composer` 见下文。
+- **`Composer`**:领域组件 [`src/components/Composer.tsx`](../app/web/src/components/Composer.tsx),包装 `Editor` + 右下发送。不含消息列表 / agent 逻辑。
 
-- Schema:`doc → paragraph+ → text*`(自写,不用 `prosemirror-schema-basic`)
-- Keymap:spread `baseKeymap`,把原 `Enter`(换段)挂到 `Shift-Enter`;`Enter` 调 `onSubmit` 并 `return true`
-- 高度:内容盒 `min-height: 22.5px`(1 行 = 15px × 1.5)、`max-height: 225px`(10 行),超出 `overflow-y: auto`;段落 `margin: 0`
-- 字号:15px(仅编辑器内容盒,不改全局 `text-base`)
-- 滚动条:溢出后 thumb 常显(色 `--border-hover`),不依赖 hover 才显形;未溢出不占位
-- 非受控:mount 时建 `EditorView`,不每 render 重建;提交后是否清空由调用方 `ref.clear()`
+  **API**:
 
-对话输入外壳见下文 `Composer`(不进 `ui/`)。
+  ```tsx
+  <Composer
+    placeholder="发送消息…"
+    disabled={false}
+    onSubmit={(text) => { /* trim 后非空;内部会 clear + focus */ }}
+  />
+  ```
 
-### Composer
+  **视觉**:
 
-领域组件 [`src/components/Composer.tsx`](../app/web/src/components/Composer.tsx),包装 `Editor` + 右下发送。不含消息列表 / agent 逻辑。
+  | 项 | 值 |
+  |---|---|
+  | 外壳 | `bg-surface` + `rounded-pill` + `border-border-hover` |
+  | 聚焦边框 | `color-mix(--border-hover, --fg 12%)`,只比默认亮一档 |
+  | 发送 | 右下 28px 圆钮;可发送 `bg-fg text-app`,空内容 `bg-surface-active text-fg-disabled` |
+  | 图标 | 复用 `SendIcon`(与侧栏「新对话」同一 glyph),视觉居中用 `-translate-x-[0.5px]` |
 
-**API**:
+  Enter 与点发送走同一 `onSubmit`。左侧附件 / 模型选择本轮未做。
 
-```tsx
-<Composer
-  placeholder="发送消息…"
-  disabled={false}
-  onSubmit={(text) => { /* trim 后非空;内部会 clear + focus */ }}
-/>
-```
-
-**视觉**:
-
-| 项 | 值 |
-|---|---|
-| 外壳 | `bg-surface` + `rounded-pill` + `border-border-hover` |
-| 聚焦边框 | `color-mix(--border-hover, --fg 12%)`,只比默认亮一档 |
-| 发送 | 右下 28px 圆钮;可发送 `bg-fg text-app`,空内容 `bg-surface-active text-fg-disabled` |
-| 图标 | 复用 `SendIcon`(与侧栏「新对话」同一 glyph),视觉居中用 `-translate-x-[0.5px]` |
-
-Enter 与点发送走同一 `onSubmit`。左侧附件 / 模型选择本轮未做。
+- **`Popover`**:见 [`ui.md#popover`](ui.md#popover)。
 
 ### Conversation(v1)
 
@@ -234,73 +221,9 @@ Enter 与点发送走同一 `onSubmit`。左侧附件 / 模型选择本轮未做
 
 消息列与 Composer 共用 `max-w-[800px]` + `px-4` 居中。贴底滚动:[`hooks/useStickToBottom.ts`](../app/web/src/hooks/useStickToBottom.ts)(观察内容尺寸,依赖 `revision`)。数据层在 [`src/conversation/`](../app/web/src/conversation/)(类型 + runtime,不是 UI);组装与渲染在 [`components/conversation/`](../app/web/src/components/conversation/)。
 
-思考块(历史与流式同一套):默认收起,随时可展开/收起;流式时标题 blink;展开且仍在流式时正文走打字机。DevToolbar 只留「历史渲染 / 模拟流式」。
+思考块(历史与流式同一套):默认收起,随时可展开/收起;流式时标题走 `ShinyText` 扫光(`DisclosureRow` 的 `blinking`);展开后正文用 `MarkdownView`,`mode='streaming'` 让未闭合语法被自动修补。`isAnimating={open && streaming}` 跟原打字机 `playing` 语义对齐。DevToolbar 只留「历史渲染 / 模拟流式」。这三个组件的「何时用 / 何时不用 / 视觉细节」分别在 [`docs/ui.md` 对应小节](ui.md)。
 
 `src/index.css` 增加 `@source "../node_modules/streamdown/dist/*.js"`,否则 streamdown 内部 Tailwind 类不会生成。
-
-### 新增 UI 组件的流程
-
-1. 在 `docs/design-system.md` 或对应规范里先有该组件的设计/交互定义。
-2. 在 `ui/` 下新建文件,导出 `{Name}` 与 `{Name}Props`。
-3. 若包装第三方库,类型从该库导出;不要二次发明同名 prop。
-4. 在使用方引入并实测一个具体场景(至少 typecheck + 浏览器手测)。
-5. 同步更新本节"当前内容"表格。
-
-### Popover
-
-封装自 `@floating-ui/react`(`useFloating` + `useClick` / `useHover` + `useDismiss` + `useRole`),负责"算坐标 + 处理交互"这类底层逻辑,样式由 Popover 自行接管。
-
-**API**:
-
-```tsx
-<Popover
-  trigger={['click']}            // 触发模式,默认 ['click'];支持 ['click'] / ['hover'] / ['click','hover']
-  placement="bottom-start"        // 12 种 Placement:top/bottom/left/right × start/center/end;默认 'bottom-start'
-  offset={6}                      // 主轴偏移(距 trigger),默认 6
-  crossOffset={0}                 // 十字轴偏移(对齐微调),默认 0
-  interactive={false}             // hover 模式下,浮层里是否有可交互内容(按钮/链接等);默认 false
-  open / onOpenChange             // 受控用法;二者都给才走受控,否则内部 state
-  className                       // 透传到浮层容器
-  content={<div>浮层内容</div>}   // 浮层内容(必填)
->
-  <button>触发器</button>          // children,单个 ReactElement(必填)
-</Popover>
-```
-
-**浮层样式**(内置,无需额外配置):
-
-| 项 | 值 | 来源 |
-|---|---|---|
-| 背景 | `bg-sidebar` (`#1E1E1E`) | 与 Sidebar 同色,"沉下去" |
-| 边框 | `border-border-hover` (`#383838`) | 比背景亮一档,对比明显 |
-| 圆角 | `rounded-lg` (10px) | §34 |
-| 阴影 | `shadow-lg` | 微凸 |
-| 字号 | `text-sm` (12px) | §3.1 |
-| 文字色 | `text-fg-2` | 次级文字 |
-| z-index | `z-[99]` | 全局最高一档(预留 Setting 等覆盖层用更高值) |
-
-> 内 padding 不固定 —— 由 `content` 自己控制(popover 内容差异巨大,tooltip 用 `px-3 py-1.5`,菜单用 `p-1`,信息卡用 `p-3`)。
-
-**interactive 模式**:
-
-`useHover` 默认 `delay.close = 0`,光标离开 trigger 同步关闭,早于 `mouseenter` 浮层,所以浮层里没法放交互元素。设 `interactive` 后:
-
-- `delay: { close: 100 }` — 给 100ms 让 `mouseenter` 浮层先清除关闭定时器
-- `move: false` — 避免 `mousemove { once }` 的边角行为干扰
-
-> 仅在 `trigger` 含 `'hover'` 时生效。click 模式不受影响(click 模式下点浮层内不会自动关)。
-
-**定位与翻转**:
-
-- `whileElementsMounted: autoUpdate` — 滚动 / 窗口 resize 时浮层自动跟随
-- `flip()` — 视口碰撞自动反向(top ↔ bottom, left ↔ right)
-- `shift({ padding: 4 })` — 与视口边缘保持 4px 间距
-
-**踩坑备忘**:
-
-- 触发器(`children`)必须是单个 ReactElement;`cloneElement` 需要 `ref` 注入。如果传了 fragment / 数组 / 字符串,运行时直接 throw。
-- 触发器的原始 `ref` 会被保留(函数式 / object 式都支持)。
-- 浮层挂在 `document.body`(`FloatingPortal` 默认),脱离任何 `overflow:hidden` 祖先。
 
 ## 图标(`icons/`)
 
