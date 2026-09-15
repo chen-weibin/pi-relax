@@ -60,3 +60,21 @@
 .scrollbar-shallow--hover {
 	scrollbar-color: color-mix(in srgb, var(--surface), white 5%) transparent;
 }
+
+/* Always-visible variant — no hover gating. Inherits `scrollbar-gutter:
+ * stable` from .scrollbar-shallow so the gutter is reserved even when
+ * nothing overflows, preventing the 8px shift when content grows past
+ * the viewport. Overrides `overlay` back to `auto` so the scrollbar
+ * takes its reserved layout space (vs. floating on top of content). */
+.scrollbar-shallow--static {
+	overflow-y: auto;
+	scrollbar-color: color-mix(in srgb, var(--surface), white 5%) transparent;
+}
+
+.scrollbar-shallow--static::-webkit-scrollbar-thumb {
+	background: color-mix(in srgb, var(--surface), white 5%);
+}
+
+.scrollbar-shallow--static:hover::-webkit-scrollbar-thumb {
+	background: color-mix(in srgb, var(--surface), white 5%);
+}
