@@ -37,7 +37,7 @@ mock fixture / playMockStream          未来: AgentSessionEvent
 | 层 | 路径 | 职责 |
 |---|---|---|
 | 数据层 | [`app/web/src/conversation/`](../app/web/src/conversation/) | `BlockFeedEvent`、判别联合 `BlockSnapshot`、`createBlockRuntime`、`runPhase` |
-| 组装 | [`Conversation.tsx`](../app/web/src/components/conversation/Conversation.tsx) | 持有 runtime、订 snapshot、把 mock feed / 思考策略注入渲染层 |
+| 组装 | [`Conversation.tsx`](../app/web/src/components/conversation/Conversation.tsx) | 持有 runtime、订 snapshot、注入 mock feed |
 | 渲染 | [`components/conversation/`](../app/web/src/components/conversation/) | 按 message 分组画扁 block 列表；registry 用 `BlockKind` |
 | 观感 | [`ui/`](../app/web/src/ui/) | 无 user/thinking 词 |
 | mock | [`mock/conversation/`](../app/web/src/mock/conversation/) | 仅 fixture、`playMockStream`、`DevToolbar`、`useMockFeed` |
@@ -98,11 +98,11 @@ adapter 建议将来放 `app/web/src/conversation/adaptAgentSession.ts`（或 se
 | 打字机节奏、字素切分 | `ui/TypewriterText.tsx` | 不要把播放进度回写 runtime |
 | 折叠行、标题 blink | `ui/DisclosureRow/` | 思考策略文案（仍在 `ThinkingMessage`） |
 | 用户气泡外壳 | `ui/MessageSurface/`（无角色词）+ `UserMessage.tsx` 的对齐/间距 | 不要在 Surface 上加 user/assistant 语义 |
-| 思考行交互与默认开合 | `ThinkingMessage.tsx` + `thinking-mode.ts` | 不要把 `thinkingUiMode` 塞进 snapshot |
+| 思考行交互与默认开合 | `ThinkingMessage.tsx` | 不要把开合状态塞进 snapshot |
 | 列表间距、message 分组、贴底、「生成中」 | `ConversationView.tsx` | 不要为了「生成中」嗅探最后一块 kind |
 | 色/字号/圆角 token | `src/index.css` + [`design-system.md`](design-system.md) | 不要在块组件里写死 hex |
 
-`thinkingUiMode` 仍是组装层临时开关（DevToolbar），不上 settings。Composer 未接 `onSubmit` 到 session。
+思考块：默认收起；历史与流式都可展开/收起；仅流式时标题 blink；`playing={open && streaming}`。Composer 未接 `onSubmit` 到 session。DevToolbar 只有历史渲染与模拟流式。
 
 ## 明确不做
 

@@ -4,20 +4,16 @@ import { AssistantMessage } from './AssistantMessage'
 import { GenericBlock } from './GenericBlock'
 import { ThinkingMessage } from './ThinkingMessage'
 import { UserMessage } from './UserMessage'
-import type { ThinkingUiMode } from './thinking-mode'
 
 export type BlockRendererProps = {
 	block: BlockSnapshot
-	thinkingUiMode: ThinkingUiMode
 }
 
 const registry: { [K in BlockKind]: ComponentType<BlockRendererProps> } = {
 	'user-text': ({ block }) =>
 		block.kind === 'user-text' ? <UserMessage block={block} /> : null,
-	thinking: ({ block, thinkingUiMode }) =>
-		block.kind === 'thinking' ? (
-			<ThinkingMessage block={block} mode={thinkingUiMode} />
-		) : null,
+	thinking: ({ block }) =>
+		block.kind === 'thinking' ? <ThinkingMessage block={block} /> : null,
 	text: ({ block }) => (block.kind === 'text' ? <AssistantMessage block={block} /> : null),
 }
 

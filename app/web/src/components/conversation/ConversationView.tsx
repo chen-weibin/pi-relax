@@ -3,29 +3,17 @@ import classNames from 'classnames'
 import { useStickToBottom } from '../../hooks/useStickToBottom'
 import type { BlockSnapshot, ConversationSnapshot } from '../../conversation'
 import { renderConversationBlock } from './renderBlock'
-import type { ThinkingUiMode } from './thinking-mode'
 
 export type ConversationViewProps = {
 	snapshot: ConversationSnapshot
-	thinkingUiMode: ThinkingUiMode
 	className?: string
 }
 
-const BlockRow = memo(function BlockRow({
-	block,
-	thinkingUiMode,
-}: {
-	block: BlockSnapshot
-	thinkingUiMode: ThinkingUiMode
-}) {
-	return renderConversationBlock({ block, thinkingUiMode })
+const BlockRow = memo(function BlockRow({ block }: { block: BlockSnapshot }) {
+	return renderConversationBlock({ block })
 })
 
-export function ConversationView({
-	snapshot,
-	thinkingUiMode,
-	className,
-}: ConversationViewProps) {
+export function ConversationView({ snapshot, className }: ConversationViewProps) {
 	const { scrollerRef, contentRef } = useStickToBottom(snapshot.revision)
 
 	return (
@@ -44,9 +32,7 @@ export function ConversationView({
 							{group.blockKeys.map((key) => {
 								const block = snapshot.byKey[key]
 								if (!block) return null
-								return (
-									<BlockRow key={key} block={block} thinkingUiMode={thinkingUiMode} />
-								)
+								return <BlockRow key={key} block={block} />
 							})}
 						</article>
 					)

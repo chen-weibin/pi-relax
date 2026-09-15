@@ -234,10 +234,7 @@ Enter 与点发送走同一 `onSubmit`。左侧附件 / 模型选择本轮未做
 
 消息列与 Composer 共用 `max-w-[800px]` + `px-4` 居中。贴底滚动:[`hooks/useStickToBottom.ts`](../app/web/src/hooks/useStickToBottom.ts)(观察内容尺寸,依赖 `revision`)。数据层在 [`src/conversation/`](../app/web/src/conversation/)(类型 + runtime,不是 UI);组装与渲染在 [`components/conversation/`](../app/web/src/components/conversation/)。
 
-思考策略 `thinkingUiMode`(默认 `expand-typewriter`,不上 settings):
-
-- `expand-typewriter`:流式可展开 + 展开打字机;标题 blink;结束且用户未 pin 则收起
-- `title-blink-only`:始终收起,只 blink 标题
+思考块(历史与流式同一套):默认收起,随时可展开/收起;流式时标题 blink;展开且仍在流式时正文走打字机。DevToolbar 只留「历史渲染 / 模拟流式」。
 
 `src/index.css` 增加 `@source "../node_modules/streamdown/dist/*.js"`,否则 streamdown 内部 Tailwind 类不会生成。
 

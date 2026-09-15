@@ -15,7 +15,7 @@ const ANSWER = [
 	'runtime.apply({ type: "text_delta", delta: "…" })',
 	'```',
 	'',
-	'结束后思考会自动收起。',
+	'结束后思考保持你展开或收起的状态。',
 ].join('\n')
 
 function chunk(text: string, size: number): string[] {
