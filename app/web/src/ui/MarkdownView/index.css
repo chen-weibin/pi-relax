@@ -1,3 +1,10 @@
+/* streamdown + plugins ship Tailwind classes inside JS; scan them. */
+@source "../../../node_modules/streamdown/dist/*.js";
+@source "../../../node_modules/@streamdown/code/dist/*.js";
+@source "../../../node_modules/@streamdown/mermaid/dist/*.js";
+@source "../../../node_modules/@streamdown/math/dist/*.js";
+@source "../../../node_modules/@streamdown/cjk/dist/*.js";
+
 .markdown-view {
 	line-height: 1.6;
 	word-break: break-word;
@@ -49,28 +56,12 @@
 	text-underline-offset: 2px;
 }
 
-.markdown-view :where(code) {
+.markdown-view :where(:not(pre) > code) {
 	font-family: var(--font-mono);
 	font-size: 12px;
 	background: #2e2e2e;
 	border-radius: 4px;
 	padding: 2px 5px;
-}
-
-.markdown-view :where(pre) {
-	margin: 0 0 0.75em;
-	overflow-x: auto;
-	border-radius: 8px;
-	border: 1px solid var(--border);
-	background: var(--surface);
-	padding: 12px;
-}
-
-.markdown-view :where(pre code) {
-	background: transparent;
-	padding: 0;
-	border-radius: 0;
-	font-size: 12px;
 }
 
 .markdown-view :where(blockquote) {
@@ -84,4 +75,68 @@
 	border: 0;
 	border-top: 1px solid var(--border);
 	margin: 1em 0;
+}
+
+/*
+ * Code / mermaid: outer frame only.
+ * Content is --app (conversation black) so --border actually shows;
+ * header is --surface so the bar reads as a distinct strip.
+ */
+.markdown-view [data-streamdown='code-block'],
+.markdown-view [data-streamdown='mermaid-block'] {
+	max-height: 400px;
+	margin: 0 0 0.75em;
+	gap: 0;
+	padding: 0;
+	overflow: hidden;
+	border: 1px solid var(--border);
+	background: var(--app);
+	border-radius: 8px;
+}
+
+.markdown-view [data-streamdown='code-block'] > [class*='sticky'],
+.markdown-view [data-streamdown='mermaid-block'] > [class*='sticky'] {
+	top: 0;
+	margin-top: -2rem;
+}
+
+.markdown-view [data-streamdown='code-block-header'],
+.markdown-view [data-streamdown='mermaid-block'] > :first-child {
+	flex-shrink: 0;
+	padding: 0 10px;
+	border-bottom: 1px solid var(--border);
+	background: var(--surface);
+	color: var(--fg-2);
+}
+
+.markdown-view [data-streamdown='code-block-actions'],
+.markdown-view [data-streamdown='mermaid-block-actions'] {
+	border: 0;
+	background: transparent;
+	backdrop-filter: none;
+	padding-right: 6px;
+}
+
+.markdown-view [data-streamdown='code-block-body'] {
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow: auto;
+	max-height: none;
+	border: 0;
+	border-radius: 0;
+	background: var(--app);
+	padding: 10px 12px;
+}
+
+.markdown-view [data-streamdown='code-block-body'] pre {
+	background: transparent;
+}
+
+.markdown-view [data-streamdown='mermaid-block'] > :last-child {
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow: auto;
+	border: 0;
+	border-radius: 0;
+	background: var(--app);
 }

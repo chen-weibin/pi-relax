@@ -1,7 +1,18 @@
+import { cjk } from '@streamdown/cjk'
+import { code } from '@streamdown/code'
+import { math } from '@streamdown/math'
+import { mermaid } from '@streamdown/mermaid'
 import classNames from 'classnames'
 import { Streamdown } from 'streamdown'
+import 'katex/dist/katex.min.css'
 import 'streamdown/styles.css'
-import './index.css'
+
+const plugins = { code, mermaid, math, cjk } as const
+
+const controls = {
+	code: { copy: true, download: false },
+	mermaid: { download: false },
+} as const
 
 export type MarkdownViewProps = {
 	text: string
@@ -22,8 +33,12 @@ export function MarkdownView({
 				mode={mode}
 				isAnimating={isAnimating}
 				animated={false}
-				controls={false}
-				lineNumbers={false}
+				lineNumbers
+				codeBlockMaxHeight={0}
+				controls={controls}
+				plugins={plugins}
+				shikiTheme={['github-light', 'github-dark']}
+				mermaid={{ config: { theme: 'dark' } }}
 				parseIncompleteMarkdown={mode === 'streaming'}
 			>
 				{text}

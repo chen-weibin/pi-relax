@@ -119,4 +119,4 @@ adapter 建议将来放 `app/web/src/conversation/adaptAgentSession.ts`（或 se
 ## 调试期默认
 
 - `Conversation.tsx` 挂载即 `useEffect(loadHistory)`:打开页面直接看到历史快照,免手动点 DevToolbar。DevToolbar 的「loadHistory / playStream」按钮保留,用于在流式之后回到快照 / 重放。
-- 历史与流式 fixture(`mock/conversation/history.ts`、`stream.ts`)覆盖 `MarkdownView` 支持的全部格式(标题、段落含 bold/italic/inline code/link、嵌套 ul、ol、blockquote、围栏代码块、hr),方便逐项调试视觉。详见 [`docs/ui.md` §MarkdownView](ui.md#markdownview)。
+- 历史与流式 fixture(`mock/conversation/history.ts`、`stream.ts`)覆盖 `MarkdownView` 支持的全部格式(标题、段落含 bold/italic/inline code/link、嵌套 ul、ol、blockquote、围栏代码块高亮、Mermaid、`$$` 公式、CJK 强调紧贴全角标点、hr),方便逐项调试视觉。详见 [`docs/ui.md` §MarkdownView](ui.md#markdownview)。

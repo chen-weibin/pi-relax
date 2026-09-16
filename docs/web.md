@@ -223,7 +223,7 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
 
 思考块(历史与流式同一套):默认收起,随时可展开/收起;流式时标题走 `ShinyText` 扫光(`DisclosureRow` 的 `blinking`);展开后正文用 `MarkdownView`,`mode='streaming'` 让未闭合语法被自动修补。`isAnimating={open && streaming}` 跟原打字机 `playing` 语义对齐。DevToolbar 只留「历史渲染 / 模拟流式」。这三个组件的「何时用 / 何时不用 / 视觉细节」分别在 [`docs/ui.md` 对应小节](ui.md)。
 
-`src/index.css` 增加 `@source "../node_modules/streamdown/dist/*.js"`,否则 streamdown 内部 Tailwind 类不会生成。
+streamdown 与插件的 Tailwind 类扫描写在 [`ui/MarkdownView/index.css`](../app/web/src/ui/MarkdownView/index.css) 的 `@source`,由 `src/index.css` `@import` 进来;否则内部工具类不会生成。
 
 ## 图标(`icons/`)
 

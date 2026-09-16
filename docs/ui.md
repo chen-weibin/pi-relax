@@ -189,7 +189,7 @@
 
 ## MarkdownView
 
-目录 `ui/MarkdownView/`(`index.tsx` + `index.css`),封装 `streamdown`。`src/index.css` 增加了 `@source "../node_modules/streamdown/dist/*.js"`,否则 streamdown 内部 Tailwind 类不会生成。
+目录 `ui/MarkdownView/`(`index.tsx` + `index.css`),封装 `streamdown` 与四个官方插件(`code` / `mermaid` / `math` / `cjk`)。`@source` 写在 `MarkdownView/index.css`(核心包 + 四个插件的 `dist/*.js`),由 `src/index.css` `@import` 进 Tailwind 入口;不要只在 TSX 里 import 这份 CSS,否则 `@source` 不生效。
 
 **查阅时机**:渲染用户/agent 输出的 Markdown(静态或流式),或在已有纯文本组件上加 Markdown 支持。
 
@@ -223,13 +223,17 @@
 | `mode='streaming'` | 未闭合语法自动补全(`**` → `<strong>` 推迟闭合、` ``` ` → 临时占位),适合边渲染边收 |
 | `isAnimating` | 仅 `mode='streaming'` 下生效;控制 streamdown 的 cursor / token 高亮动画 |
 | `animated` | 强制 `false`(项目里 streamdown 自带动画与贴底滚动冲突,关闭) |
-| `controls` / `lineNumbers` | `false`(代码块不需要 mermaid 控件 / 行号) |
-| 视觉 | 见 `index.css`:行高 1.6、`pre` 圆角 8 + `--surface`、code 圆角 4、`a` 用 `--info`、blockquote 左侧 2px `--border-hover` |
+| `lineNumbers` | `true`(围栏代码块显示行号) |
+| `controls` | 代码块复制开、下载关;mermaid 下载关,全屏/复制走官方默认 |
+| `plugins` | `@streamdown/code`(Shiki)、`mermaid`、`math`(KaTeX,`$$` 定界)、`cjk` |
+| `shikiTheme` | `['github-light', 'github-dark']`;html `color-scheme` 跟 `data-theme` 走 |
+| `codeBlockMaxHeight` | `0`(关掉 streamdown 打在 body 上的高度,改由外壳 `max-height: 400px`,header 固定、content 滚动) |
+| 视觉 | 见 `index.css`:行高 1.6、行内 code 圆角 4、`a` 用 `--info`、blockquote 左侧 2px `--border-hover`;代码块 / mermaid 外框 `--border`,header `--surface`,content `--app` |
 
 **踩坑备忘**:
 
 - `parseIncompleteMarkdown` 在 `mode='streaming'` 时自动 true,不要手动开,会让 `mode='static'` 渲染坏掉。
-- 代码块里的代码不参与 token 高亮(`<pre><code>` 在 css 里 reset)。
+- 公式只用 `$$`,不要开 `singleDollarTextMath`,避免和金额 `$` 冲突。
 - 极长 Markdown(> 5k 字)会让 streamdown 同步解析阻塞主线程一次;若遇到,后续考虑 `requestIdleCallback` 切 chunk。
 
 ## TypewriterText

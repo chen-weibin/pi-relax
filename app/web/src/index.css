@@ -13,6 +13,7 @@
 
 :root,
 [data-theme="dark"] {
+	color-scheme: dark;
 	--app: #171717;
 	--sidebar: #1e1e1e;
 	--surface: #242424;
@@ -43,6 +44,7 @@
  * 在同色相上提饱和、降亮度,保证白底 4.5:1 对比。当前:
  * dark  #00C487 → light #019966. */
 [data-theme="light"] {
+	color-scheme: light;
 	--app: #ffffff;
 	--sidebar: #fafafa;
 	--surface: #f5f5f5;
@@ -124,8 +126,7 @@
 		ui-monospace, "SF Mono", Monaco, Consolas, "Courier New", monospace;
 }
 
-/* streamdown ships Tailwind classes inside its JS; scan them. */
-@source "../node_modules/streamdown/dist/*.js";
+@import "./ui/MarkdownView/index.css";
 
 /* ============================================================
  * Base

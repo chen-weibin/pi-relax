@@ -1,6 +1,6 @@
 import type { BlockFeedEvent } from '../../conversation'
 
-const THINKING = '把历史里那套 MD 格式搬到流式：h1–h3、段落 + 行内 code + 链接、嵌套 ul、有序 ol、引用、围栏代码块、分割线。chunk 仍然 3 字，方便看 syntax 自动闭合。'
+const THINKING = '把历史里那套 MD 格式搬到流式：h1–h3、段落 + 行内 code + 链接、嵌套 ul、有序 ol、引用、代码高亮、Mermaid、公式、CJK 强调、分割线。chunk 仍然 3 字，方便看 syntax 自动闭合。'
 
 const ANSWER = [
 	'# 流式一级',
@@ -11,7 +11,7 @@ const ANSWER = [
 	'',
 	'### 流式三级',
 	'',
-	'段落包含 **粗体**、*斜体*、`inline code`，以及一个 [内部链接](../web.md)。',
+	'段落包含 **粗体**、*斜体*、`inline code`，以及一个 [内部链接](../web.md)。**中文（括注）。**后续仍应加粗闭合。',
 	'',
 	'- 流式 ul A',
 	'- 流式 ul B',
@@ -26,13 +26,32 @@ const ANSWER = [
 	'> 流式引用，验证 `parseIncompleteMarkdown` 不会把它提前关掉。',
 	'',
 	'```ts',
-	'const greet = (name: string) => `hi ${name}`',
-	'greet("pi")',
+	'type User = { id: string; name: string }',
+	'const greet = (user: User) => {',
+	'  const label = `hi ${user.name}`',
+	'  console.log(label, user.id)',
+	'  return label',
+	'}',
+	'greet({ id: "1", name: "pi" })',
+	'```',
+	'',
+	'行内公式 $$E = mc^2$$，块级如下。',
+	'',
+	'$$',
+	'x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}',
+	'$$',
+	'',
+	'```mermaid',
+	'graph LR',
+	'    A[Start] --> B{Ready?}',
+	'    B -->|Yes| C[Render]',
+	'    B -->|No| D[Wait]',
+	'    D --> B',
 	'```',
 	'',
 	'---',
 	'',
-	'分割线以上是代码块示例。',
+	'分割线以上是代码 / 公式 / 图表示例。',
 ].join('\n')
 
 function chunk(text: string, size: number): string[] {
@@ -51,7 +70,7 @@ export function buildMockStreamEvents(round: number): BlockFeedEvent[] {
 		{
 			type: 'user',
 			messageId: userId,
-			text: '演示一下 **流式回复**，带思考过程。要看 `#` 标题、列表、`>` 引用、`code` 块和 [链接](../web.md)。',
+			text: '演示一下 **流式回复**，带思考过程。要看 `#` 标题、列表、`>` 引用、`code` 块、公式、Mermaid 和 [链接](../web.md)。',
 		},
 		{ type: 'thinking_start', messageId: asstId, contentIndex: 0 },
 	]
