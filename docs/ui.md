@@ -34,6 +34,8 @@
 | 标题 + 展开收起(chevron + 高度过渡 + 标题可扫光) | [`DisclosureRow`](#disclosurerow) | 不要写本地 `<button>` + `<svg>` + `useState` 三件套 |
 | 任意区域的高度过渡展开(无 header) | [`Expandable`](#expandable) | 不要自己写 `max-height` 凑数(无法适配动态内容高度);不要为单处使用装 `framer-motion` |
 | 搜索框(带搜索图标、统一 hover/focus) | [`SearchInput`](#searchinput) | 不要写裸 `<input>` + 绝对定位 icon 的样式散落 |
+| 设置面板里的分组卡片(可选小标题) | [`SettingGroup`](#settinggroup) | 不要在 Setting 页里写裸 `<section rounded-xl bg-surface>` + `<h2>` 三件套 |
+| 设置面板里的一行(左 label + 描述,右控制区) | [`SettingRow`](#settingrow) | 不要写裸 `<div flex justify-between><div>{label}<div>{desc}</div></div><div>...</div></div>` 三层嵌套 |
 | 轻量卡片外壳(无角色语义) | [`MessageSurface`](#messagesurface) | 不要在块组件里手写 `bg-surface rounded-md border-border` 之类的样式散落 |
 | 点阵 loading(3×3 / 4×4,多尺寸多形状) | [`DotMatrix`](#dotmatrix) | 不要为单个 loading 写一次性 `<div>` 网格 + 自写 CSS `@keyframes`(`motion/react` 已在依赖里) |
 | 单点状态指示(成功 / 失败 / 已读) | [`StatusDot`](#statusdot) | 不要为 `success` / `failure` 单独写 `<div>` + 内联颜色;统一走 `StatusDot` + 项目语义色 token |
@@ -509,6 +511,94 @@ const [q, setQ] = useState('')
 - Enter 触发搜索时会跳过 IME 组合中(`!e.nativeEvent.isComposing`),中文 / 日文输入法回车选词不会误触发搜索。
 - icon 用 `<button>` 渲染但 `tabIndex={-1}`,避免 Tab 时把焦点从输入框拽走;屏幕阅读器仍能朗读为「搜索」按钮。
 - `onChange` 故意只传 `value: string` 而非 `ChangeEvent`,比原生更省事;需要事件对象(如取 `target.name`)的消费方用 `onKeyDown` / 自定义 prop 走 `...rest`。
+
+## SettingGroup
+
+单文件 `ui/SettingGroup.tsx`。设置面板里的分组卡片:可选小标题 + 圆角外壳。**只提供外壳,行内每一项的版式由消费方自己写**。
+
+**查阅时机**:加设置面板的分组卡片,或评估是否写裸 `<section rounded-xl border bg-sidebar>` + `<h2>`。
+
+**何时用**:
+
+- 需要「小标题 + 卡片」组合(类似 Cursor 的 "Agent Conversations" / "Colors")
+- 行内每一项的版式差异较大(开关 / 滑块 / 下拉 / 数字步进 / 自定义),不适合抽一个通用 row 组件
+
+**何时不用**:
+
+- 不需要小标题、卡片只是一坨设置项 → 直接 `<div rounded-xl border bg-sidebar>`
+- 行内版式统一且有复用需求 → 在 Setting 域内抽一个 `SettingRow`,而不是塞进 `ui/`
+- 不是设置场景(普通文章卡片 / 模态框内容) → 用 [`MessageSurface`](#messagesurface) 或自己的卡片
+
+**API**:
+
+| prop | 类型 | 说明 |
+|---|---|---|
+| `title` | `ReactNode` | 可选小标题,显示在卡片外上方;不传就不渲染标题 |
+| `children` | `ReactNode` | 直接子节点会被卡片容器按顺序渲染;**第 2 个及之后的直接子节点之间会自动插入一个 `<div role="separator" />` 分割线** |
+| `className` | `string` | 透传到外层 `<section>` |
+
+```tsx
+<SettingGroup title="Agent Conversations">
+  <ToggleRow label="自动滚动" />
+  <SliderRow label="代码字号" />
+  <StepperRow label="UI 字号" />
+</SettingGroup>
+
+// 不带标题,直接一坨
+<SettingGroup>
+  <DropdownRow label="Theme" />
+</SettingGroup>
+```
+
+**踩坑备忘**:
+
+- 分割线是组件**自己插入的 `<div role="separator">` 节点**,不是给子节点加 `border`,所以子节点自身有边框 / 边距也不会受影响。
+- 单子节点 / 零子节点时无分割线。
+- 通过 `Children.toArray` 读 children,所以消费方传 `<>{rows}</>` 数组或 `.map(...)` 都会按顺序展开,原有 key 会被保留。
+
+## SettingRow
+
+单文件 `ui/SettingRow.tsx`。设置面板里**单行**的左右版式:左 = 主标题 + 副描述,右 = 自定义控制区(slot)。本身**不带上下 padding**,行间距靠外层 [`SettingGroup`](#settinggroup) 的分割线 `my-3` 撑开。
+
+**查阅时机**:在 SettingGroup 内写一行(开关 / 滑块 / 下拉 / 步进器 / 任意控制),或评估是否写裸 `<div flex justify-between>` 三层嵌套。
+
+**何时用**:
+
+- 行内需要 label + description + 一个控制 widget
+- 控制 widget 是真正可交互的(Slider / Switch / Select / NumberStepper)
+- 行间距由 SettingGroup 的分割线 + margin 控制,不需要自己加 padding
+
+**何时不用**:
+
+- 只是描述一段文字,没有控制 → `<div>` 加 text 即可
+- 控制 widget 自己已经包了 label + description → 直接用 widget,别再套一层
+- 行间距要求特殊(很密 / 很疏) → 自己写 row,不要硬塞 SettingRow
+- 不是设置场景(表格行 / 列表项 / 表单 row) → 自己写
+
+**API**:
+
+| prop | 类型 | 说明 |
+|---|---|---|
+| `label` | `ReactNode` | 主标题(左上一行) |
+| `description` | `ReactNode` | 可选副描述(左下一行,`text-sm text-fg-3`) |
+| `children` | `ReactNode` | 右控制区(slot) |
+| `className` | `string` | 透传到外层 flex 容器 |
+
+```tsx
+<SettingRow label="Tool Call Density" description="Adjust how much detail is shown for tool calls">
+  <Slider value={density} onChange={setDensity} />
+</SettingRow>
+
+<SettingRow label="Code Block Word Wrap" description="Wrap long lines in Agent conversation code blocks">
+  <Switch checked={wrap} onChange={setWrap} />
+</SettingRow>
+```
+
+**踩坑备忘**:
+
+- 上下无 padding,放进 [`SettingGroup`](#settinggroup) 时行间距由 group 的 `<div role="separator" className="my-3 h-px" />` 提供。如果放进不带分割线的容器,行会挤在一起。
+- 左右用 `items-start` 顶对齐,允许消费方的控制 widget 比左边的文字高度更高(多行 desc / slider 带副标签)。
+- 控制 widget 本身应自带宽度;外层只在右侧容器加 `shrink-0` 保证 widget 不被 label 挤窄。
 
 ## Popover
 

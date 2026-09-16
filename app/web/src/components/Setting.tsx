@@ -9,6 +9,8 @@ import {
 	SettingsIcon,
 } from '../icons'
 import { SearchInput } from '../ui/SearchInput'
+import { SettingGroup } from '../ui/SettingGroup'
+import { SettingRow } from '../ui/SettingRow'
 import { useCommonStore } from '../store'
 import '../styles/scrollbar.css'
 
@@ -23,9 +25,20 @@ const GROUPS = [
 	],
 ] as const
 
+type Category = (typeof GROUPS)[number][number]
+
+const ALL_CATEGORIES: readonly Category[] = GROUPS.flat()
+
+const PLACEHOLDER_OPTIONS = ['设置项 1', '设置项 2', '设置项 3']
+const SINGLE_PLACEHOLDER = ['设置项']
+
 export function Setting() {
 	const toggleSetting = useCommonStore((s) => s.toggleSetting)
 	const [scrollHover, setScrollHover] = useState(false)
+	const [activeKey, setActiveKey] = useState<Category['key']>('general')
+
+	const activeCategory =
+		ALL_CATEGORIES.find((c) => c.key === activeKey) ?? ALL_CATEGORIES[0]!
 
 	return (
 		<div className="fixed inset-0 z-50 flex bg-app">
@@ -56,16 +69,25 @@ export function Setting() {
 				>
 					{GROUPS.map((group, gi) => (
 						<div key={gi} className="flex flex-col">
-							{group.map(({ key, label, Icon }) => (
-								<button
-									key={key}
-									type="button"
-									className="flex h-[30px] w-full cursor-pointer items-center gap-2.5 rounded-md px-2.5 text-left text-md text-fg-2 transition-colors duration-100 hover:bg-surface-hover hover:text-fg-bright"
-								>
-									<Icon />
-									<span>{label}</span>
-								</button>
-							))}
+							{group.map(({ key, label, Icon }) => {
+								const isActive = key === activeKey
+								return (
+									<button
+										key={key}
+										type="button"
+										onClick={() => setActiveKey(key)}
+										className={classNames(
+											'flex h-[30px] w-full cursor-pointer items-center gap-2.5 rounded-md px-2.5 text-left text-md transition-colors duration-100',
+											isActive
+												? 'bg-surface-active text-fg-bright'
+												: 'text-fg-2 hover:bg-surface-hover hover:text-fg-bright',
+										)}
+									>
+										<Icon />
+										<span>{label}</span>
+									</button>
+								)
+							})}
 						</div>
 					))}
 				</div>
@@ -73,7 +95,37 @@ export function Setting() {
 				<UserBar />
 			</aside>
 
-			<main className="flex-1" />
+			<main className="flex-1 overflow-y-auto">
+				<div className="mx-auto max-w-[700px] px-8 py-10">
+					<h1 className="mb-6 text-xl text-fg-bright">{activeCategory.label}</h1>
+
+					<div className="flex flex-col gap-6">
+						<SettingGroup>
+							{SINGLE_PLACEHOLDER.map((label) => (
+								<SettingRow
+									key={label}
+									label={label}
+									description="待实现"
+								>
+									<div className="h-7 min-w-[80px] rounded-md border border-border-hover bg-surface" />
+								</SettingRow>
+							))}
+						</SettingGroup>
+
+						<SettingGroup title="子分组">
+							{PLACEHOLDER_OPTIONS.map((label) => (
+								<SettingRow
+									key={label}
+									label={label}
+									description="待实现"
+								>
+									<div className="h-7 min-w-[80px] rounded-md border border-border-hover bg-surface" />
+								</SettingRow>
+							))}
+						</SettingGroup>
+					</div>
+				</div>
+			</main>
 		</div>
 	)
 }
