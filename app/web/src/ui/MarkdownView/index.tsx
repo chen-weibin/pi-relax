@@ -32,7 +32,11 @@ export function MarkdownView({
 			<Streamdown
 				mode={mode}
 				isAnimating={isAnimating}
-				animated={false}
+				animated={{
+					animation: 'blurIn',
+					duration: 200,
+					easing: 'ease-out',
+				}}
 				lineNumbers
 				codeBlockMaxHeight={0}
 				controls={controls}

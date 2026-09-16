@@ -55,7 +55,7 @@ mock fixture / playMockStream          未来: AgentSessionEvent
 - `order` / `byKey`：扁 block 列表（仍用于渲染每一块）
 - `messageOrder` / `messages`：按 `messageId` 分组（复制 / 重试 / 间距的前置；按钮未做）
 - `runPhase`：会话级 `'idle' \| 'running' \| 'awaiting' \| 'complete' \| 'error'`
-- `revision`：每次 emit +1，给贴底滚动当显式依赖
+- `revision`：每次 emit +1（贴底不再依赖它，列滚动交给 `use-stick-to-bottom`）
 
 等待态（「生成中」）只看 `runPhase === 'awaiting'`，不嗅探「最后一块是 complete 的 thinking」。
 
@@ -75,10 +75,11 @@ mock fixture / playMockStream          未来: AgentSessionEvent
 3. `renderBlock.tsx` 的 `registry: { [K in BlockKind]: ... }` 补渲染器；暂时没 UI 可先指向 `GenericBlock`。
 4. 不要把所有块的 `data` 收成 `{ text: string }`。
 
-## 滚动与打字机
+## 滚动与流式出现
 
-- [`useStickToBottom`](../app/web/src/hooks/useStickToBottom.ts)：`ResizeObserver` 看 scroller + 内容尺寸；`revision` 显式传入；用户滚动离开底部则 unpin，程序 `scrollTop` 打标避免误判。不上虚拟列表。
-- [`TypewriterText`](../app/web/src/ui/TypewriterText.tsx)：grapheme 按前缀增量缓存；只在 `playing` 且未追上时 rAF；追上停帧。`playing={open && streaming}`，折叠时不跑。
+- 对话列贴底：[`use-stick-to-bottom`](https://www.npmjs.com/package/use-stick-to-bottom) 的 `StickToBottom`（在 `Conversation.tsx`）。初次载入 / 内容变高用 `instant`；用户上滑暂停、滚回底部恢复；发送与「模拟流式」调用 `scrollToBottom('instant')` 强制拉回。不上虚拟列表。
+- Streamdown `animated`（`blurIn`）只作用于流式 Markdown 正文怎么出现，与列滚动无关。代码块内部滚动由 `isAnimating` + `MarkdownView` 外壳 `max-height: 400px` 处理。
+- [`TypewriterText`](../app/web/src/ui/TypewriterText.tsx)：grapheme 按前缀增量缓存；只在 `playing` 且未追上时 rAF；追上停帧。`playing={open && streaming}`，折叠时不跑。不再用于助手正文。
 
 ## mock vs 真实事件
 
@@ -100,7 +101,7 @@ adapter 建议将来放 `app/web/src/conversation/adaptAgentSession.ts`（或 se
 | 折叠行 + chevron + 标题扫光 | `ui/DisclosureRow.tsx` + `ui/ShinyText.tsx`(见 [`ui.md#disclosurerow`](ui.md#disclosurerow) / [`#shinytext`](ui.md#shinytext)) | 思考策略文案(仍在 `ThinkingMessage`);不要把开合状态塞进 snapshot |
 | 用户气泡外壳 | `ui/MessageSurface/`(见 [`ui.md#messagesurface`](ui.md#messagesurface),无角色词)+ `UserMessage.tsx` 的对齐/间距 | 不要在 Surface 上加 user/assistant 语义 |
 | 思考行交互与默认开合 | `ThinkingMessage.tsx` | 不要把开合状态塞进 snapshot |
-| 列表间距、message 分组、贴底、「生成中」 | `ConversationView.tsx` | 不要为了「生成中」嗅探最后一块 kind |
+| 列表间距、message 分组、「生成中」 | `ConversationView.tsx` | 不要为了「生成中」嗅探最后一块 kind；贴底在 `Conversation.tsx` 的 `StickToBottom` |
 | 色/字号/圆角 token | `src/index.css` + [`design-system.md`](design-system.md) | 不要在块组件里写死 hex |
 
 > 任何 ui 组件的「何时用 / 何时不用 / API」,查 [`docs/ui.md`](ui.md);不在本表重复。

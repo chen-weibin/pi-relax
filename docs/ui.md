@@ -212,7 +212,7 @@
 <MarkdownView
   text={markdown}
   mode="static"               // 'static' | 'streaming',默认 'static'
-  isAnimating={false}         // 流式时是否走 streamdown 自带动画(光标 / 高亮)
+  isAnimating={false}         // 流式进行中：禁用复制、代码块内跟底、并播 animated
   className="…"
 />
 ```
@@ -221,8 +221,8 @@
 |---|---|
 | `mode='static'` | 完整 Markdown,`parseIncompleteMarkdown=false` |
 | `mode='streaming'` | 未闭合语法自动补全(`**` → `<strong>` 推迟闭合、` ``` ` → 临时占位),适合边渲染边收 |
-| `isAnimating` | 仅 `mode='streaming'` 下生效;控制 streamdown 的 cursor / token 高亮动画 |
-| `animated` | 强制 `false`(项目里 streamdown 自带动画与贴底滚动冲突,关闭) |
+| `isAnimating` | 流式进行中为 true：禁用代码块复制、代码块内部贴底、并启用 `animated` |
+| `animated` | `blurIn` / 200ms / ease-out；仅 `isAnimating` 时拆词淡入，历史消息不套动画 DOM |
 | `lineNumbers` | `true`(围栏代码块显示行号) |
 | `controls` | 代码块复制开、下载关;mermaid 下载关,全屏/复制走官方默认 |
 | `plugins` | `@streamdown/code`(Shiki)、`mermaid`、`math`(KaTeX,`$$` 定界)、`cjk` |

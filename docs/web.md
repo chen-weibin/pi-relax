@@ -219,7 +219,7 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
 
 对话区渲染的分层、数据模型、runtime、滚动/打字机约定、mock 与真实事件边界,见 [`docs/web-conversation.md`](web-conversation.md)(改对话列表、块类型、贴底滚动、打字机,或把 mock feed 换成 `AgentSessionEvent` 时查阅)。打磨消息卡片 / 思考折叠 / Markdown / 打字机观感时也先看该文档的「打磨 UI」节,再改 `ui/` 或 `components/conversation/`。本节只记接入点。
 
-消息列与 Composer 共用 `max-w-[800px]` + `px-4` 居中。贴底滚动:[`hooks/useStickToBottom.ts`](../app/web/src/hooks/useStickToBottom.ts)(观察内容尺寸,依赖 `revision`)。数据层在 [`src/conversation/`](../app/web/src/conversation/)(类型 + runtime,不是 UI);组装与渲染在 [`components/conversation/`](../app/web/src/components/conversation/)。
+消息列与 Composer 共用 `max-w-[800px]` + `px-4` 居中。列贴底用 [`use-stick-to-bottom`](https://www.npmjs.com/package/use-stick-to-bottom)(`StickToBottom`，`initial`/`resize` 均为 `instant`；发送与模拟流式强制 `scrollToBottom`)。Streamdown `animated` 只管文字出现，不管列表滚动；代码块内部滚动仍由 `isAnimating` + MarkdownView 外壳 max-height 处理。数据层在 [`src/conversation/`](../app/web/src/conversation/)(类型 + runtime,不是 UI);组装与渲染在 [`components/conversation/`](../app/web/src/components/conversation/)。
 
 思考块(历史与流式同一套):默认收起,随时可展开/收起;流式时标题走 `ShinyText` 扫光(`DisclosureRow` 的 `blinking`);展开后正文用 `MarkdownView`,`mode='streaming'` 让未闭合语法被自动修补。`isAnimating={open && streaming}` 跟原打字机 `playing` 语义对齐。DevToolbar 只留「历史渲染 / 模拟流式」。这三个组件的「何时用 / 何时不用 / 视觉细节」分别在 [`docs/ui.md` 对应小节](ui.md)。
 
@@ -268,8 +268,7 @@ src/
 ├── App.tsx                       # 嵌套两层 Group;shell 状态从 common store 切片读取
 ├── conversation/                 # 会话数据层:类型 + createBlockRuntime(详见 docs/web-conversation.md)
 ├── hooks/
-│   ├── usePersistedPanelLayout.ts # 每个 groupId 一份 layout 宽度持久化
-│   └── useStickToBottom.ts       # 贴底滚动(ResizeObserver + revision;无领域词)
+│   └── usePersistedPanelLayout.ts # 每个 groupId 一份 layout 宽度持久化
 ├── store/                        # 全局状态(详见下文 "状态管理 (store/)" 小节)
 │   ├── index.ts                 #   统一 re-export
 │   └── common.ts                #   common store:shell 状态(toggles + mainView)
