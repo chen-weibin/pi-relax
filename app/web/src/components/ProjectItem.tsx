@@ -9,7 +9,7 @@ import { IconButton } from '../ui/IconButton'
 import { SessionItem, type SessionItemProps } from './SessionItem'
 
 export interface ProjectItemSession
-	extends Pick<SessionItemProps, 'title' | 'createdAt' | 'active' | 'onClick'> {
+	extends Pick<SessionItemProps, 'title' | 'createdAt' | 'active' | 'onClick' | 'status'> {
 	id: string
 }
 
@@ -75,13 +75,14 @@ export function ProjectItem({
 					</IconButton>
 				</div>
 			</div>
-			{expanded && sessions.length > 0 && (
+{expanded && sessions.length > 0 && (
 				<div className="mt-0.5 flex flex-col gap-0.5">
 					{sessions.map((s) => (
 						<SessionItem
 							key={s.id}
 							title={s.title}
 							createdAt={s.createdAt}
+							{...(s.status ? { status: s.status } : {})}
 							{...(s.active !== undefined ? { active: s.active } : {})}
 							{...(s.onClick ? { onClick: s.onClick } : {})}
 						/>

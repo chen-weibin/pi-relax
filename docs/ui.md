@@ -34,6 +34,8 @@
 | 标题 + 展开收起(chevron + 高度过渡 + 标题可扫光) | [`DisclosureRow`](#disclosurerow) | 不要写本地 `<button>` + `<svg>` + `useState` 三件套 |
 | 任意区域的高度过渡展开(无 header) | [`Expandable`](#expandable) | 不要自己写 `max-height` 凑数(无法适配动态内容高度);不要为单处使用装 `framer-motion` |
 | 轻量卡片外壳(无角色语义) | [`MessageSurface`](#messagesurface) | 不要在块组件里手写 `bg-surface rounded-md border-border` 之类的样式散落 |
+| 点阵 loading(3×3 / 4×4,多尺寸多形状) | [`DotMatrix`](#dotmatrix) | 不要为单个 loading 写一次性 `<div>` 网格 + 自写 CSS `@keyframes`(`motion/react` 已在依赖里) |
+| 单点状态指示(成功 / 失败 / 已读) | [`StatusDot`](#statusdot) | 不要为 `success` / `failure` 单独写 `<div>` + 内联颜色;统一走 `StatusDot` + 项目语义色 token |
 
 ## 反例:这些事不要做
 
@@ -46,6 +48,8 @@
 | 给原子组件加 `useMemo` 缓存 style 对象 / 三元 ReactNode | 没有 profile 证据的优化都是复杂度;`useMemo` 命中窗口极短、收益可忽略,代价是阅读干扰 |
 | 重新写一个 `framer-motion` 的高度过渡替代 `Expandable` | `Expandable` 用原生 `grid-template-rows: 0fr ↔ 1fr` 已经解决,装一个 50KB+ 的动画库只为「容器高度过渡」不划算 |
 | 在 `MarkdownView` 外又写一套 `<Streamdown>` 配置 | 流式/静态/动画三件套已经被 `MarkdownView` 收敛,直接复用 |
+| 用一次性 4 个 `<span>` + 自写 `@keyframes dot-pulse` 做 loading | 用 `DotMatrix`,已经覆盖尺寸 / 栅格 / 点形 / 动画算法四种轴 |
+| 在会话/列表前缀直接写 `<span className="h-1.5 w-1.5 rounded-full bg-green-400">` | 用 `StatusDot`,颜色走 `--success` / `--error` / `--fg-3`,跟随主题 |
 
 ## Expandable
 
@@ -273,6 +277,87 @@
 - `playing=true` 时按 `charsPerSec` 累加,每帧切 grapheme,追到末尾停
 - grapheme 缓存:相同前缀复用,避免每帧 `Intl.Segmenter` 重切整段
 - `text` 变化时增量追加(若新文本是旧文本的前缀扩展,缓存续上)
+
+## DotMatrix
+
+单文件 `ui/DotMatrix.tsx`。基于 `motion/react` 的 9 / 16 点阵 loading,每个点用独立 `animation-delay` 形成「乱中有序」的循环闪烁。`role="status"` + `aria-label`,`prefers-reduced-motion` 由调用方决定(`motion` 在 `reduce` 下自动停帧)。
+
+**查阅时机**:在任何 loading / 生成中 / 流式等待场景需要一个轻量视觉占位时使用。
+
+**何时用**:
+
+- 整片区域 < 30 px(按钮内、列表项前缀、状态指示)
+- 需要「一直在动、有节奏但不机械」的视觉
+- 需要可调尺寸 / 栅格 / 点形 / 节奏算法
+
+**何时不用**:
+
+- 需要圆环 spinner / 进度条 / 骨架屏 → 另写专用组件
+- 需要彩色 / 多状态(成功 / 错误) → `DotMatrix` 只有单一 loading 形态
+- 尺寸 > 30 px:`DotMatrix` 设计上只覆盖小尺寸,放大后点会糊
+
+**API**:
+
+```tsx
+<DotMatrix
+  size="md"            // 'xs' 12 | 'sm' 16 | 'md' 20 | 'lg' 24,默认 md
+  grid="3x3"           // '3x3' | '4x4',默认 3x3
+  shape="rounded"      // 'round' 圆 | 'rounded' 圆角方,默认 rounded
+  algorithm="chaotic"  // 'chaotic' 乱中有序 | 'rotation' 顺时针绕中心,默认 chaotic
+  className="…"        // 透传
+  label="Loading"      // aria-label
+/>
+```
+
+**行为**:
+
+- 9 / 16 个点(取决于 `grid`),背景色 `var(--fg-3)`,亮态 opacity 1,暗态 0.2
+- `chaotic`:`delay[i] = (i × 173) mod 800` — 经典「乱中有序」,视觉上无明显轨迹
+- `rotation`:每个点的 `delay` 由「极角(CW 从顶) + ±50ms 抖动」决定,整体呈顺时针脉冲,4×4 视觉最明显
+- 周期 800ms,`easeInOut`,infinite loop
+
+**踩坑**:
+
+- 不要把 `DotMatrix` 套在 `motion/react` 已经控动画的元素里(例如 `ShinyText` 内) — 动画引擎冲突,闪烁不规则
+- `aria-label` 默认「Loading」;若放进「正在生成 / 思考中」语境,调用方应覆盖为对应文案
+
+## StatusDot
+
+单文件 `ui/StatusDot.tsx`。6px 实心圆点,三种 kind 对应项目语义色:`success → var(--success)`、`failure → var(--error)`、`normal → var(--fg-3)`。`role="status"` + `aria-label`。
+
+**查阅时机**:在会话/列表前缀需要「成功 / 失败 / 已读」单一指示时使用。
+
+**何时用**:
+
+- 列表项前缀位置需要一个小色点传达会话状态
+- 想跟随主题切换(亮/暗模式)而不是写死 Tailwind 色值
+- 状态语义是固定的几种(success / failure / normal / 后续扩展)
+
+**何时不用**:
+
+- 需要图标 / 多字符 / 复杂视觉(如带勾的圆) → 自己写 SVG 或另开组件
+- 需要动画(进行中闪烁) → 用 [`DotMatrix`](#dotmatrix)
+- 颜色超出 `--success` / `--error` / `--fg-3` 范围(自定义品牌色) → `StatusDot` 不接受自定义颜色,改用普通 `<span>` 内联 `bg-{color}`
+
+**API**:
+
+```tsx
+<StatusDot
+  kind="success"    // 'success' | 'failure' | 'normal'
+  className="…"     // 透传
+  label="…"         // aria-label,默认 = kind
+/>
+```
+
+**行为**:
+
+- 尺寸固定 6×6 px(Tailwind `h-1.5 w-1.5`),不接受尺寸 prop — 设计上就是会话前缀这个固定用法
+- 颜色走 CSS 变量,跟随主题;调用方不可覆盖
+
+**踩坑**:
+
+- `kind` 改变只是换颜色,不会重新挂载节点 — 不要假设组件内部会因为 `kind` 切换做动画;需要过渡自己加 `transition-colors`
+- 在亮色主题下 `--fg-3` 可能对比度不足,后续如发现可见性问题,要么换 token 要么允许 `kind` 加一个 `muted` 变体
 
 ## MessageSurface
 

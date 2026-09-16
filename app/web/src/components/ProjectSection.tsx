@@ -22,7 +22,12 @@ function buildMockProjects(): Project[] {
 			id: 'p-vscode-ext',
 			name: 'cloudlab/vscode-extension/vscode-paper',
 			sessions: [
-				{ id: 's1', title: '(1) 111UI implementation ...', createdAt: now - 20 * HOUR },
+				{
+					id: 's1',
+					title: '(1) 111UI implementation ...',
+					createdAt: now - 20 * HOUR,
+					status: 'loading',
+				},
 			],
 		},
 		{
@@ -37,12 +42,42 @@ function buildMockProjects(): Project[] {
 			id: 'p-web-os',
 			name: 'cloudlab/web-os-platform',
 			sessions: [
-				{ id: 's4', title: 'https://s.apifox.cn/45cd9...', createdAt: now - 18 * HOUR },
-				{ id: 's5', title: 'Course detail sharing issue', createdAt: now - 1 * DAY },
-				{ id: 's6', title: 'Course detail sharing issue', createdAt: now - 1 * DAY },
-				{ id: 's7', title: 'Card style optimization', createdAt: now - 7 * DAY },
-				{ id: 's8', title: 'Activity task display styles', createdAt: now - 8 * DAY },
-				{ id: 's9', title: 'Course detail page logic', createdAt: now - 8 * DAY },
+				{
+					id: 's4',
+					title: 'https://s.apifox.cn/45cd9...',
+					createdAt: now - 18 * HOUR,
+					status: 'success',
+				},
+				{
+					id: 's5',
+					title: 'Course detail sharing issue',
+					createdAt: now - 1 * DAY,
+					status: 'failure',
+				},
+				{
+					id: 's6',
+					title: 'Course detail sharing issue',
+					createdAt: now - 1 * DAY,
+					status: 'success',
+				},
+				{
+					id: 's7',
+					title: 'Card style optimization',
+					createdAt: now - 7 * DAY,
+					status: 'normal',
+				},
+				{
+					id: 's8',
+					title: 'Activity task display styles',
+					createdAt: now - 8 * DAY,
+					status: 'normal',
+				},
+				{
+					id: 's9',
+					title: 'Course detail page logic',
+					createdAt: now - 8 * DAY,
+					status: 'normal',
+				},
 			],
 		},
 		{
