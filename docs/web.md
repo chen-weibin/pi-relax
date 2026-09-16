@@ -396,9 +396,9 @@ ProjectSection
 
 **交互行为**:
 
-- **section 整体折叠**:点 header 中的「项目 + chevron」整块(hover 时 chevron 显形),`sectionExpanded` 切换;折叠时整个项目列表卸载。
+- **section 整体折叠**:点 header 中的「项目 + chevron」整块(hover 时 chevron 显形),`sectionExpanded` 切换;折叠走外层 `<Expandable duration={200}>` 高度过渡(`grid-template-rows: 0fr ↔ 1fr`,200ms `ease-out`),项目列表常驻以保证动画可播。
 - **header 右侧 IconButton**(filter / add-folder):用 `IconButton` 默认 size(等同 `UserBar` 设置按钮),点击各自 handler;不影响 header toggle。
-- **项目展开/收起**:点项目行 toggle,`expandedIds: Set<string>` 记录状态;展开后才挂载 `SessionItem` 列表,不是 CSS hide — 收起时整段 DOM 卸载,免内存。
+- **项目展开/收起**:点项目行 toggle,`expandedIds: Set<string>` 记录状态;展开/收起走 `<Expandable duration={200}>` 高度过渡(`grid-template-rows: 0fr ↔ 1fr`,200ms `ease-out`),`SessionItem` 列表常驻以保证动画可播。
 - **项目 icon 切换**:默认显示 folder(展开=open,收起=closed),hover 时切到 chevron(展开=rotate-90 朝下,收起=朝右)。folder 在 14×14 槽内,chevron 缩到 10×10 居中,通过 `group` + `group-hover/row:hidden` / `group-hover/row:flex` 切换,两种 icon 绝对定位重叠占同 14×14 槽,布局不抖。
 - **项目 + 按钮**:`opacity-0 group-hover/row:opacity-100`,加 `pointer-events-none` → `group-hover/row:pointer-events-auto` 让 hover 区域可点击,不在 hover 时穿透。`absolute right-2.5 top-1/2 -translate-y-1/2` 居中,IconButton box 右边缘与 session 时间文字右边缘对齐。
 - **项目行 hover pr 展开**:`group-hover/row:pr-8`(32px),给 + 按钮腾位;非 hover 时 `pr-2.5`(10px),文字贴近右边。

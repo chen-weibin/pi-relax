@@ -5,6 +5,7 @@ import {
 	FolderOpenIcon,
 	PlusIcon,
 } from '../icons'
+import { Expandable } from '../ui/Expandable'
 import { IconButton } from '../ui/IconButton'
 import { SessionItem, type SessionItemProps } from './SessionItem'
 
@@ -75,20 +76,22 @@ export function ProjectItem({
 					</IconButton>
 				</div>
 			</div>
-{expanded && sessions.length > 0 && (
-				<div className="mt-0.5 flex flex-col gap-0.5">
-					{sessions.map((s) => (
-						<SessionItem
-							key={s.id}
-							title={s.title}
-							createdAt={s.createdAt}
-							{...(s.status ? { status: s.status } : {})}
-							{...(s.active !== undefined ? { active: s.active } : {})}
-							{...(s.onClick ? { onClick: s.onClick } : {})}
-						/>
-					))}
-				</div>
-			)}
+<Expandable open={expanded} duration={200}>
+				{sessions.length > 0 && (
+					<div className="mt-0.5 flex flex-col gap-0.5">
+						{sessions.map((s) => (
+							<SessionItem
+								key={s.id}
+								title={s.title}
+								createdAt={s.createdAt}
+								{...(s.status ? { status: s.status } : {})}
+								{...(s.active !== undefined ? { active: s.active } : {})}
+								{...(s.onClick ? { onClick: s.onClick } : {})}
+							/>
+						))}
+					</div>
+				)}
+			</Expandable>
 		</div>
 	)
 }

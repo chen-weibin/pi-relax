@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react'
+import { Expandable } from '../ui/Expandable'
 import { ProjectItem, type ProjectItemSession } from './ProjectItem'
 import { ProjectSectionHeader } from './ProjectSectionHeader'
 
@@ -137,7 +138,7 @@ export function ProjectSection({ className }: ProjectSectionProps) {
 					onAddProject={handleAddProject}
 				/>
 			</div>
-			{sectionExpanded && (
+			<Expandable open={sectionExpanded} duration={200}>
 				<div className="flex flex-col gap-0.5 pl-1.5 pb-1.5">
 					{projects.map((p) => (
 						<ProjectItem
@@ -150,7 +151,7 @@ export function ProjectSection({ className }: ProjectSectionProps) {
 						/>
 					))}
 				</div>
-			)}
+			</Expandable>
 		</section>
 	)
 }
