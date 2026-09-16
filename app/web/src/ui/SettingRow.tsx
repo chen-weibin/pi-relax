@@ -31,7 +31,9 @@ export function SettingRow({
 					<div className="text-sm text-fg-3">{description}</div>
 				)}
 			</div>
-			<div className="shrink-0">{children}</div>
+			<div className="flex shrink-0 self-stretch items-center">
+				{children}
+			</div>
 		</div>
 	)
 }

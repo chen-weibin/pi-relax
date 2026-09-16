@@ -36,6 +36,7 @@
 | 搜索框(带搜索图标、统一 hover/focus) | [`SearchInput`](#searchinput) | 不要写裸 `<input>` + 绝对定位 icon 的样式散落 |
 | 设置面板里的分组卡片(可选小标题) | [`SettingGroup`](#settinggroup) | 不要在 Setting 页里写裸 `<section rounded-xl bg-surface>` + `<h2>` 三件套 |
 | 设置面板里的一行(左 label + 描述,右控制区) | [`SettingRow`](#settingrow) | 不要写裸 `<div flex justify-between><div>{label}<div>{desc}</div></div><div>...</div></div>` 三层嵌套 |
+| 开关(on/off,绿色 + 灰色态) | [`Switch`](#switch) | 不要写裸 `<button role="switch">` + `translate-x-*` 自己拼 thumb 位移 |
 | 轻量卡片外壳(无角色语义) | [`MessageSurface`](#messagesurface) | 不要在块组件里手写 `bg-surface rounded-md border-border` 之类的样式散落 |
 | 点阵 loading(3×3 / 4×4,多尺寸多形状) | [`DotMatrix`](#dotmatrix) | 不要为单个 loading 写一次性 `<div>` 网格 + 自写 CSS `@keyframes`(`motion/react` 已在依赖里) |
 | 单点状态指示(成功 / 失败 / 已读) | [`StatusDot`](#statusdot) | 不要为 `success` / `failure` 单独写 `<div>` + 内联颜色;统一走 `StatusDot` + 项目语义色 token |
@@ -599,6 +600,52 @@ const [q, setQ] = useState('')
 - 上下无 padding,放进 [`SettingGroup`](#settinggroup) 时行间距由 group 的 `<div role="separator" className="my-3 h-px" />` 提供。如果放进不带分割线的容器,行会挤在一起。
 - 左右用 `items-start` 顶对齐,允许消费方的控制 widget 比左边的文字高度更高(多行 desc / slider 带副标签)。
 - 控制 widget 本身应自带宽度;外层只在右侧容器加 `shrink-0` 保证 widget 不被 label 挤窄。
+
+## Switch
+
+单文件 `ui/Switch.tsx`。开关(on/off):圆角胶囊 + 圆形 thumb,on 时 `bg-success` 绿色,off 时 `bg-fg-disabled` 中灰;thumb 用 `translate-x` 在 200ms 内位移。
+
+**查阅时机**:在 [`SettingRow`](#settingrow) 里放 on/off 控件,或评估是否写裸 `<button role="switch">` + 自己拼 thumb 位移。
+
+**何时用**:
+
+- 设置 / 偏好场景的开关键
+- 想直接拿到 `(checked: boolean) => void` 的简洁回调(而不是 `ChangeEvent<HTMLInputElement>`)
+- 颜色直接走项目 token(`bg-success` / `bg-fg-disabled`),无需自己调
+
+**何时不用**:
+
+- 需要 indeterminate 状态(三态)→ 自己写,Switch 只支持二态
+- 颜色和项目强调色不一致(品牌方要求橙色 / 紫色开关)→ 直接写,Switch 写死 success
+- 需要原生 form 集成(`<input type="checkbox">` 的 name / value / form 提交)→ 用原生 checkbox + 视觉包装
+
+**API**:
+
+| prop | 类型 | 说明 |
+|---|---|---|
+| `checked` | `boolean` | 受控值;**传了就走受控** |
+| `defaultChecked` | `boolean` | 非受控初始值;`checked` 没传才生效 |
+| `onChange` | `(checked: boolean) => void` | 切换时触发,直接拿到布尔值 |
+| `disabled` | `boolean` | 禁用,自动降透明 + 禁交互 |
+| `ariaLabel` | `string` | 屏幕阅读器朗读(放 [`SettingRow`](#settingrow) 时建议传 row 的 label) |
+| `className` | `string` | 透传到外层 button |
+
+```tsx
+// 受控
+<Switch checked={wrap} onChange={setWrap} ariaLabel="Code Block Word Wrap" />
+
+// 非受控
+<Switch defaultChecked onChange={(v) => save(v)} />
+
+// 只读 / 不需回调
+<Switch defaultChecked />
+```
+
+**踩坑备忘**:
+
+- `role="switch"` + `aria-checked` 已设好,屏幕阅读器会朗读「开关 打开 / 关闭」。
+- 点击后主动 `blur()` 避免 switch 抢焦点,保持表单焦点流自然。
+- thumb 位移 `translate-x-5` (20px) 不是完美对称(pill 40 - thumb 16 - 5*4 = 4px 右 vs 0 左),接受轻微不对称,跟原生浏览器开关一致。
 
 ## Popover
 

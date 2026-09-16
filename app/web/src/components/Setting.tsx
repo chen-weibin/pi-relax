@@ -11,6 +11,7 @@ import {
 import { SearchInput } from '../ui/SearchInput'
 import { SettingGroup } from '../ui/SettingGroup'
 import { SettingRow } from '../ui/SettingRow'
+import { Switch } from '../ui/Switch'
 import { useCommonStore } from '../store'
 import '../styles/scrollbar.css'
 
@@ -36,6 +37,7 @@ export function Setting() {
 	const toggleSetting = useCommonStore((s) => s.toggleSetting)
 	const [scrollHover, setScrollHover] = useState(false)
 	const [activeKey, setActiveKey] = useState<Category['key']>('general')
+	const [switchOn, setSwitchOn] = useState(false)
 
 	const activeCategory =
 		ALL_CATEGORIES.find((c) => c.key === activeKey) ?? ALL_CATEGORIES[0]!
@@ -113,13 +115,21 @@ export function Setting() {
 						</SettingGroup>
 
 						<SettingGroup title="子分组">
-							{PLACEHOLDER_OPTIONS.map((label) => (
+							{PLACEHOLDER_OPTIONS.map((label, i) => (
 								<SettingRow
 									key={label}
 									label={label}
 									description="待实现"
 								>
-									<div className="h-7 min-w-[80px] rounded-md border border-border-hover bg-surface" />
+									{i === 0 ? (
+										<Switch
+											checked={switchOn}
+											onChange={setSwitchOn}
+											ariaLabel={label}
+										/>
+									) : (
+										<div className="h-7 min-w-[80px] rounded-md border border-border-hover bg-surface" />
+									)}
 								</SettingRow>
 							))}
 						</SettingGroup>
