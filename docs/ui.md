@@ -33,6 +33,7 @@
 | 渐变扫光文字(标题 / CTA / loading) | [`ShinyText`](#shinytext) | 不要自己写 `linear-gradient` + `@keyframes`,也不要为单次使用装 `motion` |
 | 标题 + 展开收起(chevron + 高度过渡 + 标题可扫光) | [`DisclosureRow`](#disclosurerow) | 不要写本地 `<button>` + `<svg>` + `useState` 三件套 |
 | 任意区域的高度过渡展开(无 header) | [`Expandable`](#expandable) | 不要自己写 `max-height` 凑数(无法适配动态内容高度);不要为单处使用装 `framer-motion` |
+| 搜索框(带搜索图标、统一 hover/focus) | [`SearchInput`](#searchinput) | 不要写裸 `<input>` + 绝对定位 icon 的样式散落 |
 | 轻量卡片外壳(无角色语义) | [`MessageSurface`](#messagesurface) | 不要在块组件里手写 `bg-surface rounded-md border-border` 之类的样式散落 |
 | 点阵 loading(3×3 / 4×4,多尺寸多形状) | [`DotMatrix`](#dotmatrix) | 不要为单个 loading 写一次性 `<div>` 网格 + 自写 CSS `@keyframes`(`motion/react` 已在依赖里) |
 | 单点状态指示(成功 / 失败 / 已读) | [`StatusDot`](#statusdot) | 不要为 `success` / `failure` 单独写 `<div>` + 内联颜色;统一走 `StatusDot` + 项目语义色 token |
@@ -454,6 +455,60 @@
 - 复杂下拉菜单触发器 → [`Popover`](#popover) 自带触发器
 
 **API**: `variant: ghost | solid`,`size: sm | md`,`disabled` 自动降透明 + 禁交互,`type` 默认 `button`,透传其他原生属性(`aria-pressed` / `name` / `value` / `tabIndex` 等)。
+
+## SearchInput
+
+单文件 `ui/SearchInput.tsx`。左侧带搜索图标的输入框,统一圆角 / 字号 / hover / focus 视觉。
+
+**查阅时机**:加搜索框(设置面板搜索栏、列表过滤条),或评估是否写裸 `<input>` + 绝对定位 icon。
+
+**何时用**:
+
+- 需要左侧带搜索图标的输入框
+- 想统一 hover / focus / placeholder 视觉
+- 想让父容器通过 `px-1.5` 等外边距控制整体位置,组件内部自己处理 icon 定位
+
+**何时不用**:
+
+- 不需要左侧 icon → 裸 `<input>` 即可
+- 需要右置 icon / suffix / 清除按钮 → 直接写自己的 wrapper,这种变体不值得抽
+- 富文本输入 → [`Editor`](#editor) + `Composer`
+
+**API**:透传 `InputHTMLAttributes<HTMLInputElement>` 中除 `value` / `defaultValue` / `onChange` 外的全部属性,以下为本组件专有契约:
+
+| prop | 类型 | 默认 | 说明 |
+|---|---|---|---|
+| `value` | `string` | — | 受控值 |
+| `defaultValue` | `string` | — | 非受控初始值 |
+| `onChange` | `(value: string) => void` | — | 每次输入变化(仅传字符串,不是事件) |
+| `onSearch` | `(value: string) => void` | — | 按下 Enter / 点击搜索 icon 时触发,带当前 value |
+| `iconPosition` | `'start' \| 'end'` | `'start'` | 搜索 icon 位置,start = 输入框前、end = 输入框后 |
+| `placeholder` | `string` | — | 占位文案 |
+| `className` | `string` | — | 透传到外层 wrapper |
+
+```tsx
+<SearchInput placeholder="搜索设置" />
+
+// 受控 + 搜索回调
+const [q, setQ] = useState('')
+<SearchInput value={q} onChange={setQ} onSearch={(v) => fetch(v)} />
+
+// icon 在尾部
+<SearchInput iconPosition="end" placeholder="过滤会话" />
+
+// 非受控 + 默认值
+<SearchInput defaultValue="init" onSearch={...} />
+```
+
+**对齐约定**:外层 wrapper 用 `left-2.5` / `right-2.5` 定位 icon,输入框 `pl-9` / `pr-9` 给图标让位。配合消费方外层 `px-1.5` 的 `w-full` 容器,可与同侧 `SidebarActions` 风格按钮的图标 / 文字左对齐同列。
+
+**视觉**:输入框自带 `border border-border bg-surface`,hover / focus 时边框升级到 `border-border-hover`,bg 升级到 `surface-hover`。
+
+**踩坑备忘**:
+
+- Enter 触发搜索时会跳过 IME 组合中(`!e.nativeEvent.isComposing`),中文 / 日文输入法回车选词不会误触发搜索。
+- icon 用 `<button>` 渲染但 `tabIndex={-1}`,避免 Tab 时把焦点从输入框拽走;屏幕阅读器仍能朗读为「搜索」按钮。
+- `onChange` 故意只传 `value: string` 而非 `ChangeEvent`,比原生更省事;需要事件对象(如取 `target.name`)的消费方用 `onKeyDown` / 自定义 prop 走 `...rest`。
 
 ## Popover
 
