@@ -1,21 +1,38 @@
 import type { BlockFeedEvent } from '../../conversation'
 
-const THINKING = '先把用户消息落到卡片里，再流式输出思考，最后写正文 Markdown。折叠行只在展开时打字。'
+const THINKING = '把历史里那套 MD 格式搬到流式：h1–h3、段落 + 行内 code + 链接、嵌套 ul、有序 ol、引用、围栏代码块、分割线。chunk 仍然 3 字，方便看 syntax 自动闭合。'
 
 const ANSWER = [
-	'收到。这一轮会：',
+	'# 流式一级',
 	'',
-	'- 立刻渲染你的输入',
-	'- 思考过程可展开（打字机）',
-	'- 正文用流式 Markdown',
+	'流式状态下，未闭合语法由 streamdown 自动闭合。',
 	'',
-	'示例代码：',
+	'## 流式二级',
+	'',
+	'### 流式三级',
+	'',
+	'段落包含 **粗体**、*斜体*、`inline code`，以及一个 [内部链接](../web.md)。',
+	'',
+	'- 流式 ul A',
+	'- 流式 ul B',
+	'  - 嵌套 B.1',
+	'  - 嵌套 B.2',
+	'- 流式 ul C',
+	'',
+	'1. 流式 ol 1',
+	'2. 流式 ol 2',
+	'3. 流式 ol 3',
+	'',
+	'> 流式引用，验证 `parseIncompleteMarkdown` 不会把它提前关掉。',
 	'',
 	'```ts',
-	'runtime.apply({ type: "text_delta", delta: "…" })',
+	'const greet = (name: string) => `hi ${name}`',
+	'greet("pi")',
 	'```',
 	'',
-	'结束后思考保持你展开或收起的状态。',
+	'---',
+	'',
+	'分割线以上是代码块示例。',
 ].join('\n')
 
 function chunk(text: string, size: number): string[] {
@@ -34,7 +51,7 @@ export function buildMockStreamEvents(round: number): BlockFeedEvent[] {
 		{
 			type: 'user',
 			messageId: userId,
-			text: '帮我演示一下流式回复，带思考过程。',
+			text: '演示一下 **流式回复**，带思考过程。要看 `#` 标题、列表、`>` 引用、`code` 块和 [链接](../web.md)。',
 		},
 		{ type: 'thinking_start', messageId: asstId, contentIndex: 0 },
 	]

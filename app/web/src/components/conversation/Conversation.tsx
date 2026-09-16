@@ -1,4 +1,4 @@
-import { useRef, useSyncExternalStore } from 'react'
+import { useEffect, useRef, useSyncExternalStore } from 'react'
 import classNames from 'classnames'
 import { Composer } from '../Composer'
 import { ConversationView } from './ConversationView'
@@ -18,6 +18,10 @@ export function Conversation({ className }: Props) {
 	const snapshot = useSyncExternalStore(runtime.subscribe, runtime.getSnapshot, runtime.getSnapshot)
 	const { loadHistory, playStream } = useMockFeed(runtime)
 	const busy = isRunBusy(snapshot.runPhase)
+
+	useEffect(() => {
+		loadHistory()
+	}, [loadHistory])
 
 	return (
 		<div className={classNames('flex min-h-0 flex-1 flex-col', className)}>

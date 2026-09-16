@@ -115,3 +115,8 @@ adapter 建议将来放 `app/web/src/conversation/adaptAgentSession.ts`（或 se
 - tool / 图片 / 错误块 UI（类型可加）
 - 把 `revealPhase` 接回 runtime
 - 把 `src/conversation/` 数据层并进 `components/conversation/`（与 UI 分目录；职责见上文分层）
+
+## 调试期默认
+
+- `Conversation.tsx` 挂载即 `useEffect(loadHistory)`:打开页面直接看到历史快照,免手动点 DevToolbar。DevToolbar 的「loadHistory / playStream」按钮保留,用于在流式之后回到快照 / 重放。
+- 历史与流式 fixture(`mock/conversation/history.ts`、`stream.ts`)覆盖 `MarkdownView` 支持的全部格式(标题、段落含 bold/italic/inline code/link、嵌套 ul、ol、blockquote、围栏代码块、hr),方便逐项调试视觉。详见 [`docs/ui.md` §MarkdownView](ui.md#markdownview)。
