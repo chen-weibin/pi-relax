@@ -14,6 +14,7 @@ import { SettingRow } from '../ui/SettingRow'
 import { Switch } from '../ui/Switch'
 import { Select, type SelectOption } from '../ui/Select'
 import { NumberStepper } from '../ui/NumberStepper'
+import { ProgressBar } from '../ui/ProgressBar'
 import { useCommonStore } from '../store'
 import '../styles/scrollbar.css'
 
@@ -81,6 +82,7 @@ export function Setting() {
 	const [staticPick, setStaticPick] = useState<string | undefined>()
 	const [remotePick, setRemotePick] = useState<string | undefined>()
 	const [stepperVal, setStepperVal] = useState(13)
+	const [progressVal, setProgressVal] = useState(0)
 
 	const activeCategory =
 		ALL_CATEGORIES.find((c) => c.key === activeKey) ?? ALL_CATEGORIES[0]!
@@ -199,6 +201,15 @@ export function Setting() {
 											min={1}
 											max={99}
 											ariaLabel={label}
+										/>
+									) : i === 4 ? (
+										<ProgressBar
+											value={progressVal}
+											onChange={setProgressVal}
+											width={130}
+											filled={false}
+											ariaLabel={label}
+											className="pr-2"
 										/>
 									) : (
 										<div className="h-7 min-w-[80px] rounded-md border border-border-hover bg-surface" />

@@ -39,6 +39,7 @@
 | 开关(on/off,绿色 + 灰色态) | [`Switch`](#switch) | 不要写裸 `<button role="switch">` + `translate-x-*` 自己拼 thumb 位移 |
 | 选择器(静态 / 懒加载 / 搜索三合一) | [`Select`](#select) | 不要写裸 `<select>`(样式难统一),也不要在 Setting 里再写 `<Popover>` + 自己造 listbox |
 | 数字步进器(- n + 圆角 pill) | [`NumberStepper`](#numberstepper) | 不要写裸 `<div flex><button>-</button><span>{n}</span><button>+</button></div>` 三段散落 |
+| 连续范围拖拽(0–100% / 任意区间,带 thumb + 槽位) | [`ProgressBar`](#progressbar) | 不要写裸 `<input type="range">`(样式无法走 token、a11y / 键盘 / pointer capture 都要自己粘) |
 | 轻量卡片外壳(无角色语义) | [`MessageSurface`](#messagesurface) | 不要在块组件里手写 `bg-surface rounded-md border-border` 之类的样式散落 |
 | 点阵 loading(3×3 / 4×4,多尺寸多形状) | [`DotMatrix`](#dotmatrix) | 不要为单个 loading 写一次性 `<div>` 网格 + 自写 CSS `@keyframes`(`motion/react` 已在依赖里) |
 | 单点状态指示(成功 / 失败 / 已读) | [`StatusDot`](#statusdot) | 不要为 `success` / `failure` 单独写 `<div>` + 内联颜色;统一走 `StatusDot` + 项目语义色 token |
@@ -56,6 +57,7 @@
 | 在 `MarkdownView` 外又写一套 `<Streamdown>` 配置 | 流式/静态/动画三件套已经被 `MarkdownView` 收敛,直接复用 |
 | 用一次性 4 个 `<span>` + 自写 `@keyframes dot-pulse` 做 loading | 用 `DotMatrix`,已经覆盖尺寸 / 栅格 / 点形 / 动画算法四种轴 |
 | 在会话/列表前缀直接写 `<span className="h-1.5 w-1.5 rounded-full bg-green-400">` | 用 `StatusDot`,颜色走 `--success` / `--error` / `--fg-3`,跟随主题 |
+| 给 `ProgressBar` 加 `color` / `trackColor` / `thumbColor` 等 per-instance 颜色 prop | 颜色走 token(`bg-fg-3` / `bg-border-hover`);想换色通过外层 `className` + 子选择器覆盖,不要把调色板塞进 API |
 
 ## Expandable
 
@@ -715,6 +717,79 @@ const [q, setQ] = useState('')
 - 受控模式:若 `onChange` 内部没更新 `value`,按钮看起来"按了没反应"——这是 React 受控组件语义,不是 bug。
 - 边界按钮 disabled 时 `onChange` 不调用;若需要"到边界也能通知",自己在外层 onChange 里 clamp 后再写。
 - 外层 `overflow-hidden` 让两端按钮的 hover 高亮不会越出 pill 圆角;**内部不加分隔线**(避免边框 + 分割线两层视觉噪音),依赖外层 pill 的边框区分三段。
+
+## ProgressBar
+
+单文件 `ui/ProgressBar.tsx`。水平拖拽滑块:track + 圆形 thumb + 可选数值槽位。`role="slider"` + `aria-valuemin/max/now` + 键盘(`←`/`→`/`Home`/`End`/`PageUp`/`PageDown`)+ pointer capture 拖拽。
+
+**查阅时机**:在 [`SettingRow`](#settingrow) 里放连续范围控件(百分比 / 字号 / 透明度 / 任意 min–max),或评估是否写裸 `<input type="range">`。
+
+**何时用**:
+
+- 连续范围选择(想直接拖到任意点,而不是 ±1 步进)
+- 想直接拿到 `(value: number) => void` 的简洁回调(而不是 `ChangeEvent<HTMLInputElement>`)
+- 想让 thumb / fill / track 颜色自动跟随 token(`bg-fg-3` / `bg-border-hover`)
+- 想统一键盘 / 触摸 / pointer capture / 数值槽位格式化(`renderValue` 返回 `ReactNode`)
+
+**何时不用**:
+
+- 离散整数 / 小数步进 → [`NumberStepper`](#numberstepper)
+- 二态开关 → [`Switch`](#switch)
+- 单选下拉 → [`Select`](#select)
+- 需要原生 form 集成(`<input type="range">` 的 `name` / `value` / form 提交)→ 用原生 `range` + 视觉包装
+- 垂直方向 / 多 thumb(range selection)→ 自己写,本组件只支持单值水平
+
+**API**:
+
+```tsx
+<ProgressBar
+  value={progress}                  // 受控;传了就走受控
+  defaultValue={0}                  // 非受控初始值
+  onChange={setProgress}            // 每次变化(已 clamp + snap 到 step)
+  min={0}                           // 下界,默认 0
+  max={100}                         // 上界,默认 100
+  step={1}                          // 步长,默认 1
+  disabled={false}
+  showValue={true}                  // 是否渲染数值槽位,默认 true
+  renderValue={(v, p) => `${p}%`}   // 自定义槽位内容(返回 ReactNode)
+  valuePosition="after"             // 'before' | 'after',默认 'after'
+  block={false}                     // 外层改 `flex w-full`,占满父容器
+  width={140}                       // 显式宽度(number = px,string 透传如 '50%' / '10rem');默认 wrapper 宽度 100
+  filled={true}                     // 拖动过的部分是否用颜色填充(默认 true);`false` 时只剩 thumb 指示位置,track 统一 `bg-border-hover`
+  ariaLabel="…"                     // 屏幕阅读器朗读
+  className="…"                     // 透传到外层 wrapper
+/>
+```
+
+| 项 | 值 |
+|---|---|
+| 外层 | 默认 `inline-flex h-[26px] w-[100px] items-center gap-2`(与 `NumberStepper` / `Select` 同高,放进 `SettingRow` 右槽自然对齐);`block` 或 `width` 任一为 true 时切换为 `flex h-[26px] items-center gap-2`,`block` 再追加 `w-full`,`width` 通过 inline `style.width` 写入 |
+| 数值槽位 | `text-right text-md tabular-nums text-fg-2`(`tabular-nums` 让数字等宽;**无** `min-w`,槽位按内容自适应,避免视觉上"内部留白 + gap"叠加成大间距) |
+| Track | 相对定位 `flex h-3 flex-1`,背景 `absolute inset-x-0 h-1 bg-border-hover`,**可选**填充 `absolute left-0 h-1 bg-fg-3`(宽度 = `value` 对应的 `percent`,`filled=false` 时不渲染) |
+| Thumb | 12×12 `relative h-3 w-3 rounded-full bg-fg-2 shadow`,`style={{ left: \`calc(${pct}% - 6px)\` }}` 让 thumb 中心对齐百分位;hover / focus → `bg-fg-bright`(默认 `bg-fg-2` 比 fill `bg-fg-3` 亮一档,与填充色有区分度) |
+| 交互 | `onPointerDown` 起抓 + `setPointerCapture` + `updateFromClientX`;`onPointerMove` 在捕获态才更新;`onPointerUp` / `onPointerCancel` 释放 |
+| 键盘 | `←`/`↓` `-step`、`→`/`↑` `+step`、`Home` → `min`、`End` → `max`、`PageUp`/`PageDown` ±`Math.max(step, (max-min)/10)`(再 snap) |
+| Disabled | 整体 `opacity-50`;pointer / keydown 直接 return;`tabIndex={-1}` |
+| 受控 / 非受控 | `isControlled = value !== undefined`,模式同 [`NumberStepper`](#numberstepper) |
+| 钳制 | `clamp(rawCurrent, min, max)` 用于显示;`commit` 时也 `clamp(snap(...), min, max)`,消费方拿到的永远是区间内 + step 对齐值 |
+
+**实现要点**:
+
+- `valueFromPointer(ratio, lo, hi, step)` 把 `[0, 1]` 的鼠标位置算成 `(lo + ratio * (hi - lo))` → `snap` → `clamp`。所有计算在模块作用域的纯函数里,组件只负责事件绑定 + state 写回。
+- `commit(next)` 是唯一的写路径:clamp 后若等于当前值直接 return(避免重复 `onChange`);否则 `setInternal`(非受控)+ `onChange?.(clamped)`。
+- 受控模式下父组件传入越界值时,thumb 用 `clamp(rawCurrent, min, max)` 显示,不会"飞出去";但不会反向通知父组件修正(由父组件自行管理状态)。
+
+**与 token 的配合**:track / fill / thumb 颜色全部走 CSS 变量(`bg-border-hover` / `bg-fg-3` / `bg-fg-bright`),跟随主题切换。消费方若要换色,通过 `className` 传 `[&_.bg-fg-3]:bg-accent` 之类的子选择器覆盖 — 不在组件 API 里开 per-instance 颜色 prop。
+
+**踩坑备忘**:
+
+- 不要给 `<input type="range">` 套样式替代本组件 — 浏览器原生 thumb 在 Chrome / Safari / Firefox 视觉差很大,且 pointer capture 需要自己粘。
+- 受控 + 父组件 `value` 没更新,thumb 看起来"按了没反应"——这是 React 受控组件语义,不是 bug。父组件必须在 `onChange` 里 `setState`。
+- 拖拽时浏览器默认会选中 track 周围文本,`touch-none select-none` + `e.preventDefault()` 双重阻断。
+- 右键点击(`e.button !== 0`)不应触发移动;本组件 guard 在 pointerdown 处(仅鼠标指针类型生效,触摸 / 笔不受影响)。
+- `PageUp`/`PageDown` 的步长 `Math.max(step, (max - min) / 10)`:在窄区间(如 `min=0, max=5`)`step=1` 时不会小于 step,避免 `snap` 把结果四舍五入回 current 导致 no-op;在默认 0–100 时仍按 10% 跳。
+- thumb 在 0% / 100% 边缘会有一半溢出 track(中心对齐 edge)。这是常见 UX 约定,本组件不特意内缩 — 若需要严格内缩,改 thumb `left` 为 `calc(${pct}% ) + 半 thumb 内偏移`,但需要重新算 fill 边界,得不偿失。
+- `block` 需要父容器有显式 / 可计算的宽度才能"占满整行":放进 `SettingRow` 右槽(`shrink-0` content-sized)时 `block` 不会变宽 — 这时改用 `width={N}` 给具体像素。`block` 适用于 Modal / Drawer / 独立全宽行等父容器已经有 width 的场景。
 
 ## Select
 

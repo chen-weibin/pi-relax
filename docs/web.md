@@ -177,6 +177,7 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
 | `MessageSurface` | 轻量卡片外壳,无角色语义 | [`ui.md#messagesurface`](ui.md#messagesurface) |
 | `DotMatrix` | 点阵 loading(9/16 点,乱中有序 / 顺时针两种节奏) | [`ui.md#dotmatrix`](ui.md#dotmatrix) |
 | `StatusDot` | 6px 单点状态指示(success / failure / normal) | [`ui.md#statusdot`](ui.md#statusdot) |
+| `ProgressBar` | 水平拖拽滑块 + 数值槽位(thumb / track / 键盘 / pointer capture) | [`ui.md#progressbar`](ui.md#progressbar) |
 
 > 用谁 / 别造轮子 → [`docs/ui.md` 决策表](ui.md#决策表该用哪个) + [反例表](ui.md#反例这些事不要做)。
 
