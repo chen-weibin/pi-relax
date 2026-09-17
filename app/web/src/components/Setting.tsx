@@ -13,6 +13,7 @@ import { SettingGroup } from '../ui/SettingGroup'
 import { SettingRow } from '../ui/SettingRow'
 import { Switch } from '../ui/Switch'
 import { Select, type SelectOption } from '../ui/Select'
+import { NumberStepper } from '../ui/NumberStepper'
 import { useCommonStore } from '../store'
 import '../styles/scrollbar.css'
 
@@ -79,6 +80,7 @@ export function Setting() {
 	const [switchOn, setSwitchOn] = useState(false)
 	const [staticPick, setStaticPick] = useState<string | undefined>()
 	const [remotePick, setRemotePick] = useState<string | undefined>()
+	const [stepperVal, setStepperVal] = useState(13)
 
 	const activeCategory =
 		ALL_CATEGORIES.find((c) => c.key === activeKey) ?? ALL_CATEGORIES[0]!
@@ -189,6 +191,14 @@ export function Setting() {
 											pageSize={10}
 											dropdownWidth={200}
 											placement="bottom-end"
+										/>
+									) : i === 3 ? (
+										<NumberStepper
+											value={stepperVal}
+											onChange={setStepperVal}
+											min={1}
+											max={99}
+											ariaLabel={label}
 										/>
 									) : (
 										<div className="h-7 min-w-[80px] rounded-md border border-border-hover bg-surface" />

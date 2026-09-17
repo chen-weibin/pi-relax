@@ -38,6 +38,7 @@
 | 设置面板里的一行(左 label + 描述,右控制区) | [`SettingRow`](#settingrow) | 不要写裸 `<div flex justify-between><div>{label}<div>{desc}</div></div><div>...</div></div>` 三层嵌套 |
 | 开关(on/off,绿色 + 灰色态) | [`Switch`](#switch) | 不要写裸 `<button role="switch">` + `translate-x-*` 自己拼 thumb 位移 |
 | 选择器(静态 / 懒加载 / 搜索三合一) | [`Select`](#select) | 不要写裸 `<select>`(样式难统一),也不要在 Setting 里再写 `<Popover>` + 自己造 listbox |
+| 数字步进器(- n + 圆角 pill) | [`NumberStepper`](#numberstepper) | 不要写裸 `<div flex><button>-</button><span>{n}</span><button>+</button></div>` 三段散落 |
 | 轻量卡片外壳(无角色语义) | [`MessageSurface`](#messagesurface) | 不要在块组件里手写 `bg-surface rounded-md border-border` 之类的样式散落 |
 | 点阵 loading(3×3 / 4×4,多尺寸多形状) | [`DotMatrix`](#dotmatrix) | 不要为单个 loading 写一次性 `<div>` 网格 + 自写 CSS `@keyframes`(`motion/react` 已在依赖里) |
 | 单点状态指示(成功 / 失败 / 已读) | [`StatusDot`](#statusdot) | 不要为 `success` / `failure` 单独写 `<div>` + 内联颜色;统一走 `StatusDot` + 项目语义色 token |
@@ -662,6 +663,58 @@ const [q, setQ] = useState('')
 - `role="switch"` + `aria-checked` 已设好,屏幕阅读器会朗读「开关 打开 / 关闭」。
 - 点击后主动 `blur()` 避免 switch 抢焦点,保持表单焦点流自然。
 - thumb 位移 `translate-x-4` (16px,pill 32 - thumb 14 - 左右各 2px padding = 16),左右对称,跟 input 同步缩放后的尺寸对齐。
+
+## NumberStepper
+
+单文件 `ui/NumberStepper.tsx`。数字步进器:圆角 pill 容器,内三段(`-` / 数字 / `+`),**只外层有边框,内部不分隔**;两端的按钮复用 [`IconButton`](#iconbutton)(ghost,sm,`px-2`,图标缩到 12px),图标用项目 `MinusIcon` / `PlusIcon`。中间数字 `min-w-[3rem]` 防位数变化挤压,`aria-live="polite"` 让屏幕阅读器感知变化。
+
+**查阅时机**:在 [`SettingRow`](#settingrow) 里放离散整数 / 小数步进(字号、行距、并发数、采样率等),或评估是否写裸 `<div flex>` + 两个 button + span 三段散落。
+
+**何时用**:
+
+- 步长固定、值有自然上下界(整数或可量化的小数)
+- 想直接拿到 `(value: number) => void` 的简洁回调
+- 默认 26px 高度,放进 [`SettingRow`](#settingrow) 右槽与 `Select` / `Switch` 自然同高
+
+**何时不用**:
+
+- 连续范围选择(想拖拽看所有可能)→ 自己写 range input
+- 输入值域很大 / 不可枚举(>1000 步)→ 直接给 `<input type="number">` 或文本框
+- 需要原生 form 集成(name / value / form 提交)→ 用原生 number input + 视觉包装
+- 多值联动(同时调几个相关字段)→ 自己写 panel,NumberStepper 只管单字段
+
+**API**:
+
+| prop | 类型 | 说明 |
+|---|---|---|
+| `value` | `number` | 受控值;**传了就走受控** |
+| `defaultValue` | `number` | 非受控初始值;`value` 没传才生效 |
+| `onChange` | `(value: number) => void` | 步进时触发,值已钳制到 `[min, max]` |
+| `min` | `number` | 下界;到边界时 `-` 按钮 disabled |
+| `max` | `number` | 上界;到边界时 `+` 按钮 disabled |
+| `step` | `number` | 步长,默认 `1` |
+| `disabled` | `boolean` | 整体禁用,两端按钮都不可点 |
+| `ariaLabel` | `string` | 透传到两个按钮(`"X 减小"` / `"X 增大"`),放 [`SettingRow`](#settingrow) 时建议传 row 的 label |
+| `className` | `string` | 透传到外层 pill 容器 |
+
+```tsx
+// 受控
+<NumberStepper value={fontSize} onChange={setFontSize} min={10} max={20} ariaLabel="UI 字号" />
+
+// 非受控
+<NumberStepper defaultValue={13} min={1} max={99} />
+
+// 小数步进
+<NumberStepper value={opacity} onChange={setOpacity} min={0} max={1} step={0.05} ariaLabel="透明度" />
+```
+
+**踩坑备忘**:
+
+- 中间数字段固定 `min-w-[3rem]` `px-2`,10 以内和 100 以上的数字不会让 pill 宽度跳变。
+- 端按钮 `px-2` + 图标缩到 12px(`&_svg]:h-3 [&_svg]:w-3`):点击区不变(~24px),但视觉留白更舒展。
+- 受控模式:若 `onChange` 内部没更新 `value`,按钮看起来"按了没反应"——这是 React 受控组件语义,不是 bug。
+- 边界按钮 disabled 时 `onChange` 不调用;若需要"到边界也能通知",自己在外层 onChange 里 clamp 后再写。
+- 外层 `overflow-hidden` 让两端按钮的 hover 高亮不会越出 pill 圆角;**内部不加分隔线**(避免边框 + 分割线两层视觉噪音),依赖外层 pill 的边框区分三段。
 
 ## Select
 

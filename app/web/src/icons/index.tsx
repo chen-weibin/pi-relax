@@ -97,6 +97,14 @@ export function PlusIcon() {
 	)
 }
 
+export function MinusIcon() {
+	return (
+		<svg width="14" height="14" viewBox="105 474 815 81" fill="currentColor">
+			<path d="M918.1 514.9c0 22.336-18.275 40.61-40.61 40.61H146.51c-22.336 0-40.61-18.274-40.61-40.61v-5.801c0-22.336 18.274-40.61 40.61-40.61h730.98c22.335 0 40.61 18.274 40.61 40.61v5.801z" />
+		</svg>
+	)
+}
+
 export function BackArrowIcon() {
 	return (
 		<svg width="14" height="14" viewBox="0 0 1024 1024" fill="currentColor">
