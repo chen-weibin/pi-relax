@@ -78,3 +78,16 @@
 .scrollbar-shallow--static:hover::-webkit-scrollbar-thumb {
 	background: color-mix(in srgb, var(--surface), white 5%);
 }
+
+/* Completely hidden — Firefox + IE/Edge via scrollbar-width, webkit via
+ * display:none. Useful inside floating panels (Select / Menu / Popover)
+ * where the scrollbar would visually crowd the dropdown chrome. */
+.scrollbar-none {
+	scrollbar-width: none;
+	-ms-overflow-style: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+	width: 0;
+	height: 0;
+	display: none;
+}

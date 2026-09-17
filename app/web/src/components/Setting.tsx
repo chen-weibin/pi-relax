@@ -12,6 +12,7 @@ import { SearchInput } from '../ui/SearchInput'
 import { SettingGroup } from '../ui/SettingGroup'
 import { SettingRow } from '../ui/SettingRow'
 import { Switch } from '../ui/Switch'
+import { Select, type SelectOption } from '../ui/Select'
 import { useCommonStore } from '../store'
 import '../styles/scrollbar.css'
 
@@ -30,14 +31,54 @@ type Category = (typeof GROUPS)[number][number]
 
 const ALL_CATEGORIES: readonly Category[] = GROUPS.flat()
 
-const PLACEHOLDER_OPTIONS = ['设置项 1', '设置项 2', '设置项 3']
+const PLACEHOLDER_OPTIONS = [
+	'设置项 1',
+	'设置项 2',
+	'设置项 3',
+	'设置项 4',
+	'设置项 5',
+	'设置项 6',
+	'设置项 7',
+	'设置项 8',
+]
 const SINGLE_PLACEHOLDER = ['设置项']
+
+const STATIC_OPTIONS: SelectOption<string>[] = [
+	{ value: 'compact', label: '紧凑' },
+	{ value: 'cozy', label: '舒适' },
+	{ value: 'spacious', label: '宽松' },
+]
+
+const FAKE_REMOTE_ITEMS = Array.from({ length: 47 }, (_, i) => ({
+	value: `opt-${i + 1}`,
+	label: `远程选项 ${String(i + 1).padStart(2, '0')}`,
+	disabled: i === 13,
+}))
+
+async function fakeRemoteFetch({
+	query,
+	offset,
+	limit,
+}: {
+	query: string
+	offset: number
+	limit: number
+}) {
+	await new Promise((r) => setTimeout(r, 300))
+	const filtered = query
+		? FAKE_REMOTE_ITEMS.filter((it) => it.label.includes(query))
+		: FAKE_REMOTE_ITEMS
+	const items = filtered.slice(offset, offset + limit)
+	return { items, hasMore: offset + limit < filtered.length }
+}
 
 export function Setting() {
 	const toggleSetting = useCommonStore((s) => s.toggleSetting)
 	const [scrollHover, setScrollHover] = useState(false)
 	const [activeKey, setActiveKey] = useState<Category['key']>('general')
 	const [switchOn, setSwitchOn] = useState(false)
+	const [staticPick, setStaticPick] = useState<string | undefined>()
+	const [remotePick, setRemotePick] = useState<string | undefined>()
 
 	const activeCategory =
 		ALL_CATEGORIES.find((c) => c.key === activeKey) ?? ALL_CATEGORIES[0]!
@@ -126,6 +167,28 @@ export function Setting() {
 											checked={switchOn}
 											onChange={setSwitchOn}
 											ariaLabel={label}
+										/>
+									) : i === 1 ? (
+										<Select
+											className=""
+											placeholder="选一个"
+											value={staticPick}
+											onChange={setStaticPick}
+											options={STATIC_OPTIONS}
+											dropdownWidth={200}
+											placement="bottom-end"
+										/>
+									) : i === 2 ? (
+										<Select
+											className=""
+											placeholder="搜索远程选项"
+											value={remotePick}
+											onChange={setRemotePick}
+											loadOptions={fakeRemoteFetch}
+											searchable
+											pageSize={10}
+											dropdownWidth={200}
+											placement="bottom-end"
 										/>
 									) : (
 										<div className="h-7 min-w-[80px] rounded-md border border-border-hover bg-surface" />

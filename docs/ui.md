@@ -37,6 +37,7 @@
 | 设置面板里的分组卡片(可选小标题) | [`SettingGroup`](#settinggroup) | 不要在 Setting 页里写裸 `<section rounded-xl bg-surface>` + `<h2>` 三件套 |
 | 设置面板里的一行(左 label + 描述,右控制区) | [`SettingRow`](#settingrow) | 不要写裸 `<div flex justify-between><div>{label}<div>{desc}</div></div><div>...</div></div>` 三层嵌套 |
 | 开关(on/off,绿色 + 灰色态) | [`Switch`](#switch) | 不要写裸 `<button role="switch">` + `translate-x-*` 自己拼 thumb 位移 |
+| 选择器(静态 / 懒加载 / 搜索三合一) | [`Select`](#select) | 不要写裸 `<select>`(样式难统一),也不要在 Setting 里再写 `<Popover>` + 自己造 listbox |
 | 轻量卡片外壳(无角色语义) | [`MessageSurface`](#messagesurface) | 不要在块组件里手写 `bg-surface rounded-md border-border` 之类的样式散落 |
 | 点阵 loading(3×3 / 4×4,多尺寸多形状) | [`DotMatrix`](#dotmatrix) | 不要为单个 loading 写一次性 `<div>` 网格 + 自写 CSS `@keyframes`(`motion/react` 已在依赖里) |
 | 单点状态指示(成功 / 失败 / 已读) | [`StatusDot`](#statusdot) | 不要为 `success` / `failure` 单独写 `<div>` + 内联颜色;统一走 `StatusDot` + 项目语义色 token |
@@ -486,6 +487,8 @@
 | `onChange` | `(value: string) => void` | — | 每次输入变化(仅传字符串,不是事件) |
 | `onSearch` | `(value: string) => void` | — | 按下 Enter / 点击搜索 icon 时触发,带当前 value |
 | `iconPosition` | `'start' \| 'end'` | `'start'` | 搜索 icon 位置,start = 输入框前、end = 输入框后 |
+| `variant` | `'bordered' \| 'borderless' \| 'ghost'` | `'bordered'` | 视觉变体。`'bordered'` 有边框 + `bg-surface`,焦点升级;`'borderless'` 无边框 + 透明 bg,焦点换 bg;`'ghost'` 无边框 + 透明 bg,焦点也不换 bg(只换文字色) |
+| `showIcon` | `boolean` | `true` | 是否渲染搜索 icon。`false` 时 `iconPosition` 被忽略,padding 收到 `pl-2.5 pr-2.5` |
 | `placeholder` | `string` | — | 占位文案 |
 | `className` | `string` | — | 透传到外层 wrapper |
 
@@ -501,11 +504,24 @@ const [q, setQ] = useState('')
 
 // 非受控 + 默认值
 <SearchInput defaultValue="init" onSearch={...} />
+
+// 无边框,放进下拉/抽屉等已带外框的场景(focus 时有 bg 反馈)
+<SearchInput variant="borderless" placeholder="过滤会话" />
+
+// 极简无边框(focus 时也无 bg 变化,只换文字色),用于外层已有足量视觉的场景
+<SearchInput variant="ghost" placeholder="过滤会话" />
+
+// 不要 icon,纯文本输入
+<SearchInput showIcon={false} variant="ghost" placeholder="过滤..." />
 ```
 
 **对齐约定**:外层 wrapper 用 `left-2.5` / `right-2.5` 定位 icon,输入框 `pl-9` / `pr-9` 给图标让位。配合消费方外层 `px-1.5` 的 `w-full` 容器,可与同侧 `SidebarActions` 风格按钮的图标 / 文字左对齐同列。
 
-**视觉**:输入框自带 `border border-border bg-surface`,hover / focus 时边框升级到 `border-border-hover`,bg 升级到 `surface-hover`。
+**视觉**:
+
+- `'bordered'`(默认):自带 `border border-border bg-surface`,hover / focus 时边框升级到 `border-border-hover`,bg 升级到 `surface-hover`。
+- `'borderless'`:无边框 + 透明 bg,融入外层容器;focus 时仅换 bg 到 `surface`,文字升到 `text-fg`。用于 [`Select`](#select) 下拉 / 抽屉等已自带外框的场景。
+- `'ghost'`:无边框 + 透明 bg,focus 时**也不换 bg**,只把文字升到 `text-fg`。视觉最克制,适合外层已经有足够视觉层级、不要搜索框抢戏的场景。
 
 **踩坑备忘**:
 
@@ -645,7 +661,83 @@ const [q, setQ] = useState('')
 
 - `role="switch"` + `aria-checked` 已设好,屏幕阅读器会朗读「开关 打开 / 关闭」。
 - 点击后主动 `blur()` 避免 switch 抢焦点,保持表单焦点流自然。
-- thumb 位移 `translate-x-5` (20px) 不是完美对称(pill 40 - thumb 16 - 5*4 = 4px 右 vs 0 左),接受轻微不对称,跟原生浏览器开关一致。
+- thumb 位移 `translate-x-4` (16px,pill 32 - thumb 14 - 左右各 2px padding = 16),左右对称,跟 input 同步缩放后的尺寸对齐。
+
+## Select
+
+单文件 `ui/Select.tsx`。下拉选择器,统一**四种组合**:数据来源(`options` 内联 vs `loadOptions` 异步接口)× 是否可搜索(`searchable`)。底层是 [`@floating-ui/react`](https://floating-ui.com/)(定位 / 翻转 / portal)+ [`cmdk`](https://cmdk.paco.me/)(键盘导航 / ARIA),filter 自己做。
+
+**查阅时机**:任何「单选下拉」场景(设置项 / 列表过滤 / 远程搜索),或评估是否写裸 `<select>` 或自造 listbox 浮层。
+
+**何时用**:
+
+- 选项 ≤ 20 且穷尽 → `options={[...]}` 内联
+- 选项 ≤ 100 且能一次拿全,但用户需要搜 → `options={[...]}` + `searchable` 本地过滤
+- 选项 ≥ 100 或需服务端过滤 / 排序 / 权限 → `loadOptions={...}` + 可选 `searchable` 走接口
+- 想统一 a11y / 键盘 / 滚动条主题 → 直接用,不必自写
+
+**何时不用**:
+
+- 多选 → Select 只支持单选,多选用 `<input type="checkbox">` 列表或其他组件
+- 树形 / 级联 → 用 `Menu` / `Tree`,Select 只支持扁平列表
+- 原生 form 集成(`<select>` 的 `name` / `form` 提交)→ 用原生 `<select>` 加样式包装
+- 选项 < 5 个且不需要搜索 → 直接用 `Radio` 行更轻
+
+**API**:
+
+| prop | 类型 | 说明 |
+|---|---|---|
+| `value` | `V` | 受控值;传了就走受控 |
+| `defaultValue` | `V` | 非受控初始值;`value` 没传才生效 |
+| `onChange` | `(value: V) => void` | 选中时触发,直接拿到 `V`(不是 event) |
+| `placeholder` | `string` | 未选中时的占位文案,默认「选择...」 |
+| `disabled` | `boolean` | 禁用 trigger |
+| `className` | `string` | 透传到 trigger 按钮;**给 trigger 设固定宽**(如 `w-[200px]`)就触发省略号截断 |
+| `options` | `SelectOption<V>[]` | **静态模式**:固定列表,无接口调用 |
+| `loadOptions` | `(p) => Promise<{items, hasMore}>` | **懒加载 / 搜索模式**:消费方提供数据源 |
+| `pageSize` | `number` | 每次 `loadOptions` 的 `limit`,默认 20 |
+| `searchable` | `boolean` | 显示顶部搜索框(配 `variant="ghost" showIcon={false}` 的 [`SearchInput`](#searchinput)) |
+| `debounceMs` | `number` | 搜索输入去抖,默认 200ms |
+| `placement` | `Placement`(floating-ui) | 期望方位,`flip()` 中间件在放不下时自动反向。默认 `'bottom-start'`(`-start`/`-end` 控制相对 trigger 的左/右对齐) |
+| `dropdownWidth` | `'trigger' \| number` | 下拉面板宽度策略:`'trigger'`(默认)跟随 trigger 宽度;`number` 指定固定像素宽度,与 trigger 解耦 |
+
+`SelectOption<V> = { value: V; label: string; disabled?: boolean }`
+
+**四种模式组合**:
+
+| `options` | `loadOptions` | `searchable` | 行为 |
+|---|---|---|---|
+| ✓ | — | — | static 全量渲染 |
+| ✓ | — | ✓ | **static+search**,用 `displayItems = items.filter(it => label.includes(query))` 本地过滤 |
+| — | ✓ | — | lazy 接口拉,无搜索框,滚到底加载 |
+| — | ✓ | ✓ | **lazy+search**,输入去抖后重置 offset 再查 |
+
+**loadOptions 协议**:
+
+```tsx
+type Params = { query: string; offset: number; limit: number }
+type Result<V> = { items: SelectOption<V>[]; hasMore: boolean }
+
+const loadOptions = async ({ query, offset, limit }: Params): Promise<Result<V>> => {
+  const res = await fetch(`/api/items?q=${query}&offset=${offset}&limit=${limit}`)
+  return res.json()
+}
+
+<Select loadOptions={loadOptions} searchable pageSize={20} />
+```
+
+**键盘 / ARIA**:键盘导航(↑↓ Enter Esc Home End typeahead)走 cmdk;`role="listbox"` / `role="option"` / `aria-selected` 走 cmdk + floating-ui 的 `useRole(context, { role: 'listbox' })`。我们不重新实现。item 视觉高亮不用 `data-[selected]`(cmdk 的偶发 `data-selected` 会误触发),改成显式 React state(`item.value === current` 决定 selected,`hoveredValue` 决定 hover),完全可控。
+
+**踩坑备忘**:
+
+- **不要用 `<Command.Input asChild>`** — cmdk 的 asChild 实际上不生效,Command.Input 总是渲染自己的裸 `<input>`,SearchInput 不会挂上,会触发 `Cannot read 'value' of undefined`。改为直接 `<SearchInput value={query} onChange={setQuery} variant="ghost" showIcon={false} />` 手动控制 state。
+- 搜索 filter 自己写(`displayItems` derived from items + query),不需要 `Command.Input` 来桥接 cmdk 的 search state;`shouldFilter={false}` 关掉 cmdk 自带 filter。
+- 列表 `max-height: 192px`(6 行 × 32px)+ 每行 `h-[30px]`,超出走 `scrollbar-none`(完全隐藏,跨浏览器)— 不显示滚动条轨道,但仍可滚动触发 `loadOptions` 增量。
+- **trigger 默认 `inline-flex` 自适应内容宽度**(选中几个字就多宽,不会撑满父容器)。想给 trigger 设固定宽,直接在 `className` 传 `w-[200px]` 等,选中文字过长会自动 `truncate` 省略号。
+- 下拉面板宽度默认 `dropdownWidth='trigger'`,与 trigger 等宽;传数字(如 `dropdownWidth={200}`)可独立指定下拉宽度,与 trigger 宽度解耦(常见于 trigger 窄、下拉宽展示完整 label 的场景)。
+- `placement` 是 floating-ui 的 Placement 枚举,`-start`/`-end` 后缀控制相对 trigger 的左/右对齐,`flip()` 中间件在放不下时自动反向。
+- 「没数据」/「加载中」/「没有更多了」三种状态由组件内置,文本居中 + `text-xs`,不需要消费方写。
+- item 的 hover bg 不走 CSS `:hover`(曾在 React 19 strict mode + FloatingPortal 出现「卡住」bug),改用 `useState(hoveredValue)` + `onPointerEnter/Leave` 显式控制。
 
 ## Popover
 
@@ -674,6 +766,7 @@ const [q, setQ] = useState('')
   crossOffset={0}                 // 十字轴偏移(对齐微调),默认 0
   interactive={false}             // hover 模式下,浮层里是否有可交互内容(按钮/链接等);默认 false
   open / onOpenChange             // 受控用法;二者都给才走受控,否则内部 state
+  role="dialog"                   // 浮层 ARIA role,默认 'dialog';Select 等 listbox 类场景传 'listbox'
   className                       // 透传到浮层容器
   content={<div>浮层内容</div>}   // 浮层内容(必填)
 >
@@ -715,6 +808,7 @@ const [q, setQ] = useState('')
 - 触发器(`children`)必须是单个 ReactElement;`cloneElement` 需要 `ref` 注入。如果传了 fragment / 数组 / 字符串,运行时直接 throw。
 - 触发器的原始 `ref` 会被保留(函数式 / object 式都支持)。
 - 浮层挂在 `document.body`(`FloatingPortal` 默认),脱离任何 `overflow:hidden` 祖先。
+- `role` 默认 `'dialog'`。listbox / menu / tooltip 等场景必须传对应 role,否则屏幕阅读器会朗读成「对话框」。底层用 `@floating-ui/react` 的 `useRole(context, { role })` 接管。
 
 ## ResizablePanels
 

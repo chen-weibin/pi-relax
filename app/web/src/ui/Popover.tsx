@@ -17,6 +17,15 @@ import { cloneElement, isValidElement, useState, type ReactElement, type ReactNo
 
 export type PopoverTrigger = 'click' | 'hover'
 
+export type PopoverRole =
+	| 'dialog'
+	| 'alertdialog'
+	| 'listbox'
+	| 'menu'
+	| 'tooltip'
+	| 'grid'
+	| 'tree'
+
 export type PopoverProps = {
 	children: ReactNode
 	content: ReactNode
@@ -27,6 +36,8 @@ export type PopoverProps = {
 	interactive?: boolean
 	open?: boolean
 	onOpenChange?: (open: boolean) => void
+	/** ARIA role for the floating element. Default `'dialog'`. */
+	role?: PopoverRole
 	className?: string
 }
 
@@ -40,6 +51,7 @@ export function Popover({
 	interactive = false,
 	open: controlledOpen,
 	onOpenChange: controlledOnOpenChange,
+	role = 'dialog',
 	className,
 }: PopoverProps) {
 	const isControlled = controlledOpen !== undefined
@@ -72,7 +84,7 @@ export function Popover({
 				move: interactive ? false : true,
 			}),
 		useDismiss(context, { outsidePress: true, escapeKey: true }),
-		useRole(context, { role: 'dialog' }),
+		useRole(context, { role }),
 	].filter(Boolean) as Parameters<typeof useInteractions>[0]
 	const { getReferenceProps, getFloatingProps } = useInteractions(interactions)
 

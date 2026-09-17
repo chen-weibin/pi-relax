@@ -8,6 +8,7 @@ import {
 import { SearchIcon } from '../icons'
 
 export type SearchInputIconPosition = 'start' | 'end'
+export type SearchInputVariant = 'bordered' | 'borderless' | 'ghost'
 
 export type SearchInputProps = Omit<
 	InputHTMLAttributes<HTMLInputElement>,
@@ -18,6 +19,10 @@ export type SearchInputProps = Omit<
 	onChange?: (value: string) => void
 	onSearch?: (value: string) => void
 	iconPosition?: SearchInputIconPosition
+	/** Visual style. Default `'bordered'`. */
+	variant?: SearchInputVariant
+	/** Show the search icon. Default `true`. When `false`, `iconPosition` is ignored and padding collapses to `px-2.5`. */
+	showIcon?: boolean
 	placeholder?: string
 	className?: string
 }
@@ -28,6 +33,8 @@ export function SearchInput({
 	onChange,
 	onSearch,
 	iconPosition = 'start',
+	variant = 'bordered',
+	showIcon = true,
 	placeholder,
 	className,
 	disabled,
@@ -71,7 +78,7 @@ export function SearchInput({
 
 	return (
 		<div className={classNames('relative w-full', className)}>
-			{isStart && (
+			{showIcon && isStart && (
 				<span className="absolute left-2.5 top-1/2 -translate-y-1/2">
 					{iconButton}
 				</span>
@@ -86,14 +93,23 @@ export function SearchInput({
 				placeholder={placeholder}
 				disabled={disabled}
 				className={classNames(
-					'h-[30px] w-full rounded-md border border-border-hover bg-surface text-md text-fg-2 outline-none transition-colors duration-100 placeholder:text-fg-3',
-					'focus:border-[color-mix(in_srgb,var(--border-hover),var(--fg)_14%)] focus:bg-surface-hover focus:text-fg',
+					'h-[30px] w-full rounded-md text-md outline-none transition-colors duration-100 placeholder:text-fg-3',
+					variant === 'bordered' &&
+						'border border-border-hover bg-surface text-fg-2 focus:border-[color-mix(in_srgb,var(--border-hover),var(--fg)_14%)] focus:bg-surface-hover focus:text-fg',
+					variant === 'borderless' &&
+						'border-none bg-transparent text-fg-2 focus:bg-surface focus:text-fg',
+					variant === 'ghost' &&
+						'border-none bg-transparent text-fg-2 focus:text-fg',
 					'disabled:pointer-events-none disabled:opacity-50',
-					isStart ? 'pl-9 pr-2.5' : 'pl-2.5 pr-9',
+					showIcon
+						? isStart
+							? 'pl-9 pr-2.5'
+							: 'pl-2.5 pr-9'
+						: 'pl-2.5 pr-2.5',
 				)}
 				{...rest}
 			/>
-			{!isStart && (
+			{showIcon && !isStart && (
 				<span className="absolute right-2.5 top-1/2 -translate-y-1/2">
 					{iconButton}
 				</span>

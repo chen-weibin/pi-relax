@@ -125,6 +125,7 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
 |---|---|---|
 | `.scrollbar-deep` | `color-mix(--surface, black 40%)`(更深一档) | 比 `--surface` 更深的背景(留位) |
 | `.scrollbar-shallow` | `color-mix(--surface, white 5%)`(更浅一档) | 比 `--surface` 更浅的背景,例如 Sidebar |
+| `.scrollbar-none` | 完全隐藏(`scrollbar-width: none` + `::-webkit-scrollbar { display: none }`) | 浮层 / 下拉 / 抽屉等自带视觉容器的场景,不要滚动条抢戏 |
 
 **不抖动 + hover 才显形(本文件全部变体的默认行为)**:
 
