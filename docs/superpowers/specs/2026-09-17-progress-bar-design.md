@@ -175,7 +175,7 @@ const valueSlot = (
 | Thumb size | `12×12` (`h-3 w-3`) | Reference image |
 | Thumb bg | `bg-fg-2` (`#C7C7C7`) → hover/focus `bg-fg-bright` (`#F5F5F5`) | One step lighter than fill (`bg-fg-3`) so the thumb visually pops above the filled portion; hover/focus jumps to the brightest tier for clear interaction feedback |
 | Thumb elevation | `shadow` (Tailwind default) | Lift above the track |
-| Value slot | `text-right tabular-nums text-fg-2` | Mono digits, right-aligned, one step brighter than disabled-tier text; **no** `min-w` so the slot hugs content (the perceived gap before was `min-w-[3rem]` minus content width plus `gap-1`) |
+| Value slot | `text-right tabular-nums text-fg-2` | Mono digits, right-aligned, one step brighter than disabled-tier text; **no** `min-w` so the slot hugs content |
 | Disabled | `opacity-50` on outer wrapper | Whole component dims |
 | Focus ring | none on the slot; the thumb itself lights up via `focus-visible` (browser default ring on the track) | Avoid extra ring noise |
 

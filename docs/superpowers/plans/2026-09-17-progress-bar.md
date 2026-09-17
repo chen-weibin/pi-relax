@@ -387,7 +387,7 @@ Append a new section at the end of the component reference (after `## NumberStep
 | 项 | 值 |
 |---|---|
 | 外层 | 默认 `inline-flex h-[26px] w-[100px] items-center gap-2`(与 `NumberStepper` / `Select` 同高,放进 `SettingRow` 右槽自然对齐);`block` 或 `width` 任一为 true 时切换为 `flex h-[26px] items-center gap-2`,`block` 再追加 `w-full`,`width` 通过 inline `style.width` 写入 |
-| 数值槽位 | `text-right text-md tabular-nums text-fg-2`(`tabular-nums` 让数字等宽;无 `min-w`,槽位按内容自适应,与 track 间距更紧) |
+| 数值槽位 | `text-right text-md tabular-nums text-fg-2`(`tabular-nums` 让数字等宽;无 `min-w`,槽位按内容自适应) |
 | Track | 相对定位 `flex h-3 flex-1`,背景 `absolute inset-x-0 h-1 bg-border-hover`,**可选**填充 `absolute left-0 h-1 bg-fg-3`(宽度 = `value` 对应的 `percent`,`filled=false` 时不渲染) |
 | Thumb | 12×12 `relative h-3 w-3 rounded-full bg-fg-2 shadow`,`style={{ left: \`calc(${pct}% - 6px)\` }}` 让 thumb 中心对齐百分位;hover / focus → `bg-fg-bright`(默认比 fill `bg-fg-3` 亮一档,thumb 与填充有区分度) |
 | 交互 | `onPointerDown` 起抓 + `setPointerCapture` + `updateFromClientX`;`onPointerMove` 在捕获态才更新;`onPointerUp` / `onPointerCancel` 释放 |
