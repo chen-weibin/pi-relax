@@ -249,7 +249,7 @@ export function Select<V = string>({
 			})}
 		>
 			<span className="truncate">{triggerLabel}</span>
-			<span className="shrink-0 rotate-90 text-fg-3">
+			<span className="shrink-0 rotate-90 text-fg-3 [&_svg]:h-3 [&_svg]:w-3">
 				<ChevronRightIcon />
 			</span>
 		</button>

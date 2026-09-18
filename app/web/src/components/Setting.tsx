@@ -115,7 +115,7 @@ export function Setting() {
 					onMouseLeave={() => setScrollHover(false)}
 				>
 					{GROUPS.map((group, gi) => (
-						<div key={gi} className="flex flex-col">
+						<div key={gi} className="flex flex-col gap-0.5">
 							{group.map(({ key, label, Icon }) => {
 								const isActive = key === activeKey
 								return (
