@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>app/web 主题色说明</title>
+<style>
+  :root { color-scheme: dark; }
+  body { font: 14px/1.6 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; margin: 32px auto; max-width: 720px; padding: 0 16px; color: #E5E5E5; background: #171717; }
+  h1 { font-size: 20px; margin: 0 0 8px; }
+  h2 { font-size: 16px; margin: 24px 0 8px; color: #F5F5F5; }
+  .lead { color: #A1A1A1; margin: 0 0 24px; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid #2A2A2A; }
+  th { color: #C7C7C7; font-weight: 500; }
+  code { font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; background: #242424; padding: 1px 6px; border-radius: 4px; }
+  .sw { display: inline-block; width: 14px; height: 14px; border-radius: 3px; vertical-align: -2px; margin-right: 6px; border: 1px solid #2A2A2A; }
+  .note { color: #A1A1A1; font-size: 12px; }
+</style>
+</head>
+<body>
+  <h1>app/web 主题色说明</h1>
+  <p class="lead">来源:<code>docs/web.md</code> §46,当前为 dark theme,light 主题仅占位未填。</p>
+
+  <h2>主交互色</h2>
+  <p><span class="sw" style="background:#00C487"></span><code>--accent</code> · <code>#00C487</code> · 主交互 / 品牌色(同时作 <code>--success</code>)<br>
+  Tailwind:<code>bg-accent</code> / <code>text-accent</code></p>
+
+  <h2>背景层</h2>
+  <table>
+    <tr><th>变量</th><th>值</th><th>用途</th></tr>
+    <tr><td><code>--app</code></td><td><span class="sw" style="background:#171717"></span>#171717</td><td>主背景(中 Conversation / 右 Extension / Setting)</td></tr>
+    <tr><td><code>--sidebar</code></td><td><span class="sw" style="background:#1E1E1E"></span>#1E1E1E</td><td>左 Sidebar</td></tr>
+    <tr><td><code>--surface</code></td><td><span class="sw" style="background:#242424"></span>#242424</td><td>浮起表面(scrollbar)</td></tr>
+    <tr><td><code>--surface-hover</code></td><td><span class="sw" style="background:#292929"></span>#292929</td><td>hover</td></tr>
+    <tr><td><code>--surface-active</code></td><td><span class="sw" style="background:#2E2E2E"></span>#2E2E2E</td><td>active</td></tr>
+  </table>
+
+  <h2>文字</h2>
+  <table>
+    <tr><th>变量</th><th>值</th><th>用途</th></tr>
+    <tr><td><code>--fg</code></td><td><span class="sw" style="background:#E5E5E5"></span>#E5E5E5</td><td>主文字</td></tr>
+    <tr><td><code>--fg-bright</code></td><td><span class="sw" style="background:#F5F5F5"></span>#F5F5F5</td><td>hover / active 高亮</td></tr>
+    <tr><td><code>--fg-2</code></td><td><span class="sw" style="background:#C7C7C7"></span>#C7C7C7</td><td>次文字</td></tr>
+    <tr><td><code>--fg-3</code></td><td><span class="sw" style="background:#A1A1A1"></span>#A1A1A1</td><td>三级文字</td></tr>
+    <tr><td><code>--fg-disabled</code></td><td><span class="sw" style="background:#737373"></span>#737373</td><td>禁用</td></tr>
+  </table>
+
+  <h2>边框</h2>
+  <table>
+    <tr><th>变量</th><th>值</th><th>用途</th></tr>
+    <tr><td><code>--border</code></td><td><span class="sw" style="background:#2A2A2A"></span>#2A2A2A</td><td>默认边框</td></tr>
+    <tr><td><code>--border-hover</code></td><td><span class="sw" style="background:#383838"></span>#383838</td><td>hover 边框</td></tr>
+  </table>
+
+  <h2>语义色</h2>
+  <table>
+    <tr><th>变量</th><th>值</th><th>用途</th></tr>
+    <tr><td><code>--success</code></td><td><span class="sw" style="background:#00C487"></span>#00C487</td><td>成功(同 accent)</td></tr>
+    <tr><td><code>--error</code></td><td><span class="sw" style="background:#F05252"></span>#F05252</td><td>错误</td></tr>
+    <tr><td><code>--warning</code></td><td><span class="sw" style="background:#D9A441"></span>#D9A441</td><td>警告</td></tr>
+    <tr><td><code>--info</code></td><td><span class="sw" style="background:#5B9CF6"></span>#5B9CF6</td><td>信息</td></tr>
+  </table>
+
+  <p class="note">切换主题:<code>document.documentElement.dataset.theme = 'light' | 'dark'</code>,所有 token 通过 <code>@theme inline</code> 实时读取 CSS 变量,无需重建。</p>
+</body>
+</html>

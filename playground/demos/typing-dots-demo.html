@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>正在生成中 — Demo</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      height: 100%;
+      background: #171717;
+      color: #E5E5E5;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif;
+    }
+
+    body {
+      display: grid;
+      place-items: center;
+      padding: 40px 0;
+    }
+
+    main {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 36px;
+    }
+
+    h1 {
+      font-size: 14px;
+      font-weight: 500;
+      letter-spacing: 1px;
+      color: #888;
+    }
+
+    .variants {
+      display: grid;
+      grid-template-columns: repeat(4, auto);
+      gap: 48px 64px;
+    }
+
+    .variant {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 18px;
+      min-width: 110px;
+    }
+
+    .label {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+    }
+
+    .num {
+      color: #E5E5E5;
+      font-weight: 600;
+      font-size: 13px;
+      letter-spacing: 0.5px;
+    }
+
+    .spec {
+      color: #555;
+      font-family: "SF Mono", Menlo, monospace;
+      font-size: 10px;
+      letter-spacing: 0.3px;
+    }
+
+    .stage {
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .note {
+      font-size: 11px;
+      color: #555;
+      font-family: "SF Mono", Menlo, monospace;
+      letter-spacing: 0.3px;
+    }
+
+    /* ============================================================
+       1 ~ 4 · Dot family
+       ============================================================ */
+    .n1, .n2, .n3, .n4 { display: inline-flex; align-items: center; }
+    .n1 { gap: 5px; } .n2 { gap: 6px; } .n3 { gap: 6px; } .n4 { gap: 5px; }
+
+    .n1 .dot, .n2 .dot, .n3 .dot, .n4 .dot {
+      border-radius: 50%;
+      background: #A1A1A1;
+    }
+    .n1 .dot, .n2 .dot, .n4 .dot { width: 6px; height: 6px; }
+    .n3 .dot                     { width: 7px; height: 7px; }
+    .n4 .dot                     { background: #00C487; }
+
+    .n1 .dot, .n4 .dot { animation: kf-bounce 1.4s ease-in-out infinite; }
+    .n2 .dot           { animation: kf-fade   1.2s ease-in-out infinite; }
+    .n3 .dot           { animation: kf-pulse  1.2s ease-in-out infinite; }
+
+    .n1 .dot:nth-child(1), .n4 .dot:nth-child(1) { animation-delay: 0s; }
+    .n1 .dot:nth-child(2), .n4 .dot:nth-child(2) { animation-delay: 0.16s; }
+    .n1 .dot:nth-child(3), .n4 .dot:nth-child(3) { animation-delay: 0.32s; }
+
+    .n2 .dot:nth-child(1) { animation-delay: 0s; }
+    .n2 .dot:nth-child(2) { animation-delay: 0.2s; }
+    .n2 .dot:nth-child(3) { animation-delay: 0.4s; }
+
+    .n3 .dot:nth-child(1) { animation-delay: 0s; }
+    .n3 .dot:nth-child(2) { animation-delay: 0.15s; }
+    .n3 .dot:nth-child(3) { animation-delay: 0.3s; }
+
+    @keyframes kf-bounce {
+      0%, 60%, 100% { transform: translateY(0);   opacity: 0.35; }
+      30%           { transform: translateY(-6px); opacity: 1;    }
+    }
+    @keyframes kf-fade {
+      0%, 100% { opacity: 0.25; }
+      50%      { opacity: 1;    }
+    }
+    @keyframes kf-pulse {
+      0%, 100% { transform: scale(0.6); opacity: 0.3; }
+      50%      { transform: scale(1);   opacity: 1;   }
+    }
+
+    /* ============================================================
+       5 · Cycle words (阶段标签轮播)
+       ============================================================ */
+    .n5 {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      height: 16px;
+      min-width: 4em;
+      font-size: 12px;
+      color: #A1A1A1;
+    }
+    .n5__word {
+      position: absolute;
+      left: 0; top: 50%;
+      transform: translateY(-50%);
+      white-space: nowrap;
+      opacity: 0;
+      animation: kf-cycle 3s ease-in-out infinite;
+    }
+    .n5__word:nth-child(1) { animation-delay: 0s; }
+    .n5__word:nth-child(2) { animation-delay: 1s; }
+    .n5__word:nth-child(3) { animation-delay: 2s; }
+    @keyframes kf-cycle {
+      0%, 35%, 100% { opacity: 0; transform: translateY(-50%) translateY(4px); }
+      10%, 25%      { opacity: 1; transform: translateY(-50%) translateY(0);   }
+    }
+
+    /* ============================================================
+       6 · AI sparkle (✦ ✧ ✦,带旋转 twinkle)
+       ============================================================ */
+    .n6 {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      color: #C7C7C7;
+      line-height: 1;
+    }
+    .n6__spark {
+      display: inline-block;
+      transform-origin: center;
+      animation: kf-twinkle 1.6s ease-in-out infinite;
+    }
+    .n6__spark:nth-child(1) { animation-delay: 0s; }
+    .n6__spark:nth-child(2) { animation-delay: 0.2s; }
+    .n6__spark:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes kf-twinkle {
+      0%, 100% { opacity: 0.25; transform: scale(0.7)  rotate(0deg);  }
+      50%      { opacity: 1;    transform: scale(1.15) rotate(90deg); }
+    }
+
+    /* ============================================================
+       7 · Waveform bars
+       ============================================================ */
+    .n7 {
+      display: inline-flex;
+      align-items: flex-end;
+      gap: 3px;
+      height: 18px;
+    }
+    .n7__bar {
+      width: 3px;
+      border-radius: 2px;
+      background: #A1A1A1;
+      transform-origin: bottom center;
+      animation: kf-wave 1s ease-in-out infinite;
+    }
+    .n7__bar:nth-child(1) { height: 8px;  animation-delay: 0s;    }
+    .n7__bar:nth-child(2) { height: 14px; animation-delay: 0.1s;  }
+    .n7__bar:nth-child(3) { height: 18px; animation-delay: 0.2s;  }
+    .n7__bar:nth-child(4) { height: 14px; animation-delay: 0.3s;  }
+    .n7__bar:nth-child(5) { height: 8px;  animation-delay: 0.4s;  }
+    @keyframes kf-wave {
+      0%, 100% { transform: scaleY(0.35); }
+      50%      { transform: scaleY(1);    }
+    }
+
+    /* ============================================================
+       8 · Gradient sweep · ease-in-out (光带回弹感)
+       ============================================================ */
+    .n8 {
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.5px;
+      background: linear-gradient(
+        90deg,
+        #555   0%,
+        #555  35%,
+        #F5F5F5 50%,
+        #555  65%,
+        #555 100%
+      );
+      background-size: 220% 100%;
+      background-position: 100% 0;
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      animation: kf-sweep-ease 2.4s ease-in-out infinite;
+    }
+    @keyframes kf-sweep-ease {
+      0%   { background-position:  100% 0; }
+      100% { background-position: -100% 0; }
+    }
+
+    /* ============================================================
+       9 · Gradient sweep · linear (修复版,光带始终在元素外侧淡入淡出)
+       ============================================================ */
+    .n9 {
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.5px;
+      background: linear-gradient(
+        90deg,
+        #555    0%,
+        #555   35%,
+        #F5F5F5 50%,
+        #555   65%,
+        #555  100%
+      );
+      background-size: 300% 100%;
+      background-position: 0% 0;
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      animation: kf-sweep-linear 2.4s linear infinite;
+    }
+    @keyframes kf-sweep-linear {
+      0%   { background-position:    0% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    /* ============================================================
+       10 · Letter stagger fade-in (字符依次浮现)
+       ============================================================ */
+    .n10 {
+      display: inline-flex;
+      align-items: baseline;
+      font-size: 12px;
+      color: #C7C7C7;
+    }
+    .n10 span {
+      display: inline-block;
+      opacity: 0;
+      transform: translateY(4px);
+      animation: kf-letter-in 2.4s ease-out infinite;
+    }
+    .n10 span:nth-child(1) { animation-delay: 0s;    }
+    .n10 span:nth-child(2) { animation-delay: 0.08s; }
+    .n10 span:nth-child(3) { animation-delay: 0.16s; }
+    .n10 span:nth-child(4) { animation-delay: 0.24s; }
+    .n10 span:nth-child(5) { animation-delay: 0.32s; }
+    .n10 span:nth-child(6) { animation-delay: 0.40s; }
+    @keyframes kf-letter-in {
+      0%, 100% { opacity: 0; transform: translateY(4px); }
+      15%, 80% { opacity: 1; transform: translateY(0);   }
+    }
+
+    /* ============================================================
+       11 · Underline draw (下划线左→右绘制,绘制完成后回缩)
+       ============================================================ */
+    .n11 {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 3px;
+      font-size: 12px;
+      color: #C7C7C7;
+      min-width: 84px;
+    }
+    .n11__label { text-align: left; }
+    .n11__line {
+      display: block;
+      height: 1.5px;
+      background: #00C487;
+      transform-origin: left center;
+      animation: kf-underline 1.8s ease-in-out infinite;
+    }
+    @keyframes kf-underline {
+      0%, 100% { transform: scaleX(0); }
+      40%, 60% { transform: scaleX(1); }
+    }
+
+    /* ============================================================
+       12 · Blur-to-focus (由模糊聚焦,文字逐渐"清晰成形")
+       注:filter: blur 走 GPU,小文本上成本可接受;
+           若卡顿可降回 opacity + 微 translate 方案
+       ============================================================ */
+    .n12 {
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 0.5px;
+      color: #C7C7C7;
+    }
+    .n12__text {
+      display: inline-block;
+      animation: kf-focus 2.2s ease-in-out infinite;
+    }
+    @keyframes kf-focus {
+      0%, 100% { filter: blur(6px); opacity: 0.4; }
+      50%      { filter: blur(0);   opacity: 1;   }
+    }
+
+    /* ============================================================
+       Accessibility
+       ============================================================ */
+    @media (prefers-reduced-motion: reduce) {
+      .n1 .dot, .n2 .dot, .n3 .dot, .n4 .dot,
+      .n5__word, .n6__spark, .n7__bar, .n8, .n9,
+      .n10 span, .n11__line, .n12__text {
+        animation: none;
+      }
+      .n5__word:first-child { opacity: 1; }
+      .n10 span { opacity: 1; transform: none; }
+      .n11__line { transform: scaleX(1); }
+      .n12__text { filter: none; opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>TYPING · VARIANTS</h1>
+    <div class="variants">
+      <div class="variant">
+        <div class="label"><span class="num">1</span><span class="spec">bounce · muted</span></div>
+        <div class="stage"><div class="n1"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div></div>
+      </div>
+      <div class="variant">
+        <div class="label"><span class="num">2</span><span class="spec">fade wave</span></div>
+        <div class="stage"><div class="n2"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div></div>
+      </div>
+      <div class="variant">
+        <div class="label"><span class="num">3</span><span class="spec">pulse · scale</span></div>
+        <div class="stage"><div class="n3"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div></div>
+      </div>
+      <div class="variant">
+        <div class="label"><span class="num">4</span><span class="spec">bounce · accent</span></div>
+        <div class="stage"><div class="n4"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div></div>
+      </div>
+      <div class="variant">
+        <div class="label"><span class="num">5</span><span class="spec">cycle · stages</span></div>
+        <div class="stage"><div class="n5"><span class="n5__word">思考中…</span><span class="n5__word">生成中…</span><span class="n5__word">即将完成</span></div></div>
+      </div>
+      <div class="variant">
+        <div class="label"><span class="num">6</span><span class="spec">sparkle · twinkle</span></div>
+        <div class="stage"><div class="n6"><span class="n6__spark">✦</span><span class="n6__spark">✧</span><span class="n6__spark">✦</span></div></div>
+      </div>
+      <div class="variant">
+        <div class="label"><span class="num">7</span><span class="spec">waveform · bars</span></div>
+        <div class="stage"><div class="n7"><span class="n7__bar"></span><span class="n7__bar"></span><span class="n7__bar"></span><span class="n7__bar"></span><span class="n7__bar"></span></div></div>
+      </div>
+      <div class="variant">
+        <div class="label"><span class="num">8</span><span class="spec">gradient · sweep</span></div>
+        <div class="stage"><span class="n8">AI 思考中</span></div>
+      </div>
+      <div class="variant">
+        <div class="label"><span class="num">9</span><span class="spec">gradient · linear</span></div>
+        <div class="stage"><span class="n9">AI 思考中</span></div>
+      </div>
+      <div class="variant">
+        <div class="label"><span class="num">10</span><span class="spec">letter · stagger</span></div>
+        <div class="stage">
+          <div class="n10">
+            <span>正</span><span>在</span><span>生</span><span>成</span><span>回</span><span>复</span>
+          </div>
+        </div>
+      </div>
+      <div class="variant">
+        <div class="label"><span class="num">11</span><span class="spec">underline · draw</span></div>
+        <div class="stage">
+          <div class="n11">
+            <span class="n11__label">正在生成内容</span>
+            <span class="n11__line"></span>
+          </div>
+        </div>
+      </div>
+      <div class="variant">
+        <div class="label"><span class="num">12</span><span class="spec">blur · focus</span></div>
+        <div class="stage"><span class="n12__text">AI 正在思考</span></div>
+      </div>
+    </div>
+    <p class="note">transform / opacity only · respects prefers-reduced-motion</p>
+  </main>
+</body>
+</html>

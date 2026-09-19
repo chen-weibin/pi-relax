@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>点阵加载 — Demo</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      height: 100%;
+      background: #191919;
+      color: #e8e8e8;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif;
+    }
+
+    body {
+      display: grid;
+      place-items: center;
+    }
+
+    main {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 36px;
+    }
+
+    h1 {
+      font-size: 14px;
+      font-weight: 500;
+      letter-spacing: 1px;
+      color: #888;
+    }
+
+    .variants {
+      display: grid;
+      grid-template-columns: repeat(5, auto);
+      gap: 40px 56px;
+    }
+
+    .variant {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .label {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      font-size: 12px;
+    }
+
+    .num {
+      color: #e8e8e8;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+
+    .spec {
+      color: #555;
+      font-family: "SF Mono", Menlo, monospace;
+      font-size: 11px;
+    }
+
+    .matrix {
+      display: grid;
+      place-items: center;
+    }
+
+    .matrix-4x4 {
+      width: 24px;
+      height: 24px;
+      grid-template-columns: repeat(4, 6px);
+      grid-template-rows: repeat(4, 6px);
+    }
+
+    .matrix-3x3 {
+      width: 24px;
+      height: 24px;
+      grid-template-columns: repeat(3, 8px);
+      grid-template-rows: repeat(3, 8px);
+    }
+
+    .dot {
+      place-self: center;
+      border-radius: 50%;
+      background: #b5b5b5;
+      animation: dot-pulse 800ms ease-in-out infinite;
+    }
+
+    .matrix-4x4 .dot { width: 4px; height: 4px; }
+    .matrix-3x3 .dot { width: 5px; height: 5px; }
+
+    .matrix-sm { width: 16px; height: 16px; }
+    .matrix-3x3.matrix-sm { grid-template-columns: repeat(3, calc(16px / 3)); grid-template-rows: repeat(3, calc(16px / 3)); }
+    .matrix-3x3.matrix-sm .dot { width: 3.5px; height: 3.5px; }
+
+    .matrix-md { width: 20px; height: 20px; }
+    .matrix-3x3.matrix-md { grid-template-columns: repeat(3, calc(20px / 3)); grid-template-rows: repeat(3, calc(20px / 3)); }
+    .matrix-3x3.matrix-md .dot { width: 4px; height: 4px; }
+
+    .dot--rounded { border-radius: 0; }
+    .matrix-4x4 .dot--rounded { border-radius: 1px; }
+    .matrix-3x3 .dot--rounded { border-radius: 1.5px; }
+    .matrix-3x3.matrix-sm .dot--rounded { border-radius: 1px; }
+    .matrix-3x3.matrix-md .dot--rounded { border-radius: 1px; }
+
+    @keyframes dot-pulse {
+      0%, 100% { opacity: 0.2; }
+      35%      { opacity: 1; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .dot { animation: none; opacity: 1; }
+    }
+
+    .note {
+      font-size: 11px;
+      color: #555;
+      font-family: "SF Mono", Menlo, monospace;
+      letter-spacing: 0.3px;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>DOT MATRIX LOADING</h1>
+    <div class="variants">
+      <div class="variant">
+        <div class="label"><span class="num">1-1</span><span class="spec">4 × 4 · 圆</span></div>
+        <div class="matrix matrix-4x4" role="status" aria-label="Loading">
+          <span class="dot" style="animation-delay: 0ms"></span>
+          <span class="dot" style="animation-delay: 173ms"></span>
+          <span class="dot" style="animation-delay: 346ms"></span>
+          <span class="dot" style="animation-delay: 519ms"></span>
+          <span class="dot" style="animation-delay: 692ms"></span>
+          <span class="dot" style="animation-delay: 65ms"></span>
+          <span class="dot" style="animation-delay: 238ms"></span>
+          <span class="dot" style="animation-delay: 411ms"></span>
+          <span class="dot" style="animation-delay: 584ms"></span>
+          <span class="dot" style="animation-delay: 757ms"></span>
+          <span class="dot" style="animation-delay: 130ms"></span>
+          <span class="dot" style="animation-delay: 303ms"></span>
+          <span class="dot" style="animation-delay: 476ms"></span>
+          <span class="dot" style="animation-delay: 649ms"></span>
+          <span class="dot" style="animation-delay: 22ms"></span>
+          <span class="dot" style="animation-delay: 195ms"></span>
+        </div>
+      </div>
+      <div class="variant">
+        <div class="label"><span class="num">2-1</span><span class="spec">3 × 3 · 圆</span></div>
+        <div class="matrix matrix-3x3" role="status" aria-label="Loading">
+          <span class="dot" style="animation-delay: 0ms"></span>
+          <span class="dot" style="animation-delay: 173ms"></span>
+          <span class="dot" style="animation-delay: 346ms"></span>
+          <span class="dot" style="animation-delay: 519ms"></span>
+          <span class="dot" style="animation-delay: 692ms"></span>
+          <span class="dot" style="animation-delay: 65ms"></span>
+          <span class="dot" style="animation-delay: 238ms"></span>
+          <span class="dot" style="animation-delay: 411ms"></span>
+          <span class="dot" style="animation-delay: 584ms"></span>
+        </div>
+      </div>
+      <div class="variant">
+        <div class="label"><span class="num">3-1</span><span class="spec">3 × 3 · 圆 · 16px</span></div>
+        <div class="matrix matrix-3x3 matrix-sm" role="status" aria-label="Loading">
+          <span class="dot" style="animation-delay: 0ms"></span>
+          <span class="dot" style="animation-delay: 173ms"></span>
+          <span class="dot" style="animation-delay: 346ms"></span>
+          <span class="dot" style="animation-delay: 519ms"></span>
+          <span class="dot" style="animation-delay: 692ms"></span>
+          <span class="dot" style="animation-delay: 65ms"></span>
+          <span class="dot" style="animation-delay: 238ms"></span>
+          <span class="dot" style="animation-delay: 411ms"></span>
+          <span class="dot" style="animation-delay: 584ms"></span>
+        </div>
+      </div>
+      <div class="variant">
+        <div class="label"><span class="num">4-1</span><span class="spec">4 × 4 · 圆 · 旋转</span></div>
+        <div class="matrix matrix-4x4" role="status" aria-label="Loading">
+          <span class="dot" style="animation-delay: 650ms"></span>
+          <span class="dot" style="animation-delay: 782ms"></span>
+          <span class="dot" style="animation-delay: 99ms"></span>
+          <span class="dot" style="animation-delay: 57ms"></span>
+          <span class="dot" style="animation-delay: 634ms"></span>
+          <span class="dot" style="animation-delay: 729ms"></span>
+          <span class="dot" style="animation-delay: 64ms"></span>
+          <span class="dot" style="animation-delay: 159ms"></span>
+          <span class="dot" style="animation-delay: 595ms"></span>
+          <span class="dot" style="animation-delay: 471ms"></span>
+          <span class="dot" style="animation-delay: 307ms"></span>
+          <span class="dot" style="animation-delay: 284ms"></span>
+          <span class="dot" style="animation-delay: 478ms"></span>
+          <span class="dot" style="animation-delay: 455ms"></span>
+          <span class="dot" style="animation-delay: 409ms"></span>
+          <span class="dot" style="animation-delay: 285ms"></span>
+        </div>
+      </div>
+      <div class="variant">
+        <div class="label"><span class="num">5-1</span><span class="spec">3 × 3 · 圆 · 20px</span></div>
+        <div class="matrix matrix-3x3 matrix-md" role="status" aria-label="Loading">
+          <span class="dot" style="animation-delay: 0ms"></span>
+          <span class="dot" style="animation-delay: 173ms"></span>
+          <span class="dot" style="animation-delay: 346ms"></span>
+          <span class="dot" style="animation-delay: 519ms"></span>
+          <span class="dot" style="animation-delay: 692ms"></span>
+          <span class="dot" style="animation-delay: 65ms"></span>
+          <span class="dot" style="animation-delay: 238ms"></span>
+          <span class="dot" style="animation-delay: 411ms"></span>
+          <span class="dot" style="animation-delay: 584ms"></span>
+        </div>
+      </div>
+      <div class="variant">
+        <div class="label"><span class="num">1-2</span><span class="spec">4 × 4 · 圆角方</span></div>
+        <div class="matrix matrix-4x4" role="status" aria-label="Loading">
+          <span class="dot dot--rounded" style="animation-delay: 0ms"></span>
+          <span class="dot dot--rounded" style="animation-delay: 173ms"></span>
+          <span class="dot dot--rounded" style="animation-delay: 346ms"></span>
+          <span class="dot dot--rounded" style="animation-delay: 519ms"></span>
+          <span class="dot dot--rounded" style="animation-delay: 692ms"></span>
+          <span class="dot dot--rounded" style="animation-delay: 65ms"></span>
+          <span class="dot dot--rounded" style="animation-delay: 238ms"></span>
+          <span class="dot dot--rounded" style="animation-delay: 411ms"></span>
+          <span class="dot dot--rounded" style="animation-delay: 584ms"></span>
+          <span class="dot dot--rounded" style="animation-delay: 757ms"></span>
+          <span class="dot dot--rounded" style="animation-delay: 130ms"></span>
+          <span class="dot dot--rounded" style="animation-delay: 303ms"></span>
+          <span class="dot dot--rounded" style="animation-delay: 476ms"></span>
+          <span class="dot dot--rounded" style="animation-delay: 649ms"></span>
+          <span class="dot dot--rounded" style="animation-delay: 22ms"></span>
+          <span class="dot dot--rounded" style="animation-delay: 195ms"></span>
+        </div>
+      </div>
+      <div class="variant">
+        <div class="label"><span class="num">2-2</span><span class="spec">3 × 3 · 圆角方</span></div>
+        <div class="matrix matrix-3x3" role="status" aria-label="Loading">
+          <span class="dot dot--rounded" style="animation-delay: 0ms"></span>
+          <span class="dot dot--rounded" style="animation-delay: 173ms"></span>
+          <span class="dot dot--rounded" style="animation-delay: 346ms"></span>
+          <span class="dot dot--rounded" style="animation-delay: 519ms"></span>
+          <span class="dot dot--rounded" style="animation-delay: 692ms"></span>
+          <span class="dot dot--rounded" style="animation-delay: 65ms"></span>
+          <span class="dot dot--rounded" style="animation-delay: 238ms"></span>
+          <span class="dot dot--rounded" style="animation-delay: 411ms"></span>
+          <span class="dot dot--rounded" style="animation-delay: 584ms"></span>
+        </div>
+      </div>
+      <div class="variant">
+        <div class="label"><span class="num">3-2</span><span class="spec">3 × 3 · 圆角方 · 16px</span></div>
+        <div class="matrix matrix-3x3 matrix-sm" role="status" aria-label="Loading">
+          <span class="dot dot--rounded" style="animation-delay: 0ms"></span>
+          <span class="dot dot--rounded" style="animation-delay: 173ms"></span>
+          <span class="dot dot--rounded" style="animation-delay: 346ms"></span>
+          <span class="dot dot--rounded" style="animation-delay: 519ms"></span>
+          <span class="dot dot--rounded" style="animation-delay: 692ms"></span>
+          <span class="dot dot--rounded" style="animation-delay: 65ms"></span>
+          <span class="dot dot--rounded" style="animation-delay: 238ms"></span>
+          <span class="dot dot--rounded" style="animation-delay: 411ms"></span>
+          <span class="dot dot--rounded" style="animation-delay: 584ms"></span>
+        </div>
+      </div>
+      <div class="variant">
+        <div class="label"><span class="num">4-2</span><span class="spec">4 × 4 · 圆角方 · 旋转</span></div>
+        <div class="matrix matrix-4x4" role="status" aria-label="Loading">
+          <span class="dot dot--rounded" style="animation-delay: 650ms"></span>
+          <span class="dot dot--rounded" style="animation-delay: 782ms"></span>
+          <span class="dot dot--rounded" style="animation-delay: 99ms"></span>
+          <span class="dot dot--rounded" style="animation-delay: 57ms"></span>
+          <span class="dot dot--rounded" style="animation-delay: 634ms"></span>
+          <span class="dot dot--rounded" style="animation-delay: 729ms"></span>
+          <span class="dot dot--rounded" style="animation-delay: 64ms"></span>
+          <span class="dot dot--rounded" style="animation-delay: 159ms"></span>
+          <span class="dot dot--rounded" style="animation-delay: 595ms"></span>
+          <span class="dot dot--rounded" style="animation-delay: 471ms"></span>
+          <span class="dot dot--rounded" style="animation-delay: 307ms"></span>
+          <span class="dot dot--rounded" style="animation-delay: 284ms"></span>
+          <span class="dot dot--rounded" style="animation-delay: 478ms"></span>
+          <span class="dot dot--rounded" style="animation-delay: 455ms"></span>
+          <span class="dot dot--rounded" style="animation-delay: 409ms"></span>
+          <span class="dot dot--rounded" style="animation-delay: 285ms"></span>
+        </div>
+      </div>
+      <div class="variant">
+        <div class="label"><span class="num">5-2</span><span class="spec">3 × 3 · 圆角方 · 20px</span></div>
+        <div class="matrix matrix-3x3 matrix-md" role="status" aria-label="Loading">
+          <span class="dot dot--rounded" style="animation-delay: 0ms"></span>
+          <span class="dot dot--rounded" style="animation-delay: 173ms"></span>
+          <span class="dot dot--rounded" style="animation-delay: 346ms"></span>
+          <span class="dot dot--rounded" style="animation-delay: 519ms"></span>
+          <span class="dot dot--rounded" style="animation-delay: 692ms"></span>
+          <span class="dot dot--rounded" style="animation-delay: 65ms"></span>
+          <span class="dot dot--rounded" style="animation-delay: 238ms"></span>
+          <span class="dot dot--rounded" style="animation-delay: 411ms"></span>
+          <span class="dot dot--rounded" style="animation-delay: 584ms"></span>
+        </div>
+      </div>
+    </div>
+    <p class="note">animation-delay = (i × 173) mod 800</p>
+  </main>
+</body>
+</html>
