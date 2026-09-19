@@ -1,7 +1,6 @@
 import { spawn } from "node:child_process"
 
 const procs = [
-	spawn("pnpm", ["--filter", "relax-agent", "dev:build"], { stdio: "inherit" }),
 	spawn("pnpm", ["--filter", "@relax/server", "dev"], { stdio: "inherit" }),
 ]
 

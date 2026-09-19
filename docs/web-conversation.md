@@ -87,7 +87,7 @@ mock fixture / playMockStream          未来: AgentSessionEvent
 
 `AgentSessionEvent` → **adapter（未写）** → `BlockFeedEvent` → `runtime.apply`。
 
-adapter 建议将来放 `app/web/src/conversation/adaptAgentSession.ts`（或 server 侧先规范化）。未接 [`relax-agent`](relax-agent.md)。
+adapter 建议将来放 `app/web/src/conversation/adaptAgentSession.ts`（或 server 侧先规范化）。未接真实 session。
 
 ## 打磨 UI
 

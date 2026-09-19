@@ -8,8 +8,8 @@
 	"scripts": {
 		"dev:web": "pnpm --filter web dev",
 		"dev:server": "node script/dev-server.mjs",
-		"build": "pnpm --filter relax-agent build && pnpm -r --filter '!relax-agent' build",
-		"typecheck": "pnpm --filter relax-agent build && pnpm -r --filter '!relax-agent' typecheck"
+		"build": "pnpm -r build",
+		"typecheck": "pnpm -r typecheck"
 	},
 	"devDependencies": {
 		"tsdown": "^0.23.0",
