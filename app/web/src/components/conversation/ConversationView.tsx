@@ -2,6 +2,7 @@ import { memo } from 'react'
 import classNames from 'classnames'
 import type { BlockSnapshot, ConversationSnapshot } from '../../conversation'
 import { renderConversationBlock } from './renderBlock'
+import { LoadingDots } from '../../ui/LoadingDots'
 
 export type ConversationViewProps = {
 	snapshot: ConversationSnapshot
@@ -34,7 +35,7 @@ export function ConversationView({ snapshot, className }: ConversationViewProps)
 				)
 			})}
 			{snapshot.runPhase === 'awaiting' ? (
-				<div className="text-fg-3 text-xs">生成中</div>
+				<LoadingDots label="生成中" />
 			) : null}
 		</div>
 	)

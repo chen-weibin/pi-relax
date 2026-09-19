@@ -41,6 +41,7 @@
 | 数字步进器(- n + 圆角 pill) | [`NumberStepper`](#numberstepper) | 不要写裸 `<div flex><button>-</button><span>{n}</span><button>+</button></div>` 三段散落 |
 | 连续范围拖拽(0–100% / 任意区间,带 thumb + 槽位) | [`ProgressBar`](#progressbar) | 不要写裸 `<input type="range">`(样式无法走 token、a11y / 键盘 / pointer capture 都要自己粘) |
 | 轻量卡片外壳(无角色语义) | [`MessageSurface`](#messagesurface) | 不要在块组件里手写 `bg-surface rounded-md border-border` 之类的样式散落 |
+| 「正在生成 / 思考中」的 3 点循环动效 | [`LoadingDots`](#loadingdots) | 不要写 3 个 `<span>` + 自写 `@keyframes`;不要用 `DotMatrix`(它是 3×3 / 4×4 点阵,语义/视觉不一样) |
 | 点阵 loading(3×3 / 4×4,多尺寸多形状) | [`DotMatrix`](#dotmatrix) | 不要为单个 loading 写一次性 `<div>` 网格 + 自写 CSS `@keyframes`(`motion/react` 已在依赖里) |
 | 单点状态指示(成功 / 失败 / 已读) | [`StatusDot`](#statusdot) | 不要为 `success` / `failure` 单独写 `<div>` + 内联颜色;统一走 `StatusDot` + 项目语义色 token |
 
@@ -285,6 +286,90 @@
 - `playing=true` 时按 `charsPerSec` 累加,每帧切 grapheme,追到末尾停
 - grapheme 缓存:相同前缀复用,避免每帧 `Intl.Segmenter` 重切整段
 - `text` 变化时增量追加(若新文本是旧文本的前缀扩展,缓存续上)
+
+## LoadingDots
+
+单文件 `ui/LoadingDots.tsx` + `ui/LoadingDots.css`(CSS 放同目录,Vite 注入)。3 个 6×6 圆点循环动效,3 种变体共享一套组件,只换 keyframes。
+
+**查阅时机**:需要「正在生成 / 思考中 / 流式等待」的轻量视觉占位时使用。
+
+**何时用**:
+
+- 流式回复 / agent 思考中,需要一个小动效提示「还在跑」
+- 想跟随主题切换(亮/暗)而不是写死 Tailwind 色值
+- 想在两档预设色(`muted` / `accent`)和自定义色之间自由切换
+
+**何时不用**:
+
+- 需要圆环 spinner / 进度条 / 骨架屏 → 另写专用组件
+- 需要彩色 / 多状态(成功 / 错误)→ `LoadingDots` 只表示「进行中」单一状态
+- 需要 9 / 16 点的「乱中有序」loading → [`DotMatrix`](#dotmatrix)
+- 整片区域 > 30 px(`LoadingDots` 固定 6px 点,放大无意义)
+
+**API**:
+
+```tsx
+<LoadingDots
+  variant="bounce"                  // 'bounce' | 'fade' | 'pulse',默认 'bounce'
+  color="muted"                     // 预设 'muted' / 'accent',或其它任意 CSS 颜色字符串
+  className="…"                     // 透传 wrapper
+  label="生成中"                    // aria-label,默认 'Loading'
+/>
+```
+
+| 项 | 值 |
+|---|---|
+| wrapper | `<span role="status" aria-label>` 内联,`display: inline-flex` |
+| dot 尺寸 | 6×6 px(`pulse` 变体 7×7);圆角 50% |
+| 间距 | `gap: 5px` |
+| 颜色 | wrapper `color` 走 CSS 变量,dot `background: currentColor` 继承;预设色 → token,自定义 → 字面量 |
+| 动效属性 | `transform` + `opacity` 等仅触发 GPU 合成层的属性 |
+| `prefers-reduced-motion` | 自动 `animation: none; opacity: 1`(静态可见,不丢语义) |
+
+**预设色**:
+
+| `color` | 解析为 | 视觉 |
+|---|---|---|
+| `'muted'` (默认) | `var(--fg-3)` | 静默灰,通用场景 |
+| `'accent'` | `var(--accent)` | 品牌绿,适合"在干活"的存在感 |
+| 其它字符串 | 原样当 CSS 颜色 | 任意 hex / rgb / CSS 变量字符串,如 `"#ff0000"` / `"var(--info)"` |
+
+**变体对比**:
+
+| `variant` | 节奏 | 视觉 | 何时用 |
+|---|---|---|---|
+| `bounce`(默认) | translateY ±6px + opacity,1.4s 周期,stagger 0.16s | 上下跳动 | 经典 typing,最常用 |
+| `fade` | 仅 opacity,1.2s 周期,stagger 0.2s | 涟漪渐变 | 最安静、不抢注意力 |
+| `pulse` | scale 0.6→1 + opacity,1.2s 周期,stagger 0.15s | 缩放呼吸 | Material/Apple 风,信息感更强 |
+
+**示例**:
+
+```tsx
+// 默认:bounce + 静默灰
+<LoadingDots label="生成中" />
+
+// 强调:bounce + 品牌绿(对应原 demo 的 4 号)
+<LoadingDots variant="bounce" color="accent" />
+
+// 安静:fade wave
+<LoadingDots variant="fade" />
+
+// 自定义颜色
+<LoadingDots color="#5B9CF6" />
+```
+
+**实现要点**:
+
+- 颜色走 wrapper 的 inline `style.color`,dot 用 `background: currentColor`,所以预设(`muted`/`accent`)和自定义字符串在同一渲染路径上,不需要为自定义颜色另写一套 DOM。
+- keyframes 各变体独立命名(`loading-dots-bounce` / `-fade` / `-pulse`),用 wrapper 类名(`.loading-dots--{variant}`)作前缀作用域,避免污染其他组件。
+- 三个 dot 通过 `nth-child` 配 `animation-delay` 形成错峰,不需要 JS。
+
+**踩坑备忘**:
+
+- 组件**不**自带背景框 / 圆角外壳;如果消费场景需要气泡外壳,自己在外层加 `<MessageSurface>` 或自定义容器,不要把外壳写进组件(会让别的场景被迫背样式)。
+- `prefers-reduced-motion: reduce` 下 dot `animation: none; opacity: 1` —— 让无障碍用户也能看到一个稳定的指示,而不是空画面。
+- 不要用 `LoadingDots` 替代 `DotMatrix`,反之亦然:前者是 3 点 typing / 后者是 9/16 点 chaos,语义和视觉都不同。
+- 若以后要把 `LoadingDots` 套进 `<ShinyText>` / `<DotMatrix>` 等已经控动画的元素里,会出现动画引擎互相干扰(本项目目前没有这种用法,但记一笔)。
 
 ## DotMatrix
 
