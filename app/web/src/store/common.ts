@@ -21,7 +21,7 @@ export const useCommonStore = create<CommonState>()(
 	immer((set) => ({
 		settingOpen: false,
 		sidebarOpen: true,
-		extensionOpen: false,
+		extensionOpen: true,
 		mainView: 'conversation',
 		setSettingOpen: (open) =>
 			set((s) => {

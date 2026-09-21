@@ -237,7 +237,7 @@ streamdown 与插件的 Tailwind 类扫描写在 [`ui/MarkdownView/index.css`](.
 
 | 风格 | 根属性 | 适用 | 现有图标 |
 |---|---|---|---|
-| 实心 | `width=14 height=14 viewBox="<shape-bbox>" fill="currentColor"` | 来源是第三方/参考 SVG 的填充字形 | `PanelLeftIcon` / `PanelRightIcon` / `SendIcon` / `SearchIcon` / `BlocksIcon` / `SettingsIcon` / `ChevronRightIcon` / `FolderClosedIcon` / `FolderOpenIcon` / `AddFolderIcon` / `FilterIcon` / `PlusIcon` |
+| 实心 | `width=14 height=14 viewBox="<shape-bbox>" fill="currentColor"` | 来源是第三方/参考 SVG 的填充字形 | `PanelLeftIcon` / `PanelRightIcon` / `SendIcon` / `SearchIcon` / `BlocksIcon` / `SettingsIcon` / `ChevronRightIcon` / `FolderClosedIcon` / `FolderOpenIcon` / `AddFolderIcon` / `FilterIcon` / `PlusIcon` / `FileIcon` / `TerminalIcon` / `CloseIcon` |
 
 实心图标的关键:**`viewBox` 设成 path 实际可见形状的 bounding box**(不是固定的 `0 0 1024 1024`)。原因:不同来源 SVG 的 path 占据的 bbox 大小差异很大(如一个纸飞机可能只占 viewBox 的 70%,一个 Blocks 网格占 85%),直接用源 viewBox 会导致渲染出来大小不一致。按 bbox 裁切后每个图标都充满 14×14 渲染区,视觉大小一致。bbox 之外留约 3% 内边距(在 viewBox 内侧加 padding),避免图形贴边。
 
@@ -287,6 +287,13 @@ src/
 │   ├── DisclosureRow/            # 折叠行 + 标题 blink;index.tsx + index.css
 │   ├── MessageSurface/           # 轻量 Surface 卡片外壳(无角色语义);index.tsx + index.css
 │   └── Editor/                   # ProseMirror 智能输入框(paragraph + text)
+├── extensions/                   # 右侧扩展区：插件注册、壳层 tab、Fs/Pty 契约（详见 docs/web-extension.md）
+│   ├── types.ts
+│   ├── store.ts                  #   壳层 tabs；空态策略；不持久化
+│   ├── registry.ts               #   编译期插件表
+│   ├── shell/                    #   欢迎页 + 唯一 tab 条 + 添加菜单
+│   ├── contracts/                #   FsApi / PtyApi + mock
+│   └── plugins/                  #   files / terminal
 ├── icons/                       # 自绘 SVG 图标(详见上文 "图标 (icons/)" 小节)
 │   └── index.tsx
 ├── components/
@@ -301,7 +308,7 @@ src/
     ├── Composer.tsx              # 对话输入外壳(Editor + 右下发送)
     ├── conversation/             # 对话 UI: Conversation 组装 + ConversationView + kind 渲染器
     ├── CustomizeView.tsx         # view: 自定义内容(占位)
-    ├── Extension.tsx             # 右,可被内层 Group 收起(整 Panel 移除)
+    ├── Extension.tsx             # re-export extensions/shell/Extension；右栏可被内层 Group 收起
     ├── Setting.tsx               # 全屏 fixed inset-0 z-50 覆盖层
     └── UserBar.tsx               # 用户信息条(头像 + 用户名 + 设置入口),固定高 48px,可在 Sidebar / Setting 左下复用
 ├── mock/conversation/            # 临时: fixture + playMockStream + DevToolbar(不含 runtime)
@@ -328,9 +335,11 @@ src/
 
 ### 收起/展开
 
-`{ sidebarOpen: boolean; extensionOpen: boolean }` 状态由 common store 持有(`src/store/common.ts`),**不持久化** —— 每次启动 sidebar 默认 `true`(展开)、extension 默认 `false`(收起)。`App.tsx` 切片订阅这两个字段,值翻转时整棵子树重新渲染并决定 Panel 是否挂载。
+`{ sidebarOpen: boolean; extensionOpen: boolean }` 状态由 common store 持有(`src/store/common.ts`),**不持久化** —— 每次启动 sidebar 与 extension 都默认 `true`(展开)。`App.tsx` 切片订阅这两个字段,值翻转时整棵子树重新渲染并决定 Panel 是否挂载。
 
 收起 = 整 Panel 从所属 Group 中移除(`{sidebarOpen && <Panel/>}` 模式),不是 `collapsedSize:0`。这样展开时回到原记录的宽度。
+
+右侧 Extension **内容**(欢迎页、壳层 tab、files/terminal 插件)见 [`docs/web-extension.md`](web-extension.md)。关到最后一个 tab 时默认也会 `setExtensionOpen(false)`(策略可替换)。
 
 `MainContainer` 顶部挂一个统一的 `<MainHeader />`(高 36px,无 border/bg,与主区域共享 `--app` 背景):左侧暂空,右侧并排 `IconButton` + `PanelLeftIcon` toggle sidebar、`IconButton` + `PanelRightIcon` toggle extension(顺序不变),标题反映当前状态(`收起 / 展开左侧栏` 等)。各 view 不再自带 header,只渲染占位主体。
 
@@ -357,7 +366,7 @@ src/
 
 reload 后两层各自还原。
 
-**注意:折叠状态(`sidebarOpen` / `extensionOpen`)、`mainView`、`settingOpen` 都不持久化。** 每次启动 sidebar 展开、extension 收起、`mainView='conversation'`、`settingOpen=false`。这些状态由 common store 持有,详见下文 "状态管理 (store/)"。如需持久化,在 common store 上加 zustand `persist` middleware —— 不要往 `usePersistedPanelLayout` 加,hook 只管 layout 宽度,职责单一。
+**注意:折叠状态(`sidebarOpen` / `extensionOpen`)、`mainView`、`settingOpen` 都不持久化。** 每次启动 sidebar 与 extension 都展开、`mainView='conversation'`、`settingOpen=false`。这些状态由 common store 持有,详见下文 "状态管理 (store/)"。如需持久化,在 common store 上加 zustand `persist` middleware —— 不要往 `usePersistedPanelLayout` 加,hook 只管 layout 宽度,职责单一。
 
 Setting 由 `settingOpen` 控制显隐(`{settingOpen && <Setting />}`),在 `App.tsx` 内挂载。Setting `z-50`,在四区上方全屏渲染。
 
@@ -475,7 +484,7 @@ src/store/
 |---|---|---|---|
 | `settingOpen` | `boolean` | `false` | Setting 全屏覆盖层是否打开 |
 | `sidebarOpen` | `boolean` | `true` | 外层 Group 中 Sidebar Panel 是否挂载 |
-| `extensionOpen` | `boolean` | `false` | 内层 Group 中 Extension Panel 是否挂载 |
+| `extensionOpen` | `boolean` | `true` | 内层 Group 中 Extension Panel 是否挂载 |
 | `mainView` | `MainView` | `'conversation'` | MainContainer 当前渲染哪个 view |
 
 配套 actions:`setSettingOpen` / `toggleSetting` / `setSidebarOpen` / `toggleSidebar` / `setExtensionOpen` / `toggleExtension` / `setMainView`,内部用 immer middleware 写法:
