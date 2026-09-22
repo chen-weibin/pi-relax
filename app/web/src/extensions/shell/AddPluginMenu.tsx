@@ -89,6 +89,7 @@ export function AddPluginMenu({ className }: { className?: string }) {
 				className={classNames(
 					'flex size-[26px] shrink-0 cursor-pointer items-center justify-center rounded-md bg-app',
 					'text-fg-2 hover:bg-surface-hover hover:text-fg-bright',
+					'[&_svg]:h-3 [&_svg]:w-3',
 					className,
 				)}
 			>
