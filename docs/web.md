@@ -166,6 +166,7 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
 | 组件 | 一句话 | 详细 |
 |---|---|---|
 | `ResizablePanelGroup` / `ResizablePanel` / `ResizableHandle` | 可拖布局三件套,封装 `react-resizable-panels` | [`ui.md#resizablepanels`](ui.md#resizablepanels) |
+| `PaneHeader` | 子面板顶栏(38px + 底部分割线,左右 slot) | [`ui.md#paneheader`](ui.md#paneheader) |
 | `IconButton` | 图标按钮,统一变体 / 尺寸 / 禁用态 | [`ui.md#iconbutton`](ui.md#iconbutton) |
 | `Popover` | 浮层 / tooltip / 菜单,封装 `@floating-ui/react` | [`ui.md#popover`](ui.md#popover) |
 | `Editor` | ProseMirror 智能输入框 | [`ui.md#editor`](ui.md#editor) |
@@ -281,6 +282,7 @@ src/
 │   ├── ResizablePanel.tsx
 │   ├── ResizableHandle.tsx
 │   ├── IconButton.tsx
+│   ├── PaneHeader.tsx            # 子面板顶栏(38px + 底部分割线)
 │   ├── Popover.tsx
 │   ├── MarkdownView/             # streamdown 封装(static / streaming);index.tsx + index.css
 │   ├── TypewriterText.tsx        # grapheme 增量打字机

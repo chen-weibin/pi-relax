@@ -18,7 +18,7 @@ const variantClasses: Record<IconButtonVariant, string> = {
 
 const sizeClasses: Record<IconButtonSize, string> = {
 	sm: 'p-1',
-	md: 'p-1.5',
+	md: 'inline-flex h-[26px] w-[26px] items-center justify-center',
 }
 
 export function IconButton({

@@ -175,14 +175,36 @@ export const mockFs: FsApi = {
 
 const ptyListeners = new Map<string, Set<(chunk: string) => void>>()
 
+function echoPtyInput(data: string) {
+	let out = ''
+	for (let i = 0; i < data.length; i++) {
+		const ch = data[i]
+		if (ch === '\r') {
+			if (data[i + 1] === '\n') i++
+			out += '\r\n'
+		} else if (ch === '\n') {
+			out += '\r\n'
+		} else if (ch === '\x7f' || ch === '\b') {
+			out += '\b \b'
+		} else {
+			out += ch
+		}
+	}
+	return out
+}
+
 export const mockPty: PtyApi = {
 	async create(opts) {
 		const id = opts?.id ?? crypto.randomUUID()
 		if (!ptyListeners.has(id)) ptyListeners.set(id, new Set())
 		return { id }
 	},
-	async write(id, _data) {
-		if (!ptyListeners.has(id)) throw new PtyError('NOT_FOUND', id)
+	async write(id, data) {
+		const set = ptyListeners.get(id)
+		if (!set) throw new PtyError('NOT_FOUND', id)
+		const echoed = echoPtyInput(data)
+		if (!echoed) return
+		for (const listener of set) listener(echoed)
 	},
 	async resize(_id, _cols, _rows) {},
 	async dispose(id) {

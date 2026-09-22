@@ -17,7 +17,7 @@ export function createTerminalOpen(): PluginOpenResult {
 	const sessionId = crypto.randomUUID()
 	void mockPty.create({ id: sessionId })
 	return {
-		title: 'zsh',
+		title: '终端',
 		reuseKey: `session:${sessionId}`,
 		payload: { sessionId } satisfies TerminalPayload,
 	}

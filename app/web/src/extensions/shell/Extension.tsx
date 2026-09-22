@@ -41,7 +41,7 @@ export function Extension({ className, collapsed = false }: Props) {
 				<>
 					<ExtensionTabBar />
 					<div className="flex min-h-0 flex-1">
-						<div className="min-w-0 flex-1">
+						<div className="min-h-0 min-w-0 flex-1">
 							<Main tab={activeTab} />
 						</div>
 						{Side && <Side tab={activeTab} />}

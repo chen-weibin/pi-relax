@@ -44,6 +44,7 @@
 | 「正在生成 / 思考中」的 3 点循环动效 | [`LoadingDots`](#loadingdots) | 不要写 3 个 `<span>` + 自写 `@keyframes`;不要用 `DotMatrix`(它是 3×3 / 4×4 点阵,语义/视觉不一样) |
 | 点阵 loading(3×3 / 4×4,多尺寸多形状) | [`DotMatrix`](#dotmatrix) | 不要为单个 loading 写一次性 `<div>` 网格 + 自写 CSS `@keyframes`(`motion/react` 已在依赖里) |
 | 单点状态指示(成功 / 失败 / 已读) | [`StatusDot`](#statusdot) | 不要为 `success` / `failure` 单独写 `<div>` + 内联颜色;统一走 `StatusDot` + 项目语义色 token |
+| 插件 / 子面板顶栏(固定 38px + 底部分割线) | [`PaneHeader`](#paneheader) | 不要手写 `h-[38px] + border-b border-border` 顶栏三件套 |
 
 ## 反例:这些事不要做
 
@@ -59,6 +60,7 @@
 | 用一次性 4 个 `<span>` + 自写 `@keyframes dot-pulse` 做 loading | 用 `DotMatrix`,已经覆盖尺寸 / 栅格 / 点形 / 动画算法四种轴 |
 | 在会话/列表前缀直接写 `<span className="h-1.5 w-1.5 rounded-full bg-green-400">` | 用 `StatusDot`,颜色走 `--success` / `--error` / `--fg-3`,跟随主题 |
 | 给 `ProgressBar` 加 `color` / `trackColor` / `thumbColor` 等 per-instance 颜色 prop | 颜色走 token(`bg-fg-3` / `bg-border-hover`);想换色通过外层 `className` + 子选择器覆盖,不要把调色板塞进 API |
+| 在插件主区顶部手写 `h-[38px] flex border-b` | 用 [`PaneHeader`](#paneheader),高度和分割线已收敛 |
 
 ## Expandable
 
@@ -529,6 +531,37 @@
 
 对话输入外壳(领域组件,在 `components/Composer.tsx`)见 [`docs/web.md` §Composer](web.md#composer)。
 
+## PaneHeader
+
+单文件 `ui/PaneHeader.tsx`。子面板顶栏:固定高度 38px,底部分割线,左右 slot。
+
+**查阅时机**:给扩展插件 / 子面板加顶栏,或准备手写 `h-[38px] + border-b`。
+
+**何时用**:
+
+- 一块面板需要固定顶栏(左标题或操作、右 icon)
+- 想让高度和底部分割线跟其他插件一致
+
+**何时不用**:
+
+- 壳层 tab 条 → 仍用 `ExtensionTabBar`,不要套 `PaneHeader`
+- 需要标题 + chevron 折叠整块内容 → [`DisclosureRow`](#disclosurerow)
+- 只要分割线、不要 38px 顶栏 → 裸 `border-b`
+
+**API**:
+
+```tsx
+<PaneHeader left={…} right={…} className="…" />
+```
+
+| prop | 类型 | 说明 |
+|---|---|---|
+| `left` | `ReactNode` | 左侧 slot,可空 |
+| `right` | `ReactNode` | 右侧 slot,可空 |
+| `className` | `string` | 透传到外层 |
+
+**视觉**:`h-[38px] shrink-0 items-center`,`border-b border-border`,`pl-2 pr-3`(右侧与壳层 `ExtensionShellHeader` 的 `pr-3` 对齐);左右用 `justify-between`。
+
 ## IconButton
 
 单文件 `ui/IconButton.tsx`。图标按钮,统一变体 / 尺寸 / 禁用态。
@@ -546,7 +579,7 @@
 - 按钮带可见文字 → 普通 `<button>`(Material/Tailwind 已有 `text-sm` 等可用)
 - 复杂下拉菜单触发器 → [`Popover`](#popover) 自带触发器
 
-**API**: `variant: ghost | solid`,`size: sm | md`,`disabled` 自动降透明 + 禁交互,`type` 默认 `button`,透传其他原生属性(`aria-pressed` / `name` / `value` / `tabIndex` 等)。
+**API**: `variant: ghost | solid`,`size: sm | md`(默认 `md` 固定命中区 26×26,与壳层展开/收起 toggle 同尺寸;图标默认 14px,调用方用 `[&_svg]:h-* [&_svg]:w-*` 改视觉大小,不要改按钮尺寸),`disabled` 自动降透明 + 禁交互,`type` 默认 `button`,透传其他原生属性(`aria-pressed` / `name` / `value` / `tabIndex` 等)。
 
 ## SearchInput
 
@@ -1056,6 +1089,7 @@ ui/MarkdownView     ← components/conversation/ThinkingMessage, AssistantMessag
 ui/TypewriterText   ← (目前无引用,保留供后续纯文本逐字场景)
 ui/Editor           ← components/Composer
 ui/MessageSurface   ← components/conversation/UserMessage
+ui/PaneHeader       ← extensions/plugins/terminal/TerminalView
 ui/IconButton       ← components/SidebarActions, components/ProjectSectionHeader, ...
 ui/Popover          ← components/* (按需)
 ui/Resizable*       ← App.tsx

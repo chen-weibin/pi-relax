@@ -1,0 +1,17 @@
+.terminal-xterm {
+	background: var(--app);
+}
+
+.terminal-xterm .xterm {
+	height: 100%;
+}
+
+.terminal-xterm .xterm-viewport {
+	scrollbar-width: none;
+}
+
+.terminal-xterm .xterm-viewport::-webkit-scrollbar {
+	width: 0;
+	height: 0;
+	display: none;
+}

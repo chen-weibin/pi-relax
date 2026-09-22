@@ -164,6 +164,14 @@ export function TerminalIcon() {
 	)
 }
 
+export function ListIcon() {
+	return (
+		<svg width="14" height="14" viewBox="0 0 1024 1024" fill="currentColor">
+			<path d="M170.666667 213.333333h682.666666v85.333334H170.666667V213.333333z m0 512h426.666666v85.333334H170.666667v-85.333334z m0-256h682.666666v85.333334H170.666667v-85.333334z" />
+		</svg>
+	)
+}
+
 export function CloseIcon() {
 	return (
 		<svg width="14" height="14" viewBox="0 0 1024 1024" fill="currentColor">

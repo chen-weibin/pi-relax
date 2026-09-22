@@ -1,32 +1,50 @@
-import { useEffect, useState } from 'react'
-import { mockPty } from '../../contracts/adapters/mock'
+import { useState } from 'react'
+import classNames from 'classnames'
+import { ListIcon } from '../../../icons'
+import { IconButton } from '../../../ui/IconButton'
+import { PaneHeader } from '../../../ui/PaneHeader'
 import type { PluginRenderProps } from '../../types'
+import { SESSION_NAV_WIDTH, SessionSwitcher } from './SessionSwitcher'
+import { XtermSession } from './XtermSession'
 import { isTerminalPayload } from './open'
 
 export function TerminalView({ tab }: PluginRenderProps) {
+	const [navOpen, setNavOpen] = useState(true)
 	const payload = isTerminalPayload(tab.payload) ? tab.payload : null
-	const [output, setOutput] = useState('')
-
-	useEffect(() => {
-		if (!payload) return
-		setOutput('')
-		return mockPty.subscribe(payload.sessionId, (chunk) => {
-			setOutput((prev) => prev + chunk)
-		})
-	}, [payload])
-
-	if (!payload) {
-		return <div className="p-3 text-sm text-fg-3">无效的终端会话</div>
-	}
 
 	return (
-		<div className="flex h-full min-w-0 flex-col bg-app px-4 py-3">
-			<div className="mb-3 text-sm text-fg-2">zsh</div>
-			<pre className="flex-1 overflow-auto font-mono text-sm leading-6 text-fg">
-				{output}
-				<span className="inline-block h-4 w-1.5 translate-y-0.5 bg-fg" />
-			</pre>
-			<p className="mt-2 text-xs text-fg-3">占位终端。下一步接入 xterm.js + PtyApi。</p>
+		<div className="flex h-full min-h-0 flex-col bg-app">
+			<PaneHeader
+				right={
+					<IconButton
+						title={navOpen ? '收起终端列表' : '展开终端列表'}
+						aria-pressed={navOpen}
+						className="[&_svg]:h-4 [&_svg]:w-4"
+						onClick={() => setNavOpen((open) => !open)}
+					>
+						<ListIcon />
+					</IconButton>
+				}
+			/>
+			<div className="flex min-h-0 flex-1 overflow-hidden">
+				<div className="min-h-0 min-w-0 flex-1">
+					{payload ? (
+						<XtermSession key={payload.sessionId} sessionId={payload.sessionId} />
+					) : (
+						<div className="p-3 text-sm text-fg-3">无效的终端会话</div>
+					)}
+				</div>
+				<div
+					aria-hidden={!navOpen}
+					className={classNames(
+						'shrink-0 overflow-hidden bg-sidebar transition-[width] duration-200 ease-out motion-reduce:transition-none',
+						navOpen ? 'border-l border-border' : 'pointer-events-none',
+					)}
+					style={{ width: navOpen ? SESSION_NAV_WIDTH : 0 }}
+				>
+					<SessionSwitcher tab={tab} />
+				</div>
+			</div>
 		</div>
 	)
 }

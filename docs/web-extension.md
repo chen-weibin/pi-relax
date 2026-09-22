@@ -20,7 +20,7 @@ app/web/src/extensions/
 
 ## 只有一层壳层 tab
 
-打开文件、打开终端都走 `openTab`。插件不做自己的 tab 条；右侧目录树 /「N Terminals」是 `renderSide` chrome。
+打开文件、打开终端都走 `openTab`。插件不做自己的 tab 条。文件树仍走 `renderSide`；终端会话列表在插件 `PaneHeader` 内折叠，不走壳层 `renderSide`。
 
 壳层 tab 条溢出时：`+` 钉在右侧，条可横向滚动（无滚动条；悬停时滚轮竖滑改成横滑）。**选中 / 新增 / 从右侧会话列表切入** 时，会把当前 tab **完整**滚进可视区，避开右侧 `+` 和渐隐遮罩（半截挡住也要滚到全部露出）。`prefers-reduced-motion` 时不做平滑滚动。
 
@@ -64,9 +64,9 @@ useExtensionStore.getState().setEmptyExtensionHandler(() => 'welcome')
 
 ## 本期范围
 
-**已完成**：壳层（store / registry / 欢迎页 / tab 条 / 添加菜单 / `ShellPanelToggles` 抽出）、`FsApi` / `PtyApi` 契约与 mock 适配器、文件 / 终端插件骨架与 mock 联调。
+**已完成**：壳层（store / registry / 欢迎页 / tab 条 / 添加菜单 / `ShellPanelToggles` 抽出）、`FsApi` / `PtyApi` 契约与 mock 适配器、文件插件骨架、终端插件（`PaneHeader` + 可折叠会话列表 + xterm mock 回显）。
 
-**未完成（见下节遗留）**：插件真实交互、后端接入、预览与终端渲染。实现时回到本文更新状态。
+**未完成（见下节遗留）**：文件真实交互、后端接入、文件预览。实现时回到本文更新状态。
 
 ## 遗留
 
@@ -87,11 +87,12 @@ useExtensionStore.getState().setEmptyExtensionHandler(() => 'welcome')
 
 | 项 | 现状 | 后续 |
 |---|---|---|
-| 主区 | mock 文本输出 + 闪烁块，无输入 | `@xterm/xterm` + `@xterm/addon-fit` |
-| 侧栏 | `SessionSwitcher`，英文 `N Terminals` | 文案与交互打磨 |
-| 后端 | `mockPty` 定时吐字 | `node-pty` + WebSocket；`write` / `resize` 走 `PtyApi` |
+| 主区 | `@xterm/xterm` + fit；实例按 `sessionId` 保活，切 tab 只挪 DOM，关 tab 才 dispose | 真实 PTY 数据流 |
+| 插件顶栏 | `PaneHeader` 38px、`pr-3` 与壳层 toggle 右对齐；右 `ListIcon` 16px / 按钮 26 | 左侧可加 cwd / 操作 |
+| 会话列表 | 右侧占位 nav，`bg-sidebar`；宽度 0↔220，终端 fit 剩余宽度；item hover 显示关闭 | — |
+| 后端 | `mockPty.write` 回显（含 Enter / Backspace），无命令执行 | `node-pty` + WebSocket；`write` / `resize` 走 `PtyApi` |
 
-关终端 tab 已调 `dispose`；换真实适配器时保持此行为。
+关终端 tab 会 `releaseTerminalRuntime` + `mockPty.dispose`；切换终端 / 切到文件再回来会保留缓冲。换真实适配器时保持此行为。
 
 ### 契约与宿主
 
