@@ -1,0 +1,2108 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>learn-pi · pi SDK 学习笔记</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --bg-2: #161b22;
+    --bg-3: #1c2230;
+    --border: #30363d;
+    --border-soft: #21262d;
+    --text: #e6edf3;
+    --text-muted: #8b949e;
+    --text-dim: #6e7681;
+    --accent: #58a6ff;
+    --accent-soft: #1f6feb33;
+    --code-bg: #161b22;
+    --inline-code: #79c0ff;
+    --note-bg: #1f2937;
+    --note-border: #3b82f6;
+    --warn-bg: #2d1f1f;
+    --warn-border: #f85149;
+    --ok-bg: #15231b;
+    --ok-border: #3fb950;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .app { display: grid; grid-template-columns: 280px 1fr; height: 100vh; }
+
+  aside {
+    background: var(--bg-2);
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    padding: 24px 0;
+  }
+  .brand {
+    padding: 0 20px 20px;
+    border-bottom: 1px solid var(--border-soft);
+    margin-bottom: 16px;
+  }
+  .brand h1 { font-size: 14px; margin: 0 0 4px; letter-spacing: 0.02em; }
+  .brand p { margin: 0; font-size: 12px; color: var(--text-dim); }
+  .nav-group { padding: 8px 12px; }
+  .nav-group-title {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--text-dim); padding: 8px 8px 6px;
+  }
+  .nav a {
+    display: block; padding: 6px 10px; margin: 1px 0;
+    color: var(--text-muted); text-decoration: none;
+    border-radius: 6px; font-size: 13px; line-height: 1.4;
+  }
+  .nav a:hover { background: var(--bg-3); color: var(--text); }
+  .nav a.active { background: var(--accent-soft); color: var(--accent); }
+  .nav a.disabled { color: var(--text-dim); cursor: not-allowed; }
+  .nav a.disabled:hover { background: none; color: var(--text-dim); }
+
+  main { overflow-y: auto; padding: 40px 56px 80px; }
+  .page-header { max-width: 880px; margin: 0 auto 32px; }
+  .page-header h2 { font-size: 22px; margin: 0 0 6px; font-weight: 600; }
+  .page-header .subtitle { color: var(--text-muted); font-size: 13px; margin: 0; }
+
+  .topic { max-width: 880px; margin: 0 auto 56px; }
+  .topic-head {
+    display: flex; align-items: baseline; gap: 12px;
+    margin-bottom: 16px; padding-bottom: 12px;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .topic-tag {
+    font-family: var(--mono); font-size: 11px;
+    color: var(--accent); background: var(--accent-soft);
+    padding: 2px 8px; border-radius: 4px; letter-spacing: 0.04em;
+  }
+  .topic-head h3 { margin: 0; font-size: 17px; font-weight: 600; }
+
+  .qa {
+    background: var(--bg-2); border: 1px solid var(--border-soft);
+    border-radius: 8px; padding: 16px 20px; margin-bottom: 14px;
+  }
+  .qa-q { display: flex; gap: 10px; align-items: baseline; margin-bottom: 10px; }
+  .qa-q .badge {
+    font-family: var(--mono); font-size: 10px;
+    color: var(--text-dim); background: var(--bg-3);
+    border: 1px solid var(--border);
+    padding: 1px 6px; border-radius: 3px;
+    text-transform: uppercase; flex-shrink: 0;
+  }
+  .qa-q p { margin: 0; color: var(--text); font-weight: 500; }
+  .qa-a p { margin: 0 0 10px; color: var(--text-muted); }
+  .qa-a p:last-child { margin-bottom: 0; }
+  .qa-a strong { color: var(--text); font-weight: 600; }
+
+  code {
+    font-family: var(--mono); font-size: 12.5px;
+    background: var(--code-bg); padding: 1px 6px; border-radius: 4px;
+    color: var(--inline-code); border: 1px solid var(--border-soft);
+  }
+  pre {
+    background: var(--code-bg); border: 1px solid var(--border-soft);
+    border-radius: 8px; padding: 14px 16px;
+    overflow-x: auto; margin: 10px 0 14px;
+  }
+  pre code {
+    background: none; border: none; padding: 0;
+    color: var(--text); font-size: 12.5px; line-height: 1.55;
+  }
+
+  table { width: 100%; border-collapse: collapse; margin: 10px 0 14px; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 12px; border: 1px solid var(--border-soft); vertical-align: top; }
+  th {
+    background: var(--bg-2); color: var(--text-muted);
+    font-weight: 600; font-size: 12px;
+    text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  td { color: var(--text); }
+  td code { white-space: nowrap; }
+
+  .callout {
+    border-left: 3px solid var(--note-border);
+    background: var(--note-bg); padding: 10px 14px;
+    border-radius: 0 6px 6px 0; margin: 10px 0;
+    font-size: 13px; color: var(--text-muted);
+  }
+  .callout strong { color: var(--text); }
+  .callout.warn { border-left-color: var(--warn-border); background: var(--warn-bg); }
+  .callout.ok { border-left-color: var(--ok-border); background: var(--ok-bg); }
+
+  .src {
+    font-family: var(--mono); font-size: 12px;
+    color: var(--text-dim); margin-top: 8px;
+  }
+  .src a { color: var(--accent); text-decoration: none; }
+  .src a:hover { text-decoration: underline; }
+
+  ul.tight { margin: 6px 0 10px; padding-left: 20px; }
+  ul.tight li { margin: 2px 0; color: var(--text-muted); }
+
+  .pager {
+    max-width: 880px; margin: 0 auto;
+    display: flex; justify-content: space-between; gap: 12px;
+    padding-top: 24px; border-top: 1px solid var(--border-soft);
+  }
+  .pager a {
+    flex: 1; padding: 12px 16px;
+    background: var(--bg-2); border: 1px solid var(--border-soft);
+    border-radius: 8px; text-decoration: none;
+    color: var(--text-muted); font-size: 13px;
+  }
+  .pager a:hover { background: var(--bg-3); color: var(--text); border-color: var(--border); }
+  .pager .next { text-align: right; }
+  .pager .label { display: block; font-size: 11px; color: var(--text-dim); margin-bottom: 2px; }
+  .pager .title { color: var(--text); font-weight: 500; }
+  .pager .placeholder { visibility: hidden; }
+
+  .empty {
+    max-width: 880px; margin: 80px auto;
+    text-align: center; color: var(--text-dim);
+  }
+  .empty h3 { color: var(--text-muted); margin: 0 0 8px; }
+
+  /* diagram */
+  .diagram {
+    background: var(--bg-2);
+    border: 1px solid var(--border-soft);
+    border-radius: 8px;
+    padding: 20px;
+    margin: 12px 0 18px;
+    overflow-x: auto;
+  }
+  .diagram svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+  .diagram .caption { color: var(--text-dim); font-size: 12px; text-align: center; margin-top: 8px; }
+
+  .event-table { font-size: 12.5px; }
+  .event-table code { font-size: 11.5px; }
+  .event-table td:first-child { width: 38%; }
+  .event-table td:nth-child(2) { width: 28%; color: var(--text-dim); font-family: var(--mono); font-size: 11.5px; }
+
+  .step {
+    display: flex; gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px dashed var(--border-soft);
+  }
+  .step:last-child { border-bottom: none; }
+  .step-num {
+    flex-shrink: 0; width: 24px; height: 24px;
+    background: var(--accent-soft); color: var(--accent);
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono); font-size: 11px; font-weight: 600;
+  }
+  .step-body { flex: 1; min-width: 0; }
+  .step-body .what { color: var(--text); font-size: 13px; margin-bottom: 2px; }
+  .step-body .emits { color: var(--text-dim); font-size: 12px; }
+  .step-body .emits code { background: var(--bg-3); border: 1px solid var(--border); padding: 1px 5px; }
+
+  /* event reference */
+  .evt-card {
+    background: var(--bg-2);
+    border: 1px solid var(--border-soft);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin-bottom: 10px;
+  }
+  .evt-card .head {
+    display: flex; align-items: baseline; gap: 10px;
+    margin-bottom: 6px; flex-wrap: wrap;
+  }
+  .evt-card .name { font-family: var(--mono); font-size: 13px; color: var(--text); font-weight: 600; }
+  .evt-card .count {
+    font-family: var(--mono); font-size: 11px;
+    padding: 1px 7px; border-radius: 3px; letter-spacing: 0.04em;
+  }
+  .evt-card .count.once { color: var(--ok-border); background: rgba(63, 185, 80, 0.12); border: 1px solid rgba(63, 185, 80, 0.3); }
+  .evt-card .count.many { color: var(--accent); background: var(--accent-soft); border: 1px solid rgba(88, 166, 255, 0.3); }
+  .evt-card .when { color: var(--text-muted); font-size: 13px; margin-bottom: 4px; }
+  .evt-card .example { color: var(--text-dim); font-size: 12.5px; }
+  .evt-card .example strong { color: var(--text-muted); }
+
+  /* timeline */
+  .timeline {
+    background: var(--code-bg);
+    border: 1px solid var(--border-soft);
+    border-radius: 8px;
+    padding: 18px 20px;
+    overflow-x: auto;
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.7;
+    color: var(--text);
+    margin: 10px 0 14px;
+  }
+  .timeline .ok { color: var(--ok-border); }
+  .timeline .acc { color: var(--accent); }
+  .timeline .dim { color: var(--text-dim); }
+  .timeline .warn { color: var(--warn-border); }
+  .timeline .comment { color: var(--text-dim); font-style: italic; }
+
+  /* flow tree (replaces ASCII timeline) */
+  .flow {
+    background: var(--bg-2);
+    border: 1px solid var(--border-soft);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin: 10px 0 14px;
+    font-family: var(--mono);
+    font-size: 12.5px;
+  }
+  .flow-children {
+    margin-left: 14px;
+    padding-left: 14px;
+    border-left: 1px dashed var(--border);
+  }
+  .flow-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 10px;
+    margin: 4px 0;
+    background: var(--bg-3);
+    border: 1px solid var(--border-soft);
+    border-left-width: 3px;
+    border-radius: 4px;
+    white-space: nowrap;
+    color: var(--text);
+  }
+  .flow-row .cnt {
+    color: var(--text-dim);
+    font-size: 11px;
+    padding: 1px 6px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+  }
+  .flow-row .note {
+    color: var(--text-dim);
+    font-size: 11.5px;
+    font-weight: normal;
+  }
+  .flow-row.cat-agent { border-left-color: var(--ok-border); }
+  .flow-row.cat-turn  { border-left-color: var(--ok-border); }
+  .flow-row.cat-msg   { border-left-color: var(--accent); }
+  .flow-row.cat-tool  { border-left-color: var(--warn-border); }
+  .flow-row.cat-loop  {
+    background: transparent;
+    border: 1px dashed var(--border);
+    color: var(--text-muted);
+    font-style: italic;
+  }
+  .flow-row.cat-loop .cnt { display: none; }
+  .flow-section-title {
+    margin: 14px 0 8px;
+    font-size: 12px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .flow-inter {
+    margin-top: 16px;
+    padding: 12px 14px;
+    background: var(--bg-2);
+    border: 1px solid var(--border-soft);
+    border-radius: 8px;
+  }
+  .flow-inter h5 {
+    margin: 0 0 8px;
+    font-size: 12px;
+    color: var(--text-muted);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+  .flow-inter .group { margin-bottom: 10px; }
+  .flow-inter .group:last-child { margin-bottom: 0; }
+  .flow-inter .glabel {
+    font-size: 11.5px; color: var(--text-dim);
+    margin-bottom: 4px; font-family: var(--sans);
+  }
+  .flow-inter .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .flow-inter .chip {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    padding: 3px 9px;
+    background: var(--bg-3);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--text-muted);
+  }
+  .flow-inter .chip .cnt {
+    color: var(--text-dim);
+    margin-left: 6px;
+    font-size: 10.5px;
+  }
+  .flow-inter .chips.cat-compact .chip { border-left: 2px solid var(--warn-border); }
+  .flow-inter .chips.cat-retry .chip    { border-left: 2px solid var(--warn-border); }
+  .flow-inter .chips.cat-state .chip    { border-left: 2px solid var(--accent); }
+
+  .pitfall {
+    border-left: 3px solid var(--warn-border);
+    background: var(--warn-bg);
+    padding: 10px 14px;
+    border-radius: 0 6px 6px 0;
+    margin: 10px 0;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  .pitfall strong { color: var(--text); }
+  .pitfall code { background: rgba(255,255,255,0.05); }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside>
+    <div class="brand">
+      <h1>learn-pi</h1>
+      <p>pi SDK 学习笔记</p>
+    </div>
+    <nav class="nav" id="nav"></nav>
+  </aside>
+  <main>
+    <div id="view"></div>
+  </main>
+</div>
+
+<script>
+  // ========== 数据：每块一个 topic，添加新内容就在这里 append ==========
+  const topics = [
+    {
+      id: "topic-1",
+      tag: "01",
+      title: "SDK 接入的工厂 API 分层",
+      group: "SDK 接入",
+      html: `
+        <div class="page-header">
+          <h2>pi SDK 学习笔记</h2>
+          <p class="subtitle">基于 <code>pi/</code> 源码实证 · 多块内容持续更新</p>
+        </div>
+
+        <div class="qa">
+          <div class="qa-q"><span class="badge">Q</span><p><code>createAgentSession</code> 和运行时版本的区别？还有什么类似的 API？</p></div>
+          <div class="qa-a">
+            <p>SDK 工厂分四层，从下到上叠加，全部位于 <code>packages/coding-agent/src/core/</code>。上层只是把下层的拼装延后/外露，没有第五个并列工厂。</p>
+            <table>
+              <thead><tr><th>层</th><th>函数</th><th>产物</th><th>用途</th></tr></thead>
+              <tbody>
+                <tr><td>1</td><td><code>createAgentSession()</code></td><td><code>{ session, extensionsResult, modelFallbackMessage? }</code></td><td>一次性建单个 AgentSession</td></tr>
+                <tr><td>2</td><td><code>createAgentSessionServices()</code></td><td><code>AgentSessionServices</code>（只服务，不建 session）</td><td>先拿到 cwd 绑定的资源再选 model/tools</td></tr>
+                <tr><td>3</td><td><code>createAgentSessionFromServices()</code></td><td>同 Layer 1</td><td>组合 Layer 2 + 会话级参数</td></tr>
+                <tr><td>4</td><td><code>createAgentSessionRuntime(factory, opts)</code> → <code>AgentSessionRuntime</code></td><td>运行时句柄</td><td>支持 newSession / switchSession / fork / importFromJsonl</td></tr>
+              </tbody>
+            </table>
+            <div class="callout"><strong>选型</strong>：单次脚本用 Layer 1；想自定义 UI 接管多会话生命周期用 Layer 4。需要 JSON-RPC 子进程再加 <code>runRpcMode(AgentSessionRuntime)</code>（Layer 5）。</div>
+            <div class="src">源码：core/sdk.ts:173 · core/agent-session-services.ts:135 · core/agent-session-services.ts:202 · core/agent-session-runtime.ts:422 · modes/rpc/rpc-mode.ts:54</div>
+          </div>
+        </div>
+      `
+    },
+    {
+      id: "topic-2",
+      tag: "02",
+      title: "自定义 UI 的多会话切换",
+      group: "SDK 接入",
+      html: `
+        <div class="qa">
+          <div class="qa-q"><span class="badge">Q</span><p>如果想做一个支持多会话切换的自定义页面，应该选哪个 API？</p></div>
+          <div class="qa-a">
+            <p>用 <code>createAgentSessionRuntime()</code> + <code>AgentSessionRuntime</code>。</p>
+            <p>文档原话（<code>docs/sdk.md:146-147</code>）：「Session replacement APIs such as new-session, resume, fork, and import live on <code>AgentSessionRuntime</code>, not on <code>AgentSession</code>.」</p>
+            <p>替换 API 列表（<code>core/agent-session-runtime.ts</code>）：</p>
+            <ul class="tight">
+              <li><code>newSession(options?)</code> — 第 226 行</li>
+              <li><code>switchSession(path, options?)</code> — 第 196 行</li>
+              <li><code>fork(entryId, { position? })</code> — 第 262 行</li>
+              <li><code>importFromJsonl(inputPath, cwdOverride?)</code> — 第 361 行</li>
+              <li><code>dispose()</code> — 第 406 行</li>
+            </ul>
+            <div class="callout warn">
+              <strong>三条关键约束</strong>（<code>docs/sdk.md:200-211</code>）：
+              <ol style="margin:6px 0 0;padding-left:20px;">
+                <li>替换后 <code>runtime.session</code> 实例变了；订阅和 <code>bindExtensions</code> 必须重新挂到新 session。</li>
+                <li>诊断信息走 <code>runtime.diagnostics</code>，不直接打印。</li>
+                <li>替换失败抛异常，由调用方决定怎么处理。</li>
+              </ol>
+            </div>
+<pre><code>const factory = async ({ cwd, sessionManager, sessionStartEvent }) =&gt; {
+  const services = await createAgentSessionServices({ cwd });
+  return {
+    ...(await createAgentSessionFromServices({ services, sessionManager, sessionStartEvent })),
+    services,
+    diagnostics: services.diagnostics,
+  };
+};
+
+const runtime = await createAgentSessionRuntime(factory, {
+  cwd: process.cwd(),
+  agentDir: getAgentDir(),
+  sessionManager: SessionManager.create(process.cwd()),
+});
+
+// 切换后必须 rebind
+let unsubscribe;
+const bind = async () =&gt; {
+  unsubscribe?.();
+  await runtime.session.bindExtensions({});
+  unsubscribe = runtime.session.subscribe((e) =&gt; { /* ... */ });
+};
+await bind();
+await runtime.newSession();
+await bind();</code></pre>
+            <div class="src">参考：examples/sdk/13-session-runtime.ts</div>
+          </div>
+        </div>
+      `
+    },
+    {
+      id: "topic-3",
+      tag: "03",
+      title: "同时在两个项目目录里跑对话",
+      group: "SDK 接入",
+      html: `
+        <div class="qa">
+          <div class="qa-q"><span class="badge">Q</span><p>需要同时在两个不同 cwd 进行对话，一个 runtime 行不行？</p></div>
+          <div class="qa-a">
+            <p>不行。一个 <code>AgentSessionRuntime</code> = 一个 cwd。它的 <code>cwd</code> 是常量（<code>agent-session-runtime.ts:105-107</code>），切 cwd 等于销毁旧 runtime、建新的。</p>
+            <p><strong>正解：建两个 runtime 实例。</strong>所有相关状态都是实例级，没有全局单例：</p>
+            <ul class="tight">
+              <li><code>ModelRuntime</code>（<code>core/model-runtime.ts:130</code>）所有可变字段都是实例字段，多实例互不影响。</li>
+              <li><code>SettingsManager</code> 按 cwd 构造，天然隔离。</li>
+              <li>Session 文件落点：<code>~/.pi/agent/sessions/--&lt;safeCwd&gt;--/</code>（<code>session-manager.ts:476-489</code>），目录互不重叠。</li>
+              <li>Session ID = <code>uuidv7()</code>（<code>session-manager.ts:208</code>），全局唯一。</li>
+              <li>Bash 工具的 <code>PI_SESSION_ID</code> 是 per-spawn env 拷贝（<code>tools/bash.ts:172-188</code>），不污染 <code>process.env</code>。</li>
+              <li>全文无 <code>static instance / getInstance / shared / singleton</code> 模式。</li>
+              <li><code>agent/docs/harness.md:31</code> 明说：「The same receiver may serve concurrent local callers or RPC clients」。</li>
+            </ul>
+            <div class="callout"><strong>唯一一处进程全局副作用</strong>：<code>core/sdk.ts:37</code> 的 <code>setDefaultStreamFn(streamSimple)</code> 模块加载时跑一次，给「没传 streamFn 的扩展」用；自己建的 <code>Agent</code> 总是显式传 streamFn（<code>sdk.ts:314</code>），不受影响。</div>
+            <p>基础用法：</p>
+<pre><code>const make = (cwd) =&gt; async ({ sessionManager, sessionStartEvent }) =&gt; {
+  const services = await createAgentSessionServices({ cwd });
+  return {
+    ...(await createAgentSessionFromServices({ services, sessionManager, sessionStartEvent })),
+    services,
+    diagnostics: services.diagnostics,
+  };
+};
+
+const [rA, rB] = await Promise.all([
+  createAgentSessionRuntime(make("/projA"), { cwd: "/projA", agentDir, sessionManager: SessionManager.create("/projA") }),
+  createAgentSessionRuntime(make("/projB"), { cwd: "/projB", agentDir, sessionManager: SessionManager.create("/projB") }),
+]);
+
+await Promise.all([
+  rA.session.prompt("..."),
+  rB.session.prompt("..."),
+]);</code></pre>
+            <p>可选优化：<code>ModelRuntime</code> 可共享，省一次启动开销。</p>
+<pre><code>const sharedModelRuntime = await ModelRuntime.create();
+const make = (cwd) =&gt; async (opts) =&gt; {
+  const services = await createAgentSessionServices({ cwd, modelRuntime: sharedModelRuntime });
+  return { ...(await createAgentSessionFromServices({ services, sessionManager: opts.sessionManager, sessionStartEvent: opts.sessionStartEvent })), services, diagnostics: services.diagnostics };
+};</code></pre>
+            <div class="callout ok"><strong>进阶路径</strong>：要做「任意多会话、共享同一 worker 进程」，可看 <code>@earendil-works/pi-server</code>（<code>packages/server/README.md</code>），设计目标是「durable Session + multi-presentation attachment」。但属于 experimental，自己接 SDK 仍是最稳的路。</div>
+            <div class="src">源码：core/agent-session-services.ts:135 · core/agent-session-runtime.ts:74 · core/model-runtime.ts:130 · core/session-manager.ts:476</div>
+          </div>
+        </div>
+      `
+    },
+    {
+      id: "topic-4",
+      tag: "04",
+      title: "核心对话循环与事件流",
+      group: "核心循环",
+      html: `
+        <div class="qa">
+          <div class="qa-q"><span class="badge">Q</span><p>pi 中 <code>session.prompt()</code> 之后到底发生了什么？每个阶段会触发哪些事件？</p></div>
+          <div class="qa-a">
+            <p>整个对话循环分三层入口、两层主循环。先看流程图，再拆阶段讲事件。</p>
+
+            <h4 style="font-size:14px;margin:18px 0 8px;color:var(--text);">三层入口</h4>
+            <ul class="tight">
+              <li><strong>AgentSession.prompt</strong>（<code>core/agent-session.ts:1175</code>）：业务入口。负责 extension command、input 拦截、skill/template 展开、<code>before_agent_start</code>、compaction 前置检查、auth 检查，再把构造好的 <code>AgentMessage[]</code> 交给 Agent。</li>
+              <li><strong>Agent.prompt</strong>（<code>agent/src/agent.ts:350</code>）：把 <code>string | AgentMessage | AgentMessage[]</code> 规范化，包一层 <code>runWithLifecycle</code>，跑一次只允许一个 active run。</li>
+              <li><strong>runAgentLoop</strong>（<code>agent/src/agent-loop.ts:96</code>）：先发 <code>agent_start</code> + <code>turn_start</code>，再对每个 prompt msg 发 <code>message_start</code>/<code>message_end</code>，最后进入 <code>runLoop</code>。</li>
+            </ul>
+
+            <h4 style="font-size:14px;margin:18px 0 8px;color:var(--text);">两层主循环（<code>runLoop</code>，<code>agent-loop.ts:156</code>）</h4>
+            <div class="diagram">
+              <svg viewBox="0 0 760 540" xmlns="http://www.w3.org/2000/svg" font-family="ui-monospace, Menlo, monospace" font-size="12">
+                <defs>
+                  <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                    <path d="M 0 0 L 10 5 L 0 10 z" fill="#8b949e"/>
+                  </marker>
+                  <marker id="arrL" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                    <path d="M 0 0 L 10 5 L 0 10 z" fill="#58a6ff"/>
+                  </marker>
+                </defs>
+
+                <!-- session entry -->
+                <rect x="260" y="10" width="240" height="36" rx="6" fill="#1f6feb33" stroke="#58a6ff"/>
+                <text x="380" y="33" text-anchor="middle" fill="#58a6ff">session.prompt(text)</text>
+
+                <!-- preflight -->
+                <rect x="240" y="70" width="280" height="36" rx="6" fill="#161b22" stroke="#30363d"/>
+                <text x="380" y="93" text-anchor="middle" fill="#e6edf3">preflight · skill/template · before_agent_start</text>
+
+                <!-- agent.prompt -->
+                <rect x="270" y="130" width="220" height="30" rx="6" fill="#161b22" stroke="#30363d"/>
+                <text x="380" y="150" text-anchor="middle" fill="#e6edf3">agent.prompt → runWithLifecycle</text>
+
+                <!-- agent_start / turn_start -->
+                <rect x="270" y="180" width="220" height="30" rx="6" fill="#15231b" stroke="#3fb950"/>
+                <text x="380" y="200" text-anchor="middle" fill="#3fb950">agent_start · turn_start · message_start/end (prompt)</text>
+
+                <!-- outer loop box -->
+                <rect x="40" y="230" width="680" height="220" rx="10" fill="none" stroke="#58a6ff" stroke-dasharray="6 4"/>
+                <text x="60" y="248" fill="#58a6ff" font-size="11">outer loop · runLoop()</text>
+
+                <!-- inner loop box -->
+                <rect x="70" y="265" width="620" height="170" rx="8" fill="none" stroke="#3fb950" stroke-dasharray="4 3"/>
+                <text x="90" y="283" fill="#3fb950" font-size="11">inner loop · turn</text>
+
+                <!-- steps inside -->
+                <rect x="100" y="295" width="560" height="32" rx="5" fill="#161b22" stroke="#30363d"/>
+                <text x="380" y="315" text-anchor="middle" fill="#e6edf3">drain steering queue → inject pending user msgs</text>
+
+                <rect x="100" y="335" width="560" height="32" rx="5" fill="#1f6feb33" stroke="#58a6ff"/>
+                <text x="380" y="355" text-anchor="middle" fill="#58a6ff">streamAssistantResponse (LLM)</text>
+
+                <rect x="100" y="375" width="560" height="32" rx="5" fill="#161b22" stroke="#30363d"/>
+                <text x="380" y="395" text-anchor="middle" fill="#e6edf3">executeToolCalls (parallel | sequential) → tool_results</text>
+
+                <rect x="100" y="415" width="560" height="26" rx="5" fill="#15231b" stroke="#3fb950"/>
+                <text x="380" y="432" text-anchor="middle" fill="#3fb950">turn_end · prepareNextTurn</text>
+
+                <!-- arrows -->
+                <line x1="380" y1="46" x2="380" y2="68" stroke="#8b949e" marker-end="url(#arr)"/>
+                <line x1="380" y1="106" x2="380" y2="128" stroke="#8b949e" marker-end="url(#arr)"/>
+                <line x1="380" y1="160" x2="380" y2="178" stroke="#8b949e" marker-end="url(#arr)"/>
+                <line x1="380" y1="210" x2="380" y2="228" stroke="#8b949e" marker-end="url(#arr)"/>
+
+                <!-- loop arrow on right side -->
+                <path d="M 660 390 Q 720 390 720 320 Q 720 290 685 290" fill="none" stroke="#3fb950" marker-end="url(#arrL)"/>
+                <text x="725" y="355" fill="#3fb950" font-size="10">有 tool / steering</text>
+
+                <!-- agent_end -->
+                <rect x="260" y="478" width="240" height="34" rx="6" fill="#15231b" stroke="#3fb950"/>
+                <text x="380" y="500" text-anchor="middle" fill="#3fb950">agent_end (willRetry 标记在 session 层)</text>
+                <line x1="380" y1="452" x2="380" y2="476" stroke="#8b949e" marker-end="url(#arr)"/>
+
+                <!-- follow-up branch -->
+                <path d="M 50 370 Q 20 370 20 460" fill="none" stroke="#8b949e"/>
+                <text x="15" y="430" fill="#8b949e" font-size="10">follow-up</text>
+                <text x="15" y="445" fill="#8b949e" font-size="10">queue →</text>
+                <text x="15" y="460" fill="#8b949e" font-size="10">→ inner</text>
+              </svg>
+              <div class="caption">对话循环总体流程（外层 wrap 内层；follow-up 把消息喂回内层）</div>
+            </div>
+
+            <h4 style="font-size:14px;margin:18px 0 8px;color:var(--text);">事件清单</h4>
+            <table class="event-table">
+              <thead><tr><th>事件</th><th>来源</th><th>何时触发</th></tr></thead>
+              <tbody>
+                <tr><td><code>agent_start</code></td><td>agent-loop.ts:110</td><td>每次 prompt / continue 进入 runAgentLoop</td></tr>
+                <tr><td><code>turn_start</code></td><td>agent-loop.ts:111/197</td><td>首 turn + 每次 prepareNextTurn 之后</td></tr>
+                <tr><td><code>message_start</code></td><td>agent-loop.ts:113/203/321/353/366/801</td><td>user / assistant / toolResult 三类消息开始</td></tr>
+                <tr><td><code>message_update</code></td><td>agent-loop.ts:336</td><td>assistant 流式：text/thinking/toolcall 的 start/delta/end</td></tr>
+                <tr><td><code>message_end</code></td><td>agent-loop.ts:114/204/355/368/802</td><td>user / assistant / toolResult 三类消息结束</td></tr>
+                <tr><td><code>tool_execution_start</code></td><td>agent-loop.ts:443/498</td><td>每个 tool_call 进入执行前（已 validate + before_tool 钩子通过）</td></tr>
+                <tr><td><code>tool_execution_update</code></td><td>agent-loop.ts:694</td><td>tool execute 回调里推 partial（典型：bash stdout 增量）</td></tr>
+                <tr><td><code>tool_execution_end</code></td><td>agent-loop.ts:774</td><td>tool finalize（after_tool 钩子跑完）</td></tr>
+                <tr><td><code>turn_end</code></td><td>agent-loop.ts:216/243</td><td>一次 turn 收尾（assistant + toolResults）</td></tr>
+                <tr><td><code>agent_end</code></td><td>agent-loop.ts:217/253/272</td><td>整个 run 结束；session 层加 <code>willRetry</code> 字段</td></tr>
+              </tbody>
+            </table>
+
+            <div class="callout">
+              <strong>session 层额外事件</strong>（在 <code>AgentSessionEvent</code> 里、AgentEvent 之外，<code>core/agent-session.ts:144-185</code>）：
+              <code>agent_settled</code>、<code>queue_update</code>、<code>compaction_start</code>/<code>compaction_end</code>、<code>auto_retry_start</code>/<code>auto_retry_end</code>、<code>summarization_retry_*</code>、<code>entry_appended</code>、<code>thinking_level_changed</code>、<code>session_info_changed</code>、<code>bash_execution_update</code>。
+            </div>
+
+            <h4 style="font-size:14px;margin:18px 0 8px;color:var(--text);">关键阶段拆解</h4>
+
+            <div class="step"><div class="step-num">1</div><div class="step-body">
+              <div class="what"><strong>session.prompt 预处理</strong>（<code>agent-session.ts:1175-1326</code>）</div>
+              <div class="emits">先执行 <code>/command</code>；再跑 <code>input</code> 扩展钩子；展开 <code>/skill:name</code> 与 <code>/template</code>；触发 <code>before_agent_start</code>（可改 systemPrompt / 追加 messages）；前置 compaction 检查；auth 校验；最后 <code>preflightResult(true)</code>。<strong>不发任何 AgentEvent</strong>。</div>
+            </div></div>
+
+            <div class="step"><div class="step-num">2</div><div class="step-body">
+              <div class="what"><strong>agent.prompt → runWithLifecycle</strong>（<code>agent.ts:486-509</code>）</div>
+              <div class="emits">建 <code>AbortController</code>，置 <code>state.isStreaming = true</code>。第二次 prompt 会 throw（只能用 steer/followUp）。</div>
+            </div></div>
+
+            <div class="step"><div class="step-num">3</div><div class="step-body">
+              <div class="what"><strong>runAgentLoop 起始事件</strong>（<code>agent-loop.ts:110-115</code>）</div>
+              <div class="emits">顺序：<code>agent_start</code> → <code>turn_start</code> → 每个 prompt msg 的 <code>message_start</code> + <code>message_end</code>。</div>
+            </div></div>
+
+            <div class="step"><div class="step-num">4</div><div class="step-body">
+              <div class="what"><strong>runLoop 主循环</strong>（<code>agent-loop.ts:156-273</code>）</div>
+              <div class="emits">先 <code>getSteeringMessages</code> 拿队列里的消息；内层 while 条件 = <code>hasMoreToolCalls || pendingMessages.length</code>。</div>
+            </div></div>
+
+            <div class="step"><div class="step-num">5</div><div class="step-body">
+              <div class="what"><strong>pending 消息注入</strong>（<code>agent-loop.ts:201-209</code>）</div>
+              <div class="emits">每条都 <code>message_start</code>/<code>message_end</code>，然后 push 进 context.messages + newMessages。</div>
+            </div></div>
+
+            <div class="step"><div class="step-num">6</div><div class="step-body">
+              <div class="what"><strong>streamAssistantResponse</strong>（<code>agent-loop.ts:279-370</code>）</div>
+              <div class="emits">先 <code>transformContext</code>（扩展点）→ <code>convertToLlm</code>（AgentMessage → Message）→ <code>streamFunction(model, llmContext)</code>。<br>
+                LLM 流：<code>start</code> → <code>message_start</code> + 占位 assistant；<code>text_start/delta/end</code>、<code>thinking_start/delta/end</code>、<code>toolcall_start/delta/end</code> 都映射成 <code>message_update</code>，<code>partialMessage</code> 同步就地更新 <code>context.messages</code> 末尾；<code>done/error</code> 触发 <code>message_end</code>。</div>
+            </div></div>
+
+            <div class="step"><div class="step-num">7</div><div class="step-body">
+              <div class="what"><strong>executeToolCalls</strong>（<code>agent-loop.ts:409-561</code>）</div>
+              <div class="emits">任一 tool 是 <code>executionMode === "sequential"</code> 或 <code>config.toolExecution === "sequential"</code> → 串行；否则 <code>Promise.all</code> 并发。<br>
+                每个 tool：<code>tool_execution_start</code> → <code>prepareToolCall</code>（validate + <code>before_tool</code> 钩子，可 block / terminate）→ <code>executePreparedToolCall</code>（任意次 <code>tool_execution_update</code>）→ <code>finalizeExecutedToolCall</code>（<code>after_tool</code> 钩子）→ <code>tool_execution_end</code> → 注入 <code>message_start</code>/<code>message_end</code> 的 toolResult。<br>
+                所有 tool 都 <code>result.terminate === true</code> → 内层循环退出。</div>
+            </div></div>
+
+            <div class="step"><div class="step-num">8</div><div class="step-body">
+              <div class="what"><strong>turn 收尾 + 准备下一轮</strong>（<code>agent-loop.ts:243-258</code>）</div>
+              <div class="emits"><code>turn_end</code>(message, toolResults) → <code>shouldStopAfterTurn</code> 钩子（return true 直接 <code>agent_end</code> 退出）→ 再 <code>getSteeringMessages</code> 拿新排队 → 触发下一轮 <code>turn_start</code>。</div>
+            </div></div>
+
+            <div class="step"><div class="step-num">9</div><div class="step-body">
+              <div class="what"><strong>follow-up 衔接</strong>（<code>agent-loop.ts:260-270</code>）</div>
+              <div class="emits">内层 while 退出后，外层再 <code>getFollowUpMessages</code>：非空就当 pending 喂回内层；都空才跳出到 <code>agent_end</code>。</div>
+            </div></div>
+
+            <div class="callout warn">
+              <strong>两条 stopReason 早退</strong>（<code>agent-loop.ts:215-219</code>）：assistant 消息 <code>stopReason === "error" | "aborted"</code> 时，不执行 tool，直接 <code>turn_end</code> + <code>agent_end</code>。另外 <code>stopReason === "length"</code>（输出被截断）→ 所有 tool call 直接判失败，结果是「请重发完整参数」的 error toolResult（<code>agent-loop.ts:379-404</code>）。
+            </div>
+
+            <h4 style="font-size:14px;margin:18px 0 8px;color:var(--text);">举例：并行两个 tool 的一次完整 prompt</h4>
+            <p>用户输入 <code>"列出当前目录文件，并读 package.json"</code>，模型同轮发出 <code>bash("ls")</code> + <code>read("package.json")</code>。事件序列：</p>
+
+<pre><code>1. agent_start
+2. turn_start                          ← 第一个 turn
+3. message_start (role: user, content: "...")
+4. message_end   (role: user, content: "...")
+
+5. message_start (role: assistant, content: [], partial)        ← LLM start
+6. message_update  assistantMessageEvent: thinking_start
+7. message_update  assistantMessageEvent: thinking_delta ...
+8. message_update  assistantMessageEvent: thinking_end
+9. message_update  assistantMessageEvent: toolcall_start { id, name: "bash" }
+10. message_update assistantMessageEvent: toolcall_delta { argsDelta: "{\"command\":\"ls\"}" }
+11. message_update assistantMessageEvent: toolcall_end
+12. message_update assistantMessageEvent: toolcall_start { id, name: "read" }
+13. message_update assistantMessageEvent: toolcall_delta { argsDelta: "{\"path\":\"package.json\"}" }
+14. message_update assistantMessageEvent: toolcall_end
+15. message_end (role: assistant, content: [thinking, toolCall×2])
+
+16. tool_execution_start { toolCallId: bash, args: {command:"ls"} }
+17. tool_execution_start { toolCallId: read, args: {path:"package.json"} }
+18. tool_execution_update { toolCallId: bash, partialResult: "foo.ts\nbar.ts\n" }   ← 多次
+19. tool_execution_end { toolCallId: bash, result: {...}, isError: false }
+20. tool_execution_update { toolCallId: read, partialResult: { content: ... } }     ← 可能 0 次
+21. tool_execution_end { toolCallId: read, result: {...}, isError: false }
+
+22. message_start (role: toolResult, toolCallId: bash)            ← 16-19 全部完成才到这里
+23. message_end   (role: toolResult, toolCallId: bash)
+24. message_start (role: toolResult, toolCallId: read)
+25. message_end   (role: toolResult, toolCallId: read)
+
+26. turn_end { message: assistant, toolResults: [bash, read] }
+   ↑ 没有 shouldStopAfterTurn 命中，且没有 steering → 外层先看 followUp，没有 → 直接 agent_end
+   ↑ 但因为 tool 用了同一轮内层继续：实际顺序是 26 之后内层继续，下一轮 turn 开始前会再发 turn_start
+27. turn_start
+... 后续 assistant 生成总结文本 → message_update(text_delta×N) → message_end → turn_end
+28. agent_end { messages: [user, assistant#1, toolResult×2, assistant#2], willRetry: false }
+29. agent_settled                                              ← session 层加的，等所有 listener 跑完</code></pre>
+
+            <div class="callout ok">
+              <strong>为什么 22-25 在 16-21 之后？</strong> <code>executeToolCallsParallel</code>（<code>agent-loop.ts:487-561</code>）先 <code>Promise.all</code> 等所有 tool finalize 完，再按顺序 emit toolResult 的 <code>message_start</code>/<code>message_end</code>。所以你订阅时，<strong>toolResult 消息永远在对应 tool 的 <code>tool_execution_end</code> 之后才出现</strong>，且 result 已 final。
+            </div>
+
+            <div class="callout">
+              <strong>steer / followUp 区别</strong>（<code>agent.ts:282-290</code> + <code>agent-loop.ts:168/195/257/261</code>）：
+              <code>steer</code> 在 <code>getSteeringMessages</code> 里 drain，触发下一个 turn 开头注入；
+              <code>followUp</code> 在外层跳出后 drain，喂回内层当新一轮。
+              默认都是 <code>"one-at-a-time"</code> 模式（<code>PendingMessageQueue.drain</code>，<code>agent.ts:142-154</code>），可改 <code>"all"</code>。
+            </div>
+
+            <h4 style="font-size:14px;margin:22px 0 8px;color:var(--text);">精确修正（订阅前必看）</h4>
+
+            <div class="step"><div class="step-num">A</div><div class="step-body">
+              <div class="what"><strong>第一个 turn_start 不是 runLoop 发的</strong></div>
+              <div class="emits">第 1 个 turn_start 来自 <code>runAgentLoop:111</code>（进入 runLoop 之前），后续 turn_start 来自 <code>runLoop:197</code>（<code>prepareNextTurn</code> 之后）。含义：UI 看到的第一对 turn_start/turn_end 跨了两层函数，不要在 runLoop 里「找」第一对起点。</div>
+            </div></div>
+
+            <div class="step"><div class="step-num">B</div><div class="step-body">
+              <div class="what"><strong>agent_end 有两条发射路径，互斥</strong></div>
+              <div class="emits">
+                <ol style="margin:4px 0 0;padding-left:18px;color:var(--text-muted);">
+                  <li>正常路径：<code>runLoop:217/253/272</code> — 在 <code>stopReason === "error" | "aborted"</code>、<code>shouldStopAfterTurn</code> 命中、或外层 break 时 emit + return。</li>
+                  <li>异常路径：<code>Agent.handleRunFailure</code>（<code>agent.ts:511-527</code>）— 捕获 <code>streamFunction</code> 抛出的未处理错误时，emit 一个带 synthetic errorMessage 的 assistant message + agent_end。</li>
+                </ol>
+                两种路径都恰好发一次 agent_end，业务侧不用关心走哪条。
+              </div>
+            </div></div>
+
+            <div class="step"><div class="step-num">C</div><div class="step-body">
+              <div class="what"><strong>没有 tool 也是一次完整 turn</strong></div>
+              <div class="emits">assistant 只回文本（content 里 0 个 toolCall）依然走完 <code>turn_start → message* → turn_end</code>。所以「turn 数 ≥ 1」而不是「= 调 LLM 次数」；只是有些 turn 没 tool。</div>
+            </div></div>
+
+            <h4 style="font-size:14px;margin:22px 0 8px;color:var(--text);">session 额外事件的 5 个触发时段</h4>
+            <p style="color:var(--text-muted);font-size:13px;margin:0 0 10px;">session 层在 <code>agent_start</code> 之前/之外/之内都可能发事件，它们不是 turn 生命周期的一等公民。按「相对 agent run / runLoop 的位置」分 5 个桶：</p>
+
+            <table class="event-table">
+              <thead><tr><th>桶</th><th>事件</th><th>触发位置</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><strong>A · agent 启动前</strong></td>
+                  <td><code>before_agent_start</code></td>
+                  <td><code>session.prompt</code> preflight（<code>agent-session.ts:1285-1304</code>），永远在 <code>agent_start</code> 之前。可改 systemPrompt、追加 messages。</td>
+                </tr>
+                <tr>
+                  <td><strong>B · agent 结束后</strong></td>
+                  <td><code>agent_settled</code></td>
+                  <td><code>_runAgentPrompt</code> 的 finally（<code>agent-session.ts:1112-1113</code>），永远在 <code>agent_end</code> 之后，等所有 listener 跑完才发。</td>
+                </tr>
+                <tr>
+                  <td><strong>C · 两个 agent run 之间</strong></td>
+                  <td><code>auto_retry_start</code> / <code>auto_retry_end</code></td>
+                  <td>在 <code>agent.prompt</code> 与下一次 <code>agent.continue</code> 之间（<code>agent-session.ts:1127-1135</code>、<code>:2933-2956</code>）。大模型失败重试。</td>
+                </tr>
+                <tr>
+                  <td><strong>D · runLoop 内部、turn 之间</strong></td>
+                  <td><code>compaction_start</code> / <code>compaction_end</code>（auto 路径）</td>
+                  <td>由 <code>prepareNextTurnWithContext</code> 钩子（<code>agent-session.ts:563</code>）触发，runLoop 在 turn 之间调它（<code>agent-loop.ts:177</code>）。所以 <code>turn_end</code> 之后可能看到 <code>compaction_start ... compaction_end</code> 再 <code>turn_start</code>，完全正常。</td>
+                </tr>
+                <tr>
+                  <td><strong>E · 任何时机、与 prompt 解耦</strong></td>
+                  <td><code>queue_update</code> / <code>entry_appended</code> / <code>thinking_level_changed</code> / <code>session_info_changed</code> / <code>bash_execution_update</code></td>
+                  <td>对应状态变了就发。外部代码调 <code>session.steer/followUp</code> 会发 queue_update；session 文件 append 条目会发 entry_appended；等等。与 agent 是否在运行无关。</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div class="callout warn">
+              <strong>两点容易踩坑</strong>：
+              <ol style="margin:6px 0 0;padding-left:20px;">
+                <li><code>compaction_start/end</code> 不只在 prompt 预处理时发——它<strong>也会</strong>在 runLoop 内、两个 turn 之间发（auto 路径，桶 D）。所以你做 turn 计数 / 渲染「turn 中」loading 时，要把 compaction 排除。</li>
+                <li><code>queue_update</code> ≠ 「steer/followUp 注入到 context 了」。前者是「队列长度变了」的纯通知，后者是 runLoop 内部 drain 队列后的实际注入动作。订阅时要分清。</li>
+              </ol>
+            </div>
+
+            <div class="callout ok">
+              <strong>一句话总结</strong>：agent 是最外层骨架（一次 prompt 一个），turn 是 agent 内部的循环步（一次 LLM 一对 turn 起止，turn 里装 message + tool 事件），session 层的额外事件横跨 5 个时段（启动前 / turn 间 / agent run 间 / 结束后 / 任何时机），做 turn 计数时要按桶排除。
+            </div>
+
+            <div class="src">源码：agent/src/agent-loop.ts:177 · agent/src/agent.ts:173 · core/agent-session.ts:538 · core/agent-session.ts:563 · core/agent-session.ts:1112 · core/agent-session.ts:1175 · core/agent-session.ts:1285 · packages/agent/src/types.ts:431</div>
+          </div>
+        </div>
+      `
+    },
+    {
+      id: "topic-5",
+      tag: "05",
+      title: "公共事件完整参考（23 个）",
+      group: "事件系统",
+      html: `
+        <div class="qa">
+          <div class="qa-q"><span class="badge">Q</span><p>pi 一共暴露哪些公共事件？每次会话触发几次？什么时候触发？</p></div>
+          <div class="qa-a">
+
+            <h4 style="font-size:14px;margin:0 0 12px;color:var(--text);">一、逐事件参考</h4>
+
+            <div class="evt-card">
+              <div class="head"><span class="name">agent_start</span><span class="count once">恰好 1 次</span></div>
+              <div class="when"><strong>时机</strong>：你调 <code>session.prompt(text)</code> 或 <code>session.continue()</code> 进入运行时，第一时间发出。</div>
+              <div class="example"><strong>例子</strong>：用户在输入框敲回车发送第一条消息，订阅回调里第一个收到的事件就是它。</div>
+            </div>
+
+            <div class="evt-card">
+              <div class="head"><span class="name">agent_end</span><span class="count once">恰好 1 次</span></div>
+              <div class="when"><strong>时机</strong>：整个 run 结束的最后时刻。无论正常完成、tool 失败、模型报 error、用户取消，都是这一个事件收尾。</div>
+              <div class="example"><strong>例子</strong>：模型回答完最后一句话、turn 收尾、然后 session 收到 agent_end。</div>
+              <div class="example"><strong>携带字段</strong>：<code>messages</code>（本次 run 新增的消息数组）、<code>willRetry</code>（session 层加的；true 意味着 session 即将自动再调一次 <code>agent.continue()</code>，false 才是真完事了）。</div>
+            </div>
+
+            <div class="evt-card">
+              <div class="head"><span class="name">agent_settled</span><span class="count once">恰好 1 次</span></div>
+              <div class="when"><strong>时机</strong>：在 agent_end <strong>之后</strong>，等所有订阅 listener 全部 resolve 才发。</div>
+              <div class="example"><strong>例子</strong>：模型回完话 → agent_end 发 → 你的 listener 还在做"把这一轮聊天写入 IndexedDB" → 写入完成 → agent_settled 才发。</div>
+              <div class="example"><strong>用途</strong>：可以拿它来"彻底解锁 UI / 关 loading / 允许下一次发送"。<strong>不要</strong>用 agent_end 做这一步，因为 listener 还没跑完，状态可能还没落库。</div>
+            </div>
+
+            <div class="evt-card">
+              <div class="head"><span class="name">turn_start</span><span class="count many">多次（≥1）</span></div>
+              <div class="when"><strong>时机</strong>：每次调大模型前。第一个 turn 在 <code>runAgentLoop:111</code>，后续 turn 在 <code>runLoop:197</code>（prepareNextTurn 钩子跑完后）。</div>
+              <div class="example"><strong>例子</strong>：用户问"列出目录"，→ turn_start（第 1 次）；模型调 bash 工具，bash 跑完 → turn_start（第 2 次）；模型给出最终回答 → turn_end → agent_end。</div>
+            </div>
+
+            <div class="evt-card">
+              <div class="head"><span class="name">turn_end</span><span class="count many">多次（≥1）</span></div>
+              <div class="when"><strong>时机</strong>：assistant 消息定型 + 该 turn 内所有 tool 全部跑完后。与 turn_start 一一对应。</div>
+              <div class="example"><strong>例子</strong>：模型只回一句文本（无 tool）→ turn_start → message* → turn_end；模型调 2 个 tool → turn_start → assistant message → tool 跑完 → turn_end。</div>
+            </div>
+
+            <div class="evt-card">
+              <div class="head"><span class="name">message_start</span><span class="count many">多次（≥1）</span></div>
+              <div class="when"><strong>时机</strong>：每条消息（user / assistant / toolResult / custom / bashExecution）开始时。</div>
+              <div class="example"><strong>例子</strong>：用户消息 1 次；每个 assistant 消息 1 次；每个 tool 结果 1 次；扩展塞的 custom 消息 1 次。</div>
+            </div>
+
+            <div class="evt-card">
+              <div class="head"><span class="name">message_update</span><span class="count many">多次（≥0）</span></div>
+              <div class="when"><strong>时机</strong>：只在 assistant 流式期间。每生成一点内容就发。</div>
+              <div class="example"><strong>例子</strong>：模型说"Hello"，你会收到 text_start → text_delta("H") → text_delta("e") → text_delta("l") → text_delta("l") → text_delta("o") → text_end。</div>
+              <div class="example"><strong>也包含</strong>：<code>thinking_start/delta/end</code>（思考过程）、<code>toolcall_start/delta/end</code>（工具调用参数流式生成）。</div>
+              <div class="example"><strong>关键</strong>：user 和 toolResult 消息<strong>不会</strong>发 message_update。</div>
+            </div>
+
+            <div class="evt-card">
+              <div class="head"><span class="name">message_end</span><span class="count many">多次（≥1）</span></div>
+              <div class="when"><strong>时机</strong>：每条消息定型。与 message_start 一一对应。</div>
+              <div class="example"><strong>例子</strong>：assistant 整条生成完，最终的完整 message 通过这个事件给你；tool 跑完，toolResult 消息定型。</div>
+            </div>
+
+            <div class="evt-card">
+              <div class="head"><span class="name">tool_execution_start</span><span class="count many">多次（≥0）</span></div>
+              <div class="when"><strong>时机</strong>：每个 tool 真正执行<strong>前</strong>（参数已校验、before_tool 钩子已通过）。</div>
+              <div class="example"><strong>例子</strong>：模型决定调 <code>bash("ls")</code> + <code>read("package.json")</code>，你会收到 2 次 start。</div>
+              <div class="example"><strong>不发的场景</strong>：参数校验失败 / before_tool 钩子 block 掉 → 直接发一个 error toolResult，<strong>不</strong>走 start。</div>
+            </div>
+
+            <div class="evt-card">
+              <div class="head"><span class="name">tool_execution_update</span><span class="count many">多次（≥0）</span></div>
+              <div class="when"><strong>时机</strong>：工具运行中推 partial result。</div>
+              <div class="example"><strong>例子</strong>：bash 跑一个长命令，每收到 stdout 一段就发一次（典型流式）；read 大文件分块返回；grep 命中行陆续返回。</div>
+              <div class="example"><strong>0 次很正常</strong>：edit、write 等短操作工具不会推 partial。</div>
+            </div>
+
+            <div class="evt-card">
+              <div class="head"><span class="name">tool_execution_end</span><span class="count many">多次（≥0）</span></div>
+              <div class="when"><strong>时机</strong>：工具跑完（含失败）。与 start 一一对应。</div>
+              <div class="example"><strong>例子</strong>：bash 执行完毕，携带 <code>exitCode</code> + 完整 <code>output</code>；失败时 <code>isError=true</code>。</div>
+            </div>
+
+            <div class="evt-card">
+              <div class="head"><span class="name">queue_update</span><span class="count many">多次（≥0）</span></div>
+              <div class="when"><strong>时机</strong>：你（或扩展代码）调 <code>session.steer(text)</code> / <code>session.followUp(text)</code> 时。</div>
+              <div class="example"><strong>例子</strong>：模型还在跑 bash，用户又敲了一条"先别跑那个，看下 README"，调 <code>steer()</code> 后立刻发 queue_update。</div>
+              <div class="example"><strong>携带字段</strong>：<code>steering</code>（数组，长度可能 > 0）、<code>followUp</code>（数组）。</div>
+              <div class="example"><strong>注意</strong>：是"队列长度变了"的<strong>纯通知</strong>，不是"消息已经被注入到 context"。注入发生在下一个 turn 开始的 runLoop drain 时。</div>
+            </div>
+
+            <div class="evt-card">
+              <div class="head"><span class="name">entry_appended</span><span class="count many">多次（≥0）</span></div>
+              <div class="when"><strong>时机</strong>：扩展（extension）调 <code>ctx.session.appendEntry(customType, data)</code> 时。</div>
+              <div class="example"><strong>例子</strong>：扩展想插入一个"用户授权"的视觉标记到 session 历史，调 <code>appendEntry("approval", {...})</code> 后收到这个事件。</div>
+              <div class="example"><strong>关键</strong>：<strong>只</strong>覆盖扩展加的自定义 entry。其他类型 entry（user/assistant/toolResult/modelChange/thinkingLevelChange/compaction/label）<strong>不</strong>走这个事件。</div>
+            </div>
+
+            <div class="evt-card">
+              <div class="head"><span class="name">session_info_changed</span><span class="count many">多次（≥0）</span></div>
+              <div class="when"><strong>时机</strong>：调 <code>session.setSessionName("xxx")</code> 时。</div>
+              <div class="example"><strong>例子</strong>：用户想把对话标题改成"修复登录 bug"，调一次 setSessionName 就发一次。</div>
+            </div>
+
+            <div class="evt-card">
+              <div class="head"><span class="name">thinking_level_changed</span><span class="count many">多次（≥0）</span></div>
+              <div class="when"><strong>时机</strong>：调 <code>session.setThinkingLevel()</code> 且<strong>实际改变了</strong>时。</div>
+              <div class="example"><strong>例子</strong>：用户按快捷键从 medium 切到 high，立刻发一次。</div>
+              <div class="example"><strong>不发的场景</strong>：设成一样的值；session 启动时第一次写入 thinkingLevel（走 sessionManager.appendThinkingLevelChange 直接落库，<strong>不</strong>走事件）。</div>
+            </div>
+
+            <div class="evt-card">
+              <div class="head"><span class="name">compaction_start</span><span class="count many">多次（≥0）</span></div>
+              <div class="when"><strong>时机</strong>：上下文快满了，session 检测到 token 用量超过设定阈值，决定压缩历史消息。</div>
+              <div class="example"><strong>例子</strong>：模型用着用着 token 用到 80% 阈值 → session 把历史摘要成一段 → compaction_start 发出来告诉你"开始压了"。</div>
+              <div class="example"><strong>三种触发方式</strong>：① 手动调 <code>session.compact()</code>（reason="manual"）；② runLoop 内 turn 之间的 <code>prepareNextTurn</code> 钩子（auto threshold）；③ session.prompt 预处理阶段检测 overflow（auto overflow）。</div>
+            </div>
+
+            <div class="evt-card">
+              <div class="head"><span class="name">compaction_end</span><span class="count many">多次（≥0）</span></div>
+              <div class="when"><strong>时机</strong>：压缩结束，与 compaction_start 一一对应。</div>
+              <div class="example"><strong>例子</strong>：摘要生成完、messages 已被替换为压缩版本，发 compaction_end 收尾。</div>
+              <div class="example"><strong>携带字段</strong>：<code>aborted</code>（是否中途取消）、<code>willRetry</code>（要不要继续被中断的那个 turn）、<code>result</code>（摘要内容，失败时是 undefined）、<code>errorMessage</code>。</div>
+            </div>
+
+            <div class="evt-card">
+              <div class="head"><span class="name">auto_retry_start</span><span class="count many">多次（≥0）</span></div>
+              <div class="when"><strong>时机</strong>：大模型调用失败且 session 判断可重试（网络抖动、限流等）。</div>
+              <div class="example"><strong>例子</strong>：调 Anthropic 收到 529 限流 → session 决定等 1 秒后重试 → 立刻发 auto_retry_start 告诉你"我要重试了"。</div>
+              <div class="example"><strong>携带字段</strong>：<code>attempt</code>（当前第几次）、<code>maxAttempts</code>、<code>delayMs</code>、<code>errorMessage</code>。</div>
+            </div>
+
+            <div class="evt-card">
+              <div class="head"><span class="name">auto_retry_end</span><span class="count many">多次（≥0）</span></div>
+              <div class="when"><strong>时机</strong>：重试成功 or 最终失败。与 start 一一对应。</div>
+              <div class="example"><strong>例子 1</strong>：第二次重试终于拿到成功响应 → <code>auto_retry_end(success: true)</code>。</div>
+              <div class="example"><strong>例子 2</strong>：重试用完全部次数还是失败 → <code>auto_retry_end(success: false, finalError)</code>。</div>
+            </div>
+
+            <div class="evt-card">
+              <div class="head"><span class="name">summarization_retry_scheduled</span><span class="count many">多次（≥0）</span></div>
+              <div class="when"><strong>时机</strong>：compaction / branch summary 用的 LLM 调用失败，session 排了个重试计划。</div>
+              <div class="example"><strong>例子</strong>：压缩时调 LLM 生成摘要失败 → session 决定过会儿重试 → 立刻发这个事件告诉你"我排了个重试"。</div>
+            </div>
+
+            <div class="evt-card">
+              <div class="head"><span class="name">summarization_retry_attempt_start</span><span class="count many">多次（≥0）</span></div>
+              <div class="when"><strong>时机</strong>：等了 delayMs 之后，session 真的再次调 LLM。</div>
+              <div class="example"><strong>例子</strong>：1 秒后 → session 实际发起新一轮摘要请求 → 发这个事件告诉你"这次尝试开始"。</div>
+              <div class="example"><strong>区分来源</strong>：<code>source: "branchSummary"</code>（分支摘要）vs <code>{ source: "compaction", reason: "manual"|"threshold"|"overflow" }</code>。</div>
+            </div>
+
+            <div class="evt-card">
+              <div class="head"><span class="name">summarization_retry_finished</span><span class="count many">多次（≥0）</span></div>
+              <div class="when"><strong>时机</strong>：这一轮重试跑完（成功或失败）。与 scheduled 一一对应。</div>
+              <div class="example"><strong>例子</strong>：第二次重试终于拿到摘要结果 → 发这个事件告诉你"这次跑完了"。</div>
+            </div>
+
+            <div class="evt-card">
+              <div class="head"><span class="name">bash_execution_update</span><span class="count many">多次（≥0）</span></div>
+              <div class="when"><strong>时机</strong>：bash 工具运行中，每收到 stdout 一段就发。</div>
+              <div class="example"><strong>例子</strong>：模型跑了 <code>npm install</code>，stdout 持续输出"added 1 package in 2s..."，每段都会发。</div>
+              <div class="example"><strong>关键</strong>：只有 bash 工具用；其他工具<strong>不</strong>发。</div>
+            </div>
+
+            <h4 style="font-size:14px;margin:22px 0 10px;color:var(--text);">二、一轮 prompt 中的事件触发顺序</h4>
+            <p style="color:var(--text-muted);font-size:13px;margin:0 0 8px;">下面是一轮完整的 <code>session.prompt()</code> 可能的事件流（含循环嵌套）。</p>
+
+            <div class="flow">
+              <div class="flow-row cat-agent"><span class="evt">agent_start</span><span class="cnt">[1]</span></div>
+              <div class="flow-children">
+
+                <div class="flow-row cat-turn"><span class="evt">turn_start</span><span class="cnt">[1+]</span></div>
+                <div class="flow-children">
+
+                  <div class="flow-row cat-msg"><span class="evt">message_start</span><span class="note">user</span><span class="cnt">[1+]</span></div>
+                  <div class="flow-row cat-msg"><span class="evt">message_end</span><span class="note">user</span><span class="cnt">[1+]</span></div>
+
+                  <div class="flow-row cat-msg"><span class="evt">message_start</span><span class="note">assistant</span><span class="cnt">[1+]</span></div>
+                  <div class="flow-children">
+                    <div class="flow-row cat-msg"><span class="evt">message_update</span><span class="note">thinking_start/delta/end</span><span class="cnt">[0+]</span></div>
+                    <div class="flow-row cat-msg"><span class="evt">message_update</span><span class="note">text_start/delta/end</span><span class="cnt">[0+]</span></div>
+                    <div class="flow-row cat-msg"><span class="evt">message_update</span><span class="note">toolcall_start/delta/end</span><span class="cnt">[0+]</span></div>
+                  </div>
+                  <div class="flow-row cat-msg"><span class="evt">message_end</span><span class="note">assistant</span><span class="cnt">[1+]</span></div>
+
+                  <div class="flow-section-title">如果 assistant 调了 N 个 tool：</div>
+                  <div class="flow-row cat-tool"><span class="evt">tool_execution_start</span><span class="note">tool 1</span><span class="cnt">[0+]</span></div>
+                  <div class="flow-children">
+                    <div class="flow-row cat-tool"><span class="evt">tool_execution_update</span><span class="note">partial result</span><span class="cnt">[0+]</span></div>
+                    <div class="flow-row cat-tool"><span class="evt">tool_execution_end</span><span class="cnt">[0+]</span></div>
+                  </div>
+                  <div class="flow-row cat-tool"><span class="evt">tool_execution_start</span><span class="note">tool 2</span><span class="cnt">[0+]</span></div>
+                  <div class="flow-children">
+                    <div class="flow-row cat-tool"><span class="evt">...</span></div>
+                  </div>
+
+                  <div class="flow-section-title">所有 tool 跑完后：</div>
+                  <div class="flow-row cat-msg"><span class="evt">message_start</span><span class="note">toolResult 1</span><span class="cnt">[0+]</span></div>
+                  <div class="flow-row cat-msg"><span class="evt">message_end</span><span class="note">toolResult 1</span><span class="cnt">[0+]</span></div>
+                  <div class="flow-row cat-msg"><span class="evt">message_start</span><span class="note">toolResult 2</span><span class="cnt">[0+]</span></div>
+                  <div class="flow-row cat-msg"><span class="evt">message_end</span><span class="note">toolResult 2</span><span class="cnt">[0+]</span></div>
+
+                  <div class="flow-row cat-turn"><span class="evt">turn_end</span><span class="cnt">[1+]</span></div>
+
+                  <div class="flow-row cat-loop">↻ 如果还有 follow-up / steering 排队 / toolResults 触发新一轮 LLM，回到 turn_start</div>
+
+                  <div class="flow-row cat-turn"><span class="evt">turn_start</span><span class="cnt">[1+]</span></div>
+                  <div class="flow-children">
+                    <div class="flow-row cat-msg"><span class="evt">message_start</span><span class="note">assistant</span><span class="cnt">[1+]</span></div>
+                    <div class="flow-children">
+                      <div class="flow-row cat-msg"><span class="evt">message_update</span><span class="note">text_delta×N</span><span class="cnt">[0+]</span></div>
+                    </div>
+                    <div class="flow-row cat-msg"><span class="evt">message_end</span><span class="note">assistant</span><span class="cnt">[1+]</span></div>
+                    <div class="flow-row cat-turn"><span class="evt">turn_end</span><span class="cnt">[1+]</span></div>
+                  </div>
+
+                </div>
+              </div>
+
+              <div class="flow-row cat-agent"><span class="evt">agent_end</span><span class="cnt">[1]</span><span class="note">↓ listener 全部结算完 ↓</span></div>
+              <div class="flow-row cat-agent"><span class="evt">agent_settled</span><span class="cnt">[1]</span></div>
+            </div>
+
+            <div class="flow-inter">
+              <h5>穿插事件（任何时机都可能发生，次数 ≥ 0）</h5>
+              <div class="group">
+                <div class="glabel">prompt 之前（preflight 阶段）</div>
+                <div class="chips cat-state">
+                  <span class="chip">before_agent_start<span class="cnt">扩展钩子，不是公共事件</span></span>
+                </div>
+              </div>
+              <div class="group">
+                <div class="glabel">prompt 期间（runLoop 外层 / turn 之间）</div>
+                <div class="chips cat-compact">
+                  <span class="chip">compaction_start<span class="cnt">[0+]</span></span>
+                  <span class="chip">compaction_end<span class="cnt">[0+]</span></span>
+                </div>
+                <div class="chips cat-retry">
+                  <span class="chip">auto_retry_start<span class="cnt">[0+]</span></span>
+                  <span class="chip">auto_retry_end<span class="cnt">[0+]</span></span>
+                </div>
+                <div class="chips cat-retry">
+                  <span class="chip">summarization_retry_scheduled<span class="cnt">[0+]</span></span>
+                  <span class="chip">summarization_retry_attempt_start<span class="cnt">[0+]</span></span>
+                  <span class="chip">summarization_retry_finished<span class="cnt">[0+]</span></span>
+                </div>
+              </div>
+              <div class="group">
+                <div class="glabel">任意时机（与 prompt 解耦）</div>
+                <div class="chips cat-state">
+                  <span class="chip">queue_update<span class="cnt">[0+]</span></span>
+                  <span class="chip">entry_appended<span class="cnt">[0+]</span></span>
+                  <span class="chip">session_info_changed<span class="cnt">[0+]</span></span>
+                  <span class="chip">thinking_level_changed<span class="cnt">[0+]</span></span>
+                  <span class="chip">bash_execution_update<span class="cnt">[0+]</span></span>
+                </div>
+              </div>
+            </div>
+
+            <h4 style="font-size:14px;margin:22px 0 10px;color:var(--text);">三、每个事件的注意点</h4>
+
+            <div class="pitfall">
+              <strong>agent_end ≠ 全部完成</strong>。agent_end 是 loop 不再推事件的标志，但你的 listener 可能还在跑 IO。要做"彻底解锁 UI"必须等 agent_settled，<strong>不能</strong>用 agent_end。
+            </div>
+
+            <div class="pitfall">
+              <strong>agent_end.willRetry</strong>：true 意味着 session 即将再调一次 <code>agent.continue()</code>（同一个 prompt 内），不是开新 prompt。订阅时别把它当成"会话结束"。
+            </div>
+
+            <div class="pitfall">
+              <strong>message_update 只在 assistant 上</strong>。user 和 toolResult 消息<strong>不会</strong>发 message_update。订阅时把 user/toolResult 也写 message_update 分支会一直收不到。
+            </div>
+
+            <div class="pitfall">
+              <strong>message_update 的 assistantMessageEvent</strong>：包含完整的事件链 <code>text_start/delta/end</code>、<code>thinking_start/delta/end</code>、<code>toolcall_start/delta/end</code>。你需要根据 <code>event.type</code> 区分渲染（文本流、思考块、工具调用参数流）。
+            </div>
+
+            <div class="pitfall">
+              <strong>tool_execution_start 之前会被校验</strong>。如果参数校验失败或 before_tool 钩子 block，<strong>不会</strong>有 start，直接发一个 error toolResult。你订阅时不能假设"看到 start 就一定有 end"——开始和结束都可能是 0 次。
+            </div>
+
+            <div class="pitfall">
+              <strong>tool_execution_update</strong>：只有推 partial 的工具才发。bash、grep、find 之类发；edit、write、read 小文件可能 0 次。别用它来判断"工具是否在跑"——要用 tool_execution_start/end。
+            </div>
+
+            <div class="pitfall">
+              <strong>toolResult 消息 vs tool_execution_end 的时序</strong>：<code>executeToolCallsParallel</code>（<code>agent-loop.ts:487</code>）先 <code>Promise.all</code> 等所有 tool finalize 完，再按顺序 emit toolResult 的 message_start/end。所以你看到的顺序是：<code>tool_execution_start × N → tool_execution_end × N → message_start/end × N</code>。<strong>toolResult 永远在对应 tool_execution_end 之后</strong>。
+            </div>
+
+            <div class="pitfall">
+              <strong>queue_update ≠ steer/followUp 已生效</strong>。前者是"队列长度变了"的纯通知，后者是 runLoop 内部 drain 队列后注入到 context。订阅时拿 queue_update 只更新 UI 上的"待发消息"提示，不要拿它判断消息是否已被模型看到。
+            </div>
+
+            <div class="pitfall">
+              <strong>entry_appended 只覆盖扩展加的 entry</strong>。message、modelChange、thinkingLevelChange、compaction、label、sessionInfo 这些都不走 entry_appended，有自己的事件。拿 entry_appended 来"刷新整个 session 历史"会漏掉绝大部分内容。
+            </div>
+
+            <div class="pitfall">
+              <strong>thinking_level_changed 只在真改变时</strong>。设成一样的值不触发；session 启动第一次写入 thinkingLevel 也不走事件（直接落 sessionManager，不通知）。
+            </div>
+
+            <div class="pitfall">
+              <strong>compaction_start/end 可在 runLoop 内部触发</strong>。不只是 prompt 预处理阶段，runLoop 在 turn 之间的 <code>prepareNextTurn</code> 钩子里也可能触发（auto threshold）。做"当前是否在 turn 中"的 UI 时，要把 compaction 排除。
+            </div>
+
+            <div class="pitfall">
+              <strong>auto_retry_end 的触发位置有两处</strong>：① 成功的 assistant 消息到达时（<code>agent-session.ts:700</code>，<code>success: true</code>）；② <code>_handlePostAgentRun</code> 检测到 error 且 <code>_retryAttempt > 0</code> 时（<code>:1127</code>，<code>success: false</code>）。两条路径互斥，要么成功要么失败，不会都发。
+            </div>
+
+            <div class="pitfall">
+              <strong>summarization_retry_* 与 auto_retry_* 是两套</strong>。前者只跟 compaction / branch summary 用的 LLM 重试有关；后者是普通对话调 LLM 失败的重试。<strong>不要混</strong>。
+            </div>
+
+            <div class="pitfall">
+              <strong>bash_execution_update 命名容易误导</strong>：它<strong>不是</strong> tool_execution_update 的别名。是 session 层单独的事件，只发 bash 工具的 stdout delta，跟其他工具无关。
+            </div>
+
+            <div class="src">源码：core/agent-session.ts:144-185（AgentSessionEvent 类型定义）、core/agent-session.ts:586-629（_emit + agent_settled）、core/agent-session.ts:2616-2621（entry_appended）、core/agent-session.ts:3114-3119（session_info_changed）、core/agent-session.ts:1828-1830（thinking_level_changed）、core/agent-session.ts:2290/2408（compaction）、core/agent-session.ts:2933/700/1127（auto_retry）、core/agent-session.ts:2893-2908（summarization_retry）、core/agent-session.ts:3027（bash_execution_update）</div>
+          </div>
+        </div>
+      `
+    },
+    {
+      id: "topic-6",
+      tag: "06",
+      title: "工具执行：并发 vs 串行",
+      group: "核心循环",
+      html: `
+        <div class="qa">
+          <div class="qa-q"><span class="badge">Q</span><p>用户提问需要调工具时，loop 是阻塞等待工具跑完吗？一次发两个 tool call，是真并发还是串行循环？</p></div>
+          <div class="qa-a">
+            <p>两个问题答案：<strong>loop 阻塞等所有 tool 跑完</strong>；<strong>默认并发</strong>（Promise.all 跑工具本体），可强制全批串行。</p>
+
+            <h4 style="font-size:14px;margin:0 0 10px;color:var(--text);">1. 阻塞：await executeToolCalls</h4>
+            <p>runLoop（<code>agent-loop.ts:212</code>）await 流式响应拿到 assistant message → 紧接着 <code>await executeToolCalls(...)</code>（<code>agent-loop.ts:233</code>）→ 这一行卡住，整个循环不会往下走。</p>
+            <p>后果：<strong>所有 tool 全部跑完</strong>之前不发 <code>turn_end</code>、不进 <code>prepareNextTurn</code>、不触发下一轮 LLM。UI 的"turn 进行中"状态 = <code>turn_start</code> 到 <code>turn_end</code> 之间，必然包含 tool 执行阶段。</p>
+
+            <h4 style="font-size:14px;margin:18px 0 10px;color:var(--text);">2. 选并发还是串行</h4>
+            <p><code>executeToolCalls</code>（<code>agent-loop.ts:409-424</code>）选路径：</p>
+<pre><code>const hasSequentialToolCall = toolCalls.some(
+  (tc) =&gt; currentContext.tools?.find((t) =&gt; t.name === tc.name)?.executionMode === "sequential",
+);
+if (config.toolExecution === "sequential" || hasSequentialToolCall) {
+  return executeToolCallsSequential(...);
+}
+return executeToolCallsParallel(...);</code></pre>
+            <p>两条触发条件，<strong>任一命中即全批串行</strong>：</p>
+            <ul class="tight">
+              <li><strong>全局配置</strong>：<code>agent.toolExecution = "sequential"</code>（默认 <code>"parallel"</code>，见 <code>agent.ts:237</code>）</li>
+              <li><strong>单个工具声明</strong>：tool 定义里 <code>executionMode: "sequential"</code>（<code>agent-loop.ts:417-419</code>）</li>
+            </ul>
+
+            <h4 style="font-size:14px;margin:18px 0 10px;color:var(--text);">3. 并发路径的实际行为</h4>
+            <p><code>executeToolCallsParallel</code>（<code>agent-loop.ts:487-561</code>）：</p>
+<pre><code>for (const toolCall of toolCalls) {
+  emit({ type: "tool_execution_start", ... });
+  const preparation = await prepareToolCall(...);   // ← 顺序：参数校验 + before_tool
+  if (preparation.kind === "immediate") { ... continue; }
+  finalizedCalls.push(async () =&gt; {                // ← 推到列表
+    const executed = await executePreparedToolCall(...);   // 真正并发
+    const finalized = await finalizeExecutedToolCall(...);  // after_tool
+    emit({ type: "tool_execution_end", ... });
+    return finalized;
+  });
+}
+const orderedFinalizedCalls = await Promise.all(    // ← 并发跑所有
+  finalizedCalls.map((entry) =&gt; entry instanceof Function ? entry() : Promise.resolve(entry))
+);</code></pre>
+            <p>三个注意点：</p>
+            <ul class="tight">
+              <li><strong>prepareToolCall 仍然顺序做</strong>（参数校验 + <code>before_tool</code> 钩子），不并发——这一步要先确认能跑再真跑</li>
+              <li>真正并发的是 <code>executePreparedToolCall</code>（工具本体）+ <code>finalizeExecutedToolCall</code>（<code>after_tool</code> 钩子）</li>
+              <li><code>Promise.all</code> 等所有工具全部 finalize 完才往下走 emit toolResult 消息</li>
+            </ul>
+
+            <h4 style="font-size:14px;margin:18px 0 10px;color:var(--text);">4. 事件时序对比</h4>
+
+            <p style="color:var(--text-muted);font-size:13px;margin:8px 0 4px;"><strong>并发</strong>（N 个 tool 同一 batch）：</p>
+            <div class="timeline">
+<span>tool_execution_start</span> (tool 1)      <span class="dim">─ 顺序 emit</span>
+<span>tool_execution_start</span> (tool 2)
+<span>tool_execution_start</span> (tool 3)
+   <span class="comment">↓ 三个工具同时跑 ↓</span>
+<span>tool_execution_update</span> (tool 1)      <span class="dim">─ 任意顺序交错</span>
+<span>tool_execution_update</span> (tool 2)
+<span>tool_execution_end</span>   (tool 1)       <span class="dim">─ 谁先完谁先 end</span>
+<span>tool_execution_update</span> (tool 3)
+<span>tool_execution_end</span>   (tool 2)
+<span>tool_execution_end</span>   (tool 3)
+   <span class="comment">↓ Promise.all 全部完成后 ↓</span>
+<span class="acc">message_start</span> (toolResult 1)           <span class="dim">─ 按 source 顺序</span>
+<span class="acc">message_end</span>   (toolResult 1)
+<span class="acc">message_start</span> (toolResult 2)
+<span class="acc">message_end</span>   (toolResult 2)
+<span class="ok">turn_end</span>
+            </div>
+
+            <p style="color:var(--text-muted);font-size:13px;margin:14px 0 4px;"><strong>串行</strong>（N 个 tool 同一 batch）：</p>
+            <div class="timeline">
+<span>tool_execution_start</span> (tool 1)
+<span>tool_execution_end</span>   (tool 1)
+<span>tool_execution_start</span> (tool 2)
+<span>tool_execution_end</span>   (tool 2)
+   <span class="comment">↓ ... 一个不落全跑完 ↓</span>
+<span>tool_execution_start</span> (tool N)
+<span>tool_execution_end</span>   (tool N)
+<span class="acc">message_start</span> / <span class="acc">message_end</span> × N
+<span class="ok">turn_end</span>
+            </div>
+
+            <h4 style="font-size:14px;margin:18px 0 10px;color:var(--text);">5. 关键约束</h4>
+            <ol style="padding-left:20px;color:var(--text-muted);font-size:13px;">
+              <li><strong><code>turn_end</code> 一定在所有 tool 跑完后才发</strong>（不论并发串行）。订阅 UI "loading 中" = <code>turn_start</code> 到 <code>turn_end</code>，必然包含 tool 调用阶段。</li>
+              <li><strong>并发模式下 toolResult 消息严格按 source 顺序 emit</strong>（<code>agent-loop.ts:550-555</code>），不按完成顺序。即使 tool 2 比 tool 1 先完，toolResult 1 仍先发。</li>
+              <li><strong>并发模式的事件是交错的</strong>（<code>tool_execution_update</code> / <code>tool_execution_end</code> 顺序不固定），UI 渲染要按 <code>toolCallId</code> 分组，不能假设到达顺序。</li>
+              <li><strong>如果某个 tool 校验失败或 <code>before_tool</code> block</strong>：不会 emit start，直接走 "immediate" 路径 emit 一个 error toolResult，不影响其他 tool 的执行。</li>
+              <li><strong>abort 信号</strong>：并发模式下 <code>signal.aborted</code> 会让还没 start 的 tool 立刻走 error 路径，已经在跑的交给工具自己的 abort 处理。</li>
+              <li><strong><code>bash_execution_update</code>（session 层）和 <code>tool_execution_update</code>（agent 层）会同时发</strong>，因为 bash 工具用 session 层的 <code>BashExecution</code> 包装。订阅只听一边会漏。</li>
+            </ol>
+
+            <div class="callout ok">
+              <strong>一句话</strong>：<strong>整批 tool 阻塞 runLoop</strong>；<strong>默认并发</strong>（先校验、后 <code>Promise.all</code> 跑工具本体）；<strong>可全批串行</strong>（全局 config 或任一 tool 声明 sequential）。
+            </div>
+
+            <div class="src">源码：agent/src/agent-loop.ts:212（await streamAssistantResponse） · agent/src/agent-loop.ts:233（await executeToolCalls） · agent/src/agent-loop.ts:409-424（executeToolCalls 选路径） · agent/src/agent-loop.ts:431-485（executeToolCallsSequential） · agent/src/agent-loop.ts:487-561（executeToolCallsParallel） · agent/src/agent.ts:237（默认 toolExecution="parallel"）</div>
+          </div>
+        </div>
+      `
+    },
+    {
+      id: "topic-7",
+      tag: "07",
+      title: "会话存储：entry、树结构、渲染",
+      group: "会话文件",
+      html: `
+        <div class="qa">
+          <div class="qa-q"><span class="badge">Q1</span><p>entry 类型什么意思？为什么说 10 种但表格只列了 9 个？</p></div>
+          <div class="qa-a">
+            <p>纠正：准确说 <strong>9 种 entry + 1 种 header = 10 种 JSON 对象类型</strong>。</p>
+            <p>「entry」特指 <strong>带 id/parentId、参与树结构的会话单元</strong>。「header」是文件的第 1 行，<strong>没有</strong> id/parentId，不在树里，只是元数据。所以表格里列的 9 个全部是 entry。</p>
+
+            <table class="event-table">
+              <thead><tr><th>type</th><th>分类</th><th>说明</th></tr></thead>
+              <tbody>
+                <tr><td><code>message</code></td><td>消息</td><td>用户 / 助手 / toolResult / bashExecution / custom 五种 role 的消息</td></tr>
+                <tr><td><code>model_change</code></td><td>状态</td><td>记录切换了哪个模型</td></tr>
+                <tr><td><code>thinking_level_change</code></td><td>状态</td><td>记录切换了思考等级</td></tr>
+                <tr><td><code>compaction</code></td><td>摘要</td><td>压缩点 + 摘要内容</td></tr>
+                <tr><td><code>branch_summary</code></td><td>摘要</td><td>切换分支时留下的旁支摘要</td></tr>
+                <tr><td><code>custom_message</code></td><td>扩展</td><td>扩展注入的、<strong>进 LLM context</strong> 的消息</td></tr>
+                <tr><td><code>custom</code></td><td>扩展</td><td>扩展存的 UI 状态，<strong>不进</strong> LLM context</td></tr>
+                <tr><td><code>label</code></td><td>UI</td><td>用户给某条 entry 加的书签</td></tr>
+                <tr><td><code>session_info</code></td><td>UI</td><td>会话展示名（/name 设置）</td></tr>
+              </tbody>
+            </table>
+            <p style="color:var(--text-muted);font-size:12.5px;margin-top:8px;">另外 <code>type: "session"</code> 是 header，独立于 entry 树，单独算一种类型。所以总共是 10 种 JSON 对象形态。</p>
+          </div>
+        </div>
+
+        <div class="qa">
+          <div class="qa-q"><span class="badge">Q2</span><p>文件里是顺序的，怎么构建出树？树形结构展开讲下</p></div>
+          <div class="qa-a">
+            <p>JSONL 本质是顺序的（每行独立），但每个 entry 自带 <code>id</code> 和 <code>parentId</code>。把全部 entry 读进内存后，按 <code>parentId</code> 反向查就能构建出树。</p>
+
+            <h4 style="font-size:14px;margin:14px 0 8px;color:var(--text);">1. 字段含义</h4>
+<pre><code>interface SessionEntryBase {
+  type: string;
+  id: string;              // 8 字符 hex（碰撞检测后生成），唯一
+  parentId: string | null; // 指向父 entry；null = 根
+  timestamp: string;       // ISO 时间
+}</code></pre>
+
+            <h4 style="font-size:14px;margin:14px 0 8px;color:var(--text);">2. 构建算法</h4>
+<pre><code>// 1. 顺序读每一行
+const lines = readFileSync(file, "utf8").trim().split("\\n");
+const header = JSON.parse(lines[0]);           // 第 1 行：SessionHeader
+const entries = lines.slice(1).map(JSON.parse); // 后续：entry 列表
+
+// 2. 建索引（id → entry）
+const byId = new Map(entries.map(e =&gt; [e.id, e]));
+
+// 3. 建父子关系（child → parent）
+const childrenOf = new Map();  // parentId → childId[]
+for (const e of entries) {
+  if (e.parentId !== null) {
+    const arr = childrenOf.get(e.parentId) ?? [];
+    arr.push(e.id);
+    childrenOf.set(e.parentId, arr);
+  }
+}
+
+// 4. 找出 leaf（被其他 entry 当 parent 但自己也是 parentId 最深的）
+//    SessionManager 直接用 leafId 字段（每次 _appendEntry 自动更新）
+const leafId = ...; // SessionManager 实例自带</code></pre>
+
+            <h4 style="font-size:14px;margin:14px 0 8px;color:var(--text);">3. 一个真实例子（文字版）</h4>
+<pre><code>文件（顺序）：
+
+  L1  header                        {id: "session-uuid", ...}
+  L2  message   user "你好"          {id: "A", parentId: null}            ← 根
+  L3  message   assistant "hi"       {id: "B", parentId: "A"}
+  L4  message   user "再帮我看X"     {id: "C", parentId: "B"}
+  L5  message   assistant "X 是..."   {id: "D", parentId: "C"}
+  L6  message   user "那改成Y"       {id: "E", parentId: "D"}
+  L7  message   assistant "好"       {id: "F", parentId: "E"}            ← 当前 leaf
+  L8  message   user "回到 D 那条"   {id: "G", parentId: "D"}            ← 新分支
+  L9  message   assistant "D 这里"   {id: "H", parentId: "G"}            ← 切到 G，leaf = H
+
+构建出来的树：
+
+              A
+              │
+              B
+              │
+              C
+              │
+              D
+             / \\
+            E   G
+            │   │
+            F   H ← leaf（当前活跃位置）
+</code></pre>
+
+            <h4 style="font-size:14px;margin:14px 0 8px;color:var(--text);">4. SessionManager 已经替你做完了</h4>
+            <p>不用自己造轮子。打开 session 文件时 <code>SessionManager</code> 内部已经构建好了：</p>
+            <ul class="tight">
+              <li><code>getEntries()</code> — 所有 entry（不含 header）</li>
+              <li><code>getEntry(id)</code> — 按 id 查单个</li>
+              <li><code>getLeafId()</code> / <code>getLeafEntry()</code> — 当前 leaf</li>
+              <li><code>getChildren(parentId)</code> — 直接子节点</li>
+              <li><code>getBranch(fromId?)</code> — <strong>从某条 entry 走到 root 的路径</strong>（从 leaf 往回爬）</li>
+              <li><code>getTree()</code> — 整棵树的嵌套结构（每个节点带 children）</li>
+              <li><code>buildContextEntries()</code> — 应用 compaction 后的「active 分支」entry 列表（给 LLM 用）</li>
+              <li><code>buildSessionContext()</code> — 把 entry 列表转成 <code>{messages, model, thinkingLevel}</code>（最终喂给 LLM）</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="qa">
+          <div class="qa-q"><span class="badge">Q3</span><p>要根据会话信息进行渲染，需要怎么做？</p></div>
+          <div class="qa-a">
+            <p>取决于你要渲染什么——「当前对话」还是「整棵分支树」。</p>
+
+            <h4 style="font-size:14px;margin:0 0 8px;color:var(--text);">A. 渲染当前对话（最常见）</h4>
+            <p>只显示从根到当前 leaf 的「active 分支」。这是 chat UI 的常规视图。</p>
+<pre><code>// 方法 1：直接用 buildSessionContext()，拿到 messages 列表
+const ctx = sessionManager.buildSessionContext();
+for (const msg of ctx.messages) {
+  // msg.role: "user" | "assistant" | "toolResult" | "custom" | ...
+  renderMessage(msg);
+}
+
+// 方法 2：拿原始 entry 列表（保留 metadata：id, parentId, timestamp）
+const entries = sessionManager.buildContextEntries();
+for (const entry of entries) {
+  if (entry.type === "message") renderMessage(entry.message, { id: entry.id, ts: entry.timestamp });
+  else if (entry.type === "compaction") renderCompactionNotice(entry);
+  else if (entry.type === "branch_summary") renderBranchSummary(entry);
+  else if (entry.type === "custom_message") renderCustomMessage(entry);
+  // 注意：custom / label / model_change / thinking_level_change / session_info 不进 context
+}</code></pre>
+
+            <h4 style="font-size:14px;margin:18px 0 8px;color:var(--text);">B. 渲染整棵树（树视图）</h4>
+            <p>展示所有分支，让用户能切换 / 切回某条历史 entry。/tree 命令的实现。</p>
+<pre><code>const tree = sessionManager.getTree();  // 嵌套对象，根 → 子 → 孙...
+// tree 形如：
+// { id, parentId, timestamp, type, message?, children: [{...}, {...}] }
+
+function renderTree(node, depth = 0) {
+  // 缩进展示
+  renderIndent(depth);
+  // 标出当前 leaf
+  const isLeaf = node.id === sessionManager.getLeafId();
+  renderLabel('[' + node.type + '] ' + previewContent(node) + (isLeaf ? ' ← active' : ''));
+  for (const child of node.children ?? []) renderTree(child, depth + 1);
+}
+renderTree(tree);</code></pre>
+
+            <h4 style="font-size:14px;margin:18px 0 8px;color:var(--text);">C. 渲染扩展自定义 entry</h4>
+            <p>扩展用 <code>ctx.session.appendEntry(customType, data)</code> 加的 <code>type: "custom"</code> 不进 LLM context，纯粹给 UI 用。可以注册渲染器：</p>
+<pre><code>// TUI 模式
+pi.registerEntryRenderer("my-extension", (entry, context) =&gt; {
+  // entry: { id, parentId, timestamp, type: "custom", customType, data }
+  return new MyEntryComponent(entry.data);
+});</code></pre>
+
+            <h4 style="font-size:14px;margin:18px 0 8px;color:var(--text);">D. 实时增量更新（推荐）</h4>
+            <p>不要每次都全量重新渲染。会话在跑的时候，<code>session.subscribe()</code> 收到的 <code>message_*</code> / <code>entry_appended</code> / <code>thinking_level_changed</code> 等事件就是增量信号：</p>
+            <ul class="tight">
+              <li><code>message_start/update/end</code> → 新增 / 流式更新一条消息</li>
+              <li><code>entry_appended</code> → 新增一条 custom entry（仅扩展用）</li>
+              <li><code>thinking_level_changed</code> → 更新 footer / 标题里的 thinking 标识</li>
+              <li><code>session_info_changed</code> → 更新会话展示名</li>
+            </ul>
+            <p>初次打开（resume）时：用 <code>getEntries()</code> 全量渲染一次；之后订阅增量。</p>
+
+            <h4 style="font-size:14px;margin:14px 0 8px;color:var(--text);">E. 切换分支后重新渲染</h4>
+            <p>调 <code>session.navigateTree(entryId)</code> 或 runtime 的 <code>switchSession</code> 之后，leafId 变了，active 分支也变了。重新调 <code>buildContextEntries()</code> 拿到新的 entry 列表全量渲染一次即可。</p>
+
+            <div class="callout ok">
+              <strong>渲染速查</strong>：
+              <ul style="margin:6px 0 0;padding-left:18px;">
+                <li>普通 chat 视图 → <code>buildSessionContext()</code> 或 <code>buildContextEntries()</code></li>
+                <li>树视图 / /tree 选择器 → <code>getTree()</code> 递归渲染</li>
+                <li>扩展自定义 UI → 注册 <code>registerEntryRenderer(customType, ...)</code></li>
+                <li>实时增量 → <code>session.subscribe()</code> + <code>entry_appended</code></li>
+                <li>切分支 → 重调 <code>buildContextEntries()</code> 全量渲染</li>
+              </ul>
+            </div>
+
+            <div class="src">源码：core/session-manager.ts:1058-1063（_appendEntry 自动更新 leafId） · core/session-manager.ts:1066-1069（不允许直接 append compaction/branch summary） · packages/coding-agent/docs/session-format.md:317-330（树结构示意） · core/session-manager.ts:441-444（buildContextEntries/buildSessionContext）</div>
+          </div>
+        </div>
+      `
+    },
+    {
+      id: "topic-8",
+      tag: "08",
+      title: "回退、改标题、压缩：所有「修改」都是追加",
+      group: "会话文件",
+      html: `
+        <div class="qa">
+          <div class="qa-q"><span class="badge">A</span><p>会话文件是 append-only 的，那「撤销一步对话」「修改会话标题」这种怎么实现？</p></div>
+          <div class="qa-a">
+            <p><strong>全部都是「追加新 entry」</strong>，没有 rewrite、删行、覆盖。</p>
+
+            <h4 style="font-size:14px;margin:0 0 10px;color:var(--text);">1. 撤销一步 / 回退到任意历史节点</h4>
+            <p>用 <code>session.navigateTree(targetId, options)</code>（<code>agent-session.ts:3136</code>）。这是「in-place 树导航」——不切换文件，leafId 指到目标 entry，所有后续操作从那里继续。</p>
+<pre><code>// 高层 API（自动处理 user message / assistant / summary 等多种目标类型）
+const result = await session.navigateTree("a1b2c3d4", {
+  summarize: true,           // 是否给放弃的分支生成摘要
+  customInstructions: "...", // 自定义摘要 prompt
+  label: "checkpoint",       // 给这次导航打个标签
+});
+// 返回 { editorText?, cancelled, aborted?, summaryEntry? }</code></pre>
+            <p>底层走的是 SessionManager 的纯数据 API：</p>
+<pre><code>// 单纯移动 leafId，不加任何 entry（最便宜）
+sessionManager.branch(entryId);             // 纯切 leaf
+sessionManager.resetLeaf();                 // 切到 null（root 之前）
+
+// 移动 leaf + 追加一条 branch_summary 记录（描述放弃的路径）
+sessionManager.branchWithSummary(branchFromId, summary, details?, fromHook?, usage?);
+
+// 提取当前分支为新会话文件（不动原文件）
+sessionManager.createBranchedSession(leafId);</code></pre>
+
+            <p><strong>navigateTree 的三种目标类型行为不同</strong>（<code>agent-session.ts:3268-3279</code>）：</p>
+            <table class="event-table">
+              <thead><tr><th>目标类型</th><th>leaf 落到</th><th>编辑器</th></tr></thead>
+              <tbody>
+                <tr><td><code>user</code> 消息</td><td>该消息的 parentId（上一条）</td><td>原 user 文本，可改后重新发送</td></tr>
+                <tr><td><code>custom_message</code></td><td>该消息的 parentId</td><td>原文本</td></tr>
+                <tr><td>其他（assistant / tool / compaction / label 等）</td><td>该 entry 本身</td><td>空</td></tr>
+              </tbody>
+            </table>
+
+            <div class="callout">
+              <strong>三种「取消」的差别</strong>：
+              <ul style="margin:6px 0 0;padding-left:18px;">
+                <li>会话运行中（streaming）→ throw，要先 abort 完才能 navigate</li>
+                <li>compaction / 其他 navigation 在跑 → throw，等待</li>
+                <li>扩展钩子 <code>session_before_tree</code> 返回 <code>{ cancel: true }</code> → 返回 <code>{ cancelled: true }</code>，<strong>不</strong>改 leafId</li>
+              </ul>
+            </div>
+
+            <h4 style="font-size:14px;margin:18px 0 10px;color:var(--text);">2. 修改会话标题</h4>
+<pre><code>session.setSessionName("修复登录 bug");</code></pre>
+            <p>实际做的事（<code>agent-session.ts:3114-3119</code>）：</p>
+<pre><code>setSessionName(name) {
+  this.sessionManager.appendSessionInfo(name);    // 追加一条 session_info entry
+  const event = { type: "session_info_changed", name: this.sessionManager.getSessionName() };
+  this._emit(event);                              // 通知订阅者
+  void this._extensionRunner.emit(event);
+}</code></pre>
+            <p>读标题走 <code>getSessionName()</code>（<code>session-manager.ts:1164-1175</code>）——<strong>反向扫描</strong> entries，找最新的那条 <code>session_info</code>。所以你改 10 次名字，文件里就有 10 条 entry，永远只读最后那条。</p>
+
+            <h4 style="font-size:14px;margin:18px 0 10px;color:var(--text);">3. 模型切换、思考等级</h4>
+            <p>同理：</p>
+<pre><code>session.setModel(newModel);             // → appendModelChange(provider, modelId)
+session.setThinkingLevel("high");       // → appendThinkingLevelChange(level)
+                                       // 实际真改变时才 append（agent-session.ts:1828）</code></pre>
+
+            <h4 style="font-size:14px;margin:18px 0 10px;color:var(--text);">4. 一条原则：append-only 永远是单向流</h4>
+            <p>所有「修改」操作 → 追加新 entry。读取时按 entry 类型反向扫或用 <code>buildContextEntries</code> 取「最新生效值」。这保证了：</p>
+            <ul class="tight">
+              <li>任何状态都能从文件 100% 重建（幂等）</li>
+              <li>撤回 / 切分支不会破坏已写过的内容</li>
+              <li>崩溃时只可能丢「最后一条未 flush 的 entry」，不会破坏历史</li>
+              <li>扩展 / 第三方工具可以放心监听事件流，不用担心读到不一致状态</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="qa">
+          <div class="qa-q"><span class="badge">B</span><p>压缩（compaction）后，会话文件长什么样？怎么构建出树？</p></div>
+          <div class="qa-a">
+            <p>压缩<strong>不是删除旧 entry</strong>，而是<strong>追加一条 <code>compaction</code> entry</strong>，里面带个 <code>firstKeptEntryId</code> 标记「从哪条之后还保留原文」。</p>
+
+            <h4 style="font-size:14px;margin:0 0 10px;color:var(--text);">1. 压缩的 entry 格式（<code>session-manager.ts:69-80</code>）</h4>
+<pre><code>interface CompactionEntry extends SessionEntryBase {
+  type: "compaction";
+  summary: string;              // LLM 生成的摘要文本
+  firstKeptEntryId: string;     // 关键：从哪条 entry 开始还保留原文
+  tokensBefore: number;         // 压缩前多少 token（统计用）
+  details?: T;                  // 扩展数据（默认含 readFiles / modifiedFiles）
+  usage?: Usage;                // 生成摘要消耗的 token / cost
+  fromHook?: boolean;           // true = 扩展生成；false/undefined = pi 生成
+}</code></pre>
+
+            <h4 style="font-size:14px;margin:14px 0 10px;color:var(--text);">2. 文件长这样（示意）</h4>
+<pre><code>假设原始对话：A → B → C → D → E → F（6 条 message）
+压缩 C→F 后：
+
+  L1   header
+  L2   message  user     "A"
+  L3   message  assistant "B"
+  L4   message  user     "C"          ← firstKeptEntryId = L4.id
+  L5   message  assistant "D"          ← 这条之后的原文都保留
+  L6   message  user     "E"
+  L7   message  assistant "F"          ← 当前 leaf
+  L8   compaction {                     ← 追加这条
+    summary: "前面对话讨论了 X、Y，用户最后决定 Z...",
+    firstKeptEntryId: &lt;L4 的 id&gt;,
+    tokensBefore: 50000,
+    ...
+  }
+  L9   message  user     "压缩后的新问题"   ← 后续对话从这里继续
+
+树形结构（parentId 关系）：
+
+  A → B → C → D → E → F → compaction → "压缩后的新问题"
+                                    ↑
+                            leaf 当前在这里
+
+注意：D / E / F 在树里<strong>仍然存在</strong>，parentId 链路完整。
+只是「active 分支」构建时，D 之前的会被 summary 替代。</code></pre>
+
+            <h4 style="font-size:14px;margin:14px 0 10px;color:var(--text);">3. 构建 active 分支的算法（<code>buildContextEntries</code>，<code>session-manager.ts:418-454</code>）</h4>
+<pre><code>function buildContextEntries(entries, leafId, byId) {
+  // 1. 从 leafId 走到 root，拿到完整路径
+  const path = buildSessionPath(entries, leafId, byId);  // 反向遍历 parentId
+
+  // 2. 找路径上最近的 compaction（一般就一个）
+  let compaction = null;
+  for (const entry of path) {
+    if (entry.type === "compaction") compaction = entry;
+  }
+  if (!compaction) return path;
+
+  // 3. 组装最终 context：
+  //    [compaction 本身, ...firstKeptEntryId 之后的 entry, ...compaction 之后的 entry]
+  const compactionIdx = path.findIndex(e =&gt; e.id === compaction.id);
+  const result = [compaction];
+  let foundFirstKept = false;
+  for (let i = 0; i &lt; compactionIdx; i++) {
+    if (path[i].id === compaction.firstKeptEntryId) foundFirstKept = true;
+    if (foundFirstKept) result.push(path[i]);
+  }
+  result.push(...path.slice(compactionIdx + 1));  // compaction 之后的所有 entry
+  return result;
+}</code></pre>
+
+            <h4 style="font-size:14px;margin:14px 0 10px;color:var(--text);">4. 上面那个例子的构建结果</h4>
+<pre><code>原始 path（A→B→C→D→E→F→compaction→新消息）：
+
+  buildContextEntries 输出：
+  [
+    compaction { summary: "..." },                    ← 摘要替代 A、B
+    message C,                                       ← firstKeptEntryId 开始
+    message D,
+    message E,
+    message F,
+    message "压缩后的新问题",                          ← compaction 之后的
+  ]
+
+  给 LLM 的 messages 序列：
+  [
+    { role: "compactionSummary", summary: "前面对话讨论了 X、Y..." },
+    { role: "user", content: "C" },
+    { role: "assistant", content: "D" },
+    { role: "user", content: "E" },
+    { role: "assistant", content: "F" },
+    { role: "user", content: "压缩后的新问题" },
+  ]
+
+  → A、B 完全从 LLM 视野消失，但还在文件里、还能 /tree 切回去看</code></pre>
+
+            <h4 style="font-size:14px;margin:14px 0 10px;color:var(--text);">5. 关键属性</h4>
+            <ul class="tight">
+              <li><strong>树结构本身不变</strong>：D / E / F 的 parentId 关系没动，<code>getTree()</code> 看到的是完整的 6 条 + compaction + 新消息</li>
+              <li><strong>只是 context 折叠</strong>：<code>buildContextEntries()</code> 把 A、B 用一条 summary 替换；纯 UI 渲染（<code>getEntries()</code>）还能看到全部</li>
+              <li><strong>可以多次压缩</strong>：路径上如果有多条 compaction entry，用「最新那条」的 firstKeptEntryId 切</li>
+              <li><strong>可以切回 A、B</strong>：用 <code>session.navigateTree(A.id)</code>，leafId 指到 A 之前的位置，后续对话就又从 A 之前开始，相当于「解除压缩」（但 A、B 之前的内容如果之前被丢掉就回不来了——除非 firstKeptEntryId 在 A 之前）</li>
+            </ul>
+
+            <div class="callout ok">
+              <strong>一句话</strong>：压缩 = 追加一条 compaction entry 带 firstKeptEntryId。<strong>不删旧 entry，不改 parentId</strong>，context 构建时按规则折叠。
+            </div>
+
+            <div class="src">源码：core/agent-session.ts:3136-3332（navigateTree） · core/session-manager.ts:1386-1420（branch / branchWithSummary / resetLeaf） · core/session-manager.ts:1427（createBranchedSession） · core/agent-session.ts:3114-3119（setSessionName） · core/session-manager.ts:1111-1133（appendCompaction） · core/session-manager.ts:69-80（CompactionEntry 定义） · core/session-manager.ts:418-454（buildContextEntries 算法）</div>
+          </div>
+        </div>
+      `
+    },
+    {
+      id: "topic-9",
+      tag: "09",
+      title: "底层原理：文件 ↔ 内存树 ↔ Context 的完整链路",
+      group: "底层原理",
+      html: `
+        <div class="qa">
+          <div class="qa-q"><span class="badge">Part 1</span><p>正常对话（含 tool call）落盘后文件长什么样？内存里怎么把这堆 JSONL 重建成一棵 entry 树？怎么从树拿出 LLM 用的上下文？</p></div>
+          <div class="qa-a">
+
+            <h4 style="font-size:14px;margin:0 0 10px;color:var(--text);">1. 一次具体对话</h4>
+            <p>用户问「看下 /tmp 下面有哪些 .log 文件」，模型调 <code>bash</code> 跑 <code>ls /tmp/*.log</code>，把结果整理给用户。完整事件流对应到文件落盘：</p>
+
+            <h4 style="font-size:14px;margin:14px 0 8px;color:var(--text);">2. 事件流 → 文件 entry 一一对应</h4>
+            <table class="event-table">
+              <thead><tr><th>事件</th><th>文件 entry</th><th>type</th><th>parentId</th></tr></thead>
+              <tbody>
+                <tr><td>session.prompt() 进入</td><td>L1 header</td><td><code>session</code></td><td>—</td></tr>
+                <tr><td>首条 user 消息入</td><td>L2 msgA</td><td><code>message</code></td><td>null</td></tr>
+                <tr><td>model_change（如果是新建会话初始化）</td><td>L3 mc</td><td><code>model_change</code></td><td>msgA</td></tr>
+                <tr><td>thinking_level_change</td><td>L4 tlc</td><td><code>thinking_level_change</code></td><td>mc</td></tr>
+                <tr><td>助手首条 assistant 消息（触发落盘！）</td><td>L5 msgB</td><td><code>message</code></td><td>tlc</td></tr>
+                <tr><td>tool_execution_start</td><td colspan="3">↳ 不写盘，只是过程事件</td></tr>
+                <tr><td>tool_execution_end</td><td colspan="3">↳ 不写盘</td></tr>
+                <tr><td>toolResult 消息</td><td>L6 msgC</td><td><code>message</code></td><td>msgB</td></tr>
+                <tr><td>助手最终回答</td><td>L7 msgD</td><td><code>message</code></td><td>msgC</td></tr>
+              </tbody>
+            </table>
+
+            <h4 style="font-size:14px;margin:14px 0 8px;color:var(--text);">3. 文件原文（真实 JSON 形态）</h4>
+<pre><code>// L1 — header
+{"type":"session","version":3,"id":"019f6f53-...","timestamp":"...","cwd":"/Users/chen/proj"}
+
+// L2 — user 提问
+{"type":"message","id":"a1","parentId":null,"timestamp":"...","message":{"role":"user","content":"看下 /tmp 下面有哪些 .log 文件","timestamp":...}}
+
+// L3 — 初始 model
+{"type":"model_change","id":"a2","parentId":"a1","timestamp":"...","provider":"anthropic","modelId":"claude-sonnet-4-5"}
+
+// L4 — 初始 thinking level
+{"type":"thinking_level_change","id":"a3","parentId":"a2","timestamp":"...","thinkingLevel":"medium"}
+
+// L5 — assistant 第一轮（带 toolCall）
+{"type":"message","id":"a4","parentId":"a3","timestamp":"...","message":{
+  "role":"assistant",
+  "content":[
+    {"type":"text","text":"我用 ls 查一下。"},
+    {"type":"toolCall","id":"tc_1","name":"bash","arguments":{"command":"ls /tmp/*.log"}}
+  ],
+  "api":"anthropic-messages","provider":"anthropic","model":"claude-sonnet-4-5",
+  "usage":{...},"stopReason":"toolUse","timestamp":...
+}}
+
+// L6 — tool result
+{"type":"message","id":"a5","parentId":"a4","timestamp":"...","message":{
+  "role":"toolResult","toolCallId":"tc_1","toolName":"bash",
+  "content":[{"type":"text","text":"app.log\nsystem.log"}],
+  "isError":false,"timestamp":...
+}}
+
+// L7 — assistant 收尾
+{"type":"message","id":"a6","parentId":"a5","timestamp":"...","message":{
+  "role":"assistant",
+  "content":[{"type":"text","text":"有 2 个：app.log、system.log"}],
+  "stopReason":"stop","timestamp":...
+}}</code></pre>
+
+            <h4 style="font-size:14px;margin:14px 0 8px;color:var(--text);">4. 内存里：读 → 建索引 → 建树</h4>
+            <p><strong>Step A：顺序读文件</strong></p>
+<pre><code>const lines = readFileSync(file, "utf8").trim().split("\n");
+const [headerLine, ...entryLines] = lines;
+const header = JSON.parse(headerLine);
+const allEntries = entryLines.map(JSON.parse);  // 顺序保留 = 写入顺序</code></pre>
+
+            <p><strong>Step B：建 byId 索引（O(n)）</strong></p>
+<pre><code>const byId = new Map();
+for (const e of allEntries) byId.set(e.id, e);
+// → Map { a1, a2, a3, a4, a5, a6 }</code></pre>
+
+            <p><strong>Step C：建 children 反向索引</strong></p>
+<pre><code>const childrenOf = new Map();  // parentId → childId[]
+for (const e of allEntries) {
+  if (e.parentId !== null) {
+    const arr = childrenOf.get(e.parentId) ?? [];
+    arr.push(e.id);
+    childrenOf.set(e.parentId, arr);
+  }
+}
+
+// childrenOf:
+//   null     → [a1]
+//   a1       → [a2]
+//   a2       → [a3]
+//   a3       → [a4]
+//   a4       → [a5]
+//   a5       → [a6]</code></pre>
+
+            <p><strong>Step D：找到 leaf（最新写入的 entry）</strong></p>
+            <p>SessionManager 不需要扫描——<code>_appendEntry</code> 每次自动 <code>this.leafId = entry.id</code>（<code>session-manager.ts:1061</code>）。当前 leaf = <code>a6</code>。</p>
+
+            <h4 style="font-size:14px;margin:14px 0 8px;color:var(--text);">5. 树长这样</h4>
+<pre><code>                                  null
+                                   │
+                                   a1  message user "看下 /tmp..."
+                                   │
+                                   a2  model_change anthropic/claude-sonnet-4-5
+                                   │
+                                   a3  thinking_level_change medium
+                                   │
+                                   a4  message assistant (text + toolCall tc_1)
+                                   │
+                                   a5  message toolResult tc_1 → ["app.log","system.log"]
+                                   │
+                                   a6  message assistant "有 2 个：..."   ← leaf
+
+getTree() 返回（嵌套）：
+  {
+    id: "a1", type: "message", message: { role: "user", ... },
+    children: [
+      { id: "a2", type: "model_change", children: [
+        { id: "a3", type: "thinking_level_change", children: [
+          { id: "a4", type: "message", children: [
+            { id: "a5", type: "message", children: [
+              { id: "a6", type: "message", children: [] }   ← leaf
+            ]}
+          ]}
+        ]}
+      ]}
+    ]
+  }</code></pre>
+
+            <h4 style="font-size:14px;margin:14px 0 8px;color:var(--text);">6. 拿 LLM context：buildSessionContext</h4>
+            <p>内部走 <code>buildSessionPath</code>（<code>session-manager.ts:334-360</code>）——从 leaf 一路顺着 parentId 走到 root，<strong>reverse</strong> 一下就是 root→leaf 顺序：</p>
+<pre><code>function buildSessionPath(entries, leafId, byId) {
+  const index = byId ?? buildEntryIndex(entries);
+  let current = index.get(leafId);            // a6
+  const path = [];
+  while (current) {
+    path.push(current);                       // [a6, a5, a4, a3, a2, a1]
+    current = current.parentId ? index.get(current.parentId) : undefined;
+  }
+  path.reverse();                             // [a1, a2, a3, a4, a5, a6]
+  return path;
+}</code></pre>
+
+            <p>无 compaction → 路径直接当 context，再 <code>sessionEntryToContextMessages</code>（<code>session-manager.ts:383-413</code>）转成 AgentMessage 数组。过滤规则：</p>
+            <ul class="tight">
+              <li><code>message</code> → 原 message</li>
+              <li><code>compaction</code> → compactionSummary</li>
+              <li><code>branch_summary</code> → branchSummary</li>
+              <li><code>custom_message</code> → CustomMessage</li>
+              <li><code>model_change</code> / <code>thinking_level_change</code> → 不进 messages，但 <code>getSessionContextSettings</code> 提取 model + thinkingLevel 字段</li>
+              <li><code>custom</code> / <code>label</code> / <code>session_info</code> → 完全不进 context</li>
+            </ul>
+
+            <p>本例输出给 LLM 的 <code>messages</code>：</p>
+<pre><code>[
+  { role: "user", content: "看下 /tmp 下面有哪些 .log 文件" },
+  { role: "assistant", content: [text "我用 ls 查一下。", toolCall tc_1], stopReason: "toolUse", ... },
+  { role: "toolResult", toolCallId: "tc_1", toolName: "bash", content: "app.log\nsystem.log", isError: false },
+  { role: "assistant", content: "有 2 个：app.log、system.log", stopReason: "stop", ... }
+]
+
++ 额外字段：
+  model: { provider: "anthropic", modelId: "claude-sonnet-4-5" }      ← 路径上最新的 model_change
+  thinkingLevel: "medium"                                            ← 路径上最新的 thinking_level_change</code></pre>
+
+            <h4 style="font-size:14px;margin:14px 0 8px;color:var(--text);">7. 端到端数据流</h4>
+            <div class="timeline">
+<span class="comment">文件（磁盘）</span>                            <span class="dim">→</span>  <span class="comment">内存</span>                                      <span class="dim">→</span>  <span class="comment">Context（给 LLM）</span>
+<span class="dim">[</span>
+<span>  header,</span>
+<span>  msgA, model_change, thinking_change,</span>
+<span>  msgB(assistant+toolCall),</span>
+<span>  msgC(toolResult),</span>
+<span>  msgD(assistant final)</span>
+<span class="dim">]</span>
+                                            <span class="dim">→</span>   <span class="acc">byId Map</span> + <span class="acc">leafId</span> + <span class="acc">getTree()</span>
+                                            <span class="dim">→</span>   <span class="acc">buildSessionPath()</span> (leaf 沿 parentId 走到 root，reverse)
+                                            <span class="dim">→</span>   <span class="acc">buildContextEntries()</span>
+                                            <span class="dim">→</span>   <span class="acc">sessionEntryToContextMessages()</span>
+                                            <span class="dim">→</span>   <span>{ messages, model, thinkingLevel }
+            </div>
+          </div>
+        </div>
+
+        <div class="qa">
+          <div class="qa-q"><span class="badge">Part 2</span><p>压缩后文件变化是什么？树怎么重建？怎么折叠成 LLM context？</p></div>
+          <div class="qa-a">
+
+            <h4 style="font-size:14px;margin:0 0 10px;color:var(--text);">1. 继续上面的例子：触发压缩</h4>
+            <p>用户继续聊，几轮过后 token 涨到 50k，触发 <code>_compactBeforeNextAssistantResponse</code>（<code>agent-session.ts:538</code>）→ 调 LLM 生成摘要 → 调 <code>appendCompaction</code>。</p>
+
+            <h4 style="font-size:14px;margin:14px 0 8px;color:var(--text);">2. 文件变化（追加 L8、L9 两条）</h4>
+<pre><code>// 前面的 L1..L7 全部保留，一行不改
+// L8 — 追加 compaction
+{"type":"compaction","id":"b1","parentId":"a6","timestamp":"...","summary":"用户查 /tmp/*.log，得到 app.log 和 system.log；后续讨论了清理策略 X、Y、Z，最后决定 Z。","firstKeptEntryId":"a4","tokensBefore":50000,"details":{"readFiles":[],"modifiedFiles":[]},"usage":{"input":48000,"output":350,...}}
+
+// L9 — 压缩后用户继续问
+{"type":"message","id":"b2","parentId":"b1","timestamp":"...","message":{"role":"user","content":"那 system.log 怎么清理？","timestamp":...}}</code></pre>
+
+            <div class="callout warn">
+              <strong>关键</strong>：<strong>L1..L7 没动一个字节</strong>。L8 是新增的 <code>compaction</code> entry，L9 是压缩之后用户继续发的消息。文件物理上变长，但旧内容一字不变。
+            </div>
+
+            <h4 style="font-size:14px;margin:14px 0 8px;color:var(--text);">3. 内存里：树长这样</h4>
+<pre><code>                                  null
+                                   │
+                                   a1
+                                   │
+                                   a2
+                                   │
+                                   a3
+                                   │
+                                   a4  ← firstKeptEntryId 指向这里
+                                   │
+                                   a5
+                                   │
+                                   a6
+                                   │
+                                   b1  ← compaction（type: "compaction"）
+                                   │
+                                   b2  ← leaf（压缩后用户的下一条问题）
+
+getTree() 看到的还是完整的 8 个 entry。
+getEntries() 返回 [a1, a2, a3, a4, a5, a6, b1, b2] 共 8 条。
+没有任何 entry 被「删除」或「标记为已压缩」。</code></pre>
+
+            <h4 style="font-size:14px;margin:14px 0 8px;color:var(--text);">4. 关键字段 firstKeptEntryId = a4</h4>
+            <p>含义：「压缩点 a1/a2/a3 那些旧消息会被摘要替代，<strong>从 a4 开始保留原文</strong>」。SessionManager 决定 firstKeptEntryId 的算法（<code>compaction/compaction.ts</code>）：</p>
+            <ul class="tight">
+              <li>找到路径上一个合适的「切割点」（通常选最近的 assistant 消息，保证对话结构完整）</li>
+              <li>把切割点之前的全部 entry ID 作为 <code>firstKeptEntryId</code>（实际只存这一个，build 时用它往后扫）</li>
+              <li>让 LLM 摘要切割点之前的内容</li>
+            </ul>
+
+            <h4 style="font-size:14px;margin:14px 0 8px;color:var(--text);">5. buildContextEntries 的折叠算法</h4>
+<pre><code>function buildContextEntries(entries, leafId, byId) {
+  // Step 1: leaf 沿 parentId 走到 root，反转得到 root→leaf 完整路径
+  const path = buildSessionPath(entries, leafId, byId);
+  // path = [a1, a2, a3, a4, a5, a6, b1, b2]
+
+  // Step 2: 路径上找最近的 compaction（一般 1 个，多次压缩就找最后那个）
+  let compaction = null;
+  for (const e of path) {
+    if (e.type === "compaction") compaction = e;   // 找到 b1
+  }
+  if (!compaction) return path;
+
+  // Step 3: 重新组装
+  const compactionIdx = path.findIndex(e =&gt; e.id === compaction.id);  // 6
+  const result = [compaction];                  // ① compaction 本身放最前
+  let foundFirstKept = false;
+  for (let i = 0; i &lt; compactionIdx; i++) {
+    if (path[i].id === compaction.firstKeptEntryId) foundFirstKept = true;   // i=3 时碰到 a4
+    if (foundFirstKept) result.push(path[i]);      // ② 从 firstKeptEntryId 开始保留到 compaction 之前
+  }
+  // result = [b1, a4, a5, a6]
+  result.push(...path.slice(compactionIdx + 1));  // ③ compaction 之后的所有 entry
+  // result = [b1, a4, a5, a6, b2]
+
+  return result;
+}</code></pre>
+
+            <h4 style="font-size:14px;margin:14px 0 8px;color:var(--text);">6. 转成 LLM messages</h4>
+            <p><code>sessionEntryToContextMessages</code> 把 [b1, a4, a5, a6, b2] 转成：</p>
+<pre><code>[
+  { role: "compactionSummary", summary: "用户查 /tmp/*.log，得到 app.log 和 system.log；后续讨论了清理策略 X、Y、Z，最后决定 Z。", ... },
+  { role: "user", content: "看下 /tmp 下面有哪些 .log 文件" },      ← a4 (其实 a4 是 assistant，输出转成对应 role)
+  { role: "assistant", content: [...], toolCall tc_1, ... },         ← a5 (toolResult)
+  { role: "toolResult", toolCallId: "tc_1", content: "..." },        ← a6
+  { role: "user", content: "那 system.log 怎么清理？" }                ← b2
+]</code></pre>
+            <p>注意：a1 / a2 / a3 全部消失，a4..a6 的原文保留，b1 替代旧内容，b2 自然跟进。</p>
+
+            <h4 style="font-size:14px;margin:14px 0 8px;color:var(--text);">7. 多次压缩的情况</h4>
+            <p>假设 L9 之后又过几轮，用户再次超阈值，触发第二次压缩，文件再追加：</p>
+<pre><code>// L10 — 第二次 compaction（firstKeptEntryId 指向第二轮的某条 entry，比如 b2）
+{"type":"compaction","id":"c1","parentId":"b2","timestamp":"...","summary":"..."}
+
+// L11 — 用户新问题
+{"type":"message","id":"c2","parentId":"c1",...}</code></pre>
+
+            <p>此时路径 = [a1, a2, a3, a4, a5, a6, b1, b2, c1, c2]。</p>
+            <p>算法里找 compaction 用的是「<strong>最近的</strong>」c1 → firstKeptEntryId 指向 b2 → 最终 contextEntries = [c1, b2, c2]。</p>
+            <p>a1..b1 全部被两层摘要替代，<strong>但还在文件里</strong>。</p>
+
+            <h4 style="font-size:14px;margin:14px 0 8px;color:var(--text);">8. 折叠前后对照</h4>
+            <table class="event-table">
+              <thead><tr><th>视角</th><th>看到什么</th></tr></thead>
+              <tbody>
+                <tr><td><code>getEntries()</code>（UI / 调试）</td><td>所有 entry，包括 a1..a6、b1、b2、c1、c2 全在</td></tr>
+                <tr><td><code>getTree()</code>（树视图）</td><td>完整树，能看到所有分支</td></tr>
+                <tr><td><code>buildContextEntries()</code>（context 折叠后）</td><td>只保留 [c1, b2, c2] —— 旧内容被两层 summary 替代</td></tr>
+                <tr><td><code>buildSessionContext()</code>（喂给 LLM）</td><td>三层 message：compactionSummary → b2 的内容 → c2 的问题</td></tr>
+                <tr><td><code>navigateTree(a1.id)</code>（切回第一轮）</td><td>leaf 跳到 a1 之前的位置（null），后续对话从那里继续，相当于「解除两层压缩」</td></tr>
+              </tbody>
+            </table>
+
+            <div class="callout ok">
+              <strong>一句话</strong>：<strong>文件物理只增不减</strong>，压缩 = 追加一条 compaction 带 firstKeptEntryId。<strong>树结构永久保留</strong>，只是 <code>buildContextEntries</code> 按规则<strong>折叠</strong>展示给 LLM。<code>getEntries()</code> / <code>getTree()</code> 永远能看到完整历史。
+            </div>
+
+            <div class="src">源码：core/session-manager.ts:1029-1055（_persist 落盘策略） · core/session-manager.ts:1058-1063（_appendEntry 自动维护 leafId） · core/session-manager.ts:334-360（buildSessionPath） · core/session-manager.ts:418-454（buildContextEntries） · core/session-manager.ts:383-413（sessionEntryToContextMessages） · core/session-manager.ts:69-80（CompactionEntry） · core/agent-session.ts:538-554（_compactBeforeNextAssistantResponse 触发点）</div>
+          </div>
+        </div>
+      `
+    },
+    {
+      id: "topic-10",
+      tag: "10",
+      title: "UI 视角：session.messages 就是一切",
+      group: "底层原理",
+      html: `
+        <div class="qa">
+          <div class="qa-q"><span class="badge">Q1</span><p>SDK 总是给我链式历史吗？我不用关心树？</p></div>
+          <div class="qa-a">
+            <p><strong>是的。</strong>对外暴露的是 <code>session.messages</code>（<code>agent-session.ts:993-995</code>）：</p>
+<pre><code>get messages(): AgentMessage[] {
+  return this.agent.state.messages;   // 纯扁平数组
+}</code></pre>
+            <p>返回 <code>AgentMessage[]</code>，按时间顺序，从 root → leaf。内部树结构、<code>firstKeptEntryId</code>、compaction 折叠算法全部藏在 SDK 里。</p>
+            <p>简化流程：<code>sessionManager.getEntries()</code> → <code>buildSessionPath</code>（leaf 沿 parentId 走到 root，reverse）→ <code>buildContextEntries</code>（折叠 compaction）→ <code>sessionEntryToContextMessages</code>（entry → message）→ 一个扁平数组。</p>
+            <p><strong>你完全不用碰树、不用读文件、不用关心 compaction 折叠</strong>——<code>session.messages</code> 拿到的就是「线性对话流」。</p>
+          </div>
+        </div>
+
+        <div class="qa">
+          <div class="qa-q"><span class="badge">Q2</span><p>压缩后页面怎么展示？需要为压缩单独设计 UI 吗？</p></div>
+          <div class="qa-a">
+            <p><strong>前面 10 轮照常渲染，压缩那里加个特殊样式就行。</strong></p>
+            <p><code>messages</code> 数组里 10 轮之后会插入一条<strong>特殊 message</strong>（来自 <code>sessionEntryToContextMessages</code>，<code>session-manager.ts:404-406</code> → <code>createCompactionSummaryMessage</code>，<code>messages.ts:109-119</code>）：</p>
+<pre><code>{
+  role: "compactionSummary",
+  summary: "用户查 /tmp/*.log，得到 app.log 和 system.log；后续讨论了清理策略 X、Y、Z...",
+  tokensBefore: 50000,
+  timestamp: ...
+}</code></pre>
+            <p>UI 渲染逻辑：</p>
+<pre><code>for (const msg of session.messages) {
+  switch (msg.role) {
+    case "compactionSummary":
+      renderCompactionBanner(msg.summary, msg.tokensBefore);  // 特殊样式
+      break;
+    case "branchSummary":
+      renderBranchBanner(msg.summary);
+      break;
+    case "user":
+    case "assistant":
+    case "toolResult":
+    case "bashExecution":
+    case "custom":
+      renderNormalMessage(msg);                              // 普通样式
+      break;
+  }
+}</code></pre>
+
+            <p>可能出现在 <code>messages</code> 里的 <code>role</code>（<code>AgentMessage</code> union）：</p>
+            <ul class="tight">
+              <li><code>user</code> / <code>assistant</code> / <code>toolResult</code> — 三种正常 LLM 消息</li>
+              <li><code>bashExecution</code> — bash 工具的展开消息</li>
+              <li><code>custom</code> — 扩展塞的（<code>appendCustomMessageEntry</code>）</li>
+              <li><code>compactionSummary</code> — 压缩点</li>
+              <li><code>branchSummary</code> — 切分支时的旁支摘要（仅在 <code>/tree</code> 切换时出现）</li>
+              <li>你自己 declare-merging 加的（<code>CustomAgentMessages</code>）</li>
+            </ul>
+
+            <div class="callout ok">
+              <strong>没有任何「编译错误」风险</strong>——SDK 帮你处理好了。<code>buildSessionContext</code> 完成后，<code>agent.state.messages</code> 已经是扁平 + 折叠后的版本，直接遍历即可。
+            </div>
+          </div>
+        </div>
+
+        <div class="qa">
+          <div class="qa-q"><span class="badge">Q3</span><p><code>session.messages</code> === 喂给 LLM 的 messages 吗？</p></div>
+          <div class="qa-a">
+            <p><strong>是的，精确相等。</strong>两者就是同一个引用（<code>session.messages</code> getter 返回 <code>agent.state.messages</code>）。</p>
+
+            <p>LLM 实际拿到 messages 的链路：</p>
+<pre><code>agent.state.messages                              ← 唯一来源
+   │
+   ├─ sdk.ts:376                session 创建时：agent.state.messages = buildSessionContext().messages
+   ├─ agent-session.ts:2056     compaction 后：agent.state.messages = buildSessionContext().messages
+   ├─ agent-session.ts:2382     auto compaction 后：同上
+   ├─ agent-session.ts:3314     navigateTree 后：同上
+   ├─ agent-session-runtime.ts:256  newSession / switchSession 等替换 session 时：同上
+   │
+   ▼
+   Agent.createContextSnapshot()                  ← agent.ts:437
+   {
+     systemPrompt,
+     messages: this._state.messages.slice(),     ← 喂给 runAgentLoop
+     tools: this._state.tools.slice(),
+   }
+   │
+   ▼
+   runAgentLoop → streamAssistantResponse
+   │
+   ▼
+   config.convertToLlm(messages)                 ← agent-loop.ts:293
+   │                                                ← sdk.ts:268-302 里的 convertToLlmWithBlockImages
+   │
+   ▼
+   LLM 的 messages 参数</code></pre>
+
+            <p>同步点就 4 个：session 创建、compaction（manual + auto）、navigateTree、runtime 替换 session。每处都做 <code>agent.state.messages = buildSessionContext().messages</code>，保证 LLM 看到的和你从 <code>session.messages</code> 拿到的<strong>永远是同一个数组</strong>。</p>
+          </div>
+        </div>
+
+        <div class="qa">
+          <div class="qa-q"><span class="badge">注意</span><p><code>session.messages</code> 在运行中会动态变化</p></div>
+          <div class="qa-a">
+            <p>运行过程中（<code>isStreaming</code>）会随 <code>message_end</code> 事件增量增长（push 新消息）。</p>
+            <p>运行结束后、<code>compaction</code> 触发前 = 这一轮完整对话。</p>
+            <p>compaction 后 = 折叠版（少了老消息，多了 <code>compactionSummary</code>）。</p>
+
+            <p>所以 UI 渲染策略：</p>
+<pre><code>session.subscribe((event) => {
+  if (["message_end", "agent_end", "compaction_end", "agent_settled"].includes(event.type)) {
+    reRender(session.messages);   // 数组就是最新的
+  }
+});</code></pre>
+            <p>不需要 diff、不需要增量 DOM 更新（除非性能瓶颈），纯 re-render 足够。</p>
+
+            <div class="callout ok">
+              <strong>一句话</strong>：<code>session.messages</code> 是单一真相，渲染它就是渲染对话 + 喂给 LLM 的内容。<code>compactionSummary</code> / <code>branchSummary</code> 是数组里的特殊消息，UI 单独处理就行。底层树、文件、折叠算法全是 SDK 责任，调用方不用碰。
+            </div>
+
+            <div class="src">源码：core/agent-session.ts:993-995（session.messages getter） · core/session-manager.ts:383-413（sessionEntryToContextMessages） · core/messages.ts:100-119（createBranchSummaryMessage / createCompactionSummaryMessage） · core/session-manager.ts:461-468（buildSessionContext） · core/agent-session.ts:2055-2056（compaction 后同步 agent.state.messages） · core/agent-session.ts:3313-3314（navigateTree 后同步） · core/agent-session-runtime.ts:256（runtime 替换 session 时同步） · agent/src/agent.ts:437-443（createContextSnapshot）</div>
+          </div>
+        </div>
+      `
+    }
+  ];
+
+  // ========== 路由 ==========
+  const groups = [...new Set(topics.map(t => t.group))];
+
+  function renderNav(activeId) {
+    const nav = document.getElementById('nav');
+    nav.innerHTML = groups.map(g => `
+      <div class="nav-group">
+        <div class="nav-group-title">${g}</div>
+        ${topics.filter(t => t.group === g).map(t => {
+          if (t.disabled) return `<a class="disabled">${t.tag} · ${t.title}</a>`;
+          const cls = t.id === activeId ? 'active' : '';
+          return `<a href="#/${t.id}" class="${cls}" data-id="${t.id}">${t.tag} · ${t.title}</a>`;
+        }).join('')}
+      </div>
+    `).join('');
+  }
+
+  function renderView(id) {
+    const view = document.getElementById('view');
+    const t = topics.find(x => x.id === id) || topics[0];
+    const idx = topics.findIndex(x => x.id === t.id);
+    const prev = idx > 0 ? topics[idx - 1] : null;
+    const next = idx < topics.length - 1 ? topics[idx + 1] : null;
+    view.innerHTML = `
+      <section class="topic">
+        <div class="topic-head">
+          <span class="topic-tag">${t.tag}</span>
+          <h3>${t.title}</h3>
+        </div>
+        ${t.html}
+        <div class="pager">
+          ${prev ? `<a href="#/${prev.id}"><span class="label">← 上一块</span><span class="title">${prev.tag} · ${prev.title}</span></a>` : `<span class="placeholder"></span>`}
+          ${next ? `<a class="next" href="#/${next.id}"><span class="label">下一块 →</span><span class="title">${next.tag} · ${next.title}</span></a>` : `<span class="placeholder"></span>`}
+        </div>
+      </section>
+    `;
+  }
+
+  function parseRoute() {
+    const h = location.hash.replace(/^#\/?/, '');
+    return h || topics[0].id;
+  }
+
+  function route() {
+    const id = parseRoute();
+    renderNav(id);
+    renderView(id);
+    document.title = `${id} · learn-pi`;
+    window.scrollTo(0, 0);
+  }
+
+  window.addEventListener('hashchange', route);
+  window.addEventListener('DOMContentLoaded', route);
+  if (document.readyState !== 'loading') route();
+</script>
+</body>
+</html>
