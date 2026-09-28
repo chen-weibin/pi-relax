@@ -52,7 +52,7 @@ function ExtensionTabItem({
 	onClose: () => void
 }) {
 	const plugin = getExtensionPlugin(tab.pluginId)
-	const Icon = plugin?.icon
+	const Icon = tab.icon ?? plugin?.icon
 
 	return (
 		<div
@@ -70,7 +70,7 @@ function ExtensionTabItem({
 				className="flex h-full max-w-full cursor-pointer items-center gap-1.5 py-0 pl-2 pr-2 text-left text-sm"
 			>
 				{Icon && (
-					<span className="shrink-0 text-fg-3">
+					<span className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center [&_svg]:h-3.5 [&_svg]:w-3.5">
 						<Icon />
 					</span>
 				)}

@@ -103,6 +103,31 @@ const tree: MockNode = {
 			],
 		},
 		{ name: 'docs', kind: 'dir', children: [] },
+		{
+			name: 'README.md',
+			kind: 'file',
+			text: '# pi\n\n工作区 mock 文件。用 Markdown 在 Monaco 里打开。\n',
+		},
+		{
+			name: 'notes.txt',
+			kind: 'file',
+			text: '纯文本笔记。\n第二行。\n',
+		},
+		{
+			name: 'demo.js',
+			kind: 'file',
+			text: "export function greet(name) {\n\treturn `hello ${name}`\n}\n\nconsole.log(greet('pi'))\n",
+		},
+		{
+			name: 'styles.css',
+			kind: 'file',
+			text: ':root {\n\t--app: #171717;\n}\n\nbody {\n\tmargin: 0;\n\tbackground: var(--app);\n}\n',
+		},
+		{
+			name: 'index.html',
+			kind: 'file',
+			text: '<!doctype html>\n<html lang="zh-CN">\n\t<head>\n\t\t<meta charset="utf-8" />\n\t\t<title>pi</title>\n\t</head>\n\t<body>\n\t\t<p>mock html</p>\n\t</body>\n</html>\n',
+		},
 		{ name: 'package.json', kind: 'file', text: '{ "name": "relax-root" }\n' },
 	],
 }
@@ -136,12 +161,12 @@ function toEntry(parent: string, node: MockNode): FsEntry {
 }
 
 export const mockRecents: FsEntry[] = [
+	{ name: 'README.md', path: 'pi/README.md', kind: 'file' },
+	{ name: 'notes.txt', path: 'pi/notes.txt', kind: 'file' },
+	{ name: 'demo.js', path: 'pi/demo.js', kind: 'file' },
+	{ name: 'styles.css', path: 'pi/styles.css', kind: 'file' },
+	{ name: 'index.html', path: 'pi/index.html', kind: 'file' },
 	{ name: 'index.tsx', path: 'pi/app/web/src/ui/MarkdownView/index.tsx', kind: 'file' },
-	{ name: 'index.css', path: 'pi/app/web/src/ui/MarkdownView/index.css', kind: 'file' },
-	{ name: 'index.ts', path: 'pi/app/web/src/index.ts', kind: 'file' },
-	{ name: 'ThinkingMessage.tsx', path: 'pi/app/web/src/components/ThinkingMessage.tsx', kind: 'file' },
-	{ name: 'UserMessage.tsx', path: 'pi/app/web/src/components/UserMessage.tsx', kind: 'file' },
-	{ name: 'CustomizeView.tsx', path: 'pi/app/web/src/components/CustomizeView.tsx', kind: 'file' },
 ]
 
 export const mockFs: FsApi = {

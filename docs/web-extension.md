@@ -9,7 +9,7 @@
 ```
 app/web/src/extensions/
 ├── types.ts              # ExtensionPlugin / ExtensionTab / 空态策略
-├── store.ts              # 壳层 tab；不持久化
+├── store.ts              # 壳层 tab；不持久化；含 updateTab
 ├── registry.ts           # 编译期登记表
 ├── shell/                # 欢迎页、唯一一层 tab 条、添加菜单
 ├── contracts/            # FsApi / PtyApi + mock 适配器
@@ -20,7 +20,9 @@ app/web/src/extensions/
 
 ## 只有一层壳层 tab
 
-打开文件、打开终端都走 `openTab`。插件不做自己的 tab 条。文件树仍走 `renderSide`；终端会话列表在插件 `PaneHeader` 内折叠，不走壳层 `renderSide`。
+打开文件、打开终端都走 `openTab`。插件不做自己的 tab 条。文件树和终端会话列表都在插件 `PaneHeader` 内折叠，不走壳层 `renderSide`。
+
+壳层 tab 图标：`tab.icon ?? plugin.icon`。彩色类型图标在 [`icons/fileTypes.tsx`](../app/web/src/icons/fileTypes.tsx)，登记表在 [`plugins/files/fileKinds.ts`](../app/web/src/extensions/plugins/files/fileKinds.ts)。
 
 壳层 tab 条溢出时：`+` 钉在右侧，条可横向滚动（无滚动条；悬停时滚轮竖滑改成横滑）。**选中 / 新增 / 从右侧会话列表切入** 时，会把当前 tab **完整**滚进可视区，避开右侧 `+` 和渐隐遮罩（半截挡住也要滚到全部露出）。`prefers-reduced-motion` 时不做平滑滚动。
 
@@ -28,9 +30,23 @@ app/web/src/extensions/
 
 | 场景 | reuseKey |
 |---|---|
-| 文件探索器 | `explorer` |
+| 文件空 tab（未绑定路径） | `explorer` |
 | 打开文件 | `file:<path>` |
 | 终端会话 | `session:<uuid>` |
+
+### 文件 tab 绑定
+
+目录树是**一份**（`useFilesTreeStore`：展开 / children 缓存 / `navOpen`）。选中路径**不进树 store**，读当前 tab 的 `payload.path`。
+
+点文件走 `selectFile`：
+
+1. 已有 `file:<path>` tab → `activateTab`
+2. 当前 files tab 仍是 `explorer` → `updateTab` 改写成该文件（不新开 tab）
+3. 否则 `openTab` 新文件 tab
+
+`openPlugin('files')`：已有 files tab（空探索器或已绑定文件）则激活**第一个**，不新开空 tab；没有才开 `explorer`（`FileIcon` +「文件」）。第一次点文件后该 tab 的 reuseKey 变成 `file:<path>`。终端仍每次新开会话。
+
+改写已有 tab 用 `useExtensionStore.getState().updateTab(id, patch)`，不要为「当前空 tab 绑上文件」再 `openTab`。
 
 ## 新增插件
 
@@ -43,7 +59,8 @@ app/web/src/extensions/
 import { useExtensionStore } from '../extensions'
 
 useExtensionStore.getState().openPlugin('files')
-useExtensionStore.getState().openTab({ pluginId, title, reuseKey, payload })
+useExtensionStore.getState().openTab({ pluginId, title, reuseKey, icon, payload })
+useExtensionStore.getState().updateTab(tabId, { title, icon, reuseKey, payload })
 useExtensionStore.getState().activateTab(tabId)
 useExtensionStore.getState().closeTab(tabId)
 useExtensionStore.getState().setEmptyExtensionHandler(() => 'welcome')
@@ -64,9 +81,7 @@ useExtensionStore.getState().setEmptyExtensionHandler(() => 'welcome')
 
 ## 本期范围
 
-**已完成**：壳层（store / registry / 欢迎页 / tab 条 / 添加菜单 / `ShellPanelToggles` 抽出）、`FsApi` / `PtyApi` 契约与 mock 适配器、文件插件骨架、终端插件（`PaneHeader` + 可折叠会话列表 + xterm mock 回显）。
-
-**未完成（见下节遗留）**：文件真实交互、后端接入、文件预览。实现时回到本文更新状态。
+**已完成**：壳层（含 `updateTab`）、文件插件（共享树、空 tab 绑定、类型整名优先、viewer 分发、Monaco 走 `ui/MonacoEditor`）、终端插件。
 
 ## 遗留
 
@@ -76,12 +91,13 @@ useExtensionStore.getState().setEmptyExtensionHandler(() => 'welcome')
 |---|---|---|
 | 探索器主区 | `RecentsPane` + mock 最近文件 | 接真实 recents / 空态 |
 | New File | 按钮占位，无 `FsApi.create` | 契约扩展 `create` 后接入 |
-| 侧栏树 | `FileTree` + mock `list`，搜索仅过滤树 | 全局搜索、watch 刷新 |
-| 文件预览 | `<pre>` 纯文本 | CodeMirror 6 / Monaco；Markdown 复用 `MarkdownView` |
-| 面包屑 | 只读展示 | 可点击跳转目录 |
+| 目录树 | `FileTree/` + `treeStore`；展开才 `list`；加载中图标槽 `DotMatrix` xs；选中跟当前 tab | 全局搜索、watch 刷新 |
+| 文件预览 | `viewers/` 按 `fileKinds.viewer` 分发；本期仅 `monaco` → [`MonacoEditor`](ui.md#monacoeditor) | 图片等其它 viewer |
+| 类型扩展 | `names` 精确文件名优先，再 `extensions`，否则 unknown 图标 + monaco plaintext | 有图标时加 `package.json` 等 `names` 行 |
+| Header | 左路径面包屑（仅绑定文件时）；右 `FolderIcon` 收起/展开树（展开收起同一图标） | 面包屑可点击跳转目录 |
 | 文案 | 部分英文（`Files, Folders...`、`Recents`、`New File`） | 统一中文或 i18n |
 
-文件树继续用现有 `Expandable`，不必上 arborist。
+文件树继续自研 `Expandable`，不上第三方树库。
 
 ### 终端（`plugins/terminal`）
 

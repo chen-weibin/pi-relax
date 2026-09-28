@@ -71,6 +71,14 @@ export function FolderOpenIcon() {
 	)
 }
 
+export function FolderIcon() {
+	return (
+		<svg width="14" height="14" viewBox="0 0 1024 1024" fill="currentColor">
+			<path d="M938.666667 192h-405.333334l-93.866666-110.933333c-8.533333-8.533333-21.333333-17.066667-34.133334-17.066667H85.333333c-46.933333 0-85.333333 38.4-85.333333 85.333333v725.333334c0 46.933333 38.4 85.333333 85.333333 85.333333h853.333334c46.933333 0 85.333333-38.4 85.333333-85.333333v-597.333334c0-46.933333-38.4-85.333333-85.333333-85.333333z m-554.666667-42.666667l93.866667 110.933334c8.533333 8.533333 21.333333 17.066667 34.133333 17.066666h426.666667v128H85.333333v-256h298.666667z m-298.666667 725.333334v-384h853.333334v384H85.333333z" />
+		</svg>
+	)
+}
+
 export function AddFolderIcon() {
 	return (
 		<svg width="14" height="14" viewBox="30 92 964 783" fill="currentColor">
@@ -171,6 +179,15 @@ export function ListIcon() {
 		</svg>
 	)
 }
+
+export {
+	FileCssIcon,
+	FileHtmlIcon,
+	FileJsIcon,
+	FileMarkdownIcon,
+	FileTxtIcon,
+	FileUnknownIcon,
+} from './fileTypes'
 
 export function CloseIcon() {
 	return (

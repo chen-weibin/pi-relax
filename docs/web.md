@@ -170,6 +170,7 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
 | `IconButton` | 图标按钮,统一变体 / 尺寸 / 禁用态 | [`ui.md#iconbutton`](ui.md#iconbutton) |
 | `Popover` | 浮层 / tooltip / 菜单,封装 `@floating-ui/react` | [`ui.md#popover`](ui.md#popover) |
 | `Editor` | ProseMirror 智能输入框 | [`ui.md#editor`](ui.md#editor) |
+| `MonacoEditor` | Monaco 代码/文本编辑器,主题走 CSS token | [`ui.md#monacoeditor`](ui.md#monacoeditor) |
 | `MarkdownView` | `streamdown` Markdown 渲染(static / streaming) | [`ui.md#markdownview`](ui.md#markdownview) |
 | `TypewriterText` | rAF grapheme 逐字打字机 | [`ui.md#typewritertext`](ui.md#typewritertext) |
 | `ShinyText` | `motion/react` 渐变扫光文字 | [`ui.md#shinytext`](ui.md#shinytext) |
@@ -232,17 +233,20 @@ streamdown 与插件的 Tailwind 类扫描写在 [`ui/MarkdownView/index.css`](.
 
 ## 图标(`icons/`)
 
-`app/web/src/icons/` 存放项目自绘的 SVG 图标组件,统一以 `*Icon` 命名导出。颜色走 `currentColor`,适配外层 `text-*` 工具类。
+`app/web/src/icons/` 存放项目自绘的 SVG 图标组件,统一以 `*Icon` 命名导出。默认颜色走 `currentColor`,适配外层 `text-*` 工具类。
 
-目前只有实心风格:
+目前两种风格:
 
 | 风格 | 根属性 | 适用 | 现有图标 |
 |---|---|---|---|
-| 实心 | `width=14 height=14 viewBox="<shape-bbox>" fill="currentColor"` | 来源是第三方/参考 SVG 的填充字形 | `PanelLeftIcon` / `PanelRightIcon` / `SendIcon` / `SearchIcon` / `BlocksIcon` / `SettingsIcon` / `ChevronRightIcon` / `FolderClosedIcon` / `FolderOpenIcon` / `AddFolderIcon` / `FilterIcon` / `PlusIcon` / `FileIcon` / `TerminalIcon` / `CloseIcon` |
+| 实心单色 | `width=14 height=14 viewBox="<shape-bbox>" fill="currentColor"` | 来源是第三方/参考 SVG 的填充字形 | `PanelLeftIcon` / `PanelRightIcon` / `SendIcon` / `SearchIcon` / `BlocksIcon` / `SettingsIcon` / `ChevronRightIcon` / `FolderClosedIcon` / `FolderOpenIcon` / `FolderIcon` / `AddFolderIcon` / `FilterIcon` / `PlusIcon` / `FileIcon` / `TerminalIcon` / `CloseIcon` / `ListIcon` |
+| 彩色文件类型 | `width=14 height=14 viewBox="0 0 1024 1024"`,path 写死 `fill` hex | 扩展名图标,多色不能吃 `currentColor` | [`fileTypes.tsx`](../app/web/src/icons/fileTypes.tsx): `FileMarkdownIcon` / `FileTxtIcon` / `FileJsIcon` / `FileCssIcon` / `FileHtmlIcon` / `FileUnknownIcon` |
 
-实心图标的关键:**`viewBox` 设成 path 实际可见形状的 bounding box**(不是固定的 `0 0 1024 1024`)。原因:不同来源 SVG 的 path 占据的 bbox 大小差异很大(如一个纸飞机可能只占 viewBox 的 70%,一个 Blocks 网格占 85%),直接用源 viewBox 会导致渲染出来大小不一致。按 bbox 裁切后每个图标都充满 14×14 渲染区,视觉大小一致。bbox 之外留约 3% 内边距(在 viewBox 内侧加 padding),避免图形贴边。
+实心单色图标的关键:**`viewBox` 设成 path 实际可见形状的 bounding box**(不是固定的 `0 0 1024 1024`)。原因:不同来源 SVG 的 path 占据的 bbox 大小差异很大(如一个纸飞机可能只占 viewBox 的 70%,一个 Blocks 网格占 85%),直接用源 viewBox 会导致渲染出来大小不一致。按 bbox 裁切后每个图标都充满 14×14 渲染区,视觉大小一致。bbox 之外留约 3% 内边距(在 viewBox 内侧加 padding),避免图形贴边。
 
-新增图标:在 `index.tsx` 内追加一个 `export function NameIcon()`,根属性按上表选一种;颜色统一走 `currentColor`,不要写死 hex。
+新增单色图标:在 `index.tsx` 内追加 `export function NameIcon()`,根属性按上表选实心单色;颜色走 `currentColor`,不要写死 hex。
+
+新增文件类型彩色图标:写在 `fileTypes.tsx`,从 `index.tsx` re-export;保留源 SVG 的多 path `fill`。文件插件用 [`fileKinds.ts`](../app/web/src/extensions/plugins/files/fileKinds.ts) 把扩展名绑到图标 + Monaco language。
 
 ## 布局
 
@@ -288,7 +292,8 @@ src/
 │   ├── TypewriterText.tsx        # grapheme 增量打字机
 │   ├── DisclosureRow/            # 折叠行 + 标题 blink;index.tsx + index.css
 │   ├── MessageSurface/           # 轻量 Surface 卡片外壳(无角色语义);index.tsx + index.css
-│   └── Editor/                   # ProseMirror 智能输入框(paragraph + text)
+│   ├── Editor/                   # ProseMirror 智能输入框(paragraph + text)
+│   └── MonacoEditor/             # monaco-editor 封装(worker + Shiki aurora-x)
 ├── extensions/                   # 右侧扩展区：插件注册、壳层 tab、Fs/Pty 契约（详见 docs/web-extension.md）
 │   ├── types.ts
 │   ├── store.ts                  #   壳层 tabs；空态策略；不持久化

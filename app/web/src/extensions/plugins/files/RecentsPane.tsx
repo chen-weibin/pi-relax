@@ -1,7 +1,7 @@
 import { PlusIcon } from '../../../icons'
 import { IconButton } from '../../../ui/IconButton'
 import { mockRecents } from '../../contracts/adapters/mock'
-import { openFileTab } from './open'
+import { selectFile } from './open'
 
 export function RecentsPane() {
 	return (
@@ -23,7 +23,7 @@ export function RecentsPane() {
 					<button
 						key={entry.path}
 						type="button"
-						onClick={() => openFileTab(entry.path)}
+						onClick={() => selectFile(entry.path)}
 						className="flex h-[30px] w-full cursor-pointer items-center rounded-md px-2.5 text-left text-sm text-fg-2 transition-colors duration-100 hover:bg-surface-hover hover:text-fg-bright"
 					>
 						<span className="min-w-0 truncate">{entry.name}</span>

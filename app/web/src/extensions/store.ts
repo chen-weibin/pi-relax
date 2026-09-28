@@ -25,6 +25,10 @@ interface ExtensionState {
 	openPlugin: (pluginId: string) => void
 	activateTab: (tabId: string) => void
 	closeTab: (tabId: string) => void
+	updateTab: (
+		tabId: string,
+		patch: Partial<Pick<ExtensionTab, 'title' | 'icon' | 'reuseKey' | 'payload'>>,
+	) => void
 }
 
 const defaultEmptyHandler: EmptyExtensionHandler = () => 'collapse'
@@ -65,6 +69,15 @@ export const useExtensionStore = create<ExtensionState>()(
 		activateTab: (tabId) =>
 			set((s) => {
 				if (s.tabs.some((tab) => tab.id === tabId)) s.activeTabId = tabId
+			}),
+		updateTab: (tabId, patch) =>
+			set((s) => {
+				const tab = s.tabs.find((item) => item.id === tabId)
+				if (!tab) return
+				if (patch.title !== undefined) tab.title = patch.title
+				if (patch.icon !== undefined) tab.icon = patch.icon
+				if (patch.reuseKey !== undefined) tab.reuseKey = patch.reuseKey
+				if (patch.payload !== undefined) tab.payload = patch.payload
 			}),
 		closeTab: (tabId) => {
 			const { tabs, activeTabId, emptyHandler } = get()

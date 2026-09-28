@@ -1,6 +1,6 @@
 import { FileIcon } from '../../../icons'
 import type { ExtensionPlugin } from '../../types'
-import { FilesSide, FilesView } from './FilesView'
+import { FilesView } from './FilesView'
 import { filesExplorerOpen } from './open'
 
 export const filesPlugin: ExtensionPlugin = {
@@ -10,5 +10,4 @@ export const filesPlugin: ExtensionPlugin = {
 	icon: FileIcon,
 	open: filesExplorerOpen,
 	render: FilesView,
-	renderSide: FilesSide,
 }

@@ -29,6 +29,7 @@
 | 浮层 / Tooltip / 菜单 | [`Popover`](#popover) | 不要直接用 `@floating-ui/react`(定位/翻转/portal 都要自己粘) |
 | 富文本输入(Enter 提交 / 多行展开) | [`Editor`](#editor) + 领域组件 `Composer` | 不要拿 `<textarea>`(无 IME 友好 / 无 history / 无 keymap) |
 | 渲染 Markdown(流式 / 静态) | [`MarkdownView`](#markdownview) | 不要直接 `<Streamdown>`(无项目样式封装) |
+| 只读/可编辑代码文本(Monaco) | [`MonacoEditor`](#monacoeditor) | 不要在业务里直接 `@monaco-editor/react` / 自配 worker |
 | 逐字打字机(纯文本) | [`TypewriterText`](#typewritertext) | 不要自己写 `setInterval` / `requestAnimationFrame` 循环切字符串 |
 | 渐变扫光文字(标题 / CTA / loading) | [`ShinyText`](#shinytext) | 不要自己写 `linear-gradient` + `@keyframes`,也不要为单次使用装 `motion` |
 | 标题 + 展开收起(chevron + 高度过渡 + 标题可扫光) | [`DisclosureRow`](#disclosurerow) | 不要写本地 `<button>` + `<svg>` + `useState` 三件套 |
@@ -61,6 +62,7 @@
 | 在会话/列表前缀直接写 `<span className="h-1.5 w-1.5 rounded-full bg-green-400">` | 用 `StatusDot`,颜色走 `--success` / `--error` / `--fg-3`,跟随主题 |
 | 给 `ProgressBar` 加 `color` / `trackColor` / `thumbColor` 等 per-instance 颜色 prop | 颜色走 token(`bg-fg-3` / `bg-border-hover`);想换色通过外层 `className` + 子选择器覆盖,不要把调色板塞进 API |
 | 在插件主区顶部手写 `h-[38px] flex border-b` | 用 [`PaneHeader`](#paneheader),高度和分割线已收敛 |
+| 在业务模块里直接 `import Editor from '@monaco-editor/react'` | 用 [`MonacoEditor`](#monacoeditor),worker / 主题 token 已封装 |
 
 ## Expandable
 
@@ -530,6 +532,45 @@
 - 非受控:mount 时建 `EditorView`,不每 render 重建;提交后是否清空由调用方 `ref.clear()`
 
 对话输入外壳(领域组件,在 `components/Composer.tsx`)见 [`docs/web.md` §Composer](web.md#composer)。
+
+## MonacoEditor
+
+目录 `ui/MonacoEditor/`(`index.tsx` + `env.ts` + `themes/`)。封装 `monaco-editor` + `@monaco-editor/react`,业务无关。Vite worker 走包 `exports`:`monaco-editor/editor/editor.worker.js?worker` 等。语法高亮走 `@shikijs/monaco` + `shiki` 的 `createHighlighter`(主题/语言用 bundled 名字)。当前默认主题 `aurora-x`,在 `themes/index.ts` 登记。加主题时在该数组追加名字。编辑器/gutter/minimap 背景覆盖为 `--app`(与扩展区一致);行号前景与当前行行号用同一色,不随光标换行变亮。右侧 minimap 默认开(`side: 'right'`,滑块 `mouseover` 才显)。关闭了 Monaco 语义高亮,避免盖住 Shiki token 色。
+
+**查阅时机**:展示或编辑代码/文本文件,或准备在业务里直接接 Monaco。
+
+**何时用**:
+
+- 文本/代码的只读预览或可编辑缓冲区
+- 需要语言高亮(`language` 传 Monaco languageId)
+
+**何时不用**:
+
+- 对话区 Markdown 渲染 → [`MarkdownView`](#markdownview)
+- 对话输入 → [`Editor`](#editor)
+- 非文本(图片等) → 不要塞进 Monaco,由调用方换 viewer
+
+**API**:
+
+```tsx
+<MonacoEditor
+  value={text}
+  language="typescript"
+  path="src/foo.ts"   // 可选,多模型区分
+  readOnly={true}     // 默认 true
+  className="h-full min-h-0 w-full"
+/>
+```
+
+| prop | 类型 | 默认 | 说明 |
+|---|---|---|---|
+| `value` | `string` | — | 文档内容 |
+| `language` | `string` | `'plaintext'` | Monaco languageId |
+| `path` | `string` | — | 多模型 key |
+| `readOnly` | `boolean` | `true` | 只读;同时开 `domReadOnly` |
+| `className` | `string` | 铺满父级 | 外层容器 |
+
+文件插件通过 `fileKinds.viewer === 'monaco'` 消费本组件,不在插件内再配一份 Monaco。
 
 ## PaneHeader
 
@@ -1088,8 +1129,9 @@ ui/ShinyText        ← ui/DisclosureRow
 ui/MarkdownView     ← components/conversation/ThinkingMessage, AssistantMessage
 ui/TypewriterText   ← (目前无引用,保留供后续纯文本逐字场景)
 ui/Editor           ← components/Composer
+ui/MonacoEditor     ← extensions/plugins/files/viewers
 ui/MessageSurface   ← components/conversation/UserMessage
-ui/PaneHeader       ← extensions/plugins/terminal/TerminalView
+ui/PaneHeader       ← extensions/plugins/terminal/TerminalView, extensions/plugins/files/FilesView
 ui/IconButton       ← components/SidebarActions, components/ProjectSectionHeader, ...
 ui/Popover          ← components/* (按需)
 ui/Resizable*       ← App.tsx
@@ -1098,7 +1140,7 @@ ui/Resizable*       ← App.tsx
 约束:
 
 - `ui/` 内部子组件可互相引用(如 `DisclosureRow` → `Expandable`),但**只能引同目录或更低层**(底层 = `icons/`、第三方),不可引 `components/` 或 `hooks/` 里带领域状态的模块。
-- `ui/` 组件 import `motion/react` / `streamdown` / `@floating-ui/react` / `prosemirror-*` 等第三方 OK,这是「对内封装第三方」的本职。
+- `ui/` 组件 import `motion/react` / `streamdown` / `@floating-ui/react` / `prosemirror-*` / `monaco-editor` 等第三方 OK,这是「对内封装第三方」的本职。
 
 ## 维护约定
 

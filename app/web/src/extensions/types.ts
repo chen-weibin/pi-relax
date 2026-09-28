@@ -9,12 +9,14 @@ export type ExtensionTab = {
 	pluginId: string
 	title: string
 	reuseKey: string
+	icon?: ComponentType
 	payload?: unknown
 }
 
 export type PluginOpenResult = {
 	title: string
 	reuseKey: string
+	icon?: ComponentType
 	payload?: unknown
 }
 
@@ -38,5 +40,6 @@ export type OpenTabInput = {
 	pluginId: string
 	title: string
 	reuseKey: string
+	icon?: ComponentType
 	payload?: unknown
 }
