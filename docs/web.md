@@ -342,7 +342,7 @@ src/
 
 ### 收起/展开
 
-`{ sidebarOpen: boolean; extensionOpen: boolean }` 状态由 common store 持有(`src/store/common.ts`),**不持久化** —— 每次启动 sidebar 与 extension 都默认 `true`(展开)。`App.tsx` 切片订阅这两个字段,值翻转时整棵子树重新渲染并决定 Panel 是否挂载。
+`{ sidebarOpen: boolean; extensionOpen: boolean }` 状态由 common store 持有(`src/store/common.ts`),**不持久化** —— 每次启动 sidebar 默认 `true`(展开),extension 默认 `false`(收起)。`App.tsx` 切片订阅这两个字段,值翻转时整棵子树重新渲染并决定 Panel 是否挂载。
 
 收起 = 整 Panel 从所属 Group 中移除(`{sidebarOpen && <Panel/>}` 模式),不是 `collapsedSize:0`。这样展开时回到原记录的宽度。
 
@@ -373,7 +373,7 @@ src/
 
 reload 后两层各自还原。
 
-**注意:折叠状态(`sidebarOpen` / `extensionOpen`)、`mainView`、`settingOpen` 都不持久化。** 每次启动 sidebar 与 extension 都展开、`mainView='conversation'`、`settingOpen=false`。这些状态由 common store 持有,详见下文 "状态管理 (store/)"。如需持久化,在 common store 上加 zustand `persist` middleware —— 不要往 `usePersistedPanelLayout` 加,hook 只管 layout 宽度,职责单一。
+**注意:折叠状态(`sidebarOpen` / `extensionOpen`)、`mainView`、`settingOpen` 都不持久化。** 每次启动 sidebar 展开、extension 收起、`mainView='conversation'`、`settingOpen=false`。这些状态由 common store 持有,详见下文 "状态管理 (store/)"。如需持久化,在 common store 上加 zustand `persist` middleware —— 不要往 `usePersistedPanelLayout` 加,hook 只管 layout 宽度,职责单一。
 
 Setting 由 `settingOpen` 控制显隐(`{settingOpen && <Setting />}`),在 `App.tsx` 内挂载。Setting `z-50`,在四区上方全屏渲染。
 
@@ -491,7 +491,7 @@ src/store/
 |---|---|---|---|
 | `settingOpen` | `boolean` | `false` | Setting 全屏覆盖层是否打开 |
 | `sidebarOpen` | `boolean` | `true` | 外层 Group 中 Sidebar Panel 是否挂载 |
-| `extensionOpen` | `boolean` | `true` | 内层 Group 中 Extension Panel 是否挂载 |
+| `extensionOpen` | `boolean` | `false` | 内层 Group 中 Extension Panel 是否挂载 |
 | `mainView` | `MainView` | `'conversation'` | MainContainer 当前渲染哪个 view |
 
 配套 actions:`setSettingOpen` / `toggleSetting` / `setSidebarOpen` / `toggleSidebar` / `setExtensionOpen` / `toggleExtension` / `setMainView`,内部用 immer middleware 写法:
