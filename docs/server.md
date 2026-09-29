@@ -122,7 +122,7 @@ pi 暴露的加载点都要能指定到 `.relax` 或配置里的路径，不默�
 
 ## 文件系统
 
-`chokidar` 加同一条 WebSocket 即可，不上 Watchman。原生 watcher 等目录规模真出问题再考虑。
+`chokidar` 加 WebSocket `/ws/fs` 即可，不上 Watchman。原生 watcher 等目录规模真出问题再考虑。
 
 对齐前端 `FsApi`：监听推的是防抖后的完整目录列表，不是 chokidar 原始事件。HTTP 先做 `list`、`stat`、`read`（文本）。`write`、`create`、`delete` 的形状可以一起定，实现放到文件那一块。忽略列表放进 `.relax` 的配置，文件名等做文件系统时再定。
 
@@ -130,16 +130,31 @@ pi 暴露的加载点都要能指定到 `.relax` 或配置里的路径，不默�
 
 ## 终端
 
-对齐前端 `PtyApi`：创建、写入、调整大小、关闭、订阅输出。实现用 `node-pty`，走同一条 WebSocket。工作目录默认该项目根或默认工作区，shell 用 `SHELL`，没有则 `/bin/zsh`。
+对齐前端 `PtyApi`：创建、写入、调整大小、关闭、订阅输出。实现用 `node-pty`，走 WebSocket `/ws/pty`。工作目录默认该项目根或默认工作区，shell 用 `SHELL`，没有则 `/bin/zsh`。
 
 PTY 活到关闭或进程退出。断线可以再订阅，并用最近约 100KB 回放。滚动缓冲不写磁盘。服务重启后终端即没。
 
 ## 通道
 
-一个端口两种入口：
+一个端口。已定入口：
 
-- HTTP JSON：项目、会话元数据、配置、文件读、健康检查
-- WebSocket：首帧声明通道 `agent`、`fs` 或 `pty`
+- `GET /health`：健康检查，不在 `/api` 下。返回 `{ "status": "ok" }`
+- HTTP JSON 用 `/api` 前缀。项目、会话元数据、配置、文件一次读写的具体路径以后再定
+- 文件变化：WebSocket `/ws/fs`。做到文件系统再实现
+- 终端：WebSocket `/ws/pty`。做到终端再实现
+- 对话的推送路径和协议还没定
+
+跨域当前全部放开，响应带 `Access-Control-Allow-Origin: *`，不带 cookie。以后做登录再收紧。
+
+错误体一律：
+
+```json
+{ "error": { "code": "NOT_FOUND", "message": "..." } }
+```
+
+骨架只用 `BAD_REQUEST`、`NOT_FOUND`、`INTERNAL`。业务错误码做到对应模块再加。JSON 请求体上限 1mb。
+
+`/api`、`/ws/fs`、`/ws/pty` 是不同路径，前面加反向代理时可以按前缀分别转发。
 
 正在用的会话在内存里对应一个 `AgentSession`。列表和标题放在 `.relax` 的索引里。索引的具体文件等做会话时再定。
 
@@ -150,16 +165,17 @@ PTY 活到关闭或进程退出。断线可以再订阅，并用最近约 100KB 
 ```
 app/server/src/
   index.ts            只监听端口
-  app.ts              组装 HTTP 和 WebSocket，测试从这里创建应用
-  config/             RELAX_HOME 和配置读取
-  http/               按资源拆路由，一个文件一类
-  ws/                 按通道拆：agent、fs、pty
-  sessions/           项目和会话索引、会话开关。不直接堆 pi 的调用细节
-  agent/              唯一直接调用 pi 会话 API 的目录：剖面、loader、模型、事件订阅
-  fs/                 路径限制、列举、监听
-  pty/                终端进程
-app/server/test/      与上面对应，一块一个测试文件，使用临时 RELAX_HOME
+  app.ts              组装 HTTP，测试从这里创建应用
+  http/health.ts      GET /health
+  http/errors.ts      未知路由和错误体
+app/server/test/
+  health.test.ts      自动化用例
+  api.html            手工发请求的页面
 ```
+
+还没建的目录：`config/`、`sessions/`、`agent/`、`fs/`、`pty/`，以及 `/ws/fs`、`/ws/pty` 的处理。做到那一块再加，并补到这里。`agent/` 是唯一直接调用 pi 会话 API 的目录。
+
+手工调试打开 [api.html](../app/server/test/api.html)，服务需已由 `pnpm dev:server` 拉起。每新增一个 HTTP 接口，在该文件顶部的 `ENDPOINTS` 追加一项。查阅时机：加路由后自己点发送，或要看当前有哪些 HTTP 接口时。WebSocket 不进这个页面。
 
 约定：
 

@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="zh-CN">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>relax server</title>
+		<script src="https://cdn.tailwindcss.com"></script>
+	</head>
+	<body class="h-screen bg-zinc-100 text-zinc-900">
+		<div class="grid h-full grid-cols-[240px_minmax(0,1fr)]">
+			<aside class="flex flex-col border-r border-zinc-200 bg-white">
+				<div class="px-4 py-3 text-sm font-semibold">接口</div>
+				<label class="flex flex-col gap-1 px-3 pb-3 text-xs text-zinc-500">
+					服务地址
+					<input id="base" class="h-8 rounded border border-zinc-200 px-2 text-zinc-900" value="http://127.0.0.1:3001" spellcheck="false" />
+				</label>
+				<div id="tree" class="flex-1 overflow-auto px-2 pb-4"></div>
+			</aside>
+			<main class="flex min-w-0 flex-col gap-3 p-5">
+				<h1 id="title" class="text-base font-semibold"></h1>
+				<p id="summary" class="text-xs text-zinc-500"></p>
+				<div class="flex gap-2 rounded-md border border-zinc-200 bg-white p-2">
+					<select id="method" class="h-8 w-28 rounded border border-zinc-200 px-2 font-mono text-sm font-semibold" aria-label="方法">
+						<option>GET</option>
+						<option>POST</option>
+						<option>PUT</option>
+						<option>PATCH</option>
+						<option>DELETE</option>
+					</select>
+					<input id="path" class="h-8 min-w-0 flex-1 rounded border border-zinc-200 px-2 font-mono text-sm" spellcheck="false" aria-label="路径" />
+					<button id="send" class="h-8 rounded bg-blue-600 px-4 text-sm text-white" type="button">发送</button>
+				</div>
+				<textarea id="body" class="min-h-32 rounded-md border border-zinc-200 bg-white p-3 font-mono text-sm outline-none" spellcheck="false" placeholder="JSON 请求体。GET 留空即可。"></textarea>
+				<section class="flex min-h-0 flex-1 flex-col rounded-md border border-zinc-200 bg-white">
+					<header class="flex items-center gap-3 border-b border-zinc-200 px-3 py-2 text-sm">
+						<span id="status" class="text-zinc-400">未发送</span>
+						<span id="meta" class="text-xs text-zinc-500"></span>
+					</header>
+					<pre id="result" class="flex-1 overflow-auto whitespace-pre-wrap break-words p-3 font-mono text-sm"></pre>
+				</section>
+			</main>
+		</div>
+		<script src="https://cdn.jsdelivr.net/npm/axios@1.7.9/dist/axios.min.js"></script>
+		<script>
+			// 每新增一个 HTTP 接口，在这里追加一项。用浏览器直接打开本文件即可发送。
+			const ENDPOINTS = [
+				{
+					group: '系统',
+					name: '健康检查',
+					method: 'GET',
+					path: '/health',
+					summary: '服务是否在听。返回 { "status": "ok" }。',
+					body: '',
+				},
+			]
+
+			const $ = (id) => document.querySelector(id)
+			const baseInput = $('#base')
+			const tree = $('#tree')
+			const savedBase = localStorage.getItem('relax-api-base')
+			if (savedBase) baseInput.value = savedBase
+
+			const methodColor = {
+				GET: 'text-green-600',
+				POST: 'text-orange-600',
+				PUT: 'text-blue-600',
+				PATCH: 'text-pink-600',
+				DELETE: 'text-red-600',
+			}
+
+			function select(index) {
+				const endpoint = ENDPOINTS[index]
+				$('#title').textContent = endpoint.name
+				$('#summary').textContent = endpoint.summary
+				$('#method').value = endpoint.method
+				$('#path').value = endpoint.path
+				$('#body').value = endpoint.body
+				for (const button of tree.querySelectorAll('button')) {
+					button.classList.toggle('bg-blue-50', Number(button.dataset.index) === index)
+				}
+			}
+
+			function renderTree() {
+				let groupName = ''
+				tree.replaceChildren()
+				for (const [index, endpoint] of ENDPOINTS.entries()) {
+					if (endpoint.group !== groupName) {
+						groupName = endpoint.group
+						const label = document.createElement('div')
+						label.className = 'px-2 pb-1 pt-2 text-xs text-zinc-400'
+						label.textContent = groupName
+						tree.append(label)
+					}
+					const button = document.createElement('button')
+					button.type = 'button'
+					button.dataset.index = String(index)
+					button.className = 'flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-zinc-50'
+					button.innerHTML = `<span class="w-14 font-mono text-xs font-bold ${methodColor[endpoint.method] ?? ''}">${endpoint.method}</span><span class="truncate">${endpoint.name}</span>`
+					button.addEventListener('click', () => select(index))
+					tree.append(button)
+				}
+			}
+
+			async function run() {
+				const base = baseInput.value.trim().replace(/\/$/, '')
+				localStorage.setItem('relax-api-base', base)
+				const method = $('#method').value
+				const raw = $('#body').value.trim()
+				$('#send').disabled = true
+				$('#status').textContent = '发送中'
+				$('#status').className = 'text-zinc-400'
+				$('#meta').textContent = ''
+				$('#result').textContent = ''
+				const started = performance.now()
+				try {
+					const response = await axios({
+						method,
+						url: base + $('#path').value.trim(),
+						data: raw && method !== 'GET' && method !== 'HEAD' ? JSON.parse(raw) : undefined,
+						validateStatus: () => true,
+					})
+					const ms = Math.round(performance.now() - started)
+					const ok = response.status >= 200 && response.status < 300
+					$('#status').textContent = String(response.status)
+					$('#status').className = ok ? 'font-semibold text-green-600' : 'font-semibold text-red-600'
+					$('#meta').textContent = `${ms} ms`
+					$('#result').textContent = typeof response.data === 'string' ? response.data : JSON.stringify(response.data, null, 2)
+				} catch (error) {
+					$('#status').textContent = '失败'
+					$('#status').className = 'font-semibold text-red-600'
+					$('#meta').textContent = '确认 pnpm dev:server 已在该地址监听'
+					$('#result').textContent = error instanceof SyntaxError ? '请求体不是合法 JSON' : String(error)
+				} finally {
+					$('#send').disabled = false
+				}
+			}
+
+			$('#send').addEventListener('click', run)
+			document.addEventListener('keydown', (event) => {
+				if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+					event.preventDefault()
+					run()
+				}
+			})
+
+			renderTree()
+			select(0)
+		</script>
+	</body>
+</html>

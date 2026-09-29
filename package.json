@@ -7,7 +7,7 @@
 	},
 	"scripts": {
 		"dev:web": "pnpm --filter web dev",
-		"dev:server": "node script/dev-server.mjs",
+		"dev:server": "pnpm --filter @relax/server dev",
 		"build": "pnpm -r build",
 		"typecheck": "pnpm -r typecheck"
 	},
