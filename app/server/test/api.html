@@ -3,148 +3,507 @@
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		<title>relax server</title>
+		<title>relax · API 调试</title>
 		<script src="https://cdn.tailwindcss.com"></script>
+		<style>
+			html,
+			body {
+				font-family: -apple-system, BlinkMacSystemFont, "PingFang SC",
+					"Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", sans-serif;
+				font-feature-settings: "tnum";
+			}
+			code,
+			pre,
+			kbd {
+				font-family: ui-monospace, "SF Mono", Menlo, Monaco, Consolas,
+					"Liberation Mono", "Courier New", monospace;
+			}
+			body::before {
+				content: "";
+				position: fixed;
+				inset: 0;
+				background: radial-gradient(
+						ellipse 60% 40% at 50% -10%,
+						rgba(244, 207, 232, 0.4),
+						transparent 70%
+					),
+					radial-gradient(
+						ellipse 40% 30% at 88% 5%,
+						rgba(199, 210, 254, 0.28),
+						transparent 70%
+					);
+				pointer-events: none;
+				z-index: 0;
+			}
+			::-webkit-scrollbar {
+				width: 8px;
+				height: 8px;
+			}
+			::-webkit-scrollbar-track {
+				background: transparent;
+			}
+			::-webkit-scrollbar-thumb {
+				background: #d4d4d8;
+				border-radius: 4px;
+			}
+			::-webkit-scrollbar-thumb:hover {
+				background: #a1a1aa;
+			}
+			.chev {
+				transition: transform 200ms ease;
+			}
+			details[open] > summary .chev {
+				transform: rotate(0deg);
+			}
+			details:not([open]) > summary .chev {
+				transform: rotate(-90deg);
+			}
+			details > summary {
+				list-style: none;
+				cursor: pointer;
+			}
+			details > summary::-webkit-details-marker {
+				display: none;
+			}
+			details > div {
+				animation: fade 200ms ease;
+			}
+			@keyframes fade {
+				from {
+					opacity: 0;
+					transform: translateY(-2px);
+				}
+				to {
+					opacity: 1;
+					transform: translateY(0);
+				}
+			}
+			.shimmer {
+				background: linear-gradient(
+					90deg,
+					transparent,
+					rgba(255, 255, 255, 0.4),
+					transparent
+				);
+				background-size: 200% 100%;
+			}
+		</style>
 	</head>
-	<body class="h-screen bg-zinc-100 text-zinc-900">
-		<div class="grid h-full grid-cols-[240px_minmax(0,1fr)]">
-			<aside class="flex flex-col border-r border-zinc-200 bg-white">
-				<div class="px-4 py-3 text-sm font-semibold">接口</div>
-				<label class="flex flex-col gap-1 px-3 pb-3 text-xs text-zinc-500">
-					服务地址
-					<input id="base" class="h-8 rounded border border-zinc-200 px-2 text-zinc-900" value="http://127.0.0.1:3001" spellcheck="false" />
-				</label>
-				<div id="tree" class="flex-1 overflow-auto px-2 pb-4"></div>
-			</aside>
-			<main class="flex min-w-0 flex-col gap-3 p-5">
-				<h1 id="title" class="text-base font-semibold"></h1>
-				<p id="summary" class="text-xs text-zinc-500"></p>
-				<div class="flex gap-2 rounded-md border border-zinc-200 bg-white p-2">
-					<select id="method" class="h-8 w-28 rounded border border-zinc-200 px-2 font-mono text-sm font-semibold" aria-label="方法">
-						<option>GET</option>
-						<option>POST</option>
-						<option>PUT</option>
-						<option>PATCH</option>
-						<option>DELETE</option>
-					</select>
-					<input id="path" class="h-8 min-w-0 flex-1 rounded border border-zinc-200 px-2 font-mono text-sm" spellcheck="false" aria-label="路径" />
-					<button id="send" class="h-8 rounded bg-blue-600 px-4 text-sm text-white" type="button">发送</button>
-				</div>
-				<textarea id="body" class="min-h-32 rounded-md border border-zinc-200 bg-white p-3 font-mono text-sm outline-none" spellcheck="false" placeholder="JSON 请求体。GET 留空即可。"></textarea>
-				<section class="flex min-h-0 flex-1 flex-col rounded-md border border-zinc-200 bg-white">
-					<header class="flex items-center gap-3 border-b border-zinc-200 px-3 py-2 text-sm">
-						<span id="status" class="text-zinc-400">未发送</span>
-						<span id="meta" class="text-xs text-zinc-500"></span>
-					</header>
-					<pre id="result" class="flex-1 overflow-auto whitespace-pre-wrap break-words p-3 font-mono text-sm"></pre>
-				</section>
-			</main>
-		</div>
-		<script src="https://cdn.jsdelivr.net/npm/axios@1.7.9/dist/axios.min.js"></script>
-		<script>
-			// 每新增一个 HTTP 接口，在这里追加一项。用浏览器直接打开本文件即可发送。
-			const ENDPOINTS = [
-				{
-					group: '系统',
-					name: '健康检查',
-					method: 'GET',
-					path: '/health',
-					summary: '服务是否在听。返回 { "status": "ok" }。',
-					body: '',
-				},
-			]
+	<body class="h-screen bg-zinc-50 text-zinc-900 antialiased">
+		<div class="relative grid h-full grid-cols-[280px_minmax(0,1fr)]">
+			<aside class="z-10 flex flex-col border-r border-zinc-200/80 bg-white/80 backdrop-blur">
+				<div class="px-3 pt-4 pb-2">
+						<label class="group flex items-center gap-2 rounded-md border border-zinc-200 bg-zinc-50/80 px-2.5 py-1.5 text-sm transition-colors focus-within:border-violet-300 focus-within:bg-white">
+							<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-zinc-400">
+								<circle cx="11" cy="11" r="8" />
+								<path d="m21 21-4.3-4.3" />
+							</svg>
+							<input id="search" type="text" class="w-full bg-transparent text-sm outline-none placeholder:text-zinc-400" placeholder="搜索接口" spellcheck="false" />
+							<kbd class="hidden rounded border border-zinc-200 bg-white px-1.5 py-0.5 font-mono text-[10px] text-zinc-500 sm:inline-block">⌘K</kbd>
+						</label>
+					</div>
 
-			const $ = (id) => document.querySelector(id)
-			const baseInput = $('#base')
-			const tree = $('#tree')
-			const savedBase = localStorage.getItem('relax-api-base')
-			if (savedBase) baseInput.value = savedBase
+					<div id="tree" class="flex-1 overflow-auto px-2 pb-3"></div>
 
-			const methodColor = {
-				GET: 'text-green-600',
-				POST: 'text-orange-600',
-				PUT: 'text-blue-600',
-				PATCH: 'text-pink-600',
-				DELETE: 'text-red-600',
-			}
+					<div class="border-t border-zinc-200/80 p-3">
+						<label class="flex items-center gap-2 rounded-md border border-zinc-200 bg-white px-2.5 py-1.5 text-xs transition-colors focus-within:border-violet-300">
+							<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-zinc-400">
+								<circle cx="12" cy="12" r="10" />
+								<path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+							</svg>
+							<input id="base" class="w-full bg-transparent text-xs outline-none placeholder:text-zinc-400" value="http://127.0.0.1:3001" spellcheck="false" aria-label="服务地址" />
+						</label>
+					</div>
+				</aside>
 
-			function select(index) {
-				const endpoint = ENDPOINTS[index]
-				$('#title').textContent = endpoint.name
-				$('#summary').textContent = endpoint.summary
-				$('#method').value = endpoint.method
-				$('#path').value = endpoint.path
-				$('#body').value = endpoint.body
-				for (const button of tree.querySelectorAll('button')) {
-					button.classList.toggle('bg-blue-50', Number(button.dataset.index) === index)
+				<main class="z-10 flex min-w-0 flex-col overflow-auto">
+					<div class="px-8 pt-7">
+						<div class="flex items-center gap-1.5 text-xs text-zinc-500">
+							<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-zinc-400">
+								<path d="M3 12h7l3 -7l4 14l3 -7h3" />
+							</svg>
+							<span id="breadcrumb"></span>
+						</div>
+						<div class="mt-1 flex items-start justify-between gap-4">
+							<h1 id="title" class="text-[26px] font-semibold leading-tight tracking-tight text-zinc-900"></h1>
+						</div>
+					</div>
+
+					<div class="flex-1 px-8 pb-10">
+						<div class="mt-5 flex items-stretch overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+							<span id="method-badge" class="inline-flex min-w-[72px] items-center justify-center px-3 py-2.5 text-xs font-bold tracking-wider text-white"></span>
+							<div class="flex flex-1 items-center gap-2 border-l border-zinc-200 px-3">
+								<span class="truncate font-mono text-sm text-zinc-900" id="path-display"></span>
+							</div>
+							<button id="copy-path" class="grid place-items-center border-l border-zinc-200 px-3 text-zinc-400 transition-colors hover:bg-zinc-50 hover:text-zinc-700" type="button" aria-label="复制路径">
+								<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+									<rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+									<path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+								</svg>
+							</button>
+							<button id="send" class="inline-flex items-center bg-gradient-to-b from-violet-500 to-violet-600 px-5 py-2.5 text-sm font-medium text-white transition-all hover:from-violet-600 hover:to-violet-700 active:translate-y-px" type="button">
+								<span>发送</span>
+							</button>
+						</div>
+
+						<p id="summary" class="mt-3 text-sm leading-relaxed text-zinc-600"></p>
+
+						<h2 class="mt-8 flex items-center gap-2 text-base font-semibold tracking-tight text-zinc-900">
+							<span>请求参数</span>
+							<span id="param-count" class="rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-medium text-zinc-500"></span>
+						</h2>
+						<div id="params-container" class="mt-3 space-y-3"></div>
+
+						<h2 class="mt-8 text-base font-semibold tracking-tight text-zinc-900">响应</h2>
+						<div class="mt-3 overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+							<div class="flex items-center gap-3 border-b border-zinc-200 bg-zinc-50/70 px-3 py-2 text-xs">
+								<span id="status" class="font-semibold text-zinc-400">未发送</span>
+								<span id="meta" class="text-zinc-500"></span>
+							</div>
+							<pre id="result" class="max-h-96 min-h-32 overflow-auto whitespace-pre-wrap break-words p-4 text-[12px] leading-relaxed"></pre>
+						</div>
+
+						<h2 class="mt-8 text-base font-semibold tracking-tight text-zinc-900">请求示例代码</h2>
+						<div class="mt-3 overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+							<div class="flex items-center gap-1 border-b border-zinc-200 bg-zinc-50/70 px-2 py-1.5 text-xs">
+								<button data-tab="curl" class="rounded-md bg-white px-3 py-1 font-medium text-violet-700 shadow-sm" type="button">cURL</button>
+								<button data-tab="js" class="rounded-md px-3 py-1 font-medium text-zinc-500 transition-colors hover:text-zinc-900" type="button">JavaScript</button>
+							</div>
+							<pre id="example-code" class="overflow-auto bg-zinc-950 p-4 text-[12px] leading-relaxed text-zinc-100"></pre>
+						</div>
+					</div>
+				</main>
+			</div>
+
+			<script src="https://cdn.jsdelivr.net/npm/axios@1.7.9/dist/axios.min.js"></script>
+			<script>
+				const ENDPOINTS = [
+					{
+						group: "系统",
+						name: "健康检查",
+						method: "GET",
+						path: "/health",
+						summary: "服务是否在听。返回 { \"status\": \"ok\" }。",
+						auth: null,
+						queryParams: [],
+						bodyParams: [],
+						body: "",
+					},
+				];
+
+				const $ = (id) => document.querySelector(id);
+				const tree = $("#tree");
+				const baseInput = $("#base");
+				const savedBase = localStorage.getItem("relax-api-base");
+				if (savedBase) baseInput.value = savedBase;
+
+				const METHOD_STYLE = {
+					GET: { bar: "bg-emerald-500", pill: "bg-emerald-100 text-emerald-700" },
+					POST: { bar: "bg-orange-500", pill: "bg-orange-100 text-orange-700" },
+					PUT: { bar: "bg-blue-500", pill: "bg-blue-100 text-blue-700" },
+					PATCH: { bar: "bg-pink-500", pill: "bg-pink-100 text-pink-700" },
+					DELETE: { bar: "bg-red-500", pill: "bg-red-100 text-red-700" },
+				};
+
+				let activeIndex = 0;
+				let activeTab = "curl";
+				const collapsedGroups = new Set();
+
+				function escapeHtml(s) {
+					return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 				}
-			}
 
-			function renderTree() {
-				let groupName = ''
-				tree.replaceChildren()
-				for (const [index, endpoint] of ENDPOINTS.entries()) {
-					if (endpoint.group !== groupName) {
-						groupName = endpoint.group
-						const label = document.createElement('div')
-						label.className = 'px-2 pb-1 pt-2 text-xs text-zinc-400'
-						label.textContent = groupName
-						tree.append(label)
+				function methodPill(method) {
+					const s = METHOD_STYLE[method] ?? METHOD_STYLE.GET;
+					return `<span class="inline-flex shrink-0 items-center rounded-full px-1.5 py-0.5 text-[10px] font-bold tracking-wider ${s.pill}">${method}</span>`;
+				}
+
+				function renderTree(filter = "") {
+					tree.replaceChildren();
+					const f = filter.trim().toLowerCase();
+					const groups = new Map();
+					ENDPOINTS.forEach((e, i) => {
+						if (f && !e.name.toLowerCase().includes(f) && !e.path.toLowerCase().includes(f)) return;
+						if (!groups.has(e.group)) groups.set(e.group, []);
+						groups.get(e.group).push({ e, i });
+					});
+
+					for (const [groupName, items] of groups) {
+						const isCollapsed = collapsedGroups.has(groupName);
+						const head = document.createElement("button");
+						head.type = "button";
+						head.className = "mt-2 flex w-full items-center gap-1 px-2 pb-1 pt-2 text-xs font-medium text-zinc-500 transition-colors hover:text-zinc-900 first:mt-0";
+						head.innerHTML = `<svg class="chev" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transform: rotate(${isCollapsed ? "-90deg" : "0deg"})"><polyline points="6 9 12 15 18 9"/></svg><span class="truncate">${escapeHtml(groupName)}</span>`;
+						head.addEventListener("click", () => {
+							if (collapsedGroups.has(groupName)) collapsedGroups.delete(groupName);
+							else collapsedGroups.add(groupName);
+							renderTree(filter);
+						});
+						tree.append(head);
+
+						if (isCollapsed) continue;
+						for (const { e, i } of items) {
+							const btn = document.createElement("button");
+							btn.type = "button";
+							btn.dataset.index = String(i);
+							const active = i === activeIndex;
+							btn.className = `flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors ${active ? "bg-violet-100 font-medium text-violet-900" : "text-zinc-700 hover:bg-zinc-100"}`;
+							btn.innerHTML = `<span class="flex-1 truncate">${escapeHtml(e.name)}</span>${methodPill(e.method)}`;
+							btn.addEventListener("click", () => {
+								activeIndex = i;
+								select();
+							});
+							tree.append(btn);
+						}
 					}
-					const button = document.createElement('button')
-					button.type = 'button'
-					button.dataset.index = String(index)
-					button.className = 'flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-zinc-50'
-					button.innerHTML = `<span class="w-14 font-mono text-xs font-bold ${methodColor[endpoint.method] ?? ''}">${endpoint.method}</span><span class="truncate">${endpoint.name}</span>`
-					button.addEventListener('click', () => select(index))
-					tree.append(button)
-				}
-			}
 
-			async function run() {
-				const base = baseInput.value.trim().replace(/\/$/, '')
-				localStorage.setItem('relax-api-base', base)
-				const method = $('#method').value
-				const raw = $('#body').value.trim()
-				$('#send').disabled = true
-				$('#status').textContent = '发送中'
-				$('#status').className = 'text-zinc-400'
-				$('#meta').textContent = ''
-				$('#result').textContent = ''
-				const started = performance.now()
-				try {
-					const response = await axios({
-						method,
-						url: base + $('#path').value.trim(),
-						data: raw && method !== 'GET' && method !== 'HEAD' ? JSON.parse(raw) : undefined,
-						validateStatus: () => true,
-					})
-					const ms = Math.round(performance.now() - started)
-					const ok = response.status >= 200 && response.status < 300
-					$('#status').textContent = String(response.status)
-					$('#status').className = ok ? 'font-semibold text-green-600' : 'font-semibold text-red-600'
-					$('#meta').textContent = `${ms} ms`
-					$('#result').textContent = typeof response.data === 'string' ? response.data : JSON.stringify(response.data, null, 2)
-				} catch (error) {
-					$('#status').textContent = '失败'
-					$('#status').className = 'font-semibold text-red-600'
-					$('#meta').textContent = '确认 pnpm dev:server 已在该地址监听'
-					$('#result').textContent = error instanceof SyntaxError ? '请求体不是合法 JSON' : String(error)
-				} finally {
-					$('#send').disabled = false
+					if (!groups.size) {
+						const empty = document.createElement("div");
+						empty.className = "px-3 py-8 text-center text-xs text-zinc-400";
+						empty.textContent = "没有匹配的接口";
+						tree.append(empty);
+					}
 				}
-			}
 
-			$('#send').addEventListener('click', run)
-			document.addEventListener('keydown', (event) => {
-				if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
-					event.preventDefault()
-					run()
+				function authCard(endpoint) {
+					const body = endpoint.auth
+						? `<div class="border-t border-zinc-200 px-4 py-3 space-y-1.5 text-xs">
+								<div class="text-sm font-semibold text-zinc-900">${escapeHtml(endpoint.auth)}</div>
+								<div class="text-zinc-500">在 Header 添加参数 <code class="rounded bg-violet-50 px-1.5 py-0.5 text-violet-700">Authorization</code></div>
+								<div class="flex items-center gap-2 text-zinc-500">
+									<span>示例:</span>
+									<code class="rounded bg-zinc-100 px-1.5 py-0.5 text-zinc-700">Authorization: ************************</code>
+								</div>
+							</div>`
+						: `<div class="border-t border-zinc-200 px-4 py-3 text-xs text-zinc-500">无需鉴权</div>`;
+					return `<details class="overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]" open>
+							<summary class="flex items-center gap-2 px-4 py-3 text-sm font-medium hover:bg-zinc-50">
+								<svg class="chev text-zinc-400" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+								<span>Authorization</span>
+							</summary>
+							${body}
+						</details>`;
 				}
-			})
 
-			renderTree()
-			select(0)
-		</script>
-	</body>
-</html>
+				function queryCard(endpoint) {
+					const list = endpoint.queryParams ?? [];
+					const body = list.length
+						? `<div class="border-t border-zinc-200">
+								${list
+									.map(
+										(p) => `<div class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 border-b border-zinc-100 px-4 py-3 last:border-b-0">
+										<div class="flex items-center gap-2 min-w-0">
+											<span class="shrink-0 rounded bg-violet-50 px-2 py-0.5 font-mono text-xs font-medium text-violet-700">${escapeHtml(p.name)}</span>
+											<span class="font-mono text-xs text-zinc-500">${escapeHtml(p.type)}</span>
+											${p.required ? '<span class="text-[10px] font-semibold text-red-500">必填</span>' : ""}
+										</div>
+										<div class="text-xs text-zinc-400">${p.required ? "必填" : "可选"}</div>
+										${p.description ? `<div class="col-span-2 text-xs text-zinc-500">${escapeHtml(p.description)}</div>` : ""}
+										${p.example ? `<div class="col-span-2 flex items-center gap-2 text-xs text-zinc-500"><span>示例:</span><code class="rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-zinc-700">${escapeHtml(p.example)}</code></div>` : ""}
+									</div>`,
+									)
+									.join("")}
+							</div>`
+						: `<div class="border-t border-zinc-200 px-4 py-3 text-xs text-zinc-500">无</div>`;
+					return `<details class="overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]" open>
+							<summary class="flex items-center gap-2 px-4 py-3 text-sm font-medium hover:bg-zinc-50">
+								<svg class="chev text-zinc-400" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+								<span>Query 参数</span>
+								${list.length ? `<span class="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-medium text-zinc-500">${list.length}</span>` : ""}
+							</summary>
+							${body}
+						</details>`;
+				}
+
+				function bodyCard(endpoint) {
+					const list = endpoint.bodyParams ?? [];
+					const canHaveBody = !["GET", "HEAD"].includes(endpoint.method);
+					const templateBody = (endpoint.body || "").trim();
+					const initBody =
+						templateBody ||
+						(list.length
+							? JSON.stringify(
+									Object.fromEntries(
+										list.map((p) => [p.name, p.example ?? defaultForType(p.type)]),
+									),
+									null,
+									2,
+								)
+							: "");
+					const body = canHaveBody
+						? `<div class="border-t border-zinc-200 px-4 py-3">
+								<textarea id="body-input" class="w-full resize-y rounded-md border border-zinc-200 bg-zinc-50 p-3 font-mono text-[12px] outline-none focus:border-violet-300 focus:bg-white" rows="6" spellcheck="false" placeholder='{"key": "value"}'>${escapeHtml(initBody)}</textarea>
+							</div>`
+						: `<div class="border-t border-zinc-200 px-4 py-3 text-xs text-zinc-500">${endpoint.method} 请求无需请求体</div>`;
+					return `<details class="overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]" open>
+							<summary class="flex items-center gap-2 px-4 py-3 text-sm font-medium hover:bg-zinc-50">
+								<svg class="chev text-zinc-400" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+								<span>Body 参数</span>
+								${list.length ? `<span class="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-medium text-zinc-500">${list.length}</span>` : ""}
+							</summary>
+							${body}
+						</details>`;
+				}
+
+				function defaultForType(type) {
+					if (type === "string") return "";
+					if (type === "number") return 0;
+					if (type === "boolean") return false;
+					if (type === "array") return [];
+					if (type === "object") return {};
+					return null;
+				}
+
+				function renderParams(endpoint) {
+					const c = $("#params-container");
+					c.innerHTML = authCard(endpoint) + queryCard(endpoint) + bodyCard(endpoint);
+					const total =
+						(endpoint.auth ? 1 : 0) +
+						(endpoint.queryParams?.length ?? 0) +
+						(endpoint.bodyParams?.length ?? 0);
+					$("#param-count").textContent = total ? `${total} 个参数` : "";
+				}
+
+				function buildCurl(endpoint, base) {
+					let url = base + endpoint.path;
+					if (endpoint.queryParams?.length) {
+						const qs = endpoint.queryParams
+							.map((p) => `${encodeURIComponent(p.name)}=${encodeURIComponent(p.example ?? "")}`)
+							.join("&");
+						url += (url.includes("?") ? "&" : "?") + qs;
+					}
+					const lines = [`curl -X ${endpoint.method} '${url}'`];
+					if (endpoint.auth) lines.push(`  -H 'Authorization: Bearer YOUR_TOKEN'`);
+					const body = ($("#body-input")?.value || "").trim();
+					if (body && !["GET", "HEAD"].includes(endpoint.method)) {
+						lines.push(`  -H 'Content-Type: application/json'`);
+						lines.push(`  -d '${body.replace(/'/g, "'\\''")}'`);
+					}
+					return lines.join(" \\\n");
+				}
+
+				function buildJs(endpoint, base) {
+					let url = base + endpoint.path;
+					if (endpoint.queryParams?.length) {
+						const qs = endpoint.queryParams
+							.map((p) => `${encodeURIComponent(p.name)}=${encodeURIComponent(p.example ?? "")}`)
+							.join("&");
+						url += (url.includes("?") ? "&" : "?") + qs;
+					}
+					const opts = [`  method: '${endpoint.method}'`];
+					if (endpoint.auth) opts.push(`  headers: { 'Authorization': 'Bearer YOUR_TOKEN' }`);
+					const body = ($("#body-input")?.value || "").trim();
+					if (body && !["GET", "HEAD"].includes(endpoint.method)) {
+						opts.push(`  body: ${body.replace(/\n/g, " ")}`);
+					}
+					return `await fetch(${JSON.stringify(url)}, {\n${opts.join(",\n")}\n}).then(r => r.json())`;
+				}
+
+				function renderExample(endpoint) {
+					const base = baseInput.value.trim().replace(/\/$/, "");
+					$("#example-code").textContent = activeTab === "curl" ? buildCurl(endpoint, base) : buildJs(endpoint, base);
+				}
+
+				function select() {
+					const endpoint = ENDPOINTS[activeIndex];
+					$("#title").textContent = endpoint.name;
+					$("#breadcrumb").textContent = endpoint.group;
+					$("#summary").textContent = endpoint.summary;
+					$("#path-display").textContent = endpoint.path;
+					const s = METHOD_STYLE[endpoint.method] ?? METHOD_STYLE.GET;
+					const badge = $("#method-badge");
+					badge.textContent = endpoint.method;
+					badge.className = `inline-flex min-w-[72px] items-center justify-center px-3 py-2.5 text-xs font-bold tracking-wider text-white ${s.bar}`;
+					renderTree($("#search").value);
+					renderParams(endpoint);
+					renderExample(endpoint);
+				}
+
+				$("#search").addEventListener("input", (e) => renderTree(e.target.value));
+
+				for (const tab of document.querySelectorAll("[data-tab]")) {
+					tab.addEventListener("click", () => {
+						activeTab = tab.dataset.tab;
+						for (const t of document.querySelectorAll("[data-tab]")) {
+							const active = t === tab;
+							t.className = active
+								? "rounded-md bg-white px-3 py-1 font-medium text-violet-700 shadow-sm"
+								: "rounded-md px-3 py-1 font-medium text-zinc-500 transition-colors hover:text-zinc-900";
+						}
+						renderExample(ENDPOINTS[activeIndex]);
+					});
+				}
+
+				const flash = (btn, text) => {
+					const orig = btn.innerHTML;
+					btn.innerHTML = text;
+					setTimeout(() => (btn.innerHTML = orig), 1200);
+				};
+
+				$("#copy-path").addEventListener("click", () => {
+					navigator.clipboard?.writeText(ENDPOINTS[activeIndex].path);
+					flash($("#copy-path"), '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>');
+				});
+
+				baseInput.addEventListener("input", () => {
+					localStorage.setItem("relax-api-base", baseInput.value.trim());
+					renderExample(ENDPOINTS[activeIndex]);
+				});
+
+				async function run() {
+					const base = baseInput.value.trim().replace(/\/$/, "");
+					localStorage.setItem("relax-api-base", base);
+					const endpoint = ENDPOINTS[activeIndex];
+					const method = endpoint.method;
+					const raw = ($("#body-input")?.value || "").trim();
+					$("#send").disabled = true;
+					$("#status").textContent = "发送中…";
+					$("#status").className = "font-semibold text-zinc-400";
+					$("#meta").textContent = "";
+					$("#result").textContent = "";
+					const started = performance.now();
+					try {
+						const response = await axios({
+							method,
+							url: base + endpoint.path,
+							data: raw && !["GET", "HEAD"].includes(method) ? JSON.parse(raw) : undefined,
+							validateStatus: () => true,
+						});
+						const ms = Math.round(performance.now() - started);
+						const ok = response.status >= 200 && response.status < 300;
+						$("#status").textContent = `${response.status} ${response.statusText || ""}`;
+						$("#status").className = ok ? "font-semibold text-emerald-600" : "font-semibold text-red-600";
+						$("#meta").textContent = `${ms} ms · ${response.headers?.["content-type"] ?? ""}`;
+						$("#result").textContent =
+							typeof response.data === "string" ? response.data : JSON.stringify(response.data, null, 2);
+					} catch (error) {
+						$("#status").textContent = "失败";
+						$("#status").className = "font-semibold text-red-600";
+						$("#meta").textContent = "确认 pnpm dev:server 已在该地址监听";
+						$("#result").textContent = error instanceof SyntaxError ? "请求体不是合法 JSON" : String(error);
+					} finally {
+						$("#send").disabled = false;
+					}
+				}
+
+				$("#send").addEventListener("click", run);
+				document.addEventListener("keydown", (event) => {
+					if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+						event.preventDefault();
+						run();
+					}
+					if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+						const tag = document.activeElement?.tagName?.toLowerCase();
+						if (tag !== "input" && tag !== "textarea") {
+							event.preventDefault();
+							$("#search").focus();
+							$("#search").select();
+						}
+					}
+				});
+
+				renderTree();
+				select();
+			</script>
+		</body>
+	</html>
