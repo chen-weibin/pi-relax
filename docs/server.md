@@ -177,6 +177,8 @@ app/server/test/
 
 手工调试打开 [api.html](../app/server/test/api.html)，服务需已由 `pnpm dev:server` 拉起。每新增一个 HTTP 接口，在该文件顶部的 `ENDPOINTS` 追加一项。查阅时机：加路由后自己点发送，或要看当前有哪些 HTTP 接口时。WebSocket 不进这个页面。
 
+`ENDPOINTS` 每项必填 `group` / `name` / `method` / `path` / `summary`，可填 `auth`（鉴权描述，如 `"JWT Bearer"`，不填则卡片显示「无需鉴权」）、`queryParams` / `bodyParams`（`{ name, type, required, description, example }` 数组，填了渲染参数卡并自动生成 cURL / JS 示例；`body` 是纯 JSON 字符串模板，不填且 `bodyParams` 也没填时 textarea 为空）。可选字段不回传服务端，只是让调试页更接近接口文档的观感。
+
 约定：
 
 - HTTP 和 WebSocket 只调 `sessions/`、`fs/`、`pty/` 的函数，不在路由文件里 `import` pi 再组参数。
