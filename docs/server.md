@@ -107,20 +107,20 @@ pi 暴露的加载点都要能指定到 `.relax` 或配置里的路径，不默�
 
 历史：热会话用该 `sessionManager.buildSessionContext()`，否则 `SessionManager.open` 再同样调用。返回 `{ messages, thinkingLevel, model }`，不手读 JSONL。
 
-列表字段从 pi 的 `SessionInfo` 推导（去掉 `path`、`allMessagesText`，时间输出 ISO）。另加内存 `status`：`idle` | `running`。历史类型即 pi 的 `SessionContext`。
+列表字段从 pi 的 `SessionInfo` 推导（去掉 `path`、`allMessagesText`，时间输出 ISO）。另加内存 `status`：`idle` | `running`。历史类型即 pi 的 `SessionContext`。字段含义不在本文展开，看 [api.html](../app/server/test/html/api.html) 各接口的请求类型和返回类型，或直接看 [sessions/types.ts](../app/server/src/sessions/types.ts) 与路由。查阅时机：改会话 JSON 形状时，改实现并改调试页上的类型，不必在本文再抄一份。
 
 ### 接口
 
-错误体 `{ "error": { "code", "message" } }`。新增 `BUSY`（409）。`GET /api/sessions/events` 写在 `/:id` 之前。
+`BUSY` 为 409。`GET /api/sessions/events` 写在 `/:id` 之前。请求和返回的字段以调试页为准。
 
-- `POST /api/sessions` `{ "text", "cwd"? }` 第一次发送并创建，202
-- `GET /api/sessions?cwd=` 列表，默认全部
+- `POST /api/sessions` 第一次发送并创建，202
+- `GET /api/sessions` 列表，默认全部工作区
 - `GET /api/sessions/:id` 一条信息
 - `GET /api/sessions/:id/history` `buildSessionContext()`
-- `DELETE /api/sessions/:id` 中止并删除文件
-- `POST /api/sessions/:id/prompt` `{ "text" }` 续发，202
+- `DELETE /api/sessions/:id` 中止并删除文件，204
+- `POST /api/sessions/:id/prompt` 续发，202
 - `POST /api/sessions/:id/abort` 中止
-- `GET /api/sessions/events` 全局 SSE，`data` 为 `{ sessionId, event }`，内层 `AgentSessionEvent`
+- `GET /api/sessions/events` 全局 SSE，不进 api.html。`data` 为 `{ sessionId, event }`，内层是 pi 的 `AgentSessionEvent`
 
 SSE 断线不补，客户端用历史对齐。发送和中止走 HTTP。本轮不接 `app/web`。
 
@@ -231,16 +231,16 @@ app/server/test/
   sessions-http.test.ts
   agent.test.ts
   html/
-    index.html        手工测试页目录
+    index.html        手工测试页目录，卡片链到下面两页
     sessions.html     会话联调：进页即连 SSE
-    api.html          单接口 HTTP 调试
+    api.html          单接口 HTTP 调试，含请求类型与返回类型
 ```
 
 还没建的目录：`fs/`、`pty/`，以及 `/ws/fs`、`/ws/pty` 的处理。`agent/` 是唯一直接调用 pi 会话 API 的目录。
 
-手工测试页在 [html/](../app/server/test/html/)，服务需已由 `pnpm dev:server` 拉起。会话相关接口互相依赖，用 [sessions.html](../app/server/test/html/sessions.html)：进入即连 `GET /api/sessions/events`，可在同一页发送、续发、中止、列会话、看历史和删除。逐条 HTTP 仍用 [api.html](../app/server/test/html/api.html)，每新增一个 HTTP 接口在该文件顶部的 `ENDPOINTS` 追加一项。查阅时机：加路由后自己点发送，或要看当前有哪些 HTTP 接口时。SSE 不进 api.html。
+手工测试页在 [html/](../app/server/test/html/)，服务需已由 `pnpm dev:server` 拉起。会话相关接口互相依赖，用 [sessions.html](../app/server/test/html/sessions.html)：进入即连 `GET /api/sessions/events`，可在同一页发送、续发、中止、列会话、看历史和删除。逐条 HTTP 仍用 [api.html](../app/server/test/html/api.html)。字段含义以该页的 `requestType` / `responseType` 为准。每新增一个 HTTP 接口，在文件顶部的 `ENDPOINTS` 追加一项并写上带字段注释的类型；接口调整时改这一处和实现，不必在本文再抄参数。查阅时机：加路由后自己点发送，或要看当前有哪些 HTTP 接口及其字段含义时。SSE 不进 api.html。
 
-`ENDPOINTS` 每项必填 `group` / `name` / `method` / `path` / `summary`，可填 `auth`（鉴权描述，如 `"JWT Bearer"`，不填则卡片显示「无需鉴权」）、`queryParams` / `bodyParams`（`{ name, type, required, description, example }` 数组，填了渲染参数卡并自动生成 cURL / JS 示例；`body` 是纯 JSON 字符串模板，不填且 `bodyParams` 也没填时 textarea 为空）。可选字段不回传服务端，只是让调试页更接近接口文档的观感。
+`ENDPOINTS` 每项必填 `group` / `name` / `method` / `path` / `summary` / `requestType` / `responseType`。`requestType`、`responseType` 是 TypeScript 文本，字段用行注释说明含义，调试页在「响应」后面以深色代码块展示。可填 `auth`（鉴权描述，如 `"JWT Bearer"`，不填则卡片显示「无需鉴权」）、`queryParams` / `bodyParams`（`{ name, type, required, description, example }` 数组，填了渲染参数卡并自动生成 cURL / JS 示例；`body` 是纯 JSON 字符串模板，不填且 `bodyParams` 也没填时 textarea 为空）。这些字段不回传服务端，只是让调试页更接近接口文档的观感。
 
 约定：
 

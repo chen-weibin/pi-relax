@@ -5,21 +5,46 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<title>relax · 手工测试</title>
 		<script src="https://cdn.tailwindcss.com"></script>
+		<style>
+			html,
+			body {
+				font-family: -apple-system, BlinkMacSystemFont, "PingFang SC",
+					"Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", sans-serif;
+			}
+			code {
+				font-family: ui-monospace, "SF Mono", Menlo, Monaco, Consolas, monospace;
+			}
+		</style>
 	</head>
 	<body class="min-h-screen bg-zinc-50 text-zinc-900 antialiased">
-		<main class="mx-auto max-w-lg px-6 py-16">
+		<main class="mx-auto max-w-xl px-6 py-16">
 			<h1 class="text-xl font-semibold tracking-tight">手工测试页</h1>
-			<p class="mt-2 text-sm text-zinc-500">服务需已由 <code>pnpm dev:server</code> 拉起。默认 <code>http://127.0.0.1:3001</code>。</p>
-			<ul class="mt-8 space-y-3 text-sm">
-				<li>
-					<a class="font-medium text-violet-700 hover:underline" href="./sessions.html">会话联调</a>
-					<p class="text-zinc-500">进入即连全局 SSE，发送 / 续发 / 中止 / 列表 / 历史 / 删除串在一起测。</p>
-				</li>
-				<li>
-					<a class="font-medium text-violet-700 hover:underline" href="./api.html">单接口调试</a>
-					<p class="text-zinc-500">按 ENDPOINTS 逐条发 HTTP。SSE 不在这个页。</p>
-				</li>
-			</ul>
+			<p class="mt-2 text-sm leading-relaxed text-zinc-500">
+				服务需已由 <code class="rounded bg-zinc-100 px-1 py-0.5 text-zinc-700">pnpm dev:server</code> 拉起。默认
+				<code class="rounded bg-zinc-100 px-1 py-0.5 text-zinc-700">http://127.0.0.1:3001</code>。
+			</p>
+			<div class="mt-8 grid gap-3">
+				<a
+					class="block rounded-xl border border-zinc-200 bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-colors hover:border-violet-300 hover:bg-violet-50/40"
+					href="./sessions.html"
+				>
+					<div class="flex items-center justify-between gap-3">
+						<h2 class="text-base font-semibold tracking-tight">会话联调</h2>
+						<span class="shrink-0 rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-medium text-violet-700">SSE</span>
+					</div>
+					<p class="mt-2 text-sm leading-relaxed text-zinc-500">进入即连全局 SSE，发送 / 续发 / 中止 / 列表 / 历史 / 删除串在一起测。</p>
+				</a>
+				<a
+					class="block rounded-xl border border-zinc-200 bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-colors hover:border-violet-300 hover:bg-violet-50/40"
+					href="./api.html"
+				>
+					<div class="flex items-center justify-between gap-3">
+						<h2 class="text-base font-semibold tracking-tight">单接口调试</h2>
+						<span class="shrink-0 rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-medium text-zinc-600">HTTP</span>
+					</div>
+					<p class="mt-2 text-sm leading-relaxed text-zinc-500">按 ENDPOINTS 逐条发 HTTP，并查看该接口的请求类型和返回类型。SSE 不在这个页。</p>
+				</a>
+			</div>
 		</main>
 	</body>
 </html>

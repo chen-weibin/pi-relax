@@ -163,6 +163,8 @@
 							<pre id="result" class="max-h-96 min-h-32 overflow-auto whitespace-pre-wrap break-words p-4 text-[12px] leading-relaxed"></pre>
 						</div>
 
+						<div id="types"></div>
+
 						<h2 class="mt-8 text-base font-semibold tracking-tight text-zinc-900">请求示例代码</h2>
 						<div class="mt-3 overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
 							<div class="flex items-center gap-1 border-b border-zinc-200 bg-zinc-50/70 px-2 py-1.5 text-xs">
@@ -177,6 +179,38 @@
 
 			<script src="https://cdn.jsdelivr.net/npm/axios@1.7.9/dist/axios.min.js"></script>
 			<script>
+				const SESSION_RECORD = `/** 一条会话。pi 的 SessionInfo 去掉 path、allMessagesText，时间改为 ISO 字符串，并加上内存 status。 */
+type SessionRecord = {
+	/** 会话 id */
+	id: string
+	/** 创建时的工作区绝对路径。旧会话可能是空字符串 */
+	cwd: string
+	/** 显示名，来自 session_info。没有时界面用 firstMessage */
+	name?: string
+	/** 父会话文件路径。只有 fork 出来的会话才有 */
+	parentSessionPath?: string
+	/** 创建时间，ISO 8601 */
+	created: string
+	/** 最近修改时间，ISO 8601。列表按此倒序 */
+	modified: string
+	/** 消息条数 */
+	messageCount: number
+	/** 第一条用户消息的纯文本。没有用户消息时为 "(no messages)" */
+	firstMessage: string
+	/** idle：未在生成。running：正在生成，自动重试等待也算 */
+	status: "idle" | "running"
+}`;
+
+				const ERROR_BODY = `/** 失败时的 JSON。2xx 不返回这个形状。 */
+type ErrorBody = {
+	error: {
+		/** BAD_REQUEST | NOT_FOUND | BUSY | INTERNAL */
+		code: string
+		/** 给人看的说明 */
+		message: string
+	}
+}`;
+
 				const ENDPOINTS = [
 					{
 						group: "系统",
@@ -188,6 +222,13 @@
 						queryParams: [],
 						bodyParams: [],
 						body: "",
+						requestType: `/** 无路径参数、无 query、无 body。 */
+type HealthRequest = Record<string, never>`,
+						responseType: `/** HTTP 200。 */
+type HealthResponse = {
+	/** 固定 "ok"，表示进程在听 */
+	status: "ok"
+}`,
 					},
 					{
 						group: "会话",
@@ -201,6 +242,16 @@
 							{ name: "cwd", type: "string", required: false, description: "工作区目录", example: "/Users/chen" },
 						],
 						body: "{\n  \"text\": \"你好\"\n}",
+						requestType: `/** JSON body。 */
+type CreateSessionRequest = {
+	/** 第一条用户消息。必填，空字符串视为未传，400 BAD_REQUEST */
+	text: string
+	/** 工作区目录。不传则用用户主目录 */
+	cwd?: string
+}`,
+						responseType: `/** HTTP 202。此时 status 为 "running"。文件等第一条 assistant 才落盘。 */
+
+${SESSION_RECORD}`,
 					},
 					{
 						group: "会话",
@@ -213,6 +264,18 @@
 						],
 						bodyParams: [],
 						body: "",
+						requestType: `/** Query。无 body。 */
+type ListSessionsRequest = {
+	/** 工作区目录。有则只列该目录，没有则全部 */
+	cwd?: string
+}`,
+						responseType: `${SESSION_RECORD}
+
+/** HTTP 200。 */
+type ListSessionsResponse = {
+	/** 按 modified 倒序。同 id 的热会话覆盖磁盘记录 */
+	sessions: SessionRecord[]
+}`,
 					},
 					{
 						group: "会话",
@@ -223,6 +286,16 @@
 						queryParams: [],
 						bodyParams: [],
 						body: "",
+						requestType: `/** 路径参数。无 query、无 body。 */
+type GetSessionRequest = {
+	/** 会话 id。找不到时 404 NOT_FOUND */
+	id: string
+}`,
+						responseType: `/** HTTP 200。热会话用内存记录，否则读磁盘且 status 为 "idle"。 */
+
+${SESSION_RECORD}
+
+${ERROR_BODY}`,
 					},
 					{
 						group: "会话",
@@ -233,6 +306,27 @@
 						queryParams: [],
 						bodyParams: [],
 						body: "",
+						requestType: `/** 路径参数。无 query、无 body。 */
+type HistoryRequest = {
+	/** 会话 id。找不到时 404 NOT_FOUND */
+	id: string
+}`,
+						responseType: `/** HTTP 200。即 pi 的 SessionContext，buildSessionContext() 的返回值。 */
+type HistoryResponse = {
+	/** 当前叶子路径上、压缩后仍保留的消息。元素是 pi 的 AgentMessage，此处不展开联合类型 */
+	messages: unknown[]
+	/** 思考级别，取值以 pi 当前配置为准，如 off */
+	thinkingLevel: string
+	/** 当前模型。还没选定模型时为 null */
+	model: {
+		/** 提供商，如 minimax */
+		provider: string
+		/** 模型 id，如 MiniMax-M3 */
+		modelId: string
+	} | null
+}
+
+${ERROR_BODY}`,
 					},
 					{
 						group: "会话",
@@ -245,6 +339,18 @@
 							{ name: "text", type: "string", required: true, description: "用户输入", example: "继续" },
 						],
 						body: "{\n  \"text\": \"继续\"\n}",
+						requestType: `/** 路径参数 + JSON body。 */
+type PromptRequest = {
+	/** 已有会话 id。找不到时 404 NOT_FOUND */
+	id: string
+	/** 本轮用户输入。必填，空字符串视为未传，400 BAD_REQUEST */
+	text: string
+}`,
+						responseType: `/** HTTP 202，status 为 "running"。该会话正在生成时 409，code 为 BUSY。 */
+
+${SESSION_RECORD}
+
+${ERROR_BODY}`,
 					},
 					{
 						group: "会话",
@@ -255,6 +361,16 @@
 						queryParams: [],
 						bodyParams: [],
 						body: "",
+						requestType: `/** 路径参数。无 body。 */
+type AbortRequest = {
+	/** 会话 id。找不到时 404 NOT_FOUND */
+	id: string
+}`,
+						responseType: `/** HTTP 200。没有正在生成也成功，返回的 status 为 "idle"。 */
+
+${SESSION_RECORD}
+
+${ERROR_BODY}`,
 					},
 					{
 						group: "会话",
@@ -265,6 +381,14 @@
 						queryParams: [],
 						bodyParams: [],
 						body: "",
+						requestType: `/** 路径参数。无 body。 */
+type DeleteSessionRequest = {
+	/** 会话 id。内存和磁盘都没有时 404 NOT_FOUND */
+	id: string
+}`,
+						responseType: `/** HTTP 204，响应体为空。会先中止再删 jsonl。 */
+
+${ERROR_BODY}`,
 					},
 				];
 
@@ -431,6 +555,23 @@
 					return null;
 				}
 
+				function typeSection(title, code) {
+					const text = (code || "").trim();
+					const body = text
+						? `<pre class="overflow-auto bg-zinc-950 p-4 text-[12px] leading-relaxed text-zinc-100">${escapeHtml(text)}</pre>`
+						: `<div class="bg-zinc-950 px-4 py-3 text-xs text-zinc-500">无</div>`;
+					return `<section class="mt-8">
+						<h2 class="text-base font-semibold tracking-tight text-zinc-900">${title}</h2>
+						<div class="mt-3 overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">${body}</div>
+					</section>`;
+				}
+
+				function renderTypes(endpoint) {
+					$("#types").innerHTML =
+						typeSection("请求类型", endpoint.requestType) +
+						typeSection("返回类型", endpoint.responseType);
+				}
+
 				function renderParams(endpoint) {
 					const c = $("#params-container");
 					c.innerHTML = authCard(endpoint) + queryCard(endpoint) + bodyCard(endpoint);
@@ -493,6 +634,7 @@
 					badge.className = `inline-flex min-w-[72px] items-center justify-center px-3 py-2.5 text-xs font-bold tracking-wider text-white ${s.bar}`;
 					renderTree($("#search").value);
 					renderParams(endpoint);
+					renderTypes(endpoint);
 					renderExample(endpoint);
 				}
 
