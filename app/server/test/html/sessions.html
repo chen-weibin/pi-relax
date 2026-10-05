@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="zh-CN">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>relax · 会话联调</title>
+		<script src="https://cdn.tailwindcss.com"></script>
+		<style>
+			html,
+			body {
+				font-family: -apple-system, BlinkMacSystemFont, "PingFang SC",
+					"Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", sans-serif;
+			}
+			code,
+			pre,
+			textarea {
+				font-family: ui-monospace, "SF Mono", Menlo, Monaco, Consolas, monospace;
+			}
+		</style>
+	</head>
+	<body class="h-screen overflow-hidden bg-zinc-50 text-zinc-900 antialiased">
+		<div class="flex h-full flex-col">
+			<header class="flex shrink-0 items-center gap-3 border-b border-zinc-200 bg-white px-4 py-2.5">
+				<a class="text-sm font-semibold tracking-tight" href="./index.html">会话联调</a>
+				<label class="flex min-w-0 flex-1 items-center gap-2 rounded-md border border-zinc-200 px-2 py-1 text-xs">
+					<span class="shrink-0 text-zinc-400">服务</span>
+					<input id="base" class="min-w-0 flex-1 bg-transparent outline-none" value="http://127.0.0.1:3001" spellcheck="false" />
+				</label>
+				<span id="sse-status" class="rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-medium text-zinc-500">SSE 未连接</span>
+				<a class="text-xs text-zinc-500 hover:text-zinc-800" href="./api.html">单接口调试</a>
+			</header>
+
+			<div class="grid min-h-0 flex-1 grid-cols-[220px_minmax(0,1fr)_minmax(320px,1fr)]">
+				<aside class="flex min-h-0 flex-col border-r border-zinc-200 bg-white">
+					<div class="flex shrink-0 items-center justify-between px-3 py-2">
+						<span class="text-xs font-medium text-zinc-500">会话列表</span>
+						<button id="refresh" class="text-xs text-violet-600 hover:underline" type="button">刷新</button>
+					</div>
+					<label class="shrink-0 px-3 pb-2 text-[11px] text-zinc-400">
+						cwd 过滤
+						<input id="cwd-filter" class="mt-1 w-full rounded-md border border-zinc-200 px-2 py-1 text-xs text-zinc-800 outline-none" placeholder="空则全部" spellcheck="false" />
+					</label>
+					<div id="list" class="min-h-0 flex-1 overflow-auto px-2 pb-2"></div>
+				</aside>
+
+				<section class="flex min-h-0 flex-col overflow-hidden bg-zinc-50">
+					<div class="shrink-0 border-b border-zinc-200 bg-white p-3">
+						<p class="text-xs text-zinc-500">
+							当前
+							<code id="current-id" class="ml-1 text-zinc-800">无（发送即新建）</code>
+							<span id="current-status" class="ml-2 text-zinc-400"></span>
+						</p>
+						<label class="mt-2 block text-[11px] text-zinc-400">
+							cwd（仅新建时用）
+							<input id="cwd" class="mt-1 w-full rounded-md border border-zinc-200 px-2 py-1 text-xs text-zinc-800 outline-none" spellcheck="false" />
+						</label>
+						<textarea id="text" rows="3" class="mt-2 w-full resize-none rounded-md border border-zinc-200 p-2 text-sm outline-none focus:border-violet-300" placeholder="没有当前会话则新建并发送，有则续发"></textarea>
+						<div class="mt-2 flex flex-wrap gap-2">
+							<button id="send" class="rounded-md bg-violet-600 px-3 py-1.5 text-sm text-white hover:bg-violet-700" type="button">发送</button>
+							<button id="abort" class="rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50" type="button">中止</button>
+							<button id="info" class="rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50" type="button">信息</button>
+							<button id="history" class="rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50" type="button">历史</button>
+							<button id="remove" class="rounded-md border border-red-200 bg-white px-3 py-1.5 text-sm text-red-600 hover:bg-red-50" type="button">删除</button>
+							<button id="clear-current" class="rounded-md px-3 py-1.5 text-sm text-zinc-500 hover:text-zinc-800" type="button">取消选中</button>
+						</div>
+						<p id="http-meta" class="mt-2 text-[11px] text-zinc-400">未发 HTTP</p>
+					</div>
+					<pre id="main" class="min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-words p-4 text-[12px] leading-relaxed text-zinc-800">点「历史」把当前会话的 buildSessionContext 打在这里。</pre>
+				</section>
+
+				<aside class="flex min-h-0 flex-col border-l border-zinc-200 bg-zinc-950">
+					<div class="flex shrink-0 items-center justify-between px-3 py-2">
+						<span class="text-xs font-medium text-zinc-400">SSE</span>
+						<button id="clear-log" class="text-xs text-zinc-500 hover:text-zinc-200" type="button">清空</button>
+					</div>
+					<pre id="log" class="min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-words p-3 text-[11px] leading-relaxed text-zinc-300"></pre>
+				</aside>
+			</div>
+		</div>
+
+		<script>
+			const $ = (id) => document.getElementById(id)
+			const savedBase = localStorage.getItem("relax-api-base")
+			if (savedBase) $("base").value = savedBase
+
+			let source = null
+			let reconnectTimer = 0
+			let currentId = null
+
+			function base() {
+				return $("base").value.replace(/\/$/, "")
+			}
+
+			function setSseStatus(text, ok) {
+				const el = $("sse-status")
+				el.textContent = text
+				el.className =
+					"rounded-full px-2 py-0.5 text-[11px] font-medium " +
+					(ok ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-800")
+			}
+
+			function appendLog(line) {
+				const el = $("log")
+				el.textContent += line + "\n"
+				el.scrollTop = el.scrollHeight
+			}
+
+			function setCurrent(id, status) {
+				currentId = id || null
+				$("current-id").textContent = currentId || "无（发送即新建）"
+				$("current-status").textContent = status || ""
+				paintList()
+			}
+
+			function connectSse() {
+				clearTimeout(reconnectTimer)
+				if (source) {
+					source.onopen = null
+					source.onerror = null
+					source.onmessage = null
+					source.close()
+					source = null
+				}
+				const url = base() + "/api/sessions/events"
+				source = new EventSource(url)
+				setSseStatus("SSE 连接中…", false)
+				source.onopen = () => setSseStatus("SSE 已连接", true)
+				source.onmessage = (message) => {
+					appendLog(message.data)
+				}
+				source.onerror = () => {
+					setSseStatus("SSE 断开，重连中…", false)
+					if (!source || source.readyState === EventSource.CLOSED) {
+						clearTimeout(reconnectTimer)
+						reconnectTimer = setTimeout(connectSse, 1000)
+					}
+				}
+			}
+
+			async function request(method, path, body) {
+				const started = performance.now()
+				const res = await fetch(base() + path, {
+					method,
+					headers: body ? { "content-type": "application/json" } : undefined,
+					body: body ? JSON.stringify(body) : undefined,
+				})
+				const raw = await res.text()
+				let parsed = raw
+				try {
+					parsed = raw ? JSON.parse(raw) : ""
+				} catch {}
+				$("http-meta").textContent =
+					method + " " + path + " → " + res.status + "  " + Math.round(performance.now() - started) + "ms"
+				if (!res.ok) {
+					const message =
+						typeof parsed === "object" && parsed && parsed.error
+							? parsed.error.message
+							: raw || res.statusText
+					throw new Error(message)
+				}
+				return parsed
+			}
+
+			function showMain(value) {
+				$("main").textContent =
+					typeof value === "string" ? value : JSON.stringify(value, null, 2)
+			}
+
+			function itemLabel(item) {
+				return item.name || item.firstMessage || item.id
+			}
+
+			let lastSessions = []
+
+			function paintList() {
+				const box = $("list")
+				box.replaceChildren()
+				if (!lastSessions.length) {
+					const empty = document.createElement("p")
+					empty.className = "px-1 text-xs text-zinc-400"
+					empty.textContent = "暂无会话"
+					box.append(empty)
+					return
+				}
+				for (const item of lastSessions) {
+					const btn = document.createElement("button")
+					btn.type = "button"
+					btn.dataset.id = item.id
+					btn.className =
+						"mb-1 w-full rounded-md px-2 py-1.5 text-left text-xs " +
+						(item.id === currentId ? "bg-violet-50 text-violet-800" : "text-zinc-700 hover:bg-zinc-50")
+					const title = document.createElement("div")
+					title.className = "truncate font-medium"
+					title.textContent = itemLabel(item).slice(0, 48)
+					const meta = document.createElement("div")
+					meta.className = "truncate text-[10px] text-zinc-400"
+					meta.textContent = item.status + " · " + item.id.slice(0, 8)
+					btn.append(title, meta)
+					box.append(btn)
+				}
+			}
+
+			async function loadList() {
+				const cwd = $("cwd-filter").value.trim()
+				const query = cwd ? "?cwd=" + encodeURIComponent(cwd) : ""
+				const data = await request("GET", "/api/sessions" + query)
+				lastSessions = data.sessions || []
+				paintList()
+			}
+
+			$("list").addEventListener("click", (event) => {
+				const btn = event.target.closest("button[data-id]")
+				if (!btn) return
+				const item = lastSessions.find((row) => row.id === btn.dataset.id)
+				setCurrent(btn.dataset.id, item ? item.status : "")
+			})
+
+			async function send() {
+				const text = $("text").value.trim()
+				if (!text) return
+				const cwd = $("cwd").value.trim()
+				const body = currentId ? { text } : cwd ? { text, cwd } : { text }
+				const path = currentId ? "/api/sessions/" + currentId + "/prompt" : "/api/sessions"
+				const record = await request("POST", path, body)
+				setCurrent(record.id, record.status)
+				$("text").value = ""
+				await loadList()
+			}
+
+			$("base").addEventListener("change", () => {
+				localStorage.setItem("relax-api-base", $("base").value)
+				connectSse()
+			})
+			$("refresh").addEventListener("click", () => {
+				loadList().catch((err) => showMain(err.message))
+			})
+			$("send").addEventListener("click", () => {
+				send().catch((err) => showMain(err.message))
+			})
+			$("text").addEventListener("keydown", (event) => {
+				if (event.key === "Enter" && !event.shiftKey) {
+					event.preventDefault()
+					send().catch((err) => showMain(err.message))
+				}
+			})
+			$("abort").addEventListener("click", () => {
+				if (!currentId) return showMain("先在左侧点一条会话，或先发送新建。")
+				request("POST", "/api/sessions/" + currentId + "/abort")
+					.then((record) => {
+						setCurrent(record.id, record.status)
+						showMain(record)
+						return loadList()
+					})
+					.catch((err) => showMain(err.message))
+			})
+			$("info").addEventListener("click", () => {
+				if (!currentId) return showMain("先在左侧点一条会话，或先发送新建。")
+				request("GET", "/api/sessions/" + currentId)
+					.then((record) => {
+						setCurrent(record.id, record.status)
+						showMain(record)
+					})
+					.catch((err) => showMain(err.message))
+			})
+			$("history").addEventListener("click", () => {
+				if (!currentId) return showMain("先在左侧点一条会话，或先发送新建。")
+				request("GET", "/api/sessions/" + currentId + "/history")
+					.then(showMain)
+					.catch((err) => showMain(err.message))
+			})
+			$("remove").addEventListener("click", () => {
+				if (!currentId) return showMain("先在左侧点一条会话，或先发送新建。")
+				request("DELETE", "/api/sessions/" + currentId)
+					.then(() => {
+						setCurrent(null)
+						showMain("已删除")
+						return loadList()
+					})
+					.catch((err) => showMain(err.message))
+			})
+			$("clear-current").addEventListener("click", () => setCurrent(null))
+			$("clear-log").addEventListener("click", () => {
+				$("log").textContent = ""
+			})
+
+			connectSse()
+			loadList().catch((err) => showMain(err.message))
+		</script>
+	</body>
+</html>

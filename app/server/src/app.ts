@@ -1,13 +1,17 @@
 import cors from 'cors'
 import express from 'express'
-import { errorHandler, notFound } from './http/errors.js'
-import { healthRouter } from './http/health.js'
+import { Agent } from './agent/agent.js'
+import { errorHandler, notFound } from './utils/errors.js'
+import { healthRouter } from './routes/health.js'
+import { sessionsRouter } from './routes/sessions.js'
 
-export function createApp() {
+export function createApp(options: { agent?: Agent } = {}) {
+	const agent = options.agent ?? new Agent()
 	const app = express()
 	app.use(cors())
 	app.use(express.json({ limit: '1mb' }))
 	app.use(healthRouter)
+	app.use(sessionsRouter(agent))
 	app.use(notFound)
 	app.use(errorHandler)
 	return app

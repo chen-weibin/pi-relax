@@ -2,7 +2,7 @@
 
 查阅时机：改 `app/server`、定数据目录、接 pi 会话、文件同步或终端之前。某一块开工时以本文的能力剖面和性能上限为底。路径、接口、目录里实际有哪些文件，实现时写进本文，并和代码一起改。代码和本文不一致时，以改代码的同一次修改把本文补齐，不另开一轮补文档。
 
-本文是底座。`app/server` 目前只有健康检查壳。前端先不接。
+本文是底座。对话模块已接：会话文件、智能体类、路由与全局 SSE。前端（`app/web`）本轮不接，适配器以后再写。
 
 对接 pi 之前先读源码，不要只凭本文的 API 摘要选函数。本地克隆在仓库根的 `pi/`（已 git 忽略），会话相关源码在 `pi/packages/coding-agent/src/core/`，说明在 `pi/packages/coding-agent/docs/sdk.md`。运行时安装的是 `@earendil-works/pi-coding-agent`。类型或文档和源码不一致时，以源码为准，并把结论回写本文。
 
@@ -14,21 +14,45 @@
 
 登录和多用户以后可能会做，当前不做。用户名和头像只做本地展示，不进鉴权，优先级最低。
 
-进程内嵌 pi，不用 `pi --mode rpc`。多会话不要理解成反复调用同一个「多会话 API」：`createAgentSession` 只创建一条 `AgentSession`。列表和打开文件用 `SessionManager`。同一时刻只保留一个活动会话、切换时拆掉上一个，用 `createAgentSessionRuntime`（CLI 和 RPC 就是这条）。多个会话同时处于打开或生成状态，稳定 SDK 没有现成的管理器，要由宿主自己持有多份 `AgentSession`。实验性的 `SessionWorkerManager` 是每条会话一个子进程，不在稳定导出里，当前不用。具体用「一个 runtime 切换」还是「多份 AgentSession」，做到会话那一块再定。热会话驻留上限见下文。
+进程内嵌 pi，不用 `pi --mode rpc`。多会话不要理解成反复调用同一个「多会话 API」：`createAgentSession` 只创建一条 `AgentSession`。列表和打开文件用 `SessionManager`。同一时刻只保留一个活动会话、切换时拆掉上一个，用 `createAgentSessionRuntime`（CLI 和 RPC 就是这条）。多个会话同时处于打开或生成状态，稳定 SDK 没有现成的管理器：我们的智能体类持有多份 `AgentSessionRuntime`，每条会话一份。实验性的 `SessionWorkerManager` 是每条会话一个子进程，不在稳定导出里，当前不用。
 
 运行时跟 pi 对齐：Node >= 22.19。实现时只改 server 包的 `engines`。继续用现有 Express，端口 `3001`，由 `pnpm dev:server` 拉起，不另占端口。测试用 Node 自带 `node:test`，每个 HTTP 路由和每条 WebSocket 协议都有用例。调用模型的测试不打真实 API。
 
 ## 数据
 
-pi 默认把密钥、技能、会话放在 `~/.pi/agent`。我们不沿用这个目录，避免和本机 pi CLI 混在一起。
+### pi 对照
 
-统一用自己的 `.relax`。默认根是 `~/.relax`，环境变量 `RELAX_HOME` 可整棵换走。里面有哪些文件先不冻结，做到哪一块再定那一块的路径，并写回本文。三条原则：
+pi 的家目录是 `~/.pi`（`configDir`）。coding-agent 的数据根是 `~/.pi/agent`（`getAgentDir()`，`PI_CODING_AGENT_DIR` 可换走）。旁边还有 `~/.pi/server`，和会话无关。项目内配置是 `<cwd>/.pi/`，不再套 `agent`。
+
+`~/.pi/agent/` 里常见内容：`auth.json`、`models.json`、`models-store.json`、`settings.json`、`trust.json`、`keybindings.json`、`pi-debug.log`、可选的 `AGENTS.md` / `SYSTEM.md`；目录 `sessions/`、`skills/`、`extensions/`、`prompts/`、`themes/`、`tools/`、`bin/`、`npm/`、`git/`、`tmp/`。
+
+会话文件：
+
+```text
+~/.pi/agent/sessions/--<cwd 编码>--/<时间戳>_<sessionId>.jsonl
+```
+
+编码：去掉路径开头的 `/`，把 `/`、`\`、`:` 换成 `-`，两侧加 `--`。cwd 是工作区目录，写在 JSONL 头里。项目靠这一层子目录分桶，文件名只区分同一工作区里的某一条会话。一条会话一个 jsonl，继续聊是追加。`SessionManager.create` / `newSession` 只分配 id 和路径，`flushed === false`。`_persist` 在出现第一条 **assistant** 消息时才写出文件。没有「空会话文件」。
+
+pi 没有会话索引。`list(cwd)` 扫该编码目录下的 `*.jsonl`，`listAll()` 扫 `sessions/` 下每个子目录。两次都是当场全量读文件。同时读的并发是 10，不是条数上限。文件会一直增加，列表会越来越慢。当前照扫，不加索引；以后加索引不改 JSONL 布局。
+
+### 我们的根
+
+默认 `~/.relax`，环境变量 `RELAX_HOME` 可整棵换走。传给 pi 的 `agentDir` 是 `~/.relax/agent`。进程里把 `PI_CODING_AGENT_DIR` 设成这个路径，这样 `SessionManager.list` / `listAll` 不会落到 `~/.pi/agent`。
+
+```text
+~/.relax/agent/sessions/--<cwd 编码>--/<时间戳>_<sessionId>.jsonl
+```
+
+未指定工作区时 cwd 为 `os.homedir()`。本轮不读技能、扩展、提示词、主题、上下文文件。不写索引文件。
+
+三条原则：
 
 - 路径可配置，默认值落在 `.relax`，不写进 `~/.pi`
 - 会话正文用 pi 的 JSONL，不另发明一套消息存档
-- 项目本体是用户选的文件夹，`.relax` 只记索引，不复制项目
+- 项目本体是用户选的文件夹，`.relax` 不复制项目
 
-添加项目等于登记一个已有文件夹。一个项目一个根目录。多根工作区不做。默认工作区的具体目录等做会话时再定。
+添加项目等于登记一个已有文件夹。一个项目一个根目录。多根工作区不做。
 
 ## SDK 入口
 
@@ -57,7 +81,7 @@ pi 暴露的加载点都要能指定到 `.relax` 或配置里的路径，不默�
 
 - 系统提示词、技能、规则、扩展都要可控。默认路径等那一块开工再定。扩展能执行代码，默认关掉，显式打开再加载。
 - 工具用 pi 的内置白名单，范围锁在该会话的项目根或默认工作区。默认开哪几个，做到工具那一块再定。
-- 模型当前只接 MiniMax。密钥用 `MINIMAX_API_KEY`，或写在 `.relax` 里由我们指定的 auth 文件。选型走 pi 的 `ModelRuntime`。以后加提供商只加配置，不改会话和事件通路。
+- 模型当前只接 MiniMax。密钥用 `MINIMAX_API_KEY`（启动时已有的环境变量优先，否则读 `app/server/.env`），或写在 `.relax` 里由我们指定的 auth 文件。选型走 pi 的 `ModelRuntime`。以后加提供商只加配置，不改会话和事件通路。
 - 上下文压缩沿用 pi 的自动行为，不单独做接口。它是上下文体积的安全阀。
 - 分支、fork、从某一条消息重开是高级能力。JSONL 里的树先留着，当前不设计接口。文件快照式的回滚也不做。
 
@@ -69,9 +93,36 @@ pi 暴露的加载点都要能指定到 `.relax` 或配置里的路径，不默�
 
 前端现在的 `BlockFeedEvent`（只有用户文本、思考、正文）是 UI 先画出来的形状，不是长期协议。前端用薄适配器译成现有块，适配器放在 web 侧，见 [web-conversation.md](web-conversation.md)。后续界面往 pi 的消息格式靠，包括工具调用和压缩。
 
-对话那一块要有的能力：建会话、列表、改标题、删除、按 JSONL 打开历史、发送纯文本、流式思考和正文、中止当前一轮。侧边栏状态用进行中、失败、空闲，不另存一套消息模型。标题用第一条用户消息截断，不另调一次模型。
+对话那一块：第一次发送即建会话（不创建空文件）、列表、单条信息、历史（`buildSessionContext`）、删除、续发、中止、全局 SSE。列表 `status` 只有 `idle` / `running`（对齐 pi 的 `isStreaming`；自动重试仍算 running）。失败写在 messages 和 SSE 里，不另做会话态。标题用 pi 的 `name`，没有则 `firstMessage`。
 
 工具调用、压缩、队列是 pi 事件里已有的。哪一块还没开，就在能力剖面里关掉对应能力，不把事件协议裁窄。开了之后原样转发。
+
+### 智能体类
+
+`app/server/src/agent/` 是唯一调用 pi 会话 API 的目录。类内部 `Map<sessionId, AgentSessionRuntime>`，同一套 `createAgentSessionRuntime` 工厂。对外 `prompt`（可无 id）、`abort`、`status`、`subscribe`。HTTP 和 SSE 只订这个类。
+
+剖面本轮：`noTools: "all"`，loader `noSkills` / `noExtensions` / `noContextFiles` / `noPromptTemplates` / `noThemes`。模型 MiniMax（`MINIMAX_API_KEY`），`agentDir` 指向 `~/.relax/agent`。
+
+新对话：`SessionManager.create(cwd)` 后立刻 `prompt`。文件等第一条 assistant。正在回复再 `prompt` 得 `BUSY`。
+
+历史：热会话用该 `sessionManager.buildSessionContext()`，否则 `SessionManager.open` 再同样调用。返回 `{ messages, thinkingLevel, model }`，不手读 JSONL。
+
+列表字段从 pi 的 `SessionInfo` 推导（去掉 `path`、`allMessagesText`，时间输出 ISO）。另加内存 `status`：`idle` | `running`。历史类型即 pi 的 `SessionContext`。
+
+### 接口
+
+错误体 `{ "error": { "code", "message" } }`。新增 `BUSY`（409）。`GET /api/sessions/events` 写在 `/:id` 之前。
+
+- `POST /api/sessions` `{ "text", "cwd"? }` 第一次发送并创建，202
+- `GET /api/sessions?cwd=` 列表，默认全部
+- `GET /api/sessions/:id` 一条信息
+- `GET /api/sessions/:id/history` `buildSessionContext()`
+- `DELETE /api/sessions/:id` 中止并删除文件
+- `POST /api/sessions/:id/prompt` `{ "text" }` 续发，202
+- `POST /api/sessions/:id/abort` 中止
+- `GET /api/sessions/events` 全局 SSE，`data` 为 `{ sessionId, event }`，内层 `AgentSessionEvent`
+
+SSE 断线不补，客户端用历史对齐。发送和中止走 HTTP。本轮不接 `app/web`。
 
 往后放：图片附件、模型选择器、编辑或重试某一条、分支树、checkpoint 回滚、命令审批。
 
@@ -84,8 +135,8 @@ pi 暴露的加载点都要能指定到 `.relax` 或配置里的路径，不默�
 后面的块只加不改，接缝有四条：
 
 - **能力剖面**。每次创建 `AgentSession` 都带一份显式剖面：工具、技能、扩展、规则和上下文文件、提示词，各自是关还是一组路径。关掉必须传给 pi（如 `noTools`、`noSkills`、`noExtensions`、不扫描上下文），不能靠这段代码还没写。以后加工具或技能，只改剖面。
-- **索引**。项目和会话列表只读 `.relax` 里的索引。打开某一条才碰 JSONL。
-- **会话宿主**。内存里只保留正在用的 `AgentSession`。事件保持 pi 的形状向外转发。
+- **列表**。本轮无索引，走 `SessionManager.list` / `listAll` 全量扫描，并上智能体里尚未落盘的热会话。
+- **会话宿主**。智能体类持有多份 `AgentSessionRuntime`。事件是 `(sessionId, AgentSessionEvent)`。
 - **未做到的子系统不启动**。文件监听、PTY、技能扫描各自独立模块，对应那一块开始之前不加载、不占文件描述符。
 
 ## 性能上限
@@ -93,9 +144,9 @@ pi 暴露的加载点都要能指定到 `.relax` 或配置里的路径，不默�
 单进程里，未捕获异常、同步读大文件、无限热会话或 watcher，会波及所有会话。下面的数字是初始天花板，做到那一块时再标定。超限返回错误，不在内存里排队。
 
 - **启动**。只监听端口并确保 `.relax` 根存在。不扫全部会话，不建模型客户端，不 watch 磁盘。
-- **列表**。只读索引。不创建 `AgentSession`，不解析 JSONL。
-- **热会话**。有连接或正在生成才驻留。同时驻留不超过 4 个，同时向模型生成不超过 2 个。超出拒绝新的生成。没有订阅且不在生成的会话关掉，下次从 JSONL 打开。
-- **单会话单飞**。同一条会话已有生成时拒绝第二条。队列是后面的块，不用内存队列先顶上。
+- **列表**。本轮全量扫描 JSONL（与 pi 相同）。不创建 runtime。文件多了会慢，先记下，不加索引。
+- **热会话**。有订阅或正在生成才驻留。本轮不限制同时打开或同时生成的条数（pi 也没有这两条限制）。没有订阅且不在生成的会话 `dispose`，下次从 JSONL 打开。
+- **单会话单飞**。同一条会话已有生成时拒绝第二条（`BUSY`）。`steer` / `followUp` 以后再加。
 - **流式**。服务端不另存一份完整正文。pi 追加 JSONL，我们转发事件。客户端读得慢就背压，缓冲有上限，满了断开这一条连接。
 - **历史**。只在打开该会话时读。单文件读取有上限。上下文体积靠 pi 自带压缩兜住。
 - **事件循环**。请求路径上不同步读大目录或大文件。订阅回调里的异常记到该会话，不让进程退出。中止要传到模型请求。
@@ -110,7 +161,7 @@ pi 暴露的加载点都要能指定到 `.relax` 或配置里的路径，不默�
 
 1. 进程、`.relax` 根、健康检查、单会话错误不拖垮进程
 2. 项目、默认工作区、会话索引（不调用模型）
-3. 对话运行时：MiniMax、流式、中止、按 JSONL 打开历史
+3. 对话运行时：MiniMax、流式、中止、`buildSessionContext` 历史、全局 SSE
 4. 工具：读、写、编辑，然后才是 shell
 5. 技能
 6. 规则与系统提示词（开工前先核对 loader）
@@ -139,10 +190,10 @@ PTY 活到关闭或进程退出。断线可以再订阅，并用最近约 100KB 
 一个端口。已定入口：
 
 - `GET /health`：健康检查，不在 `/api` 下。返回 `{ "status": "ok" }`
-- HTTP JSON 用 `/api` 前缀。项目、会话元数据、配置、文件一次读写的具体路径以后再定
+- HTTP JSON 用 `/api` 前缀。会话见上文接口。
+- 对话推送：`GET /api/sessions/events`（SSE）
 - 文件变化：WebSocket `/ws/fs`。做到文件系统再实现
 - 终端：WebSocket `/ws/pty`。做到终端再实现
-- 对话的推送路径和协议还没定
 
 跨域当前全部放开，响应带 `Access-Control-Allow-Origin: *`，不带 cookie。以后做登录再收紧。
 
@@ -152,11 +203,11 @@ PTY 活到关闭或进程退出。断线可以再订阅，并用最近约 100KB 
 { "error": { "code": "NOT_FOUND", "message": "..." } }
 ```
 
-骨架只用 `BAD_REQUEST`、`NOT_FOUND`、`INTERNAL`。业务错误码做到对应模块再加。JSON 请求体上限 1mb。
+骨架用 `BAD_REQUEST`、`NOT_FOUND`、`INTERNAL`。对话模块另有 `BUSY`（409）。JSON 请求体上限 1mb。
 
 `/api`、`/ws/fs`、`/ws/pty` 是不同路径，前面加反向代理时可以按前缀分别转发。
 
-正在用的会话在内存里对应一个 `AgentSession`。列表和标题放在 `.relax` 的索引里。索引的具体文件等做会话时再定。
+正在用的会话在内存里对应一份 `AgentSessionRuntime`。列表来自 `SessionManager` 扫描，加上尚未落盘的热会话。
 
 ## 目录
 
@@ -164,24 +215,36 @@ PTY 活到关闭或进程退出。断线可以再订阅，并用最近约 100KB 
 
 ```
 app/server/src/
-  index.ts            只监听端口
-  app.ts              组装 HTTP，测试从这里创建应用
-  http/health.ts      GET /health
-  http/errors.ts      未知路由和错误体
+  index.ts              加载 .env，确保 ~/.relax/agent，监听端口
+  app.ts                组装应用，测试从这里创建
+  config/home.ts        RELAX_HOME、agentDir、PI_CODING_AGENT_DIR
+  utils/errors.ts       错误类型与 Express 错误中间件
+  utils/text.ts         消息纯文本
+  utils/request.ts      请求体 text / cwd
+  sessions/             列、打开、历史、删
+  agent/                智能体类、Runtime 工厂、剖面
+  routes/health.ts      GET /health
+  routes/sessions.ts    会话路由与 SSE
 app/server/test/
-  health.test.ts      自动化用例
-  api.html            手工发请求的页面
+  health.test.ts
+  sessions.test.ts
+  sessions-http.test.ts
+  agent.test.ts
+  html/
+    index.html        手工测试页目录
+    sessions.html     会话联调：进页即连 SSE
+    api.html          单接口 HTTP 调试
 ```
 
-还没建的目录：`config/`、`sessions/`、`agent/`、`fs/`、`pty/`，以及 `/ws/fs`、`/ws/pty` 的处理。做到那一块再加，并补到这里。`agent/` 是唯一直接调用 pi 会话 API 的目录。
+还没建的目录：`fs/`、`pty/`，以及 `/ws/fs`、`/ws/pty` 的处理。`agent/` 是唯一直接调用 pi 会话 API 的目录。
 
-手工调试打开 [api.html](../app/server/test/api.html)，服务需已由 `pnpm dev:server` 拉起。每新增一个 HTTP 接口，在该文件顶部的 `ENDPOINTS` 追加一项。查阅时机：加路由后自己点发送，或要看当前有哪些 HTTP 接口时。WebSocket 不进这个页面。
+手工测试页在 [html/](../app/server/test/html/)，服务需已由 `pnpm dev:server` 拉起。会话相关接口互相依赖，用 [sessions.html](../app/server/test/html/sessions.html)：进入即连 `GET /api/sessions/events`，可在同一页发送、续发、中止、列会话、看历史和删除。逐条 HTTP 仍用 [api.html](../app/server/test/html/api.html)，每新增一个 HTTP 接口在该文件顶部的 `ENDPOINTS` 追加一项。查阅时机：加路由后自己点发送，或要看当前有哪些 HTTP 接口时。SSE 不进 api.html。
 
 `ENDPOINTS` 每项必填 `group` / `name` / `method` / `path` / `summary`，可填 `auth`（鉴权描述，如 `"JWT Bearer"`，不填则卡片显示「无需鉴权」）、`queryParams` / `bodyParams`（`{ name, type, required, description, example }` 数组，填了渲染参数卡并自动生成 cURL / JS 示例；`body` 是纯 JSON 字符串模板，不填且 `bodyParams` 也没填时 textarea 为空）。可选字段不回传服务端，只是让调试页更接近接口文档的观感。
 
 约定：
 
-- HTTP 和 WebSocket 只调 `sessions/`、`fs/`、`pty/` 的函数，不在路由文件里 `import` pi 再组参数。
+- 路由只调 `sessions/`、`agent/`、`fs/`、`pty/` 的函数，不在路由文件里 `import` pi 再组参数。
 - 选 pi 的哪个函数，先看 `pi/packages/coding-agent/src/core/` 里该函数的实现和调用方，确认它是「创建一条」「切换当前一条」还是「只动文件」。不合理的用法不进 `agent/`。
 - 新能力加新文件或新目录。一个文件变长到要同时管两件不相干的事，就拆开。
 - 改行为、改路径、改上限时，同一次改动更新本文对应小节。只改代码不改本文，算这步没做完。

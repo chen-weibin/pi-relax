@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>relax · 手工测试</title>
+		<script src="https://cdn.tailwindcss.com"></script>
+	</head>
+	<body class="min-h-screen bg-zinc-50 text-zinc-900 antialiased">
+		<main class="mx-auto max-w-lg px-6 py-16">
+			<h1 class="text-xl font-semibold tracking-tight">手工测试页</h1>
+			<p class="mt-2 text-sm text-zinc-500">服务需已由 <code>pnpm dev:server</code> 拉起。默认 <code>http://127.0.0.1:3001</code>。</p>
+			<ul class="mt-8 space-y-3 text-sm">
+				<li>
+					<a class="font-medium text-violet-700 hover:underline" href="./sessions.html">会话联调</a>
+					<p class="text-zinc-500">进入即连全局 SSE，发送 / 续发 / 中止 / 列表 / 历史 / 删除串在一起测。</p>
+				</li>
+				<li>
+					<a class="font-medium text-violet-700 hover:underline" href="./api.html">单接口调试</a>
+					<p class="text-zinc-500">按 ENDPOINTS 逐条发 HTTP。SSE 不在这个页。</p>
+				</li>
+			</ul>
+		</main>
+	</body>
+</html>

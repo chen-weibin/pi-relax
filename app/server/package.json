@@ -13,7 +13,10 @@
 		"test": "tsx --test test/*.test.ts"
 	},
 	"dependencies": {
+		"@earendil-works/pi-ai": "^0.85.1",
+		"@earendil-works/pi-coding-agent": "^0.85.1",
 		"cors": "^2.8.5",
+		"dotenv": "^18.0.5",
 		"express": "^4.21.1"
 	},
 	"devDependencies": {

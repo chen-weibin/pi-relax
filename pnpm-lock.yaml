@@ -42,9 +42,18 @@ importers:
 
   app/server:
     dependencies:
+      '@earendil-works/pi-ai':
+        specifier: ^0.85.1
+        version: 0.85.1(ws@8.21.3)
+      '@earendil-works/pi-coding-agent':
+        specifier: ^0.85.1
+        version: 0.85.1(ws@8.21.3)
       cors:
         specifier: ^2.8.5
         version: 2.8.6
+      dotenv:
+        specifier: ^18.0.5
+        version: 18.0.5
       express:
         specifier: ^4.21.1
         version: 4.22.2
@@ -2214,6 +2223,11 @@ packages:
 
   dompurify@3.4.8:
     resolution: {integrity: sha512-yb1cEmaOum7wFvOCSQxyfgVlv5D47Rc30iZWoMpbDIWTnJ6grDDQyu2KFJzB2k7u0pMuJcQ1zphH//fFnw2tjQ==}
+
+  dotenv@18.0.5:
+    resolution: {integrity: sha512-aBrGvt6KhjxbEnatqMWOMidftwsrCiCvqh1yNIGB9QyF0J+VcWkKDMsvYOEm7ZS82oiV+BT1sTOtIlAmUlTpwQ==}
+    engines: {node: '>=12'}
+    hasBin: true
 
   dts-resolver@3.0.0:
     resolution: {integrity: sha512-1T1f+z+4tl9XD+m+0HBgWoL/nm0bOIffyWaUuUSBlFg/86IWvfx+wjNaO/ybU0AJzG9/Mi5hBUgGV6zCmWEN7Q==}
@@ -5583,6 +5597,8 @@ snapshots:
   dompurify@3.4.8:
     optionalDependencies:
       '@types/trusted-types': 2.0.7
+
+  dotenv@18.0.5: {}
 
   dts-resolver@3.0.0: {}
 
