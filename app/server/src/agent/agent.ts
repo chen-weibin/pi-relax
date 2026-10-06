@@ -15,8 +15,12 @@ import {
 	type SessionRecord,
 	type SessionStatus,
 } from '../sessions/index.js'
-import { BusyError, SessionNotFoundError } from '../utils/errors.js'
-import { createPiRuntime, type RuntimeFactory } from './factory.js'
+import { BusyError, HttpError, SessionNotFoundError } from '../utils/errors.js'
+import { createPiRuntime, defaultModelThinkingLevels, type RuntimeFactory } from './factory.js'
+
+const THINKING_LEVELS = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'] as const
+type ThinkingLevelName = (typeof THINKING_LEVELS)[number]
+export type StreamingBehavior = 'steer' | 'followUp'
 
 type Slot = {
 	session: AgentSession
@@ -84,19 +88,44 @@ export class Agent {
 		return history
 	}
 
-	async prompt(input: { text: string; sessionId?: string; cwd?: string }): Promise<SessionRecord> {
+	async prompt(input: {
+		text: string
+		sessionId?: string
+		cwd?: string
+		streamingBehavior?: StreamingBehavior
+		thinkingLevel?: string
+	}): Promise<SessionRecord> {
 		const text = input.text.trim()
 		if (!text) throw new Error('text is required')
+		if (input.thinkingLevel !== undefined && !input.sessionId) {
+			assertThinkingLevel(input.thinkingLevel, defaultModelThinkingLevels())
+		}
 		const slot = input.sessionId
 			? await this.open(input.sessionId)
 			: await this.create(input.cwd ?? defaultCwd())
-		if (slot.running || slot.session.isStreaming) throw new BusyError()
+		const busy = slot.running || slot.session.isStreaming
+		if (busy && !input.streamingBehavior) throw new BusyError()
+		if (input.thinkingLevel !== undefined) {
+			assertThinkingLevel(input.thinkingLevel, slot.session.getAvailableThinkingLevels())
+			slot.session.setThinkingLevel(input.thinkingLevel)
+		}
+		if (busy && input.streamingBehavior) {
+			void slot.session.prompt(text, { streamingBehavior: input.streamingBehavior }).catch(() => {
+				slot.running = false
+			})
+			return recordFromManager(slot.session.sessionManager, 'running')
+		}
 		slot.running = true
-		const id = slot.session.sessionManager.getSessionId()
 		void slot.session.prompt(text).catch(() => {
 			slot.running = false
 		})
 		return recordFromManager(slot.session.sessionManager, 'running')
+	}
+
+	async rename(id: string, name: string): Promise<SessionRecord> {
+		const slot = await this.open(id)
+		slot.session.setSessionName(name)
+		return recordFromManager(slot.session.sessionManager, this.statusOf(id)!)
 	}
 
 	async abort(id: string): Promise<SessionRecord> {
@@ -175,5 +204,18 @@ export class Agent {
 			slot.session.dispose()
 			this.slots.delete(id)
 		}
+	}
+}
+
+function assertThinkingLevel(level: string, supported: readonly string[]): asserts level is ThinkingLevelName {
+	if (!THINKING_LEVELS.includes(level as ThinkingLevelName)) {
+		throw new HttpError(400, 'BAD_REQUEST', `thinkingLevel must be one of ${THINKING_LEVELS.join(', ')}`)
+	}
+	if (!supported.includes(level)) {
+		throw new HttpError(
+			400,
+			'BAD_REQUEST',
+			`thinkingLevel "${level}" is not supported. Supported: ${supported.join(', ')}`,
+		)
 	}
 }

@@ -240,6 +240,7 @@ type HealthResponse = {
 						bodyParams: [
 							{ name: "text", type: "string", required: true, description: "用户输入", example: "你好" },
 							{ name: "cwd", type: "string", required: false, description: "工作区目录", example: "/Users/chen" },
+							{ name: "thinkingLevel", type: "string", required: false, description: "思考档位。不传则新会话为 medium", example: "medium" },
 						],
 						body: "{\n  \"text\": \"你好\"\n}",
 						requestType: `/** JSON body。 */
@@ -248,6 +249,8 @@ type CreateSessionRequest = {
 	text: string
 	/** 工作区目录。不传则用用户主目录 */
 	cwd?: string
+	/** 思考档位。不传则新会话为 medium。不在该模型支持列表里时 400 BAD_REQUEST */
+	thinkingLevel?: "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max"
 }`,
 						responseType: `/** HTTP 202。此时 status 为 "running"。文件等第一条 assistant 才落盘。 */
 
@@ -333,10 +336,12 @@ ${ERROR_BODY}`,
 						name: "续发",
 						method: "POST",
 						path: "/api/sessions/:id/prompt",
-						summary: "已有会话再发一轮。正在回复则 409 BUSY。",
+						summary: "已有会话再发一轮。正在回复且未带 streamingBehavior 则 409 BUSY。",
 						queryParams: [],
 						bodyParams: [
 							{ name: "text", type: "string", required: true, description: "用户输入", example: "继续" },
+							{ name: "streamingBehavior", type: "string", required: false, description: "正在生成时的插队方式。steer：当前回复及工具结束后、下次模型调用前插入。followUp：本轮结束后再发", example: "steer" },
+							{ name: "thinkingLevel", type: "string", required: false, description: "思考档位。不传则保持会话当前档位", example: "medium" },
 						],
 						body: "{\n  \"text\": \"继续\"\n}",
 						requestType: `/** 路径参数 + JSON body。 */
@@ -345,10 +350,71 @@ type PromptRequest = {
 	id: string
 	/** 本轮用户输入。必填，空字符串视为未传，400 BAD_REQUEST */
 	text: string
+	/** 正在生成时必填其一，否则 409 BUSY。空闲时忽略。steer：当前回复及工具结束后、下次模型调用前插入。followUp：本轮结束后再发 */
+	streamingBehavior?: "steer" | "followUp"
+	/** 思考档位。不传则保持会话当前档位。不在该模型支持列表里时 400 BAD_REQUEST */
+	thinkingLevel?: "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max"
 }`,
-						responseType: `/** HTTP 202，status 为 "running"。该会话正在生成时 409，code 为 BUSY。 */
+						responseType: `/** HTTP 202，status 为 "running"。正在生成且未带 streamingBehavior 时 409，code 为 BUSY。 */
 
 ${SESSION_RECORD}
+
+${ERROR_BODY}`,
+					},
+					{
+						group: "会话",
+						name: "设置标题",
+						method: "POST",
+						path: "/api/sessions/:id/name",
+						summary: "手动写入 name。空字符串清空。不会自动生成标题。",
+						queryParams: [],
+						bodyParams: [
+							{ name: "name", type: "string", required: true, description: "显示名。空字符串清空", example: "修登录" },
+						],
+						body: "{\n  \"name\": \"修登录\"\n}",
+						requestType: `/** 路径参数 + JSON body。 */
+type RenameSessionRequest = {
+	/** 会话 id。找不到时 404 NOT_FOUND */
+	id: string
+	/** 显示名。必填，可以是空字符串，表示清空 name。换行会被收成空格 */
+	name: string
+}`,
+						responseType: `/** HTTP 200。name 为写入后的显示名；清空后该字段省略。 */
+
+${SESSION_RECORD}
+
+${ERROR_BODY}`,
+					},
+					{
+						group: "模型",
+						name: "思考档位",
+						method: "GET",
+						path: "/api/models/thinking-levels",
+						summary: "按已注册模型查询可选思考档位。不打开会话。",
+						queryParams: [
+							{ name: "provider", type: "string", required: true, description: "提供商", example: "minimax" },
+							{ name: "id", type: "string", required: true, description: "模型 id", example: "MiniMax-M3" },
+						],
+						bodyParams: [],
+						body: "",
+						requestType: `/** Query。无 body。 */
+type ThinkingLevelsRequest = {
+	/** 提供商。未注册时 404 NOT_FOUND */
+	provider: string
+	/** 模型 id。未注册时 404 NOT_FOUND */
+	id: string
+}`,
+						responseType: `/** HTTP 200。缺 provider 或 id 时 400 BAD_REQUEST。 */
+type ThinkingLevelsResponse = {
+	/** 提供商 */
+	provider: string
+	/** 模型 id */
+	id: string
+	/** 新会话不传 thinkingLevel 时使用的档位 */
+	defaultThinkingLevel: "medium"
+	/** 该模型可选档位，顺序与 pi 的 getSupportedThinkingLevels 一致 */
+	thinkingLevels: ("off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max")[]
+}
 
 ${ERROR_BODY}`,
 					},
@@ -486,6 +552,102 @@ ${ERROR_BODY}`,
 						</details>`;
 				}
 
+				const pathValues = {};
+				const queryValues = {};
+
+				function pathParamNames(path) {
+					return [...path.matchAll(/:([A-Za-z_][\w]*)/g)].map((match) => match[1]);
+				}
+
+				function pathKey(endpoint, name) {
+					return `${endpoint.path}\0${name}`;
+				}
+
+				function pathParamList(endpoint) {
+					const described = new Map((endpoint.pathParams ?? []).map((item) => [item.name, item]));
+					return pathParamNames(endpoint.path).map((name) => {
+						const meta = described.get(name) ?? {};
+						return {
+							name,
+							type: meta.type ?? "string",
+							description: meta.description ?? `替换路径中的 :${name}`,
+							example: meta.example ?? "",
+						};
+					});
+				}
+
+				function filledPath(endpoint, encode) {
+					return endpoint.path.replace(/:([A-Za-z_][\w]*)/g, (_, name) => {
+						const value = (pathValues[pathKey(endpoint, name)] ?? "").trim();
+						if (!value) return `:${name}`;
+						return encode ? encodeURIComponent(value) : value;
+					});
+				}
+
+				function missingPathParams(endpoint) {
+					return pathParamNames(endpoint.path).filter((name) => !(pathValues[pathKey(endpoint, name)] ?? "").trim());
+				}
+
+				function pathCard(endpoint) {
+					const list = pathParamList(endpoint);
+					const body = list.length
+						? `<div class="border-t border-zinc-200">
+								${list
+									.map(
+										(p) => `<div class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 border-b border-zinc-100 px-4 py-3 last:border-b-0">
+										<div class="flex items-center gap-2 min-w-0">
+											<span class="shrink-0 rounded bg-violet-50 px-2 py-0.5 font-mono text-xs font-medium text-violet-700">${escapeHtml(p.name)}</span>
+											<span class="font-mono text-xs text-zinc-500">${escapeHtml(p.type)}</span>
+											<span class="text-[10px] font-semibold text-red-500">必填</span>
+										</div>
+										<div class="text-xs text-zinc-400">必填</div>
+										<div class="col-span-2 text-xs text-zinc-500">${escapeHtml(p.description)}</div>
+										<input data-path-param="${escapeHtml(p.name)}" value="${escapeHtml(pathValues[pathKey(endpoint, p.name)] ?? "")}" placeholder="${escapeHtml(p.example || p.name)}" class="col-span-2 mt-1 w-full rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 font-mono text-[12px] outline-none focus:border-violet-300 focus:bg-white" spellcheck="false" />
+									</div>`,
+									)
+									.join("")}
+							</div>`
+						: `<div class="border-t border-zinc-200 px-4 py-3 text-xs text-zinc-500">无</div>`;
+					return `<details class="overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]" open>
+							<summary class="flex items-center gap-2 px-4 py-3 text-sm font-medium hover:bg-zinc-50">
+								<svg class="chev text-zinc-400" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+								<span>路径参数</span>
+								${list.length ? `<span class="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-medium text-zinc-500">${list.length}</span>` : ""}
+							</summary>
+							${body}
+						</details>`;
+				}
+
+				function queryKey(endpoint, name) {
+					return `${endpoint.path}\0${name}`;
+				}
+
+				function queryValue(endpoint, param) {
+					const key = queryKey(endpoint, param.name);
+					if (Object.prototype.hasOwnProperty.call(queryValues, key)) return queryValues[key];
+					return param.required ? param.example ?? "" : "";
+				}
+
+				function queryString(endpoint) {
+					const parts = [];
+					for (const param of endpoint.queryParams ?? []) {
+						const value = queryValue(endpoint, param).trim();
+						if (!value) continue;
+						parts.push(`${encodeURIComponent(param.name)}=${encodeURIComponent(value)}`);
+					}
+					return parts.length ? `?${parts.join("&")}` : "";
+				}
+
+				function missingQueryParams(endpoint) {
+					return (endpoint.queryParams ?? [])
+						.filter((param) => param.required && !queryValue(endpoint, param).trim())
+						.map((param) => param.name);
+				}
+
+				function requestPath(endpoint, encode) {
+					return filledPath(endpoint, encode) + queryString(endpoint);
+				}
+
 				function queryCard(endpoint) {
 					const list = endpoint.queryParams ?? [];
 					const body = list.length
@@ -500,7 +662,7 @@ ${ERROR_BODY}`,
 										</div>
 										<div class="text-xs text-zinc-400">${p.required ? "必填" : "可选"}</div>
 										${p.description ? `<div class="col-span-2 text-xs text-zinc-500">${escapeHtml(p.description)}</div>` : ""}
-										${p.example ? `<div class="col-span-2 flex items-center gap-2 text-xs text-zinc-500"><span>示例:</span><code class="rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-zinc-700">${escapeHtml(p.example)}</code></div>` : ""}
+										<input data-query-param="${escapeHtml(p.name)}" value="${escapeHtml(queryValue(endpoint, p))}" placeholder="${escapeHtml(p.example || p.name)}" class="col-span-2 mt-1 w-full rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 font-mono text-[12px] outline-none focus:border-violet-300 focus:bg-white" spellcheck="false" />
 									</div>`,
 									)
 									.join("")}
@@ -574,22 +736,33 @@ ${ERROR_BODY}`,
 
 				function renderParams(endpoint) {
 					const c = $("#params-container");
-					c.innerHTML = authCard(endpoint) + queryCard(endpoint) + bodyCard(endpoint);
+					c.innerHTML = authCard(endpoint) + pathCard(endpoint) + queryCard(endpoint) + bodyCard(endpoint);
 					const total =
 						(endpoint.auth ? 1 : 0) +
+						pathParamList(endpoint).length +
 						(endpoint.queryParams?.length ?? 0) +
 						(endpoint.bodyParams?.length ?? 0);
 					$("#param-count").textContent = total ? `${total} 个参数` : "";
+					const refreshPath = () => {
+						$("#path-display").textContent = requestPath(endpoint, false);
+						renderExample(endpoint);
+					};
+					for (const input of c.querySelectorAll("[data-path-param]")) {
+						input.addEventListener("input", () => {
+							pathValues[pathKey(endpoint, input.dataset.pathParam)] = input.value;
+							refreshPath();
+						});
+					}
+					for (const input of c.querySelectorAll("[data-query-param]")) {
+						input.addEventListener("input", () => {
+							queryValues[queryKey(endpoint, input.dataset.queryParam)] = input.value;
+							refreshPath();
+						});
+					}
 				}
 
 				function buildCurl(endpoint, base) {
-					let url = base + endpoint.path;
-					if (endpoint.queryParams?.length) {
-						const qs = endpoint.queryParams
-							.map((p) => `${encodeURIComponent(p.name)}=${encodeURIComponent(p.example ?? "")}`)
-							.join("&");
-						url += (url.includes("?") ? "&" : "?") + qs;
-					}
+					let url = base + requestPath(endpoint, true);
 					const lines = [`curl -X ${endpoint.method} '${url}'`];
 					if (endpoint.auth) lines.push(`  -H 'Authorization: Bearer YOUR_TOKEN'`);
 					const body = ($("#body-input")?.value || "").trim();
@@ -601,13 +774,7 @@ ${ERROR_BODY}`,
 				}
 
 				function buildJs(endpoint, base) {
-					let url = base + endpoint.path;
-					if (endpoint.queryParams?.length) {
-						const qs = endpoint.queryParams
-							.map((p) => `${encodeURIComponent(p.name)}=${encodeURIComponent(p.example ?? "")}`)
-							.join("&");
-						url += (url.includes("?") ? "&" : "?") + qs;
-					}
+					let url = base + requestPath(endpoint, true);
 					const opts = [`  method: '${endpoint.method}'`];
 					if (endpoint.auth) opts.push(`  headers: { 'Authorization': 'Bearer YOUR_TOKEN' }`);
 					const body = ($("#body-input")?.value || "").trim();
@@ -627,7 +794,7 @@ ${ERROR_BODY}`,
 					$("#title").textContent = endpoint.name;
 					$("#breadcrumb").textContent = endpoint.group;
 					$("#summary").textContent = endpoint.summary;
-					$("#path-display").textContent = endpoint.path;
+					$("#path-display").textContent = requestPath(endpoint, false);
 					const s = METHOD_STYLE[endpoint.method] ?? METHOD_STYLE.GET;
 					const badge = $("#method-badge");
 					badge.textContent = endpoint.method;
@@ -660,7 +827,7 @@ ${ERROR_BODY}`,
 				};
 
 				$("#copy-path").addEventListener("click", () => {
-					navigator.clipboard?.writeText(ENDPOINTS[activeIndex].path);
+					navigator.clipboard?.writeText(requestPath(ENDPOINTS[activeIndex], false));
 					flash($("#copy-path"), '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>');
 				});
 
@@ -674,6 +841,14 @@ ${ERROR_BODY}`,
 					localStorage.setItem("relax-api-base", base);
 					const endpoint = ENDPOINTS[activeIndex];
 					const method = endpoint.method;
+					const missing = [...missingPathParams(endpoint), ...missingQueryParams(endpoint)];
+					if (missing.length) {
+						$("#status").textContent = "未发送";
+						$("#status").className = "font-semibold text-zinc-400";
+						$("#meta").textContent = "";
+						$("#result").textContent = `先填写参数：${missing.join("、")}`;
+						return;
+					}
 					const raw = ($("#body-input")?.value || "").trim();
 					$("#send").disabled = true;
 					$("#status").textContent = "发送中…";
@@ -684,7 +859,7 @@ ${ERROR_BODY}`,
 					try {
 						const response = await axios({
 							method,
-							url: base + endpoint.path,
+							url: base + requestPath(endpoint, true),
 							data: raw && !["GET", "HEAD"].includes(method) ? JSON.parse(raw) : undefined,
 							validateStatus: () => true,
 						});

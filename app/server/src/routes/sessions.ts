@@ -1,7 +1,20 @@
 import { Router } from 'express'
-import type { Agent } from '../agent/agent.js'
+import type { Agent, StreamingBehavior } from '../agent/agent.js'
 import { asyncHandler, HttpError } from '../utils/errors.js'
-import { bodyText, cwdOf } from '../utils/request.js'
+import { bodyText, cwdOf, optionalString } from '../utils/request.js'
+
+function thinkingLevelOf(body: unknown): string | undefined {
+	const level = optionalString(body, 'thinkingLevel')
+	if (level === null) throw new HttpError(400, 'BAD_REQUEST', 'thinkingLevel must be a string')
+	return level
+}
+
+function streamingBehaviorOf(body: unknown): StreamingBehavior | undefined {
+	const value = optionalString(body, 'streamingBehavior')
+	if (value === undefined) return undefined
+	if (value === 'steer' || value === 'followUp') return value
+	throw new HttpError(400, 'BAD_REQUEST', 'streamingBehavior must be steer or followUp')
+}
 
 export function sessionsRouter(agent: Agent): Router {
 	const router = Router()
@@ -29,7 +42,11 @@ export function sessionsRouter(agent: Agent): Router {
 		asyncHandler(async (req, res) => {
 			const text = bodyText(req.body)
 			if (!text) throw new HttpError(400, 'BAD_REQUEST', 'text is required')
-			const record = await agent.prompt({ text, cwd: cwdOf(req) })
+			const record = await agent.prompt({
+				text,
+				cwd: cwdOf(req),
+				thinkingLevel: thinkingLevelOf(req.body),
+			})
 			res.status(202).json(record)
 		}),
 	)
@@ -54,8 +71,22 @@ export function sessionsRouter(agent: Agent): Router {
 		asyncHandler(async (req, res) => {
 			const text = bodyText(req.body)
 			if (!text) throw new HttpError(400, 'BAD_REQUEST', 'text is required')
-			const record = await agent.prompt({ text, sessionId: req.params.id as string })
+			const record = await agent.prompt({
+				text,
+				sessionId: req.params.id as string,
+				thinkingLevel: thinkingLevelOf(req.body),
+				streamingBehavior: streamingBehaviorOf(req.body),
+			})
 			res.status(202).json(record)
+		}),
+	)
+
+	router.post(
+		'/api/sessions/:id/name',
+		asyncHandler(async (req, res) => {
+			const name = optionalString(req.body, 'name')
+			if (name === undefined || name === null) throw new HttpError(400, 'BAD_REQUEST', 'name is required')
+			res.json(await agent.rename(req.params.id as string, name))
 		}),
 	)
 

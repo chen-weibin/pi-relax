@@ -3,6 +3,7 @@ import express from 'express'
 import { Agent } from './agent/agent.js'
 import { errorHandler, notFound } from './utils/errors.js'
 import { healthRouter } from './routes/health.js'
+import { modelsRouter } from './routes/models.js'
 import { sessionsRouter } from './routes/sessions.js'
 
 export function createApp(options: { agent?: Agent } = {}) {
@@ -11,6 +12,7 @@ export function createApp(options: { agent?: Agent } = {}) {
 	app.use(cors())
 	app.use(express.json({ limit: '1mb' }))
 	app.use(healthRouter)
+	app.use(modelsRouter())
 	app.use(sessionsRouter(agent))
 	app.use(notFound)
 	app.use(errorHandler)

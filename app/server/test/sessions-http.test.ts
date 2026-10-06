@@ -20,6 +20,13 @@ function fakeFactory(): RuntimeFactory {
 			async prompt() {
 				for (const listener of listeners) listener({ type: 'agent_start' })
 			},
+			getAvailableThinkingLevels() {
+				return ['off', 'minimal', 'low', 'medium', 'high']
+			},
+			setThinkingLevel() {},
+			setSessionName(name: string) {
+				sessionManager.appendSessionInfo(name)
+			},
 			async abort() {},
 			subscribe(listener: (event: AgentSessionEvent) => void) {
 				listeners.add(listener)
@@ -99,5 +106,84 @@ describe('sessions http', () => {
 		ac.abort()
 		assert.ok(buf.includes(created.id))
 		assert.ok(buf.includes('"type":"agent_start"'))
+	})
+
+	it('queues steer and rejects a bare second prompt', async () => {
+		const created = await fetch(`${base}/api/sessions`, {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ text: 'first', cwd: homedir() }),
+		})
+		const { id } = (await created.json()) as { id: string }
+		const busy = await fetch(`${base}/api/sessions/${id}/prompt`, {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ text: 'again' }),
+		})
+		assert.equal(busy.status, 409)
+		const steered = await fetch(`${base}/api/sessions/${id}/prompt`, {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ text: 'cut in', streamingBehavior: 'steer' }),
+		})
+		assert.equal(steered.status, 202)
+		const bad = await fetch(`${base}/api/sessions/${id}/prompt`, {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ text: 'nope', streamingBehavior: 'now' }),
+		})
+		assert.equal(bad.status, 400)
+	})
+
+	it('sets a session name', async () => {
+		const manager = persistChat(homedir(), 'named-q', 'named-a')
+		const res = await fetch(`${base}/api/sessions/${manager.getSessionId()}/name`, {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ name: '计划标题' }),
+		})
+		assert.equal(res.status, 200)
+		const body = (await res.json()) as { name?: string }
+		assert.equal(body.name, '计划标题')
+		const cleared = await fetch(`${base}/api/sessions/${manager.getSessionId()}/name`, {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ name: '' }),
+		})
+		assert.equal(cleared.status, 200)
+		const clearedBody = (await cleared.json()) as { name?: string }
+		assert.equal(clearedBody.name, undefined)
+	})
+
+	it('lists thinking levels for a registered model', async () => {
+		const res = await fetch(
+			`${base}/api/models/thinking-levels?provider=minimax&id=${encodeURIComponent('MiniMax-M3')}`,
+		)
+		assert.equal(res.status, 200)
+		const body = (await res.json()) as {
+			provider: string
+			id: string
+			defaultThinkingLevel: string
+			thinkingLevels: string[]
+		}
+		assert.equal(body.provider, 'minimax')
+		assert.equal(body.id, 'MiniMax-M3')
+		assert.equal(body.defaultThinkingLevel, 'medium')
+		assert.deepEqual(body.thinkingLevels, ['off', 'minimal', 'low', 'medium', 'high'])
+		const missing = await fetch(`${base}/api/models/thinking-levels?provider=minimax&id=nope`)
+		assert.equal(missing.status, 404)
+		const bad = await fetch(`${base}/api/models/thinking-levels`)
+		assert.equal(bad.status, 400)
+	})
+
+	it('rejects an unsupported thinking level before creating a session', async () => {
+		const res = await fetch(`${base}/api/sessions`, {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ text: 'hi', cwd: homedir(), thinkingLevel: 'xhigh' }),
+		})
+		assert.equal(res.status, 400)
+		const body = (await res.json()) as { error: { code: string } }
+		assert.equal(body.error.code, 'BAD_REQUEST')
 	})
 })

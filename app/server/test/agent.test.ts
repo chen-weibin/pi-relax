@@ -3,7 +3,7 @@ import { after, before, describe, it } from 'node:test'
 import { homedir } from 'node:os'
 import type { AgentSession, AgentSessionEvent } from '@earendil-works/pi-coding-agent'
 import { Agent } from '../src/agent/agent.js'
-import { BusyError } from '../src/utils/errors.js'
+import { BusyError, HttpError } from '../src/utils/errors.js'
 import type { RuntimeFactory } from '../src/agent/factory.js'
 import { persistChat, removeHome, tempRelaxHome } from './home.js'
 
@@ -21,7 +21,8 @@ function fakeFactory(): RuntimeFactory {
 			get isStreaming() {
 				return running
 			},
-			async prompt() {
+			async prompt(_text: string, options?: { streamingBehavior?: 'steer' | 'followUp' }) {
+				if (options?.streamingBehavior) return
 				running = true
 				for (const listener of listeners) listener({ type: 'agent_start' })
 				await wait()
@@ -30,6 +31,13 @@ function fakeFactory(): RuntimeFactory {
 					listener({ type: 'agent_end', messages: [], willRetry: false })
 					listener({ type: 'agent_settled' })
 				}
+			},
+			getAvailableThinkingLevels() {
+				return ['off', 'minimal', 'low', 'medium', 'high']
+			},
+			setThinkingLevel() {},
+			setSessionName(name: string) {
+				sessionManager.appendSessionInfo(name)
 			},
 			async abort() {
 				gate?.()
@@ -63,6 +71,59 @@ describe('agent', () => {
 		await assert.rejects(() => agent.prompt({ text: 'again', sessionId: first.id }), BusyError)
 		await agent.abort(first.id)
 		keep()
+	})
+
+	it('queues steer while generating', async () => {
+		const queued: string[] = []
+		const agent = new Agent(async ({ sessionManager }) => {
+			const listeners = new Set<(event: AgentSessionEvent) => void>()
+			let running = false
+			const session = {
+				sessionManager,
+				get isStreaming() {
+					return running
+				},
+				async prompt(_text: string, options?: { streamingBehavior?: string }) {
+					if (options?.streamingBehavior) {
+						queued.push(options.streamingBehavior)
+						return
+					}
+					running = true
+					for (const listener of listeners) listener({ type: 'agent_start' })
+				},
+				getAvailableThinkingLevels() {
+					return ['off', 'minimal', 'low', 'medium', 'high']
+				},
+				setThinkingLevel() {},
+				subscribe(listener: (event: AgentSessionEvent) => void) {
+					listeners.add(listener)
+					return () => listeners.delete(listener)
+				},
+				dispose() {},
+				async abort() {
+					running = false
+				},
+			}
+			return { session: session as unknown as AgentSession }
+		})
+		const keep = agent.subscribe(() => {})
+		const first = await agent.prompt({ text: 'hi', cwd: homedir() })
+		const queuedRun = await agent.prompt({
+			text: 'now',
+			sessionId: first.id,
+			streamingBehavior: 'steer',
+		})
+		assert.equal(queuedRun.status, 'running')
+		assert.deepEqual(queued, ['steer'])
+		keep()
+	})
+
+	it('rejects a thinking level the default model does not support', async () => {
+		const agent = new Agent(fakeFactory())
+		await assert.rejects(
+			() => agent.prompt({ text: 'hi', cwd: homedir(), thinkingLevel: 'xhigh' }),
+			(error: unknown) => error instanceof HttpError && error.status === 400,
+		)
 	})
 
 	it('loads history from SessionManager.buildSessionContext', async () => {

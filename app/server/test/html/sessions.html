@@ -55,6 +55,38 @@
 							<input id="cwd" class="mt-1 w-full rounded-md border border-zinc-200 px-2 py-1 text-xs text-zinc-800 outline-none" spellcheck="false" />
 						</label>
 						<textarea id="text" rows="3" class="mt-2 w-full resize-none rounded-md border border-zinc-200 p-2 text-sm outline-none focus:border-violet-300" placeholder="没有当前会话则新建并发送，有则续发"></textarea>
+						<div class="mt-2 grid grid-cols-2 gap-2">
+							<label class="text-[11px] text-zinc-400">
+								思考档位
+								<select id="thinking" class="mt-1 w-full rounded-md border border-zinc-200 bg-white px-2 py-1 text-xs text-zinc-800 outline-none">
+									<option value="">不改（新建默认 medium）</option>
+									<option>off</option>
+									<option>minimal</option>
+									<option>low</option>
+									<option>medium</option>
+									<option>high</option>
+									<option>xhigh</option>
+									<option>max</option>
+								</select>
+							</label>
+							<label class="text-[11px] text-zinc-400">
+								生成中插队（仅续发）
+								<select id="queue" class="mt-1 w-full rounded-md border border-zinc-200 bg-white px-2 py-1 text-xs text-zinc-800 outline-none">
+									<option value="">不插队，忙则 409</option>
+									<option value="steer">steer：当前回复和工具后、下次模型前</option>
+									<option value="followUp">followUp：本轮全部结束后</option>
+								</select>
+							</label>
+						</div>
+						<div class="mt-2 flex gap-2">
+							<input id="session-name" class="min-w-0 flex-1 rounded-md border border-zinc-200 px-2 py-1 text-xs outline-none" placeholder="标题。空着再点设置即清空 name" spellcheck="false" />
+							<button id="rename" class="shrink-0 rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50" type="button">设置标题</button>
+						</div>
+						<div class="mt-2 flex gap-2">
+							<input id="provider" class="w-24 rounded-md border border-zinc-200 px-2 py-1 text-xs outline-none" value="minimax" spellcheck="false" />
+							<input id="model-id" class="min-w-0 flex-1 rounded-md border border-zinc-200 px-2 py-1 text-xs outline-none" value="MiniMax-M3" spellcheck="false" />
+							<button id="levels" class="shrink-0 rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50" type="button">查询档位</button>
+						</div>
 						<div class="mt-2 flex flex-wrap gap-2">
 							<button id="send" class="rounded-md bg-violet-600 px-3 py-1.5 text-sm text-white hover:bg-violet-700" type="button">发送</button>
 							<button id="abort" class="rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50" type="button">中止</button>
@@ -215,13 +247,24 @@
 				setCurrent(btn.dataset.id, item ? item.status : "")
 			})
 
+			function promptBody(text) {
+				const body = { text }
+				const thinking = $("thinking").value
+				if (thinking) body.thinkingLevel = thinking
+				if (!currentId) {
+					const cwd = $("cwd").value.trim()
+					if (cwd) body.cwd = cwd
+				} else if ($("queue").value) {
+					body.streamingBehavior = $("queue").value
+				}
+				return body
+			}
+
 			async function send() {
 				const text = $("text").value.trim()
 				if (!text) return
-				const cwd = $("cwd").value.trim()
-				const body = currentId ? { text } : cwd ? { text, cwd } : { text }
-				const path = currentId ? "/api/sessions/" + currentId + "/prompt" : "/api/sessions"
-				const record = await request("POST", path, body)
+				const path = currentId ? "/api/sessions/" + encodeURIComponent(currentId) + "/prompt" : "/api/sessions"
+				const record = await request("POST", path, promptBody(text))
 				setCurrent(record.id, record.status)
 				$("text").value = ""
 				await loadList()
@@ -275,6 +318,38 @@
 						setCurrent(null)
 						showMain("已删除")
 						return loadList()
+					})
+					.catch((err) => showMain(err.message))
+			})
+			$("rename").addEventListener("click", () => {
+				if (!currentId) return showMain("先在左侧点一条会话，或先发送新建。")
+				request("POST", "/api/sessions/" + encodeURIComponent(currentId) + "/name", {
+					name: $("session-name").value,
+				})
+					.then((record) => {
+						setCurrent(record.id, record.status)
+						showMain(record)
+						return loadList()
+					})
+					.catch((err) => showMain(err.message))
+			})
+			$("levels").addEventListener("click", () => {
+				const provider = $("provider").value.trim()
+				const id = $("model-id").value.trim()
+				if (!provider || !id) return showMain("填写 provider 和模型 id。")
+				const path =
+					"/api/models/thinking-levels?provider=" +
+					encodeURIComponent(provider) +
+					"&id=" +
+					encodeURIComponent(id)
+				request("GET", path)
+					.then((body) => {
+						const supported = new Set(body.thinkingLevels || [])
+						for (const option of $("thinking").options) {
+							if (!option.value) continue
+							option.disabled = supported.size > 0 && !supported.has(option.value)
+						}
+						showMain(body)
 					})
 					.catch((err) => showMain(err.message))
 			})

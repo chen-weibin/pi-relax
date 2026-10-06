@@ -1,4 +1,4 @@
-import { InMemoryCredentialStore } from '@earendil-works/pi-ai'
+import { getSupportedThinkingLevels, InMemoryCredentialStore, type Model } from '@earendil-works/pi-ai'
 import {
 	createAgentSessionFromServices,
 	createAgentSessionRuntime,
@@ -12,6 +12,7 @@ import { getRelaxAgentDir } from '../config/home.js'
 const PROVIDER_ID = 'minimax'
 const BASE_URL = 'https://api.minimax.cn/anthropic'
 const DEFAULT_MODEL = 'MiniMax-M3'
+export const DEFAULT_THINKING_LEVEL = 'medium'
 
 const MINIMAX_MODELS = [
 	{
@@ -72,7 +73,7 @@ async function piFactory(): Promise<CreateAgentSessionRuntimeFactory> {
 			sessionManager,
 			sessionStartEvent,
 			model,
-			thinkingLevel: 'medium',
+			thinkingLevel: DEFAULT_THINKING_LEVEL,
 			noTools: 'all',
 		})
 		return {
@@ -95,4 +96,30 @@ export async function createPiRuntime(input: {
 		sessionManager: input.sessionManager,
 	})
 	return runtime
+}
+
+export type ModelThinkingLevels = {
+	provider: string
+	id: string
+	defaultThinkingLevel: typeof DEFAULT_THINKING_LEVEL
+	thinkingLevels: string[]
+}
+
+/** 按已注册模型查可选思考档位。未注册返回 undefined。不打开会话。 */
+export function modelThinkingLevels(provider: string, id: string): ModelThinkingLevels | undefined {
+	const model = MINIMAX_MODELS.find((item) => item.id === id)
+	if (provider !== PROVIDER_ID || !model) return undefined
+	return {
+		provider: PROVIDER_ID,
+		id: model.id,
+		defaultThinkingLevel: DEFAULT_THINKING_LEVEL,
+		thinkingLevels: getSupportedThinkingLevels(model as Model<'anthropic-messages'>),
+	}
+}
+
+/** 新会话使用的模型档位。 */
+export function defaultModelThinkingLevels(): string[] {
+	const found = modelThinkingLevels(PROVIDER_ID, DEFAULT_MODEL)
+	if (!found) throw new Error('default model is not registered')
+	return found.thinkingLevels
 }
