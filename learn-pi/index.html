@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>learn-pi · pi SDK 学习笔记</title>
+<title>learn-pi · pi SDK 1.0.4 学习笔记</title>
 <style>
   :root {
     --bg: #0d1117;
@@ -365,7 +365,7 @@
   <aside>
     <div class="brand">
       <h1>learn-pi</h1>
-      <p>pi SDK 学习笔记</p>
+      <p>pi SDK 1.0.4 学习笔记</p>
     </div>
     <nav class="nav" id="nav"></nav>
   </aside>
@@ -385,7 +385,7 @@
       html: `
         <div class="page-header">
           <h2>pi SDK 学习笔记</h2>
-          <p class="subtitle">基于 <code>pi/</code> 源码实证 · 多块内容持续更新</p>
+          <p class="subtitle">对照 <code>@earendil-works/pi-coding-agent@1.0.4</code> / 仓库 <code>pi/</code>。细节以 <code>pi/packages/coding-agent/docs/sdk.md</code> 与源码为准；文中旧行号可能已漂移，勿当跳转依据。</p>
         </div>
 
         <div class="qa">
@@ -401,8 +401,8 @@
                 <tr><td>4</td><td><code>createAgentSessionRuntime(factory, opts)</code> → <code>AgentSessionRuntime</code></td><td>运行时句柄</td><td>支持 newSession / switchSession / fork / importFromJsonl</td></tr>
               </tbody>
             </table>
-            <div class="callout"><strong>选型</strong>：单次脚本用 Layer 1；想自定义 UI 接管多会话生命周期用 Layer 4。需要 JSON-RPC 子进程再加 <code>runRpcMode(AgentSessionRuntime)</code>（Layer 5）。</div>
-            <div class="src">源码：core/sdk.ts:173 · core/agent-session-services.ts:135 · core/agent-session-services.ts:202 · core/agent-session-runtime.ts:422 · modes/rpc/rpc-mode.ts:54</div>
+            <div class="callout"><strong>选型</strong>：单次脚本用 Layer 1。同一 cwd 里「当前只有一条、切换就拆掉旧的」用 Layer 4（CLI 模型）。<strong>多工作目录、多会话同时跑</strong>不要靠一个 Runtime 的 <code>switchSession</code>：各自建 <code>AgentSession</code>（可内部调一次 Runtime 再只留 <code>.session</code>）。JSON-RPC 子进程再加 <code>runRpcMode(AgentSessionRuntime)</code>（Layer 5）。SDK 会话默认不加载 CLI 的 codemode / MCP，需要时把 factories 传给 <code>DefaultResourceLoader</code>。</div>
+            <div class="src">源码：core/sdk.ts · core/agent-session-runtime.ts · packages/coding-agent/docs/sdk.md（1.0.4）</div>
           </div>
         </div>
       `
@@ -416,7 +416,7 @@
         <div class="qa">
           <div class="qa-q"><span class="badge">Q</span><p>如果想做一个支持多会话切换的自定义页面，应该选哪个 API？</p></div>
           <div class="qa-a">
-            <p>用 <code>createAgentSessionRuntime()</code> + <code>AgentSessionRuntime</code>。</p>
+            <p>若自定义 UI 是「同一工作区、当前只开一条、切会话就拆掉旧的」，用 <code>createAgentSessionRuntime()</code> + <code>AgentSessionRuntime</code>。若要多条同时生成，不要用它的 <code>switchSession</code>，各自持有 <code>AgentSession</code>。</p>
             <p>文档原话（<code>docs/sdk.md:146-147</code>）：「Session replacement APIs such as new-session, resume, fork, and import live on <code>AgentSessionRuntime</code>, not on <code>AgentSession</code>.」</p>
             <p>替换 API 列表（<code>core/agent-session-runtime.ts</code>）：</p>
             <ul class="tight">
@@ -474,7 +474,7 @@ await bind();</code></pre>
           <div class="qa-q"><span class="badge">Q</span><p>需要同时在两个不同 cwd 进行对话，一个 runtime 行不行？</p></div>
           <div class="qa-a">
             <p>不行。一个 <code>AgentSessionRuntime</code> = 一个 cwd。它的 <code>cwd</code> 是常量（<code>agent-session-runtime.ts:105-107</code>），切 cwd 等于销毁旧 runtime、建新的。</p>
-            <p><strong>正解：建两个 runtime 实例。</strong>所有相关状态都是实例级，没有全局单例：</p>
+            <p><strong>正解：每个 cwd / 每条并发会话各一份 <code>AgentSession</code>。</strong>工厂可以调 <code>createAgentSessionRuntime</code>，但并发宿主应留下 <code>runtime.session</code>，不要拿一个 Runtime 做 <code>switchSession</code>。所有相关状态都是实例级，没有全局单例：</p>
             <ul class="tight">
               <li><code>ModelRuntime</code>（<code>core/model-runtime.ts:130</code>）所有可变字段都是实例字段，多实例互不影响。</li>
               <li><code>SettingsManager</code> 按 cwd 构造，天然隔离。</li>
@@ -835,9 +835,8 @@ const make = (cwd) =&gt; async (opts) =&gt; {
 
             <div class="evt-card">
               <div class="head"><span class="name">agent_settled</span><span class="count once">恰好 1 次</span></div>
-              <div class="when"><strong>时机</strong>：在 agent_end <strong>之后</strong>，等所有订阅 listener 全部 resolve 才发。</div>
-              <div class="example"><strong>例子</strong>：模型回完话 → agent_end 发 → 你的 listener 还在做"把这一轮聊天写入 IndexedDB" → 写入完成 → agent_settled 才发。</div>
-              <div class="example"><strong>用途</strong>：可以拿它来"彻底解锁 UI / 关 loading / 允许下一次发送"。<strong>不要</strong>用 agent_end 做这一步，因为 listener 还没跑完，状态可能还没落库。</div>
+              <div class="when"><strong>时机</strong>（1.0）：Pi 不会再自动续跑时发（自动重试、队列里的 steer/followUp 都结束后）。<code>agent_end</code> 只表示这一轮底层 run 结束，后面仍可能重试或排队。</div>
+              <div class="example"><strong>用途</strong>：宿主用它判断会话回到 idle。不要用 <code>agent_end</code> 当「可以发下一条」。</div>
             </div>
 
             <div class="evt-card">
@@ -1072,7 +1071,7 @@ const make = (cwd) =&gt; async (opts) =&gt; {
             <h4 style="font-size:14px;margin:22px 0 10px;color:var(--text);">三、每个事件的注意点</h4>
 
             <div class="pitfall">
-              <strong>agent_end ≠ 全部完成</strong>。agent_end 是 loop 不再推事件的标志，但你的 listener 可能还在跑 IO。要做"彻底解锁 UI"必须等 agent_settled，<strong>不能</strong>用 agent_end。
+              <strong>agent_end ≠ 全部完成</strong>。自动恢复或队列里还有活时，<code>agent_end</code> 之后还会继续。宿主要等 <code>agent_settled</code> 才知道 Pi 不会自动续跑。
             </div>
 
             <div class="pitfall">
@@ -1632,10 +1631,10 @@ session.setThinkingLevel("high");       // → appendThinkingLevelChange(level)
               <thead><tr><th>事件</th><th>文件 entry</th><th>type</th><th>parentId</th></tr></thead>
               <tbody>
                 <tr><td>session.prompt() 进入</td><td>L1 header</td><td><code>session</code></td><td>—</td></tr>
-                <tr><td>首条 user 消息入</td><td>L2 msgA</td><td><code>message</code></td><td>null</td></tr>
+                <tr><td>首条 user 消息入（触发落盘，0.99+）</td><td>L2 msgA</td><td><code>message</code></td><td>null</td></tr>
                 <tr><td>model_change（如果是新建会话初始化）</td><td>L3 mc</td><td><code>model_change</code></td><td>msgA</td></tr>
                 <tr><td>thinking_level_change</td><td>L4 tlc</td><td><code>thinking_level_change</code></td><td>mc</td></tr>
-                <tr><td>助手首条 assistant 消息（触发落盘！）</td><td>L5 msgB</td><td><code>message</code></td><td>tlc</td></tr>
+                <tr><td>助手首条 assistant 消息</td><td>L5 msgB</td><td><code>message</code></td><td>tlc</td></tr>
                 <tr><td>tool_execution_start</td><td colspan="3">↳ 不写盘，只是过程事件</td></tr>
                 <tr><td>tool_execution_end</td><td colspan="3">↳ 不写盘</td></tr>
                 <tr><td>toolResult 消息</td><td>L6 msgC</td><td><code>message</code></td><td>msgB</td></tr>
@@ -1917,7 +1916,7 @@ getEntries() 返回 [a1, a2, a3, a4, a5, a6, b1, b2] 共 8 条。
               <strong>一句话</strong>：<strong>文件物理只增不减</strong>，压缩 = 追加一条 compaction 带 firstKeptEntryId。<strong>树结构永久保留</strong>，只是 <code>buildContextEntries</code> 按规则<strong>折叠</strong>展示给 LLM。<code>getEntries()</code> / <code>getTree()</code> 永远能看到完整历史。
             </div>
 
-            <div class="src">源码：core/session-manager.ts:1029-1055（_persist 落盘策略） · core/session-manager.ts:1058-1063（_appendEntry 自动维护 leafId） · core/session-manager.ts:334-360（buildSessionPath） · core/session-manager.ts:418-454（buildContextEntries） · core/session-manager.ts:383-413（sessionEntryToContextMessages） · core/session-manager.ts:69-80（CompactionEntry） · core/agent-session.ts:538-554（_compactBeforeNextAssistantResponse 触发点）</div>
+            <div class="src">源码：core/session-manager.ts（落盘：首条 user 写出；SessionManager 是后续请求上下文的权威，勿改 agent.state.messages）· session-format.md（JSONL version 3）· core/agent-session.ts。行号以当前 pi/ 为准。</div>
           </div>
         </div>
       `

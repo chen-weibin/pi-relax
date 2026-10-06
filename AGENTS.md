@@ -29,6 +29,6 @@
 - [`docs/web-conversation.md`](docs/web-conversation.md) — 对话区分层、`BlockSnapshot` 判别联合、runtime、滚动/打字机约定、mock 与真实事件边界、打磨 UI 改哪一层。查阅时机：改对话列表、块类型、贴底滚动、打字机、消息观感，或把 mock feed 换成 `AgentSessionEvent` 时。
 - [`docs/ui.md`](docs/ui.md) — `app/web/src/ui/` 组件库的唯一详细文档。决策表、反例、每个组件的「何时用 / 何时不用 / API / 视觉 / 踩坑 / 查阅时机」全部在此。查阅时机：在 `app/web` 下新增 / 调用 UI 组件、为某需求选组件、判断「该不该自己写」、查阅组件完整 API 时。
 - [`docs/web-extension.md`](docs/web-extension.md) — 右侧扩展区插件架构：编译期 registry、唯一一层壳层 tab、`reuseKey`、空态策略、FsApi / PtyApi 与 mock 边界。查阅时机：新增插件、改欢迎页 / tab 条、改关最后一 tab 是否收起、接真实文件系统或 PTY 时。
-- [`docs/server.md`](docs/server.md) — `app/server` 的整体规划：`.relax` 数据根、能力剖面、性能上限、pi SDK 该用哪个入口、源码目录怎么拆。查阅时机：改服务端、定数据目录、接会话 / 文件同步 / 终端之前。对接 pi 时先看仓库里 `pi/packages/coding-agent` 的源码，不要只凭该文档的摘要。改服务端行为时同步改这篇文档。已实现清单在 [`docs/server-implemented.md`](docs/server-implemented.md)。
+- [`docs/server.md`](docs/server.md) — `app/server` 的整体规划：`.relax` 数据根、能力剖面、性能上限、pi SDK 该用哪个入口、源码目录怎么拆。查阅时机：改服务端、定数据目录、接会话 / 文件同步 / 终端之前。对接 pi 时先看仓库里 `pi/packages/coding-agent` 的源码（运行时 `@earendil-works/pi-coding-agent@^1.0.4`），不要只凭该文档的摘要。改服务端行为时同步改这篇文档。已实现清单在 [`docs/server-implemented.md`](docs/server-implemented.md)。
 - [`docs/server-implemented.md`](docs/server-implemented.md) — `app/server` 当前已经能用的功能，标题加编号列表。查阅时机：想看服务端现在做到哪、对照联调页时。改服务端行为时和 [`docs/server.md`](docs/server.md) 一起改。
-- `app/agenttest/` — agent CLI 试验场，`pnpm dev` 订阅全部 `AgentSessionEvent` 打到终端，用于研究事件流。需要 `MINIMAX_API_KEY` env。查阅时机：调试 `session.subscribe` 行为、看 `message_update` 的 `partial` 累积、或临时跑单次 prompt 验证 agent 输出时。
+- `app/agenttest/` — agent CLI 试验场，订阅 `AgentSessionEvent` 打到终端，用于研究事件流。需要 `MINIMAX_API_KEY` env。查阅时机：调试 `session.subscribe`、看 `message_update` 的 `text_delta`、或临时跑单次 prompt 验证 agent 输出时。

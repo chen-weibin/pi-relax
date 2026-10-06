@@ -24,10 +24,11 @@ describe('sessions files', () => {
 		assert.equal(existsSync(workspace), true)
 	})
 
-	it('does not write a file until an assistant message exists', async () => {
+	it('writes a file when the first user message exists', async () => {
 		const before = await listSessions(cwd)
 		const { createSessionManager } = await import('../src/sessions/index.js')
 		const manager = createSessionManager(cwd)
+		assert.equal(await listSessions(cwd).then((items) => items.length), before.length)
 		manager.appendMessage({
 			role: 'user',
 			content: [{ type: 'text', text: 'only user' }],
@@ -35,7 +36,8 @@ describe('sessions files', () => {
 		})
 		assert.equal(manager.getSessionFile()?.startsWith(home), true)
 		const after = await listSessions(cwd)
-		assert.equal(after.length, before.length)
+		assert.equal(after.length, before.length + 1)
+		assert.ok(after.some((item) => item.id === manager.getSessionId()))
 	})
 
 	it('lists persisted sessions and history via buildSessionContext', async () => {

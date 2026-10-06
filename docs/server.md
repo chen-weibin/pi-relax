@@ -4,7 +4,7 @@
 
 本文是底座。对话模块已接：会话文件、智能体类、路由与全局 SSE。前端（`app/web`）本轮不接，适配器以后再写。
 
-对接 pi 之前先读源码，不要只凭本文的 API 摘要选函数。本地克隆在仓库根的 `pi/`（已 git 忽略），会话相关源码在 `pi/packages/coding-agent/src/core/`，说明在 `pi/packages/coding-agent/docs/sdk.md`。运行时安装的是 `@earendil-works/pi-coding-agent`。类型或文档和源码不一致时，以源码为准，并把结论回写本文。
+对接 pi 之前先读源码，不要只凭本文的 API 摘要选函数。本地克隆在仓库根的 `pi/`（已 git 忽略），会话相关源码在 `pi/packages/coding-agent/src/core/`，说明在 `pi/packages/coding-agent/docs/sdk.md`。运行时安装的是 `@earendil-works/pi-coding-agent@^1.0.4`（与 `pi-ai` 同版本）。类型或文档和源码不一致时，以源码为准，并把结论回写本文。
 
 相关文档：当前已经实现的能力清单见 [server-implemented.md](server-implemented.md)（查阅时机：想看服务端现在做到哪、对照联调页时）。对话区现有块模型见 [web-conversation.md](web-conversation.md)（查阅时机：把服务端事件译成现有 UI 时）。文件与终端的前端契约见 [web-extension.md](web-extension.md)（查阅时机：做文件系统或 PTY 时）。`app/agenttest` 只是加载试验，不能当作已验证结论。
 
@@ -14,7 +14,7 @@
 
 登录和多用户以后可能会做，当前不做。用户名和头像只做本地展示，不进鉴权，优先级最低。
 
-进程内嵌 pi，不用 `pi --mode rpc`。多会话不要理解成反复调用同一个「多会话 API」：`createAgentSession` 只创建一条 `AgentSession`。列表和打开文件用 `SessionManager`。同一时刻只保留一个活动会话、切换时拆掉上一个，用 `createAgentSessionRuntime`（CLI 和 RPC 就是这条）。多个会话同时处于打开或生成状态，稳定 SDK 没有现成的管理器：我们的智能体类持有多份 `AgentSessionRuntime`，每条会话一份。实验性的 `SessionWorkerManager` 是每条会话一个子进程，不在稳定导出里，当前不用。
+进程内嵌 pi，不用 `pi --mode rpc`。产品要的是多个工作目录、多条会话同时打开或生成。`createAgentSession` 只创建一条 `AgentSession`。列表和打开文件用 `SessionManager`。`createAgentSessionRuntime` 是 CLI / RPC 那条「进程里只有当前这一条」：`switchSession` 会中止并 `dispose` 旧会话。稳定 SDK 没有多会话管理器，所以我们自己的智能体类按 sessionId 各握一份 `AgentSession`（工厂里会调一次 `createAgentSessionRuntime`，创建完只留 `.session`，不用它的切换 API）。实验性的 `SessionWorkerManager` 是每条会话一个子进程，不在稳定导出里，当前不用。
 
 运行时跟 pi 对齐：Node >= 22.19。实现时只改 server 包的 `engines`。继续用现有 Express，端口 `3001`，由 `pnpm dev:server` 拉起，不另占端口。测试用 Node 自带 `node:test`，每个 HTTP 路由和每条 WebSocket 协议都有用例。调用模型的测试不打真实 API。
 
@@ -32,7 +32,7 @@ pi 的家目录是 `~/.pi`（`configDir`）。coding-agent 的数据根是 `~/.p
 ~/.pi/agent/sessions/--<cwd 编码>--/<时间戳>_<sessionId>.jsonl
 ```
 
-编码：去掉路径开头的 `/`，把 `/`、`\`、`:` 换成 `-`，两侧加 `--`。cwd 是工作区目录，写在 JSONL 头里。项目靠这一层子目录分桶，文件名只区分同一工作区里的某一条会话。一条会话一个 jsonl，继续聊是追加。`SessionManager.create` / `newSession` 只分配 id 和路径，`flushed === false`。`_persist` 在出现第一条 **assistant** 消息时才写出文件。没有「空会话文件」。
+编码：去掉路径开头的 `/`，把 `/`、`\`、`:` 换成 `-`，两侧加 `--`。cwd 是工作区目录，写在 JSONL 头里。项目靠这一层子目录分桶，文件名只区分同一工作区里的某一条会话。一条会话一个 jsonl，继续聊是追加。JSONL 头 `version` 为 3。`SessionManager.create` / `newSession` 只分配 id 和路径，此时还没有文件。第一条 **user** 消息发出时写出文件（pi 0.99 起；此前等第一条 assistant）。没有「空会话文件」。SessionManager 是后续请求上下文的权威来源，不要改 `session.agent.state.messages` 当历史。
 
 pi 没有会话索引。`list(cwd)` 扫该编码目录下的 `*.jsonl`，`listAll()` 扫 `sessions/` 下每个子目录。两次都是当场全量读文件。同时读的并发是 10，不是条数上限。文件会一直增加，列表会越来越慢。当前照扫，不加索引；以后加索引不改 JSONL 布局。
 
@@ -93,17 +93,17 @@ pi 暴露的加载点都要能指定到 `.relax` 或配置里的路径，不默�
 
 前端现在的 `BlockFeedEvent`（只有用户文本、思考、正文）是 UI 先画出来的形状，不是长期协议。前端用薄适配器译成现有块，适配器放在 web 侧，见 [web-conversation.md](web-conversation.md)。后续界面往 pi 的消息格式靠，包括工具调用和压缩。
 
-对话那一块：第一次发送即建会话（不创建空文件）、列表、单条信息、历史（`buildSessionContext`）、删除、续发、中止、全局 SSE。列表 `status` 只有 `idle` / `running`（对齐 pi 的 `isStreaming`；自动重试仍算 running）。失败写在 messages 和 SSE 里，不另做会话态。标题用 pi 的 `name`，没有则 `firstMessage`。
+对话那一块：第一次发送即建会话（`create` 时不写空文件，第一条 user 消息写出）、列表、单条信息、历史（`buildSessionContext`）、删除、续发、中止、全局 SSE。列表 `status` 只有 `idle` / `running`（对齐 pi 的 `isStreaming`；自动重试仍算 running）。失败写在 messages 和 SSE 里，不另做会话态。标题用 pi 的 `name`，没有则 `firstMessage`。
 
 工具调用、压缩、队列是 pi 事件里已有的。哪一块还没开，就在能力剖面里关掉对应能力，不把事件协议裁窄。开了之后原样转发。
 
 ### 智能体类
 
-`app/server/src/agent/` 是唯一调用 pi 会话 API 的目录。类内部 `Map<sessionId, AgentSessionRuntime>`，同一套 `createAgentSessionRuntime` 工厂。对外 `prompt`（可无 id，可带 `thinkingLevel` 与 `streamingBehavior`）、`rename`、`abort`、`status`、`subscribe`。HTTP 和 SSE 只订这个类。档位查询读已注册模型，不经过这个类。
+`app/server/src/agent/` 是唯一调用 pi 会话 API 的目录。类内部按 sessionId 缓存 `{ session: AgentSession }`，同一套工厂（内部 `createAgentSessionRuntime`，对外只返回 session）。对外 `prompt`（可无 id，可带 `thinkingLevel` 与 `streamingBehavior`）、`rename`、`abort`、`status`、`subscribe`。HTTP 和 SSE 只订这个类。档位查询读已注册模型，不经过这个类。
 
 剖面本轮：`noTools: "all"`，loader `noSkills` / `noExtensions` / `noContextFiles` / `noPromptTemplates` / `noThemes`。模型 MiniMax（`MINIMAX_API_KEY`），`agentDir` 指向 `~/.relax/agent`。
 
-新对话：`SessionManager.create(cwd)` 后立刻 `prompt`。文件等第一条 assistant。思考档位默认 `medium`。正在回复时，不带 `streamingBehavior` 再 `prompt` 得 `BUSY`；`steer` 在当前回复及其工具结束后、下一次模型调用前插入，`followUp` 在本轮结束后再发。两者都不打断正在吐的字。
+新对话：`SessionManager.create(cwd)` 后立刻 `prompt`。文件等第一条 user 消息。思考档位默认 `medium`。正在回复时，不带 `streamingBehavior` 再 `prompt` 得 `BUSY`；`steer` 在当前回复及其工具结束后、下一次模型调用前插入，`followUp` 在本轮结束后再发。两者都不打断正在吐的字。
 
 历史：热会话用该 `sessionManager.buildSessionContext()`，否则 `SessionManager.open` 再同样调用。返回 `{ messages, thinkingLevel, model }`，不手读 JSONL。
 
@@ -140,7 +140,7 @@ SSE 断线不补，客户端用历史对齐。发送和中止走 HTTP。本轮�
 
 - **能力剖面**。每次创建 `AgentSession` 都带一份显式剖面：工具、技能、扩展、规则和上下文文件、提示词，各自是关还是一组路径。关掉必须传给 pi（如 `noTools`、`noSkills`、`noExtensions`、不扫描上下文），不能靠这段代码还没写。以后加工具或技能，只改剖面。
 - **列表**。本轮无索引，走 `SessionManager.list` / `listAll` 全量扫描，并上智能体里尚未落盘的热会话。
-- **会话宿主**。智能体类持有多份 `AgentSessionRuntime`。事件是 `(sessionId, AgentSessionEvent)`。
+- **会话宿主**。智能体类持有多份 `AgentSession`（多工作目录可同时生成）。事件是 `(sessionId, AgentSessionEvent)`。SDK 会话默认不加载 CLI 的 `codemode` / MCP，要用时显式挂 extension factories。
 - **未做到的子系统不启动**。文件监听、PTY、技能扫描各自独立模块，对应那一块开始之前不加载、不占文件描述符。
 
 ## 性能上限
@@ -211,7 +211,7 @@ PTY 活到关闭或进程退出。断线可以再订阅，并用最近约 100KB 
 
 `/api`、`/ws/fs`、`/ws/pty` 是不同路径，前面加反向代理时可以按前缀分别转发。
 
-正在用的会话在内存里对应一份 `AgentSessionRuntime`。列表来自 `SessionManager` 扫描，加上尚未落盘的热会话。
+正在用的会话在内存里对应一份 `AgentSession`。列表来自 `SessionManager` 扫描，加上尚未落盘的热会话（`create` 之后、第一条 user 消息之前）。
 
 ## 目录
 
