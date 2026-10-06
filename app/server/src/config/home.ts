@@ -10,10 +10,16 @@ export function getRelaxAgentDir(): string {
 	return join(getRelaxHome(), 'agent')
 }
 
-/** Ensure ~/.relax/agent/sessions exists and point pi's getAgentDir() at it. */
+/** 未传 cwd 时的默认工作区。 */
+export function getDefaultWorkspace(): string {
+	return join(getRelaxHome(), 'workspace')
+}
+
+/** Ensure ~/.relax/agent/sessions and the default workspace exist, and point pi's getAgentDir() at agent. */
 export function ensureRelaxHome(): string {
 	const agentDir = getRelaxAgentDir()
 	mkdirSync(join(agentDir, 'sessions'), { recursive: true })
+	mkdirSync(getDefaultWorkspace(), { recursive: true })
 	process.env.PI_CODING_AGENT_DIR = agentDir
 	return agentDir
 }

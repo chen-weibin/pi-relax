@@ -8,7 +8,7 @@
 
 1. `GET /health` 返回 `{ "status": "ok" }`。
 2. 数据根默认 `~/.relax`，`RELAX_HOME` 可整棵换走。会话文件在 `~/.relax/agent/sessions/`，不写进 `~/.pi`。
-3. 未指定工作区时，cwd 用用户主目录。
+3. 未指定工作区时，cwd 用 `~/.relax/workspace`（随 `RELAX_HOME` 换走）。
 4. HTTP JSON 走 `/api`，错误体是 `{ "error": { "code", "message" } }`。跨域放开，不带 cookie。
 
 ## 会话

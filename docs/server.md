@@ -44,7 +44,7 @@ pi 没有会话索引。`list(cwd)` 扫该编码目录下的 `*.jsonl`，`listAl
 ~/.relax/agent/sessions/--<cwd 编码>--/<时间戳>_<sessionId>.jsonl
 ```
 
-未指定工作区时 cwd 为 `os.homedir()`。本轮不读技能、扩展、提示词、主题、上下文文件。不写索引文件。
+未指定工作区时 cwd 为 `~/.relax/workspace`（随 `RELAX_HOME` 换走）。本轮不读技能、扩展、提示词、主题、上下文文件。不写索引文件。
 
 三条原则：
 

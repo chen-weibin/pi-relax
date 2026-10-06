@@ -1,7 +1,6 @@
 import { unlinkSync } from 'node:fs'
-import { homedir } from 'node:os'
 import { SessionManager, type SessionInfo } from '@earendil-works/pi-coding-agent'
-import { ensureRelaxHome } from '../config/home.js'
+import { ensureRelaxHome, getDefaultWorkspace } from '../config/home.js'
 import { messageText } from '../utils/text.js'
 import type { SessionHistory, SessionRecord, SessionStatus } from './types.js'
 
@@ -39,7 +38,7 @@ export function recordFromManager(manager: SessionManager, status: SessionStatus
 
 /** 未指定工作区时用的默认目录。 */
 export function defaultCwd(): string {
-	return homedir()
+	return getDefaultWorkspace()
 }
 
 /** 把磁盘上的会话信息转成对外记录。 */

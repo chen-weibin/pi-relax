@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict'
+import { existsSync } from 'node:fs'
 import { after, before, describe, it } from 'node:test'
 import { homedir } from 'node:os'
-import { historyFrom, listSessions } from '../src/sessions/index.js'
+import { join } from 'node:path'
+import { defaultCwd, historyFrom, listSessions } from '../src/sessions/index.js'
 import { persistChat, removeHome, tempRelaxHome } from './home.js'
 
 describe('sessions files', () => {
@@ -14,6 +16,12 @@ describe('sessions files', () => {
 
 	after(() => {
 		removeHome(home)
+	})
+
+	it('uses ~/.relax/workspace when no cwd is given', () => {
+		const workspace = join(home, 'workspace')
+		assert.equal(defaultCwd(), workspace)
+		assert.equal(existsSync(workspace), true)
 	})
 
 	it('does not write a file until an assistant message exists', async () => {
