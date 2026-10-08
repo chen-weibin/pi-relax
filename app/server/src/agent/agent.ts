@@ -22,6 +22,15 @@ const THINKING_LEVELS = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'ma
 type ThinkingLevelName = (typeof THINKING_LEVELS)[number]
 export type StreamingBehavior = 'steer' | 'followUp'
 
+/** ponytail: 中止策略写死为先清队列再终止。以后改成可配置时只在 stop() 里分支。
+ * 已知还会有 abort-only：只终止当前生成，队列保留，之后仍会发出去。
+ * 现在没有请求字段，也没有 settings 项。
+ */
+const ABORT_POLICY = 'clear-then-abort' as const
+
+export type ClearedQueue = { steering: string[]; followUp: string[] }
+export type AbortResult = SessionRecord & { cleared: ClearedQueue }
+
 type Slot = {
 	session: AgentSession
 	running: boolean
@@ -128,24 +137,26 @@ export class Agent {
 		return recordFromManager(slot.session.sessionManager, this.statusOf(id)!)
 	}
 
-	async abort(id: string): Promise<SessionRecord> {
+	async abort(id: string): Promise<AbortResult> {
 		const slot = this.slots.get(id)
 		if (!slot) {
 			const record = await this.get(id)
-			return { ...record, status: 'idle' }
+			return { ...record, status: 'idle', cleared: { steering: [], followUp: [] } }
 		}
-		await slot.session.abort()
-		slot.running = false
-		return recordFromManager(slot.session.sessionManager, 'idle')
+		const cleared = await this.stop(slot)
+		return { ...recordFromManager(slot.session.sessionManager, 'idle'), cleared }
 	}
 
 	async remove(id: string): Promise<void> {
 		const slot = this.slots.get(id)
 		if (slot) {
-			await slot.session.abort()
-			slot.unsubscribe()
-			slot.session.dispose()
-			this.slots.delete(id)
+			await this.stop(slot)
+			const current = this.slots.get(id)
+			if (current) {
+				current.unsubscribe()
+				current.session.dispose()
+				this.slots.delete(id)
+			}
 		}
 		const deleted = await deleteSessionFile(id)
 		if (!deleted && !slot) throw new SessionNotFoundError(id)
@@ -155,9 +166,7 @@ export class Agent {
 		const slot = this.slots.get(sessionId)
 		if (!slot) return
 		if (event.type === 'agent_start') slot.running = true
-		if (event.type === 'agent_end' || event.type === 'agent_settled') {
-			slot.running = false
-		}
+		if (event.type === 'agent_settled') slot.running = false
 		for (const listener of this.listeners) {
 			try {
 				listener(sessionId, event)
@@ -165,9 +174,7 @@ export class Agent {
 				console.error(error)
 			}
 		}
-		if (event.type === 'agent_settled' || event.type === 'agent_end') {
-			this.disposeIdle()
-		}
+		if (event.type === 'agent_settled') this.disposeIdle()
 	}
 
 	private async create(cwd: string): Promise<Slot> {
@@ -195,7 +202,19 @@ export class Agent {
 		return slot
 	}
 
+	private async stop(slot: Slot): Promise<ClearedQueue> {
+		switch (ABORT_POLICY) {
+			case 'clear-then-abort': {
+				const cleared = slot.session.clearQueue()
+				await slot.session.abort()
+				slot.running = false
+				return { steering: [...cleared.steering], followUp: [...cleared.followUp] }
+			}
+		}
+	}
+
 	private disposeIdle(): void {
+		if (this.listeners.size > 0) return
 		for (const [id, slot] of this.slots) {
 			if (slot.running || slot.session.isStreaming) continue
 			const file = slot.session.sessionManager.getSessionFile()

@@ -103,7 +103,7 @@ pi 暴露的加载点都要能指定到 `.relax` 或配置里的路径，不默�
 
 剖面本轮：`noTools: "all"`，loader `noSkills` / `noExtensions` / `noContextFiles` / `noPromptTemplates` / `noThemes`。模型 MiniMax（`MINIMAX_API_KEY`），`agentDir` 指向 `~/.relax/agent`。
 
-新对话：`SessionManager.create(cwd)` 后立刻 `prompt`。文件等第一条 user 消息。思考档位默认 `medium`。正在回复时，不带 `streamingBehavior` 再 `prompt` 得 `BUSY`；`steer` 在当前回复及其工具结束后、下一次模型调用前插入，`followUp` 在本轮结束后再发。两者都不打断正在吐的字。
+新对话：`SessionManager.create(cwd)` 后立刻 `prompt`。文件等第一条 user 消息。思考档位默认 `medium`。正在回复时，不带 `streamingBehavior` 再 `prompt` 得 `BUSY`；`steer` 在当前回复及其工具结束后、下一次模型调用前插入，`followUp` 在本轮结束后再发。两者都不打断正在吐的字。多条排队的出队固定为基座默认一次一条（`steeringMode` 与 `followUpMode` 都是 `one-at-a-time`）。以后可以各自设成 `all` 或 `one-at-a-time`，入口是基座的 `setSteeringMode` / `setFollowUpMode`。现在不读 settings 覆盖，也不调用这两个 setter。
 
 历史：热会话用该 `sessionManager.buildSessionContext()`，否则 `SessionManager.open` 再同样调用。返回 `{ messages, thinkingLevel, model }`，不手读 JSONL。
 
@@ -120,7 +120,7 @@ pi 暴露的加载点都要能指定到 `.relax` 或配置里的路径，不默�
 - `DELETE /api/sessions/:id` 中止并删除文件，204
 - `POST /api/sessions/:id/prompt` 续发，202。可选 `streamingBehavior`（`steer` | `followUp`）和 `thinkingLevel`
 - `POST /api/sessions/:id/name` 手动设置 `name`，空字符串清空
-- `POST /api/sessions/:id/abort` 中止
+- `POST /api/sessions/:id/abort` 中止。热会话先 `clearQueue` 再 `abort`。响应是会话信息加上 `cleared: { steering, followUp }`。没有队列或会话不在内存里时两个数组为空，`status` 为 `idle`
 - `GET /api/models/thinking-levels?provider=&id=` 查询该模型可选思考档位和默认档位 `medium`。未注册 404
 - `GET /api/sessions/events` 全局 SSE，不进 api.html。`data` 为 `{ sessionId, event }`，内层是 pi 的 `AgentSessionEvent`
 
@@ -128,7 +128,7 @@ SSE 断线不补，客户端用历史对齐。发送和中止走 HTTP。本轮�
 
 `name` 只来自手动设置，pi 不会在第一次发送时写成第一句话。列表仍同时返回 `name` 和 `firstMessage`，没有 `name` 时界面用 `firstMessage`。
 
-往后放：第一次对话后用模型生成短标题写入 `name`，未生成前列表继续用 `firstMessage` 兜底。图片附件、模型选择器、编辑或重试某一条、分支树、checkpoint 回滚、命令审批。
+往后放：第一次对话后用模型生成短标题写入 `name`，未生成前列表继续用 `firstMessage` 兜底。图片附件、模型选择器、编辑或重试某一条、分支树、checkpoint 回滚、命令审批。中止策略现在固定为先清队列再终止（`clear-then-abort`），以后再做成可配置；已知还会有只终止当前、队列保留（`abort-only`），现在没有请求字段，也没有 settings 项。出队模式现在固定为一次一条，以后再暴露 `steeringMode` / `followUpMode`（各自 `all` 或 `one-at-a-time`）。
 
 ## 能力剖面
 
@@ -149,11 +149,11 @@ SSE 断线不补，客户端用历史对齐。发送和中止走 HTTP。本轮�
 
 - **启动**。只监听端口并确保 `.relax` 根存在。不扫全部会话，不建模型客户端，不 watch 磁盘。
 - **列表**。本轮全量扫描 JSONL（与 pi 相同）。不创建 runtime。文件多了会慢，先记下，不加索引。
-- **热会话**。有订阅或正在生成才驻留。本轮不限制同时打开或同时生成的条数（pi 也没有这两条限制）。没有订阅且不在生成的会话 `dispose`，下次从 JSONL 打开。
+- **热会话**。有全局 SSE 订阅，或正在生成才驻留。`agent_end` 还不算出空闲，要到 `agent_settled`。本轮不限制同时打开或同时生成的条数（pi 也没有这两条限制）。没有任何订阅且已经 settled、文件已落盘的会话 `dispose`，下次从 JSONL 打开。
 - **单会话单飞**。同一条会话已有生成时，不带 `streamingBehavior` 拒绝第二条（`BUSY`）。`steer` / `followUp` 只排队，不另开一条生成。
 - **流式**。服务端不另存一份完整正文。pi 追加 JSONL，我们转发事件。客户端读得慢就背压，缓冲有上限，满了断开这一条连接。
 - **历史**。只在打开该会话时读。单文件读取有上限。上下文体积靠 pi 自带压缩兜住。
-- **事件循环**。请求路径上不同步读大目录或大文件。订阅回调里的异常记到该会话，不让进程退出。中止要传到模型请求。
+- **事件循环**。请求路径上不同步读大目录或大文件。订阅回调里的异常记到该会话，不让进程退出。中止先清空排队文本，再传到模型请求。策略以后可配置，见上文「往后放」。
 - **文件监听**（做到才启用）。只订已打开的那一层目录，不递归整棵仓库。防抖后再推列表。忽略 `node_modules`、`.git`、`dist`。watcher 数量有上限。
 - **终端**（做到才启用）。PTY 个数有上限，回放缓冲约 100KB，关闭时必须释放文件描述符。
 - **工具**（做到才启用）。先读写编辑，shell 最后开，并加超时和路径限制。在此之前剖面是无工具。

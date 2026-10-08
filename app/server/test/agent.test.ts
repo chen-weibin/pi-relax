@@ -39,6 +39,9 @@ function fakeFactory(): RuntimeFactory {
 			setSessionName(name: string) {
 				sessionManager.appendSessionInfo(name)
 			},
+			clearQueue() {
+				return { steering: [] as string[], followUp: [] as string[] }
+			},
 			async abort() {
 				gate?.()
 				running = false
@@ -100,6 +103,9 @@ describe('agent', () => {
 					return () => listeners.delete(listener)
 				},
 				dispose() {},
+				clearQueue() {
+					return { steering: [] as string[], followUp: [] as string[] }
+				},
 				async abort() {
 					running = false
 				},
@@ -116,6 +122,87 @@ describe('agent', () => {
 		assert.equal(queuedRun.status, 'running')
 		assert.deepEqual(queued, ['steer'])
 		keep()
+	})
+
+	it('clears the queue before abort and returns the texts', async () => {
+		const calls: string[] = []
+		const agent = new Agent(async ({ sessionManager }) => {
+			const listeners = new Set<(event: AgentSessionEvent) => void>()
+			const session = {
+				sessionManager,
+				get isStreaming() {
+					return false
+				},
+				async prompt() {
+					for (const listener of listeners) listener({ type: 'agent_start' })
+				},
+				clearQueue() {
+					calls.push('clearQueue')
+					return { steering: ['cut in'], followUp: ['later'] }
+				},
+				async abort() {
+					calls.push('abort')
+				},
+				subscribe(listener: (event: AgentSessionEvent) => void) {
+					listeners.add(listener)
+					return () => listeners.delete(listener)
+				},
+				dispose() {},
+			}
+			return { session: session as unknown as AgentSession }
+		})
+		const keep = agent.subscribe(() => {})
+		const first = await agent.prompt({ text: 'hi', cwd: homedir() })
+		const stopped = await agent.abort(first.id)
+		assert.deepEqual(calls, ['clearQueue', 'abort'])
+		assert.deepEqual(stopped.cleared, { steering: ['cut in'], followUp: ['later'] })
+		assert.equal(stopped.status, 'idle')
+		keep()
+	})
+
+	it('stays running after agent_end until settled, and stays resident while subscribed', async () => {
+		let disposed = 0
+		let emit: ((event: AgentSessionEvent) => void) | undefined
+		const agent = new Agent(async ({ sessionManager }) => {
+			const listeners = new Set<(event: AgentSessionEvent) => void>()
+			emit = (event) => {
+				for (const listener of listeners) listener(event)
+			}
+			const session = {
+				sessionManager,
+				get isStreaming() {
+					return false
+				},
+				async prompt() {
+					emit?.({ type: 'agent_start' })
+				},
+				clearQueue() {
+					return { steering: [] as string[], followUp: [] as string[] }
+				},
+				async abort() {},
+				subscribe(listener: (event: AgentSessionEvent) => void) {
+					listeners.add(listener)
+					return () => listeners.delete(listener)
+				},
+				dispose() {
+					disposed += 1
+				},
+			}
+			return { session: session as unknown as AgentSession }
+		})
+		const manager = persistChat(homedir(), 'q', 'a')
+		const id = manager.getSessionId()
+		const keep = agent.subscribe(() => {})
+		const started = await agent.prompt({ text: 'hi', sessionId: id })
+		assert.equal(started.status, 'running')
+		emit?.({ type: 'agent_end', messages: [], willRetry: false })
+		assert.equal((await agent.get(id)).status, 'running')
+		assert.equal(disposed, 0)
+		emit?.({ type: 'agent_settled' })
+		assert.equal((await agent.get(id)).status, 'idle')
+		assert.equal(disposed, 0)
+		keep()
+		assert.equal(disposed, 1)
 	})
 
 	it('rejects a thinking level the default model does not support', async () => {

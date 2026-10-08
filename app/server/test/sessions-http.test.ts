@@ -27,6 +27,9 @@ function fakeFactory(): RuntimeFactory {
 			setSessionName(name: string) {
 				sessionManager.appendSessionInfo(name)
 			},
+			clearQueue() {
+				return { steering: [] as string[], followUp: [] as string[] }
+			},
 			async abort() {},
 			subscribe(listener: (event: AgentSessionEvent) => void) {
 				listeners.add(listener)

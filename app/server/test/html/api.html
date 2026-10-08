@@ -423,7 +423,7 @@ ${ERROR_BODY}`,
 						name: "中止",
 						method: "POST",
 						path: "/api/sessions/:id/abort",
-						summary: "打断当前轮。没有生成中也成功。",
+						summary: "先清空排队文本，再打断当前轮。没有生成中也成功。",
 						queryParams: [],
 						bodyParams: [],
 						body: "",
@@ -432,9 +432,19 @@ type AbortRequest = {
 	/** 会话 id。找不到时 404 NOT_FOUND */
 	id: string
 }`,
-						responseType: `/** HTTP 200。没有正在生成也成功，返回的 status 为 "idle"。 */
+						responseType: `/** HTTP 200。没有正在生成也成功，返回的 status 为 "idle"。热会话会先清空队列再中止。 */
 
 ${SESSION_RECORD}
+
+/** 中止响应。cleared 是这次从队列里拿下来、不会再发出去的文本。 */
+type AbortResponse = SessionRecord & {
+	cleared: {
+		/** steer 队列里被清掉的文本，按原顺序 */
+		steering: string[]
+		/** followUp 队列里被清掉的文本，按原顺序 */
+		followUp: string[]
+	}
+}
 
 ${ERROR_BODY}`,
 					},
@@ -443,7 +453,7 @@ ${ERROR_BODY}`,
 						name: "删除",
 						method: "DELETE",
 						path: "/api/sessions/:id",
-						summary: "中止并删除 jsonl。返回 204。",
+						summary: "先清空队列并中止，再删除 jsonl。返回 204。",
 						queryParams: [],
 						bodyParams: [],
 						body: "",
@@ -452,7 +462,7 @@ type DeleteSessionRequest = {
 	/** 会话 id。内存和磁盘都没有时 404 NOT_FOUND */
 	id: string
 }`,
-						responseType: `/** HTTP 204，响应体为空。会先中止再删 jsonl。 */
+						responseType: `/** HTTP 204，响应体为空。会先清空队列并中止，再删 jsonl。 */
 
 ${ERROR_BODY}`,
 					},

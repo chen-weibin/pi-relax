@@ -68,6 +68,8 @@ async function piFactory(): Promise<CreateAgentSessionRuntimeFactory> {
 				noContextFiles: true,
 			},
 		})
+		// ponytail: steeringMode / followUpMode 保持基座默认 one-at-a-time（每次出队一条）。
+		// 以后设置时调用 session.setSteeringMode / setFollowUpMode（'all' | 'one-at-a-time'），两边各自独立。
 		const created = await createAgentSessionFromServices({
 			services,
 			sessionManager,
