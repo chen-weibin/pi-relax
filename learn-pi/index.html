@@ -2045,6 +2045,189 @@ getEntries() 返回 [a1, a2, a3, a4, a5, a6, b1, b2] 共 8 条。
           </div>
         </div>
       `
+    },
+    {
+      id: "topic-11",
+      tag: "11",
+      title: "工具：内置清单、暴露方式、发现与脚本",
+      group: "工具",
+      html: `
+        <div class="qa">
+          <div class="qa-q"><span class="badge">Q1</span><p>pi 默认有哪些工具？哪些一开始就给模型？</p></div>
+          <div class="qa-a">
+            <p>内置文件工具一共 8 个。不改设置时，启动只启用 4 个，常量是 <code>DEFAULT_TOOL_NAMES</code>：<code>read</code>、<code>bash</code>、<code>edit</code>、<code>write</code>。</p>
+            <table class="event-table">
+              <thead><tr><th>工具</th><th>默认</th><th>做什么</th></tr></thead>
+              <tbody>
+                <tr><td><code>read</code></td><td>开</td><td>读文本；太大用 offset/limit 续读。jpg、png、gif、webp、bmp 当图片附件交给模型</td></tr>
+                <tr><td><code>bash</code></td><td>开</td><td>在会话 cwd 里执行 shell。输出过长截断，全文进临时文件。超时是可选参数，不传就没有默认超时</td></tr>
+                <tr><td><code>edit</code></td><td>开</td><td>单文件精确替换。每处 oldText 必须在原文里唯一、互不重叠</td></tr>
+                <tr><td><code>write</code></td><td>开</td><td>整文件写入。不存在就创建，存在就覆盖，并创建父目录</td></tr>
+                <tr><td><code>grep</code></td><td>关</td><td>用 ripgrep 搜文件内容，返回路径和行号</td></tr>
+                <tr><td><code>find</code></td><td>关</td><td>用 fd 按 glob 找路径</td></tr>
+                <tr><td><code>ls</code></td><td>关</td><td>列目录，目录名带 /，包含点文件</td></tr>
+                <tr><td><code>powershell</code></td><td>关</td><td>和 bash 同一套执行框架，shell 换成 PowerShell。只在原生 Windows 进程里可用</td></tr>
+              </tbody>
+            </table>
+            <p>另外两个是内置扩展注册的工具，默认不激活：<code>tool_search</code>、<code>codemode</code>。它们不在上面这 8 个里面。CLI 会加载扩展但保持关闭；SDK 建会话默认不加载，要自己加 <code>createToolSearchExtension()</code> / <code>createCodemodeExtension()</code>。</p>
+            <div class="src">源码：core/settings-manager.ts（DEFAULT_TOOL_NAMES）· core/tools/index.ts（allToolNames / createCodingTools）· docs/cli.md · docs/settings.md</div>
+          </div>
+        </div>
+
+        <div class="qa">
+          <div class="qa-q"><span class="badge">Q2</span><p><code>grep</code> / <code>find</code> 只看工作区根上那一个 <code>.gitignore</code> 吗？</p></div>
+          <div class="qa-a">
+            <p><strong>不是。</strong>pi 的 <code>settings.json</code> 里没有搜索忽略列表。两个工具把忽略交给外部程序，规则按目录分层，不收成一份全局名单。</p>
+            <p><code>grep</code> 调 ripgrep，参数是 <code>--json --line-number --color=never --hidden</code>，外加大小写、字面量和 <code>--glob</code>。没有 <code>--no-ignore</code>，所以走 ripgrep 默认忽略：</p>
+            <ul class="tight">
+              <li>搜索起点以及上面每一层的 <code>.gitignore</code>，子目录里的只作用于自己那棵子树</li>
+              <li><code>.git/info/exclude</code>、Git 全局忽略 <code>core.excludesFile</code></li>
+              <li><code>.ignore</code>、<code>.rgignore</code></li>
+            </ul>
+            <p><code>--hidden</code> 表示点开头的文件也会搜，忽略规则仍然有效。<code>glob</code> 只是再收窄文件类型，不是另一份忽略配置。不传 <code>path</code> 就从会话 cwd 开始。</p>
+            <p><code>find</code> 调 fd，参数是 <code>--glob --color=never --hidden</code>。fd 默认读 <code>.gitignore</code>、<code>.ignore</code>、<code>.fdignore</code>，在 Git 仓库里还会读 exclude 和全局忽略。以前 pi 把每个 <code>.gitignore</code> 收成一份全局规则塞给 fd，导致 <code>a/.gitignore</code> 误伤旁边的 <code>b/</code>（issue 3303）。现在改回分层：每份只约束自己的子树。</p>
+            <p>搜索路径往上能找到 <code>.git</code> 时，不加 <code>--no-require-git</code>，父级 <code>.gitignore</code> 停在嵌套仓库边界。找不到 <code>.git</code> 时加上这个参数，没有仓库也会继续遵守沿途的 <code>.gitignore</code>。</p>
+            <p>只有自己替换 <code>find</code> 的 <code>operations.glob</code> 时，才改成写死的 <code>**/node_modules/**</code> 和 <code>**/.git/**</code>，那条路径不再读 <code>.gitignore</code>。默认实现不走这里。</p>
+            <div class="src">源码：core/tools/grep.ts · core/tools/find.ts · test/suite/regressions/3303-find-nested-gitignore.test.ts</div>
+          </div>
+        </div>
+
+        <div class="qa">
+          <div class="qa-q"><span class="badge">Q3</span><p>为什么 <code>bash</code> 和 <code>powershell</code> 并存？</p></div>
+          <div class="qa-a">
+            <p>执行框架是同一套（<code>powershell.ts</code> 包在 <code>bash.ts</code> 的 shell 工具上），shell 不是同一个。<code>powershell</code> 在 0.84.3（2026-08-24）才加，默认不启用。</p>
+            <p>原生 Windows 上，模型看到的 <code>bash</code> 实际跑 Git Bash（也认 <code>shellPath</code>、PATH 上的 bash）。很多 Windows 命令只在 PowerShell 里正常。<code>powershell</code> 优先 <code>pwsh.exe</code>，否则 <code>powershell.exe</code>，启动参数是 <code>-NoProfile -NonInteractive -ExecutionPolicy Bypass</code>。只在 pi 以原生 Windows 进程运行时可用；WSL 里没有这个工具。</p>
+            <p>编辑器里的 <code>!</code> / <code>!!</code> 仍然走 Bash。常见配法是在 <code>defaultTools</code> 里用 <code>powershell</code> 换掉 <code>bash</code>，两个也可以同时开。</p>
+            <div class="src">源码：core/tools/powershell.ts · core/utils/shell.ts · docs/windows.md · CHANGELOG 0.84.3</div>
+          </div>
+        </div>
+
+        <div class="qa">
+          <div class="qa-q"><span class="badge">Q4</span><p><code>tool_search</code> 和 <code>codemode</code> 是工具吗？什么时候才会出现？</p></div>
+          <div class="qa-a">
+            <p><strong>都是工具</strong>，由内置扩展注册，<code>defaultActive: false</code>。不打开就调不到。那个 8 是一次搜索最多返回几条（<code>DEFAULT_TOOL_SEARCH_LIMIT</code>），不是「工具超过 8 个就自动打开」的阈值。源码里没有按工具个数自动启用的判断。</p>
+            <p>打开方式分主动和被动。主动是你写进配置或命令行，工具立刻出现在每次请求里：</p>
+<pre><code>{ "defaultTools": ["+tool_search"] }   // 或 ["+codemode"]，原来的 read/bash/edit/write 还在
+pi --tools +codemode</code></pre>
+            <p>被动只看某个<strong>已启用 MCP 服务器</strong>的 <code>exposure</code>，不看它有多少个工具。MCP 扩展在 <code>ensureDiscoveryActive</code> 里改激活名单：</p>
+            <ul class="tight">
+              <li><code>deferred</code> → 自动激活 <code>tool_search</code></li>
+              <li><code>codemode</code>（MCP 的默认值）→ 自动激活 <code>codemode</code>（<code>autoEnableCodemode === false</code> 时不会）</li>
+              <li><code>direct</code> → 那些工具从一开始就在列表里，这两个都不会因此被打开</li>
+            </ul>
+            <div class="callout warn"><strong>自己用扩展注册的 deferred / codemode 工具，不会让 pi 自动加上这两扇门。</strong>自动打开只发生在 MCP 配置这条路上。扩展自己注册的，要自己打开 <code>tool_search</code> 或 <code>codemode</code>，或自己 <code>setActiveTools</code>。</div>
+            <p><code>--no-extensions</code> 会把这两个扩展一起关掉。</p>
+
+            <h4 style="font-size:14px;margin:14px 0 8px;color:var(--text);">tool_search</h4>
+            <p>模型调用它，传入查询。它只检索暴露方式为 <code>deferred</code> 或 <code>codemode</code>、并且当前还没激活的工具，BM25 打分，默认最多 8 个。命中的放进激活名单，<strong>下一次</strong>模型调用才能直接调用。这次变更写进会话，这条分支上会留着。已经在列表里的 <code>read</code>、<code>bash</code> 搜不到，也不会被它移出列表。</p>
+            <p>主动打开时，它只是列表里多出来的一个工具。100 个自己注册的工具如果都是默认 <code>direct</code>，它们本来就会全部进提示词；再加上 <code>tool_search</code> 就是 101 个。它不会把那 100 个藏起来，也不是「先展示 10 个、剩下的靠搜索」。</p>
+
+            <h4 style="font-size:14px;margin:14px 0 8px;color:var(--text);">codemode</h4>
+            <p>模型调用这一个工具，参数是一段 JavaScript，不是 JSON。脚本跑在 QuickJS 沙箱里：没有 Node API，没有文件系统、网络和定时器。可以写循环、过滤、计算；要读文件、跑命令、调 MCP，必须走 <code>tools.*</code> 或 <code>models.*</code>。只有脚本打印或返回的内容回到模型。</p>
+            <p>适合一轮里并行调很多次工具、把大结果滤短，或调用分类模型 <code>models.classify()</code>、图像模型 <code>models.generateImages()</code>。对话模型只能列出，不能从脚本里跑。<code>store</code> / <code>load</code> 在多次调用之间存小 JSON，只有脚本成功才写入会话。</p>
+            <p><code>codemode.mode</code> 默认 <code>on</code>：<code>read</code>、<code>bash</code> 仍可以直接调，也可以在脚本里调。设成 <code>only</code> 后，那些工具从模型的列表里拿掉，只能通过脚本调用。</p>
+<pre><code>// 模型调用 codemode 时传入的脚本。200 行匹配不会进上下文。
+const found = await tools.grep({ pattern: "TODO", limit: 200 });
+const byFile = {};
+for (const line of found.split("\\n")) {
+  const file = line.split(":")[0];
+  if (!file) continue;
+  byFile[file] = (byFile[file] ?? 0) + 1;
+}
+return Object.entries(byFile).sort((a, b) =&gt; b[1] - a[1]).slice(0, 10);</code></pre>
+            <div class="src">源码：extensions/tool-search/ · extensions/codemode/ · extensions/mcp/index.ts（ensureDiscoveryActive）· docs/codemode.md · docs/mcp.md · docs/cli.md</div>
+          </div>
+        </div>
+
+        <div class="qa">
+          <div class="qa-q"><span class="badge">Q5</span><p>tools 和 MCP 是一回事吗？</p></div>
+          <div class="qa-a">
+            <p>对模型来说，能调用的都叫工具：名字、说明、参数、一次执行。<code>read</code>、扩展里 <code>registerTool</code> 的函数、<code>codemode</code>、<code>tool_search</code>，以及 MCP 服务器上的每个远程能力，进了列表之后都是这种东西。MCP 工具在 pi 里的名字是 <code>mcp__&lt;服务器&gt;__&lt;工具名&gt;</code>。</p>
+            <p>差别在实现放在哪：</p>
+            <ul class="tight">
+              <li><strong>工具</strong>：执行代码在 pi 进程里。内置读写和扩展自己写的 <code>execute</code> 都是这样。适合只给这个 agent 用、要直接碰本机文件或会话的能力。</li>
+              <li><strong>MCP</strong>：一份独立服务，按 MCP 协议提供工具（还可以提供资源）。pi 只负责连接并登记。适合已有服务、多个 agent 共用、或不想把实现写进 pi 的情况，比如 GitHub、数据库。</li>
+            </ul>
+            <p>MCP 服务器还可以选这些工具怎么交给模型：<code>direct</code>、<code>deferred</code>、<code>codemode</code>、<code>hidden</code>。单个工具可以用 <code>toolExposure</code> 覆盖服务器的默认值。普通 <code>registerTool</code> 不写 <code>exposure</code> 时就是 <code>direct</code>。</p>
+          </div>
+        </div>
+
+        <div class="qa">
+          <div class="qa-q"><span class="badge">Q6</span><p>注册工具时能设什么？「100 个 direct 全部进提示词」是什么意思？</p></div>
+          <div class="qa-a">
+            <p><code>registerTool</code> 的类型是 <code>ToolDefinition</code>。不写 <code>exposure</code> 就是 <code>direct</code>。<code>direct</code> 一注册就会被激活，激活名单就是每次请求里交给模型的工具定义。所以 100 个都是默认 <code>direct</code>，提示词里就是这 100 份；再打开 <code>tool_search</code> 只是变成 101 份。要让它们先不进提示词，注册时得把 <code>exposure</code> 改成 <code>deferred</code> 或 <code>codemode</code>。</p>
+            <p>和「进不进提示词」直接相关的：</p>
+            <ul class="tight">
+              <li><code>exposure</code>：五类，见下一问。默认 <code>direct</code></li>
+              <li><code>defaultActive</code>：注册时要不要放进激活名单。<code>direct</code> 和 <code>model-only</code> 默认 <code>true</code>。设成 <code>false</code> 后，要靠 <code>defaultTools</code>、<code>--tools</code> 或 <code>setActiveTools()</code> 才会出现。这不是第六种暴露方式，只是名单的初始值</li>
+              <li><code>name</code>、<code>description</code>、<code>parameters</code>：模型看到的名字、说明和参数（TypeBox）</li>
+              <li><code>promptSnippet</code>、<code>promptGuidelines</code>：额外写进系统提示的一行摘要和使用说明。没有 snippet 时，自定义工具不会出现在系统提示的 Available tools 那一节，但工具定义本身仍会作为工具传给模型</li>
+            </ul>
+            <p>其余不决定它在不在那份列表里：<code>execute</code>、<code>label</code>、<code>outputSchema</code>（codemode 脚本拿到结构化结果而不是一段文本）、<code>prepareArguments</code>、<code>executionMode</code>（<code>sequential</code> / <code>parallel</code>）、<code>namespace</code>、<code>annotations</code>（只读、破坏性、可重复、是否访问外部世界；给权限扩展做参考，pi 不拿它做校验）、<code>prepareLoadout</code>、<code>constrainedSampling</code>、以及终端渲染用的 <code>renderCall</code> / <code>renderResult</code> / <code>renderShell</code>。</p>
+            <div class="src">源码：core/extensions/types.ts（ToolDefinition、ToolExposure、ToolAnnotations）</div>
+          </div>
+        </div>
+
+        <div class="qa">
+          <div class="qa-q"><span class="badge">Q7</span><p>五种暴露方式，和「激活」是什么关系？</p></div>
+          <div class="qa-a">
+            <p>两个开关分开。<code>exposure</code> 决定模型能怎么碰到它。<strong>激活名单</strong>才是写进下一次请求的那一组。<code>defaultActive</code> 只是注册时的初始值，之后用 <code>defaultTools</code>、<code>--tools</code>、<code>setActiveTools()</code> 改。没有一种暴露是「永远只能在脚本里调用、激活了也不行」。</p>
+            <table>
+              <thead><tr><th>exposure</th><th>注册后</th><th>例子</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><code>direct</code></td>
+                  <td>在激活名单里就写进提示词。模型直接调用，脚本也能调用。默认会激活</td>
+                  <td><code>read</code>、<code>bash</code>、<code>edit</code>、<code>write</code>。自己写的 <code>query_orders</code> 不填 exposure 也是这种</td>
+                </tr>
+                <tr>
+                  <td><code>model-only</code></td>
+                  <td>同样写进提示词，但脚本不能调用。默认会激活</td>
+                  <td><code>tool_search</code> 和 <code>codemode</code> 自己。模型可以调用它们，脚本里不能再 <code>tools.codemode(...)</code> 套一层</td>
+                </tr>
+                <tr>
+                  <td><code>codemode</code></td>
+                  <td>注册后脚本就能调用，默认不在提示词里。<code>codemode</code> 工具的说明里会尽量列出它们（约 3000 token）。显式激活后，模型也可以直接调用</td>
+                  <td>MCP 不写 exposure 时就是这种。模型调用 <code>codemode</code>，脚本里写 <code>tools.mcp__github__search_issues({ query: "bug" })</code>，不必先 search，也不会因此把它激活成下一次的直接工具</td>
+                </tr>
+                <tr>
+                  <td><code>deferred</code></td>
+                  <td>和上一行一样，脚本能调用，默认不进提示词。差别是 codemode 的说明里<strong>不列出</strong>它们，打算用 <code>tool_search</code> 发现。激活后模型也能直接调用</td>
+                  <td>MCP <code>exposure: "deferred"</code>。100 个工具一个都不在请求里。模型调用 <code>tool_search</code>，命中的从下一次请求起变成直接工具。没有 tool_search 时，只要 codemode 开着，脚本里仍然可以调用</td>
+                </tr>
+                <tr>
+                  <td><code>hidden</code></td>
+                  <td>只登记在进程里。激活也没有效果，模型和脚本都调不到。不是「先藏着以后按条件再用」</td>
+                  <td>MCP 把 <code>delete_repo</code> 设成 <code>hidden</code></td>
+                </tr>
+              </tbody>
+            </table>
+            <p>「先注册、先不放进提示词、以后再打开」如果工具本身是 <code>direct</code>，用的是 <code>defaultActive: false</code>，不是 <code>hidden</code>。</p>
+            <div class="src">源码：core/extensions/types.ts（ToolExposure 注释：direct / model-only 注册即激活；active set 就是声明给模型的那一组）</div>
+          </div>
+        </div>
+
+        <div class="qa">
+          <div class="qa-q"><span class="badge">Q8</span><p>工具不在提示词里，模型怎么知道去调用？说明里写了就能直接写脚本吗？</p></div>
+          <div class="qa-a">
+            <p>模型看不到的工具，就不会直接发起调用。它只知道两扇门，而且门本身得已经在提示词里：</p>
+            <ul class="tight">
+              <li>有 <code>tool_search</code>：模型传入查询，命中的放进激活名单，下一次请求才带上名字和参数</li>
+              <li>有 <code>codemode</code>：模型写脚本。脚本里可以按名字调用那些没出现在提示词里的工具，也可以先 <code>searchTools()</code> / <code>describeTool()</code></li>
+            </ul>
+            <p>系统提示里的 MCP 服务器简介只有服务器级的一两句话，没有每个工具的参数。既没有 <code>tool_search</code> 也没有 <code>codemode</code> 时，这些工具对模型来说就是不存在。</p>
+            <p><strong>说明里已经有声明时，可以不搜索、也不激活，直接写脚本调用。</strong>要同时满足：</p>
+            <ul class="tight">
+              <li><code>codemode</code> 这个工具本身在提示词里</li>
+              <li>目标工具已注册，且暴露方式是 <code>codemode</code>（不是 <code>deferred</code>）</li>
+              <li>它的类型声明放得进 <code>codemode</code> 说明里大约 3000 token 的预算</li>
+            </ul>
+            <p>放进去之后，模型可以直接写 <code>tools.mcp__github__search_issues({ query: "bug" })</code>。这次调用不把它放进激活名单。声明超出预算、或工具是 <code>deferred</code> 时，说明里没有参数，脚本里要先搜，或者等 <code>tool_search</code> 把它激活后下一次再当普通工具调用。</p>
+            <div class="callout ok"><strong>一句话</strong>：激活名单 = 写进请求的工具定义。<code>direct</code> 默认就在里面。<code>codemode</code> / <code>deferred</code> 默认不在里面，但脚本可以调用；前者还会尽量把签名写进 <code>codemode</code> 的说明，所以模型可以按名字直接写脚本。<code>tool_search</code> 负责把还没激活的这两类搜出来，放进下一次请求。个数不会自动打开任何工具。</div>
+            <div class="src">源码：core/extensions/types.ts · extensions/tool-search/tool.ts（isSearchable、DEFAULT_TOOL_SEARCH_LIMIT）· docs/codemode.md（说明里的声明与 inlineBudget）· docs/mcp.md（exposure 与 mcp_servers 小节）</div>
+          </div>
+        </div>
+      `
     }
   ];
 
