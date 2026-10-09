@@ -1,3 +1,4 @@
+import { createRequire } from 'node:module'
 import { getSupportedThinkingLevels, InMemoryCredentialStore, type Model } from '@earendil-works/pi-ai'
 import {
 	createAgentSessionFromServices,
@@ -8,6 +9,11 @@ import {
 	type SessionManager,
 } from '@earendil-works/pi-coding-agent'
 import { getRelaxAgentDir } from '../config/home.js'
+import { extensionFactories } from '../extensions/index.js'
+
+const require = createRequire(import.meta.url)
+// 官方包没有 main / exports，只有 src/index.ts。交给基座的 jiti 加载，避免 tsc 编它的源码。
+const langfuseExtensionPath = require.resolve('@langfuse/pi-observability-plugin/src/index.ts')
 
 const PROVIDER_ID = 'minimax'
 const BASE_URL = 'https://api.minimax.cn/anthropic'
@@ -61,7 +67,11 @@ async function piFactory(): Promise<CreateAgentSessionRuntimeFactory> {
 			agentDir,
 			modelRuntime,
 			resourceLoaderOptions: {
+				// 磁盘扩展仍不扫。noExtensions 仍会加载 additionalExtensionPaths。
+				// 密钥读进程环境变量。LANGFUSE_TRACING_ENABLED=false 时插件自己不上报。
 				noExtensions: true,
+				additionalExtensionPaths: [langfuseExtensionPath],
+				extensionFactories,
 				noSkills: true,
 				noPromptTemplates: true,
 				noThemes: true,

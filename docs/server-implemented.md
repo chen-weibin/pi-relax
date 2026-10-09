@@ -30,6 +30,13 @@
 2. 新会话思考档位默认 `medium`。创建和续发都可以指定档位；不在该模型支持列表里则 400。
 3. 按模型查询可选档位：`GET /api/models/thinking-levels?provider=minimax&id=MiniMax-M3`。未注册的模型返回 404。MiniMax-M3 当前是 `off`、`minimal`、`low`、`medium`、`high`。
 
+## 追踪
+
+1. 会话工厂把 `@langfuse/pi-observability-plugin@0.1.2` 的入口放进 `additionalExtensionPaths`。磁盘上的其它扩展仍然不加载。官方插件记的是这一轮用户刚说的那句。
+2. 自己写的扩展在 `app/server/src/extensions/`。当前 `providerRequestTrace` 在每次模型 API 调用前，把请求体记到同一条 Conversational Turn 下的 `Provider Request`。那份 input 是发给接口的参数，`messages` 含此前轮次。不上传 `Authorization`。
+3. 密钥在 `app/server/.env`：`LANGFUSE_PUBLIC_KEY`、`LANGFUSE_SECRET_KEY`、`LANGFUSE_BASE_URL`（当前是 `https://cloud.langfuse.com`）。一次用户消息一条 trace，同一条会话共用一个 session。
+4. 默认上传。`LANGFUSE_TRACING_ENABLED=false` 时两边都不报，改完要重启 server。
+
 ## 当前关掉的剖面
 
-工具、技能、扩展、提示词模板、主题、上下文文件都显式关掉。文件监听和终端还没做。
+工具、技能、提示词模板、主题、上下文文件都显式关掉。磁盘扩展不扫。文件监听和终端还没做。

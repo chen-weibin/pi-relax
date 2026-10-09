@@ -15,6 +15,9 @@
 	"dependencies": {
 		"@earendil-works/pi-ai": "^1.0.4",
 		"@earendil-works/pi-coding-agent": "^1.0.4",
+		"@langfuse/pi-observability-plugin": "0.1.2",
+		"@langfuse/tracing": "5.13.1",
+		"@opentelemetry/api": "1.9.1",
 		"cors": "^2.8.5",
 		"dotenv": "^18.0.5",
 		"express": "^4.21.1"
