@@ -2228,6 +2228,82 @@ return Object.entries(byFile).sort((a, b) =&gt; b[1] - a[1]).slice(0, 10);</code
           </div>
         </div>
       `
+    },
+    {
+      id: "topic-12",
+      tag: "12",
+      title: "请求用哪个模型：创建时选一次，之后只读会话上的值",
+      group: "模型",
+      html: `
+        <div class="qa">
+          <div class="qa-q"><span class="badge">Q1</span><p>创建会话可以不指定模型吗？每次请求会重新找吗？</p></div>
+          <div class="qa-a">
+            <p><code>createAgentSession</code> 的 <code>model</code> 可以不传。不传时库会按下面的顺序自己选一个，挂到这个会话上。选模型发生在创建时，不会向模型发请求。</p>
+            <p>之后每次 <code>prompt()</code> 只读会话上挂着的模型：有就用，空就抛 <code>No model selected</code>。不会再读 settings，也不会再走内置默认。<code>prompt()</code> 没有模型参数，不能在请求参数里临时带一个模型。</p>
+            <p>要换模型，在请求前调用 <code>setModel</code>。它改的是会话上挂着的那个，下一次请求用新的。默认 <code>persist: false</code>，只改这次会话，并在会话记录里追加一条 <code>model_change</code>。加上 <code>{ persist: true }</code> 才会把 <code>defaultProvider</code> 和 <code>defaultModel</code> 写进全局 settings。</p>
+            <div class="callout"><strong>虚拟模型是例外。</strong>会话上仍挂着虚拟模型，真正发请求前 <code>prepareRequest</code> 会按这一次的消息再路由到一个物理模型。下一轮又会路由。普通模型没有这一步。</div>
+            <div class="src">源码：core/sdk.ts（createAgentSession）· core/agent-session.ts（prompt 的空模型检查、setModel）· core/model-runtime.ts（resolveModel）</div>
+          </div>
+        </div>
+
+        <div class="qa">
+          <div class="qa-q"><span class="badge">Q2</span><p>创建时按什么顺序找？哪一档失败才看下一档？</p></div>
+          <div class="qa-a">
+            <p>某一档返回了模型，后面的档不再看。命令行如果写了 <code>--model</code> 并且解析成功，直接用它，下面这些都不看。解析失败是退出，不会悄悄改用下一档。</p>
+            <p>SDK 不传 <code>model</code> 时：</p>
+            <table class="event-table">
+              <thead><tr><th>顺序</th><th>用它的条件</th><th>失败后才往下</th></tr></thead>
+              <tbody>
+                <tr><td>1. 旧会话记录</td><td>当前分支已有消息，记下的 provider/modelId 还在目录里，并且该 provider 本地有凭证</td><td>新会话没有消息；或模型不在目录里；或凭证没了</td></tr>
+                <tr><td>2. settings 里的一对</td><td><code>defaultProvider</code> 和 <code>defaultModel</code> 都有，能配成目录里的同一条，并且该 provider 有凭证</td><td>字段缺失、配不成一条、或该 provider 没有凭证</td></tr>
+                <tr><td>3. 内置默认</td><td>在「本地已有凭证」的 provider 里，按 <code>defaultModelPerProvider</code> 的固定顺序对上第一个。例如已有 <code>MINIMAX_API_KEY</code> 就对上 <code>minimax/MiniMax-M2.7</code></td><td>这些默认 id 都对不上时，用有凭证的模型列表里的第一个。一个有凭证的 provider 都没有，才落到下一行</td></tr>
+                <tr><td>4. 仍然没有</td><td>会话仍能创建，<code>session.model</code> 为空</td><td>之后不 <code>setModel</code> 就 <code>prompt()</code>，报 <code>No model selected</code></td></tr>
+              </tbody>
+            </table>
+            <p>新会话没有第 1 档，从 settings 开始。旧会话第 1 档成功时，不再读 settings。</p>
+            <p>命令行还有一档插在最前：没写 <code>--model</code> 的<strong>新会话</strong>会看 <code>--models</code> 或 settings 里的 <code>enabledModels</code>。默认模型在这个范围内就用默认，不在就用范围内的第一个。旧会话不看这个范围。</p>
+            <div class="src">源码：core/model-resolver.ts（findInitialModel、defaultModelPerProvider）· core/sdk.ts · main.ts（buildSessionOptions）</div>
+          </div>
+        </div>
+
+        <div class="qa">
+          <div class="qa-q"><span class="badge">Q3</span><p><code>defaultProvider</code> 和 <code>defaultModel</code> 是多个吗？能一个写 openai、另一个写 MiniMax 吗？什么时候写进文件？</p></div>
+          <div class="qa-a">
+            <p>各是<strong>一个字符串</strong>，可以缺省。查找用的是 <code>getModel(defaultProvider, defaultModel)</code>，必须是目录里的同一条。provider 写成 <code>openai</code>、model 写成 <code>MiniMax-M2.7</code> 配不上，这一档失败，继续往下。</p>
+            <p>文件分两份，项目覆盖全局：</p>
+            <ul class="tight">
+              <li>全局：<code>~/.pi/agent/settings.json</code>。设了 <code>PI_CODING_AGENT_DIR</code> 就改用那个目录下的 <code>settings.json</code></li>
+              <li>项目：<code>&lt;cwd&gt;/.pi/settings.json</code>。同名字段整字段覆盖全局</li>
+            </ul>
+            <p>安装或第一次创建会话不会自动写这两个字段。程序写入时只写全局文件，出现在这几处：</p>
+            <ul class="tight">
+              <li>交互里把模型设为默认</li>
+              <li>当前会话还是占位模型 <code>unknown/unknown</code> 时，第一次登录某个 provider：登录框只收 key，然后把该 provider 的内置默认模型写成默认。例如第一次登录 minimax，写入 <code>minimax</code> 和 <code>MiniMax-M2.7</code>。会话上已经有别的模型时，登录只更新 <code>auth.json</code></li>
+              <li><code>setModel</code> / <code>cycleModel</code> 传入 <code>{ persist: true }</code></li>
+              <li>实验性 models provider 的 <code>select()</code> 每次选择都会写</li>
+            </ul>
+            <p><code>/model 某个模型</code> 和 Ctrl+P 切换是 <code>persist: false</code>，只改当前会话。也可以直接改 <code>settings.json</code>，或者自己做功能去写。项目级文件里的这两个字段只在手写时才有。</p>
+            <div class="src">源码：core/settings-manager.ts（Settings、setDefaultModelAndProvider 只写 globalSettings）· modes/interactive/interactive-mode.ts（登录后 persist、/model 不 persist）</div>
+          </div>
+        </div>
+
+        <div class="qa">
+          <div class="qa-q"><span class="badge">Q4</span><p>模型目录和 key 存在哪？<code>auth.json</code> 有项目级吗？</p></div>
+          <div class="qa-a">
+            <p>模型目录不来自 <code>auth.json</code>。目录是代码里的内置列表，自定义模型在全局 <code>~/.pi/agent/models.json</code>。</p>
+            <p>写进文件的 key 只有一份：全局 <code>~/.pi/agent/auth.json</code>。一个 provider 一条，多条可以并存，例如 openai 和 minimax 各有一把 key。类型是 <code>api_key</code> 或 <code>oauth</code>。没有项目级 <code>auth.json</code>，会话文件只记用过的 <code>provider/modelId</code>，不记 key。</p>
+            <div class="callout ok"><strong>判断依据</strong>：<code>createAgentSessionServices</code> 把凭证路径固定成 <code>join(agentDir, "auth.json")</code>。<code>agentDir</code> 来自 <code>getAgentDir()</code>，即 <code>PI_CODING_AGENT_DIR</code> 或 <code>~/.pi/agent</code>，不包含项目 cwd。<code>AuthStorage.create()</code> 和 <code>getAuthPath()</code> 用同一默认路径。项目级只有 <code>&lt;cwd&gt;/.pi/settings.json</code>，<code>Settings</code> 里没有 API key 字段。</div>
+            <p>每个 provider 取凭证时找到就停：</p>
+            <ul class="tight">
+              <li>这次进程里临时给的 key，例如 <code>--api-key</code>。只在内存里</li>
+              <li><code>auth.json</code> 里该 provider 已有记录。有记录就不再看环境变量</li>
+              <li>都没有时才看环境变量。minimax 是 <code>MINIMAX_API_KEY</code>，minimax-cn 是 <code>MINIMAX_CN_API_KEY</code>。Bedrock、Vertex 还会看本机 AWS / gcloud 凭证</li>
+            </ul>
+            <p>这里只检查本地能不能取出凭证，不会发请求试 key 是否有效。内置默认那一档就是：目录里的模型，其 provider 通过了上面任一来源，再按固定顺序挑。</p>
+            <div class="src">源码：config.ts（getAgentDir、getAuthPath）· core/agent-session-services.ts · core/auth-storage.ts · packages/ai/src/auth/resolve.ts · packages/ai/src/env-api-keys.ts · packages/ai/src/auth/types.ts（一个 provider 一条 Credential）</div>
+          </div>
+        </div>
+      `
     }
   ];
 
