@@ -44,7 +44,7 @@ pi 没有会话索引。`list(cwd)` 扫该编码目录下的 `*.jsonl`，`listAl
 ~/.relax/agent/sessions/--<cwd 编码>--/<时间戳>_<sessionId>.jsonl
 ```
 
-未指定工作区时 cwd 为 `~/.relax/workspace`（随 `RELAX_HOME` 换走）。本轮不读技能、提示词、主题、上下文文件，也不扫磁盘上的扩展。只显式挂 Langfuse 官方插件 `@langfuse/pi-observability-plugin`，把每次对话发到 Langfuse Cloud。不写索引文件。
+未指定工作区时 cwd 为 `~/.relax/workspace`（随 `RELAX_HOME` 换走）。本轮不读技能、提示词、主题、上下文文件，也不扫磁盘上的扩展。显式挂 Langfuse 官方插件 `@langfuse/pi-observability-plugin` 和 `pi-web-access`。不写索引文件。
 
 三条原则：
 
@@ -79,8 +79,8 @@ pi 暴露的加载点都要能指定到 `.relax` 或配置里的路径，不默�
 
 当前只定范围：
 
-- 系统提示词、技能、规则、扩展都要可控。默认路径等那一块开工再定。扩展能执行代码，磁盘扫描默认关掉。当前只显式挂 Langfuse 官方插件，见下文「追踪」。
-- 工具用 pi 的内置白名单，范围锁在该会话的项目根或默认工作区。默认开哪几个，做到工具那一块再定。
+- 系统提示词、技能、规则、扩展都要可控。默认路径等那一块开工再定。扩展能执行代码，磁盘扫描默认关掉。当前显式挂 Langfuse 官方插件和 `pi-web-access`，见下文「追踪」。找官方或社区插件时看 [https://pi.dev/packages](https://pi.dev/packages)（查阅时机：要加扩展、避免自己再写一份已有能力时）。
+- 工具白名单写在会话工厂：八个内置（`read`、`bash`、`edit`、`write`、`grep`、`find`、`ls`、`powershell`）、`codemode`，以及 `pi-web-access` 的 `web_search`、`fetch_content`、`get_search_content`、`source_check`。`tool_search` 和 `web_enable` 不开。`powershell` 在非 Windows 上调用会由基座报错。模式以后再按这份名单切换。路径仍是该会话的 cwd。
 - 模型当前只接 MiniMax。密钥用 `MINIMAX_API_KEY`（启动时已有的环境变量优先，否则读 `app/server/.env`），或写在 `.relax` 里由我们指定的 auth 文件。选型走 pi 的 `ModelRuntime`。以后加提供商只加配置，不改会话和事件通路。
 - 上下文压缩沿用 pi 的自动行为，不单独做接口。它是上下文体积的安全阀。
 - 分支、fork、从某一条消息重开是高级能力。JSONL 里的树先留着，当前不设计接口。文件快照式的回滚也不做。
@@ -89,7 +89,9 @@ pi 暴露的加载点都要能指定到 `.relax` 或配置里的路径，不默�
 
 ## 追踪
 
-会话创建时把 `@langfuse/pi-observability-plugin` 的 `src/index.ts` 放进 `additionalExtensionPaths`。`noExtensions` 仍关掉磁盘扫描，这条显式路径会加载。包没有 `main`，由基座用 jiti 读这份 TypeScript。自己写的扩展在 `app/server/src/extensions/`，由 `extensionFactories` 挂上；当前是 `providerRequestTrace`，在每次模型 API 调用前把请求体记成同一条 turn 下的 `Provider Request`。密钥在 `app/server/.env` 的 `LANGFUSE_PUBLIC_KEY`、`LANGFUSE_SECRET_KEY`、`LANGFUSE_BASE_URL`。默认上传。`LANGFUSE_TRACING_ENABLED=false` 时两边都不报，改完重启 server。已实现说明见 [server-implemented.md](server-implemented.md) 的「追踪」（查阅时机：对一下面板里能看到什么、或临时关掉上传时）。
+会话创建时把 `@langfuse/pi-observability-plugin` 的 `src/index.ts` 和 `pi-web-access` 的 `dist/index.js` 放进 `additionalExtensionPaths`。`noExtensions` 仍关掉磁盘扫描，这两条显式路径会加载。Langfuse 包没有 `main`，由基座用 jiti 读 TypeScript。`pi-web-access` 用发布包声明的 `./dist` 入口。自己写的扩展在 `app/server/src/extensions/`，由 `extensionFactories` 挂上：`providerRequestTrace` 在每次模型 API 调用前把请求体记成同一条 turn 下的 `Provider Request`；`createCodemodeExtension()` 提供 `codemode`。密钥在 `app/server/.env` 的 `LANGFUSE_PUBLIC_KEY`、`LANGFUSE_SECRET_KEY`、`LANGFUSE_BASE_URL`。默认上传。`LANGFUSE_TRACING_ENABLED=false` 时两边都不报，改完重启 server。已实现说明见 [server-implemented.md](server-implemented.md) 的「追踪」（查阅时机：对一下面板里能看到什么、或临时关掉上传时）。
+
+`pi-web-access` 的配置和抓取缓存跟 `PI_CODING_AGENT_DIR`。`ensureRelaxHome()` 启动时把它设成 `~/.relax/agent`，所以配置是 `~/.relax/agent/web-search.json`，全文缓存在 `~/.relax/agent/web-search-cache/`。文件不存在时写入 `{ "toolActivation": "eager" }`，四个联网工具从第一轮就在，不注册 `web_enable`。已有文件不覆盖。插件自带的斜杠命令仍会注册：用户原文以 `/` 开头且名字对上时，`prompt` 先执行命令，不把这句发给模型。
 
 ## 对话
 
@@ -105,7 +107,7 @@ pi 暴露的加载点都要能指定到 `.relax` 或配置里的路径，不默�
 
 `app/server/src/agent/` 是唯一调用 pi 会话 API 的目录。类内部按 sessionId 缓存 `{ session: AgentSession }`，同一套工厂（内部 `createAgentSessionRuntime`，对外只返回 session）。对外 `prompt`（可无 id，可带 `thinkingLevel` 与 `streamingBehavior`）、`rename`、`abort`、`status`、`subscribe`。HTTP 和 SSE 只订这个类。档位查询读已注册模型，不经过这个类。
 
-剖面本轮：`noTools: "all"`，loader `noSkills` / `noExtensions` / `noContextFiles` / `noPromptTemplates` / `noThemes`。`noExtensions` 只停磁盘扫描；`additionalExtensionPaths` 指向 `@langfuse/pi-observability-plugin` 的入口；`extensionFactories` 来自 `app/server/src/extensions/`。模型 MiniMax（`MINIMAX_API_KEY`），`agentDir` 指向 `~/.relax/agent`。
+剖面本轮：`tools` 为八个内置工具、`codemode` 和四个联网工具。loader `noSkills` / `noExtensions` / `noContextFiles` / `noPromptTemplates` / `noThemes`。`noExtensions` 只停磁盘扫描；`additionalExtensionPaths` 指向 Langfuse 和 `pi-web-access`；`extensionFactories` 来自 `app/server/src/extensions/`，含 `createCodemodeExtension()`。模型 MiniMax（`MINIMAX_API_KEY`），`agentDir` 指向 `~/.relax/agent`。
 
 新对话：`SessionManager.create(cwd)` 后立刻 `prompt`。文件等第一条 user 消息。思考档位默认 `medium`。正在回复时，不带 `streamingBehavior` 再 `prompt` 得 `BUSY`；`steer` 在当前回复及其工具结束后、下一次模型调用前插入，`followUp` 在本轮结束后再发。两者都不打断正在吐的字。多条排队的出队固定为基座默认一次一条（`steeringMode` 与 `followUpMode` 都是 `one-at-a-time`）。以后可以各自设成 `all` 或 `one-at-a-time`，入口是基座的 `setSteeringMode` / `setFollowUpMode`。现在不读 settings 覆盖，也不调用这两个 setter。
 
@@ -142,9 +144,9 @@ SSE 断线不补，客户端用历史对齐。发送和中止走 HTTP。本轮�
 
 后面的块只加不改，接缝有四条：
 
-- **能力剖面**。每次创建 `AgentSession` 都带一份显式剖面：工具、技能、扩展、规则和上下文文件、提示词，各自是关还是一组路径。关掉必须传给 pi（如 `noTools`、`noSkills`、`noExtensions`、不扫描上下文），不能靠这段代码还没写。以后加工具或技能，只改剖面。Langfuse 是这一条上的例外：磁盘扩展仍关，只多给一条 `additionalExtensionPaths`，再加上 `app/server/src/extensions/` 里的 factory。
+- **能力剖面**。每次创建 `AgentSession` 都带一份显式剖面：工具、技能、扩展、规则和上下文文件、提示词，各自是关还是一组路径。关掉必须传给 pi（如 `noSkills`、`noExtensions`、不扫描上下文），不能靠这段代码还没写。工具用 `tools` 白名单。磁盘扩展仍关，只多给 `additionalExtensionPaths`（Langfuse、`pi-web-access`），再加上 `app/server/src/extensions/` 里的 factory。
 - **列表**。本轮无索引，走 `SessionManager.list` / `listAll` 全量扫描，并上智能体里尚未落盘的热会话。
-- **会话宿主**。智能体类持有多份 `AgentSession`（多工作目录可同时生成）。事件是 `(sessionId, AgentSessionEvent)`。SDK 会话默认不加载 CLI 的 `codemode` / MCP，要用时显式挂 extension factories。
+- **会话宿主**。智能体类持有多份 `AgentSession`（多工作目录可同时生成）。事件是 `(sessionId, AgentSessionEvent)`。SDK 会话默认不加载 CLI 的 `codemode` / MCP。`codemode` 由 `createCodemodeExtension()` 显式挂上。`tool_search` 和 MCP 当前不挂。
 - **未做到的子系统不启动**。文件监听、PTY、技能扫描各自独立模块，对应那一块开始之前不加载、不占文件描述符。
 
 ## 性能上限
@@ -160,7 +162,7 @@ SSE 断线不补，客户端用历史对齐。发送和中止走 HTTP。本轮�
 - **事件循环**。请求路径上不同步读大目录或大文件。订阅回调里的异常记到该会话，不让进程退出。中止先清空排队文本，再传到模型请求。策略以后可配置，见上文「往后放」。
 - **文件监听**（做到才启用）。只订已打开的那一层目录，不递归整棵仓库。防抖后再推列表。忽略 `node_modules`、`.git`、`dist`。watcher 数量有上限。
 - **终端**（做到才启用）。PTY 个数有上限，回放缓冲约 100KB，关闭时必须释放文件描述符。
-- **工具**（做到才启用）。先读写编辑，shell 最后开，并加超时和路径限制。在此之前剖面是无工具。
+- **工具**。已启用八个内置工具（含 `bash`）和 `codemode`，以及 `pi-web-access` 的四个联网工具。`bash` 这一步没有另加超时或路径限制，范围是该会话的 cwd。`powershell` 非 Windows 上由基座在调用时报错。
 - **技能与规则**（做到才启用）。只扫剖面里的目录，不向上搜。条数和正文大小有上限，避免系统提示把上下文撑满。
 
 ## 优先级

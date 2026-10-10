@@ -14,6 +14,25 @@ import { extensionFactories } from '../extensions/index.js'
 const require = createRequire(import.meta.url)
 // 官方包没有 main / exports，只有 src/index.ts。交给基座的 jiti 加载，避免 tsc 编它的源码。
 const langfuseExtensionPath = require.resolve('@langfuse/pi-observability-plugin/src/index.ts')
+// 发布包的 pi.extensions 指向 ./dist。用编好的入口，不走源码 jiti。
+const webAccessExtensionPath = require.resolve('pi-web-access/dist/index.js')
+
+/** 替换式白名单。不在名单里的扩展工具不会激活。模式以后再按这份名单切换。 */
+export const ACTIVE_TOOLS = [
+	'read',
+	'bash',
+	'edit',
+	'write',
+	'grep',
+	'find',
+	'ls',
+	'powershell',
+	'codemode',
+	'web_search',
+	'fetch_content',
+	'get_search_content',
+	'source_check',
+]
 
 const PROVIDER_ID = 'minimax'
 const BASE_URL = 'https://api.minimax.cn/anthropic'
@@ -70,7 +89,7 @@ async function piFactory(): Promise<CreateAgentSessionRuntimeFactory> {
 				// 磁盘扩展仍不扫。noExtensions 仍会加载 additionalExtensionPaths。
 				// 密钥读进程环境变量。LANGFUSE_TRACING_ENABLED=false 时插件自己不上报。
 				noExtensions: true,
-				additionalExtensionPaths: [langfuseExtensionPath],
+				additionalExtensionPaths: [langfuseExtensionPath, webAccessExtensionPath],
 				extensionFactories,
 				noSkills: true,
 				noPromptTemplates: true,
@@ -86,7 +105,7 @@ async function piFactory(): Promise<CreateAgentSessionRuntimeFactory> {
 			sessionStartEvent,
 			model,
 			thinkingLevel: DEFAULT_THINKING_LEVEL,
-			noTools: 'all',
+			tools: ACTIVE_TOOLS,
 		})
 		return {
 			...created,

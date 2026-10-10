@@ -1,4 +1,4 @@
-import { mkdirSync } from 'node:fs'
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
@@ -21,5 +21,10 @@ export function ensureRelaxHome(): string {
 	mkdirSync(join(agentDir, 'sessions'), { recursive: true })
 	mkdirSync(getDefaultWorkspace(), { recursive: true })
 	process.env.PI_CODING_AGENT_DIR = agentDir
+	const webSearchConfig = join(agentDir, 'web-search.json')
+	if (!existsSync(webSearchConfig)) {
+		// eager：四个联网工具从第一轮就在，不注册 web_enable。已有文件不覆盖。
+		writeFileSync(webSearchConfig, `${JSON.stringify({ toolActivation: 'eager' }, null, 2)}\n`)
+	}
 	return agentDir
 }

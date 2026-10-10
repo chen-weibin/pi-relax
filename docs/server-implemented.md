@@ -37,6 +37,14 @@
 3. 密钥在 `app/server/.env`：`LANGFUSE_PUBLIC_KEY`、`LANGFUSE_SECRET_KEY`、`LANGFUSE_BASE_URL`（当前是 `https://cloud.langfuse.com`）。一次用户消息一条 trace，同一条会话共用一个 session。
 4. 默认上传。`LANGFUSE_TRACING_ENABLED=false` 时两边都不报，改完要重启 server。
 
+## 工具
+
+1. 白名单一次打开八个内置工具：`read`、`bash`、`edit`、`write`、`grep`、`find`、`ls`、`powershell`。`powershell` 在非 Windows 上可以注册，调用时基座报错。
+2. `codemode` 用 `createCodemodeExtension()` 挂上，并写进同一份白名单。`tool_search` 不开。
+3. `pi-web-access@0.38.0` 放进 `additionalExtensionPaths`（`dist/index.js`）。启用 `web_search`、`fetch_content`、`get_search_content`、`source_check`。`~/.relax/agent/web-search.json` 不存在时写入 `{ "toolActivation": "eager" }`，不注册 `web_enable`。已有文件不覆盖。
+4. 抓取全文缓存在 `~/.relax/agent/web-search-cache/`。插件读的是 `PI_CODING_AGENT_DIR`，启动时已指到 `~/.relax/agent`。
+5. 斜杠命令仍注册。用户原文以 `/` 开头且名字对上时，先执行命令，不把这句发给模型。
+
 ## 当前关掉的剖面
 
-工具、技能、提示词模板、主题、上下文文件都显式关掉。磁盘扩展不扫。文件监听和终端还没做。
+技能、提示词模板、主题、上下文文件都显式关掉。磁盘扩展不扫。`tool_search` 和 `web_enable` 不开。文件监听和终端还没做。
