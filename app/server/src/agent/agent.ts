@@ -15,18 +15,13 @@ import {
 	type SessionRecord,
 	type SessionStatus,
 } from '../sessions/index.js'
+import { abortPolicyFor, type SettingsPatch } from '../config/settings.js'
 import { BusyError, HttpError, SessionNotFoundError } from '../utils/errors.js'
 import { createPiRuntime, defaultModelThinkingLevels, type RuntimeFactory } from './factory.js'
 
 const THINKING_LEVELS = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'] as const
 type ThinkingLevelName = (typeof THINKING_LEVELS)[number]
 export type StreamingBehavior = 'steer' | 'followUp'
-
-/** ponytail: 中止策略写死为先清队列再终止。以后改成可配置时只在 stop() 里分支。
- * 已知还会有 abort-only：只终止当前生成，队列保留，之后仍会发出去。
- * 现在没有请求字段，也没有 settings 项。
- */
-const ABORT_POLICY = 'clear-then-abort' as const
 
 export type ClearedQueue = { steering: string[]; followUp: string[] }
 export type AbortResult = SessionRecord & { cleared: ClearedQueue }
@@ -137,6 +132,14 @@ export class Agent {
 		return recordFromManager(slot.session.sessionManager, this.statusOf(id)!)
 	}
 
+	/** 把刚写入全局 settings 的出队模式套到还在内存里的会话。 */
+	applyQueueModes(patch: Pick<SettingsPatch, 'steeringMode' | 'followUpMode'>): void {
+		for (const slot of this.slots.values()) {
+			if (patch.steeringMode) slot.session.setSteeringMode(patch.steeringMode)
+			if (patch.followUpMode) slot.session.setFollowUpMode(patch.followUpMode)
+		}
+	}
+
 	async abort(id: string): Promise<AbortResult> {
 		const slot = this.slots.get(id)
 		if (!slot) {
@@ -203,14 +206,16 @@ export class Agent {
 	}
 
 	private async stop(slot: Slot): Promise<ClearedQueue> {
-		switch (ABORT_POLICY) {
-			case 'clear-then-abort': {
-				const cleared = slot.session.clearQueue()
-				await slot.session.abort()
-				slot.running = false
-				return { steering: [...cleared.steering], followUp: [...cleared.followUp] }
-			}
+		const policy = abortPolicyFor(slot.session.sessionManager.getCwd())
+		if (policy === 'abort-only') {
+			await slot.session.abort()
+			slot.running = false
+			return { steering: [], followUp: [] }
 		}
+		const cleared = slot.session.clearQueue()
+		await slot.session.abort()
+		slot.running = false
+		return { steering: [...cleared.steering], followUp: [...cleared.followUp] }
 	}
 
 	private disposeIdle(): void {

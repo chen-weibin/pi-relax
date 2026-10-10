@@ -419,11 +419,68 @@ type ThinkingLevelsResponse = {
 ${ERROR_BODY}`,
 					},
 					{
+						group: "配置",
+						name: "读取运行配置",
+						method: "GET",
+						path: "/api/settings",
+						summary: "读取全局 ~/.relax/agent/settings.json 里的出队模式和中止策略。缺文件时返回默认值。不含项目 .pi/settings.json 的覆盖。",
+						queryParams: [],
+						bodyParams: [],
+						body: "",
+						requestType: `/** 无参数。 */
+type GetSettingsRequest = Record<string, never>`,
+						responseType: `/** HTTP 200。缺文件或非法值时用默认：出队 one-at-a-time，中止 clear-then-abort。 */
+type RuntimeSettings = {
+	/** 生成中 steer 的出队。all 为到达出队点时一次注入全部 */
+	steeringMode: "all" | "one-at-a-time"
+	/** 生成中 followUp 的出队。与 steeringMode 各自独立 */
+	followUpMode: "all" | "one-at-a-time"
+	/** clear-then-abort 先清队列再中止；abort-only 只中止当前轮，队列保留 */
+	abortPolicy: "clear-then-abort" | "abort-only"
+}
+
+${ERROR_BODY}`,
+					},
+					{
+						group: "配置",
+						name: "修改运行配置",
+						method: "PATCH",
+						path: "/api/settings",
+						summary: "改全局出队模式或中止策略。只写传入的字段。出队模式会立刻套到内存里的热会话。",
+						queryParams: [],
+						bodyParams: [
+							{ name: "steeringMode", type: "string", required: false, description: "all 或 one-at-a-time", example: "all" },
+							{ name: "followUpMode", type: "string", required: false, description: "all 或 one-at-a-time", example: "one-at-a-time" },
+							{ name: "abortPolicy", type: "string", required: false, description: "clear-then-abort 或 abort-only", example: "abort-only" },
+						],
+						body: "{\n  \"steeringMode\": \"all\",\n  \"abortPolicy\": \"abort-only\"\n}",
+						requestType: `/** JSON body。三项至少传一项。空对象或未知字段 400 BAD_REQUEST。 */
+type PatchSettingsRequest = {
+	/** steer 出队。all 一次注入全部，one-at-a-time 一次一条 */
+	steeringMode?: "all" | "one-at-a-time"
+	/** followUp 出队，与 steeringMode 独立 */
+	followUpMode?: "all" | "one-at-a-time"
+	/** 中止时是否先清空队列 */
+	abortPolicy?: "clear-then-abort" | "abort-only"
+}`,
+						responseType: `/** HTTP 200。写入后的全局三项，不含项目层覆盖。 */
+type RuntimeSettings = {
+	/** steer 出队 */
+	steeringMode: "all" | "one-at-a-time"
+	/** followUp 出队 */
+	followUpMode: "all" | "one-at-a-time"
+	/** 中止策略 */
+	abortPolicy: "clear-then-abort" | "abort-only"
+}
+
+${ERROR_BODY}`,
+					},
+					{
 						group: "会话",
 						name: "中止",
 						method: "POST",
 						path: "/api/sessions/:id/abort",
-						summary: "先清空排队文本，再打断当前轮。没有生成中也成功。",
+						summary: "按 abortPolicy 中止。默认先清空排队文本再打断当前轮。没有生成中也成功。",
 						queryParams: [],
 						bodyParams: [],
 						body: "",
@@ -432,7 +489,7 @@ type AbortRequest = {
 	/** 会话 id。找不到时 404 NOT_FOUND */
 	id: string
 }`,
-						responseType: `/** HTTP 200。没有正在生成也成功，返回的 status 为 "idle"。热会话会先清空队列再中止。 */
+						responseType: `/** HTTP 200。没有正在生成也成功，返回的 status 为 "idle"。clear-then-abort 时热会话先清空队列；abort-only 时 cleared 为空、队列保留。 */
 
 ${SESSION_RECORD}
 
@@ -453,7 +510,7 @@ ${ERROR_BODY}`,
 						name: "删除",
 						method: "DELETE",
 						path: "/api/sessions/:id",
-						summary: "先清空队列并中止，再删除 jsonl。返回 204。",
+						summary: "按 abortPolicy 停掉，再删除 jsonl。返回 204。",
 						queryParams: [],
 						bodyParams: [],
 						body: "",
@@ -462,7 +519,7 @@ type DeleteSessionRequest = {
 	/** 会话 id。内存和磁盘都没有时 404 NOT_FOUND */
 	id: string
 }`,
-						responseType: `/** HTTP 204，响应体为空。会先清空队列并中止，再删 jsonl。 */
+						responseType: `/** HTTP 204，响应体为空。按 abortPolicy 停掉后再删 jsonl。 */
 
 ${ERROR_BODY}`,
 					},

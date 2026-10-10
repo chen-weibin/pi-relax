@@ -105,11 +105,11 @@ pi 暴露的加载点都要能指定到 `.relax` 或配置里的路径，不默�
 
 ### 智能体类
 
-`app/server/src/agent/` 是唯一调用 pi 会话 API 的目录。类内部按 sessionId 缓存 `{ session: AgentSession }`，同一套工厂（内部 `createAgentSessionRuntime`，对外只返回 session）。对外 `prompt`（可无 id，可带 `thinkingLevel` 与 `streamingBehavior`）、`rename`、`abort`、`status`、`subscribe`。HTTP 和 SSE 只订这个类。档位查询读已注册模型，不经过这个类。
+`app/server/src/agent/` 是唯一调用 pi 会话 API 的目录。类内部按 sessionId 缓存 `{ session: AgentSession }`，同一套工厂（内部 `createAgentSessionRuntime`，对外只返回 session）。对外 `prompt`（可无 id，可带 `thinkingLevel` 与 `streamingBehavior`）、`rename`、`abort`、`applyQueueModes`、`status`、`subscribe`。HTTP 和 SSE 只订这个类。档位查询和运行配置不经过这个类的模型调用；出队模式的热更新走 `applyQueueModes`。
 
 剖面本轮：`tools` 为八个内置工具、`codemode` 和四个联网工具。loader `noSkills` / `noExtensions` / `noContextFiles` / `noPromptTemplates` / `noThemes`。`noExtensions` 只停磁盘扫描；`additionalExtensionPaths` 指向 Langfuse 和 `pi-web-access`；`extensionFactories` 来自 `app/server/src/extensions/`，含 `createCodemodeExtension()`。模型 MiniMax（`MINIMAX_API_KEY`），`agentDir` 指向 `~/.relax/agent`。
 
-新对话：`SessionManager.create(cwd)` 后立刻 `prompt`。文件等第一条 user 消息。思考档位默认 `medium`。正在回复时，不带 `streamingBehavior` 再 `prompt` 得 `BUSY`；`steer` 在当前回复及其工具结束后、下一次模型调用前插入，`followUp` 在本轮结束后再发。两者都不打断正在吐的字。多条排队的出队固定为基座默认一次一条（`steeringMode` 与 `followUpMode` 都是 `one-at-a-time`）。以后可以各自设成 `all` 或 `one-at-a-time`，入口是基座的 `setSteeringMode` / `setFollowUpMode`。现在不读 settings 覆盖，也不调用这两个 setter。
+新对话：`SessionManager.create(cwd)` 后立刻 `prompt`。文件等第一条 user 消息。思考档位默认 `medium`。正在回复时，不带 `streamingBehavior` 再 `prompt` 得 `BUSY`；`steer` 在当前回复及其工具结束后、下一次模型调用前插入，`followUp` 在本轮结束后再发。两者都不打断正在吐的字。多条排队的出队读全局 `~/.relax/agent/settings.json` 的 `steeringMode` / `followUpMode`（各自 `all` 或 `one-at-a-time`，缺省 `one-at-a-time`）。新建会话由基座 `SettingsManager` 合并该文件与工作区 `.pi/settings.json`，工厂里不调用 setter。`PATCH /api/settings` 之后，内存里的会话用 `setSteeringMode` / `setFollowUpMode` 立刻换模式。
 
 历史：热会话用该 `sessionManager.buildSessionContext()`，否则 `SessionManager.open` 再同样调用。返回 `{ messages, thinkingLevel, model }`，不手读 JSONL。
 
@@ -126,15 +126,17 @@ pi 暴露的加载点都要能指定到 `.relax` 或配置里的路径，不默�
 - `DELETE /api/sessions/:id` 中止并删除文件，204
 - `POST /api/sessions/:id/prompt` 续发，202。可选 `streamingBehavior`（`steer` | `followUp`）和 `thinkingLevel`
 - `POST /api/sessions/:id/name` 手动设置 `name`，空字符串清空
-- `POST /api/sessions/:id/abort` 中止。热会话先 `clearQueue` 再 `abort`。响应是会话信息加上 `cleared: { steering, followUp }`。没有队列或会话不在内存里时两个数组为空，`status` 为 `idle`
+- `POST /api/sessions/:id/abort` 中止。热会话按 `relax.abortPolicy`：`clear-then-abort`（默认）先 `clearQueue` 再 `abort`；`abort-only` 只 `abort`，队列留下。响应是会话信息加上 `cleared: { steering, followUp }`。没有清队列、会话不在内存里时两个数组为空，`status` 为 `idle`
 - `GET /api/models/thinking-levels?provider=&id=` 查询该模型可选思考档位和默认档位 `medium`。未注册 404
+- `GET /api/settings` 全局出队模式和中止策略。缺文件时返回默认值
+- `PATCH /api/settings` 改上述字段的子集。出队模式写入后套到热会话
 - `GET /api/sessions/events` 全局 SSE，不进 api.html。`data` 为 `{ sessionId, event }`，内层是 pi 的 `AgentSessionEvent`
 
 SSE 断线不补，客户端用历史对齐。发送和中止走 HTTP。本轮不接 `app/web`。
 
 `name` 只来自手动设置，pi 不会在第一次发送时写成第一句话。列表仍同时返回 `name` 和 `firstMessage`，没有 `name` 时界面用 `firstMessage`。
 
-往后放：第一次对话后用模型生成短标题写入 `name`，未生成前列表继续用 `firstMessage` 兜底。图片附件、模型选择器、编辑或重试某一条、分支树、checkpoint 回滚、命令审批。中止策略现在固定为先清队列再终止（`clear-then-abort`），以后再做成可配置；已知还会有只终止当前、队列保留（`abort-only`），现在没有请求字段，也没有 settings 项。出队模式现在固定为一次一条，以后再暴露 `steeringMode` / `followUpMode`（各自 `all` 或 `one-at-a-time`）。
+往后放：第一次对话后用模型生成短标题写入 `name`，未生成前列表继续用 `firstMessage` 兜底。图片附件、模型选择器、编辑或重试某一条、分支树、checkpoint 回滚、命令审批。出队模式与中止策略已由 `GET` / `PATCH /api/settings` 配置，见上文。没有按单次请求覆盖的字段。
 
 ## 能力剖面
 
@@ -159,7 +161,7 @@ SSE 断线不补，客户端用历史对齐。发送和中止走 HTTP。本轮�
 - **单会话单飞**。同一条会话已有生成时，不带 `streamingBehavior` 拒绝第二条（`BUSY`）。`steer` / `followUp` 只排队，不另开一条生成。
 - **流式**。服务端不另存一份完整正文。pi 追加 JSONL，我们转发事件。客户端读得慢就背压，缓冲有上限，满了断开这一条连接。
 - **历史**。只在打开该会话时读。单文件读取有上限。上下文体积靠 pi 自带压缩兜住。
-- **事件循环**。请求路径上不同步读大目录或大文件。订阅回调里的异常记到该会话，不让进程退出。中止先清空排队文本，再传到模型请求。策略以后可配置，见上文「往后放」。
+- **事件循环**。请求路径上不同步读大目录或大文件。订阅回调里的异常记到该会话，不让进程退出。中止按 `relax.abortPolicy`，默认先清空排队文本，再传到模型请求。
 - **文件监听**（做到才启用）。只订已打开的那一层目录，不递归整棵仓库。防抖后再推列表。忽略 `node_modules`、`.git`、`dist`。watcher 数量有上限。
 - **终端**（做到才启用）。PTY 个数有上限，回放缓冲约 100KB，关闭时必须释放文件描述符。
 - **工具**。已启用八个内置工具（含 `bash`）和 `codemode`，以及 `pi-web-access` 的四个联网工具。`bash` 这一步没有另加超时或路径限制，范围是该会话的 cwd。`powershell` 非 Windows 上由基座在调用时报错。
@@ -228,6 +230,7 @@ app/server/src/
   index.ts              加载 .env，确保 ~/.relax/agent，监听端口
   app.ts                组装应用，测试从这里创建
   config/home.ts        RELAX_HOME、agentDir、PI_CODING_AGENT_DIR
+  config/settings.ts    全局 settings.json：出队模式与中止策略
   utils/errors.ts       错误类型与 Express 错误中间件
   utils/text.ts         消息纯文本
   utils/request.ts      请求体 text / cwd
@@ -235,12 +238,14 @@ app/server/src/
   agent/                智能体类、Runtime 工厂、剖面
   routes/health.ts      GET /health
   routes/models.ts      GET /api/models/thinking-levels
+  routes/settings.ts    GET / PATCH /api/settings
   routes/sessions.ts    会话路由与 SSE
 app/server/test/
   health.test.ts
   sessions.test.ts
   sessions-http.test.ts
   agent.test.ts
+  settings.test.ts
   html/
     index.html        手工测试页目录，卡片链到下面两页
     sessions.html     会话联调：进页即连 SSE
@@ -249,7 +254,7 @@ app/server/test/
 
 还没建的目录：`fs/`、`pty/`，以及 `/ws/fs`、`/ws/pty` 的处理。`agent/` 是唯一直接调用 pi 会话 API 的目录。
 
-手工测试页在 [html/](../app/server/test/html/)，服务需已由 `pnpm dev:server` 拉起。会话相关接口互相依赖，用 [sessions.html](../app/server/test/html/sessions.html)：进入即连 `GET /api/sessions/events`，可在同一页发送、续发（含 steer / followUp）、设置思考档位、查询模型档位、设置标题、中止、列会话、看历史和删除。逐条 HTTP 仍用 [api.html](../app/server/test/html/api.html)。字段含义以该页的 `requestType` / `responseType` 为准。每新增一个 HTTP 接口，在文件顶部的 `ENDPOINTS` 追加一项并写上带字段注释的类型；接口调整时改这一处和实现，不必在本文再抄参数。查阅时机：加路由后自己点发送，或要看当前有哪些 HTTP 接口及其字段含义时。SSE 不进 api.html。
+手工测试页在 [html/](../app/server/test/html/)，服务需已由 `pnpm dev:server` 拉起。`pnpm dev:server:open`（[script/dev-server-open.mjs](../script/dev-server-open.mjs)）做同一件事，并在 `/health` 成功后用系统打开本地 `index.html`。端口已被占用时不另起进程，只打开页面。会话相关接口互相依赖，用 [sessions.html](../app/server/test/html/sessions.html)：进入即连 `GET /api/sessions/events`，可在同一页发送、续发（含 steer / followUp）、设置思考档位、查询模型档位、设置标题、中止、列会话、看历史和删除。逐条 HTTP 仍用 [api.html](../app/server/test/html/api.html)。字段含义以该页的 `requestType` / `responseType` 为准。每新增一个 HTTP 接口，在文件顶部的 `ENDPOINTS` 追加一项并写上带字段注释的类型；接口调整时改这一处和实现，不必在本文再抄参数。查阅时机：加路由后自己点发送，或要看当前有哪些 HTTP 接口及其字段含义时。SSE 不进 api.html。
 
 `ENDPOINTS` 每项必填 `group` / `name` / `method` / `path` / `summary` / `requestType` / `responseType`。`requestType`、`responseType` 是 TypeScript 文本，字段用行注释说明含义，调试页在「响应」后面以深色代码块展示。可填 `auth`（鉴权描述，如 `"JWT Bearer"`，不填则卡片显示「无需鉴权」）、`queryParams` / `bodyParams`（`{ name, type, required, description, example }` 数组，填了渲染参数卡并自动生成 cURL / JS 示例；`body` 是纯 JSON 字符串模板，不填且 `bodyParams` 也没填时 textarea 为空）。`path` 里的 `:name` 会自动变成可填写的路径参数，发送、顶栏路径和示例都会替换；可选 `pathParams`（形状同 `queryParams`）补充说明和示例。`queryParams` 同样有输入框：必填项用 `example` 预填，可选项留空，发送时只带已填写的项。这些字段不回传服务端，只是让调试页更接近接口文档的观感。
 

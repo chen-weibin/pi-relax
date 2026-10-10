@@ -97,8 +97,8 @@ async function piFactory(): Promise<CreateAgentSessionRuntimeFactory> {
 				noContextFiles: true,
 			},
 		})
-		// ponytail: steeringMode / followUpMode 保持基座默认 one-at-a-time（每次出队一条）。
-		// 以后设置时调用 session.setSteeringMode / setFollowUpMode（'all' | 'one-at-a-time'），两边各自独立。
+		// 出队模式不在这里设。新建会话由基座 SettingsManager 从 ~/.relax/agent/settings.json 读入，
+		// 项目 .pi/settings.json 可盖过。改全局配置时 Agent.applyQueueModes 再套到热会话。
 		const created = await createAgentSessionFromServices({
 			services,
 			sessionManager,

@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict'
+import { mkdtempSync } from 'node:fs'
 import { after, before, describe, it } from 'node:test'
-import { homedir } from 'node:os'
+import { homedir, tmpdir } from 'node:os'
+import { join } from 'node:path'
 import type { AgentSession, AgentSessionEvent } from '@earendil-works/pi-coding-agent'
 import { Agent } from '../src/agent/agent.js'
+import { patchSettings } from '../src/config/settings.js'
 import { BusyError, HttpError } from '../src/utils/errors.js'
 import type { RuntimeFactory } from '../src/agent/factory.js'
 import { persistChat, removeHome, tempRelaxHome } from './home.js'
@@ -126,6 +129,7 @@ describe('agent', () => {
 
 	it('clears the queue before abort and returns the texts', async () => {
 		const calls: string[] = []
+		patchSettings({ abortPolicy: 'clear-then-abort' })
 		const agent = new Agent(async ({ sessionManager }) => {
 			const listeners = new Set<(event: AgentSessionEvent) => void>()
 			const session = {
@@ -152,11 +156,49 @@ describe('agent', () => {
 			return { session: session as unknown as AgentSession }
 		})
 		const keep = agent.subscribe(() => {})
-		const first = await agent.prompt({ text: 'hi', cwd: homedir() })
+		const cwd = mkdtempSync(join(tmpdir(), 'relax-cwd-'))
+		const first = await agent.prompt({ text: 'hi', cwd })
 		const stopped = await agent.abort(first.id)
 		assert.deepEqual(calls, ['clearQueue', 'abort'])
 		assert.deepEqual(stopped.cleared, { steering: ['cut in'], followUp: ['later'] })
 		assert.equal(stopped.status, 'idle')
+		keep()
+	})
+
+	it('abort-only stops the run and leaves the queue', async () => {
+		const calls: string[] = []
+		patchSettings({ abortPolicy: 'abort-only' })
+		const agent = new Agent(async ({ sessionManager }) => {
+			const listeners = new Set<(event: AgentSessionEvent) => void>()
+			const session = {
+				sessionManager,
+				get isStreaming() {
+					return false
+				},
+				async prompt() {
+					for (const listener of listeners) listener({ type: 'agent_start' })
+				},
+				clearQueue() {
+					calls.push('clearQueue')
+					return { steering: ['cut in'], followUp: ['later'] }
+				},
+				async abort() {
+					calls.push('abort')
+				},
+				subscribe(listener: (event: AgentSessionEvent) => void) {
+					listeners.add(listener)
+					return () => listeners.delete(listener)
+				},
+				dispose() {},
+			}
+			return { session: session as unknown as AgentSession }
+		})
+		const keep = agent.subscribe(() => {})
+		const cwd = mkdtempSync(join(tmpdir(), 'relax-cwd-'))
+		const first = await agent.prompt({ text: 'hi', cwd })
+		const stopped = await agent.abort(first.id)
+		assert.deepEqual(calls, ['abort'])
+		assert.deepEqual(stopped.cleared, { steering: [], followUp: [] })
 		keep()
 	})
 
