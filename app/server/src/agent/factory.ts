@@ -1,15 +1,15 @@
 import { createRequire } from 'node:module'
-import { getSupportedThinkingLevels, InMemoryCredentialStore, type Model } from '@earendil-works/pi-ai'
+import type { Model } from '@earendil-works/pi-ai'
 import {
 	createAgentSessionFromServices,
 	createAgentSessionRuntime,
 	createAgentSessionServices,
 	type CreateAgentSessionRuntimeFactory,
-	ModelRuntime,
 	type SessionManager,
 } from '@earendil-works/pi-coding-agent'
 import { getRelaxAgentDir } from '../config/home.js'
 import { extensionFactories } from '../extensions/index.js'
+import { DEFAULT_THINKING_LEVEL, modelRuntime } from './models.js'
 
 const require = createRequire(import.meta.url)
 // 官方包没有 main / exports，只有 src/index.ts。交给基座的 jiti 加载，避免 tsc 编它的源码。
@@ -34,57 +34,24 @@ export const ACTIVE_TOOLS = [
 	'source_check',
 ]
 
-const PROVIDER_ID = 'minimax'
-const BASE_URL = 'https://api.minimax.cn/anthropic'
-const DEFAULT_MODEL = 'MiniMax-M3'
-export const DEFAULT_THINKING_LEVEL = 'medium'
-
-const MINIMAX_MODELS = [
-	{
-		id: 'MiniMax-M3',
-		name: 'MiniMax M3',
-		reasoning: true,
-		input: ['text', 'image'] as ('text' | 'image')[],
-		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-		contextWindow: 1_000_000,
-		maxTokens: 16_384,
-		compat: { forceAdaptiveThinking: true },
-	},
-]
-
 export type RuntimeFactory = (input: {
 	cwd: string
 	sessionManager: SessionManager
+	/** 新建会话传入。打开旧会话省略，让基座从 JSONL 的 model_change 恢复。 */
+	model?: Model<any>
 }) => Promise<{ session: import('@earendil-works/pi-coding-agent').AgentSession }>
 
-let cached: CreateAgentSessionRuntimeFactory | undefined
+const pendingModels = new WeakMap<SessionManager, Model<any>>()
 
 async function piFactory(): Promise<CreateAgentSessionRuntimeFactory> {
-	if (cached) return cached
-	const apiKey = process.env.MINIMAX_API_KEY
-	if (!apiKey) {
-		throw new Error('MINIMAX_API_KEY is not set')
-	}
-	const modelRuntime = await ModelRuntime.create({
-		credentials: new InMemoryCredentialStore(),
-		refreshOnCreate: true,
-	})
-	modelRuntime.registerProvider(PROVIDER_ID, {
-		name: 'MiniMax',
-		baseUrl: BASE_URL,
-		api: 'anthropic-messages',
-		apiKey,
-		models: MINIMAX_MODELS,
-	})
-	const model = modelRuntime.getModel(PROVIDER_ID, DEFAULT_MODEL)
-	if (!model) {
-		throw new Error(`Model "${DEFAULT_MODEL}" not found`)
-	}
-	cached = async ({ cwd, agentDir, sessionManager, sessionStartEvent }) => {
+	return async ({ cwd, agentDir, sessionManager, sessionStartEvent }) => {
+		const shared = await modelRuntime()
+		const model = pendingModels.get(sessionManager)
+		pendingModels.delete(sessionManager)
 		const services = await createAgentSessionServices({
 			cwd,
 			agentDir,
-			modelRuntime,
+			modelRuntime: shared,
 			resourceLoaderOptions: {
 				// 磁盘扩展仍不扫。noExtensions 仍会加载 additionalExtensionPaths。
 				// 密钥读进程环境变量。LANGFUSE_TRACING_ENABLED=false 时插件自己不上报。
@@ -103,7 +70,7 @@ async function piFactory(): Promise<CreateAgentSessionRuntimeFactory> {
 			services,
 			sessionManager,
 			sessionStartEvent,
-			model,
+			...(model ? { model } : {}),
 			thinkingLevel: DEFAULT_THINKING_LEVEL,
 			tools: ACTIVE_TOOLS,
 		})
@@ -113,13 +80,14 @@ async function piFactory(): Promise<CreateAgentSessionRuntimeFactory> {
 			diagnostics: services.diagnostics,
 		}
 	}
-	return cached
 }
 
 export async function createPiRuntime(input: {
 	cwd: string
 	sessionManager: SessionManager
+	model?: Model<any>
 }): Promise<{ session: import('@earendil-works/pi-coding-agent').AgentSession }> {
+	if (input.model) pendingModels.set(input.sessionManager, input.model)
 	const factory = await piFactory()
 	const runtime = await createAgentSessionRuntime(factory, {
 		cwd: input.cwd,
@@ -127,30 +95,4 @@ export async function createPiRuntime(input: {
 		sessionManager: input.sessionManager,
 	})
 	return runtime
-}
-
-export type ModelThinkingLevels = {
-	provider: string
-	id: string
-	defaultThinkingLevel: typeof DEFAULT_THINKING_LEVEL
-	thinkingLevels: string[]
-}
-
-/** 按已注册模型查可选思考档位。未注册返回 undefined。不打开会话。 */
-export function modelThinkingLevels(provider: string, id: string): ModelThinkingLevels | undefined {
-	const model = MINIMAX_MODELS.find((item) => item.id === id)
-	if (provider !== PROVIDER_ID || !model) return undefined
-	return {
-		provider: PROVIDER_ID,
-		id: model.id,
-		defaultThinkingLevel: DEFAULT_THINKING_LEVEL,
-		thinkingLevels: getSupportedThinkingLevels(model as Model<'anthropic-messages'>),
-	}
-}
-
-/** 新会话使用的模型档位。 */
-export function defaultModelThinkingLevels(): string[] {
-	const found = modelThinkingLevels(PROVIDER_ID, DEFAULT_MODEL)
-	if (!found) throw new Error('default model is not registered')
-	return found.thinkingLevels
 }

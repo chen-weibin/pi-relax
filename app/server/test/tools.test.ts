@@ -3,6 +3,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import { after, before, describe, it } from 'node:test'
 import { join } from 'node:path'
 import { ACTIVE_TOOLS, createPiRuntime } from '../src/agent/factory.js'
+import { modelForNewSession, saveApiKey } from '../src/agent/models.js'
 import { createSessionManager } from '../src/sessions/index.js'
 import { ensureRelaxHome } from '../src/config/home.js'
 import { removeHome, tempRelaxHome } from './home.js'
@@ -11,17 +12,13 @@ const HIDDEN = ['tool_search', 'web_enable']
 
 describe('active tools', () => {
 	let home: string
-	let previousKey: string | undefined
 
-	before(() => {
-		previousKey = process.env.MINIMAX_API_KEY
-		if (!previousKey?.trim()) process.env.MINIMAX_API_KEY = 'test-key'
+	before(async () => {
 		home = tempRelaxHome()
+		await saveApiKey('minimax', 'test-key')
 	})
 
 	after(() => {
-		if (previousKey === undefined) delete process.env.MINIMAX_API_KEY
-		else process.env.MINIMAX_API_KEY = previousKey
 		removeHome(home)
 	})
 
@@ -37,6 +34,7 @@ describe('active tools', () => {
 		const { session } = await createPiRuntime({
 			cwd: join(home, 'workspace'),
 			sessionManager: createSessionManager(join(home, 'workspace')),
+			model: await modelForNewSession(),
 		})
 		try {
 			const names = new Set(session.getActiveToolNames())

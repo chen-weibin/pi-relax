@@ -9,6 +9,12 @@ function thinkingLevelOf(body: unknown): string | undefined {
 	return level
 }
 
+function modelField(body: unknown, key: 'provider' | 'model'): string | undefined {
+	const value = optionalString(body, key)
+	if (value === null) throw new HttpError(400, 'BAD_REQUEST', `${key} must be a string`)
+	return value
+}
+
 function streamingBehaviorOf(body: unknown): StreamingBehavior | undefined {
 	const value = optionalString(body, 'streamingBehavior')
 	if (value === undefined) return undefined
@@ -46,6 +52,8 @@ export function sessionsRouter(agent: Agent): Router {
 				text,
 				cwd: cwdOf(req),
 				thinkingLevel: thinkingLevelOf(req.body),
+				provider: modelField(req.body, 'provider'),
+				model: modelField(req.body, 'model'),
 			})
 			res.status(202).json(record)
 		}),
@@ -76,8 +84,23 @@ export function sessionsRouter(agent: Agent): Router {
 				sessionId: req.params.id as string,
 				thinkingLevel: thinkingLevelOf(req.body),
 				streamingBehavior: streamingBehaviorOf(req.body),
+				provider: modelField(req.body, 'provider'),
+				model: modelField(req.body, 'model'),
 			})
 			res.status(202).json(record)
+		}),
+	)
+
+	router.post(
+		'/api/sessions/:id/model',
+		asyncHandler(async (req, res) => {
+			const provider = optionalString(req.body, 'provider')
+			const model = optionalString(req.body, 'model')
+			if (provider === null || model === null) {
+				throw new HttpError(400, 'BAD_REQUEST', 'provider and model must be strings')
+			}
+			if (!provider || !model) throw new HttpError(400, 'BAD_REQUEST', 'provider and model are required')
+			res.json(await agent.selectModel(req.params.id as string, provider, model))
 		}),
 	)
 

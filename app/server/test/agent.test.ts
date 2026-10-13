@@ -8,6 +8,7 @@ import { Agent } from '../src/agent/agent.js'
 import { patchSettings } from '../src/config/settings.js'
 import { BusyError, HttpError } from '../src/utils/errors.js'
 import type { RuntimeFactory } from '../src/agent/factory.js'
+import { saveApiKey, writeDefault } from '../src/agent/models.js'
 import { persistChat, removeHome, tempRelaxHome } from './home.js'
 
 function fakeFactory(): RuntimeFactory {
@@ -62,8 +63,10 @@ function fakeFactory(): RuntimeFactory {
 describe('agent', () => {
 	let home: string
 
-	before(() => {
+	before(async () => {
 		home = tempRelaxHome()
+		await saveApiKey('minimax', 'test-key')
+		await writeDefault('minimax', 'MiniMax-M3')
 	})
 
 	after(() => {

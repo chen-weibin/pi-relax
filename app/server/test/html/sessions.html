@@ -82,10 +82,18 @@
 							<input id="session-name" class="min-w-0 flex-1 rounded-md border border-zinc-200 px-2 py-1 text-xs outline-none" placeholder="标题。空着再点设置即清空 name" spellcheck="false" />
 							<button id="rename" class="shrink-0 rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50" type="button">设置标题</button>
 						</div>
-						<div class="mt-2 flex gap-2">
-							<input id="provider" class="w-24 rounded-md border border-zinc-200 px-2 py-1 text-xs outline-none" value="minimax" spellcheck="false" />
-							<input id="model-id" class="min-w-0 flex-1 rounded-md border border-zinc-200 px-2 py-1 text-xs outline-none" value="MiniMax-M3" spellcheck="false" />
-							<button id="levels" class="shrink-0 rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50" type="button">查询档位</button>
+						<div class="mt-2">
+							<div class="flex items-center justify-between text-[11px] text-zinc-400">
+								<span>可用模型</span>
+								<span id="model-usage" class="truncate pl-2 text-zinc-500">尚未加载</span>
+							</div>
+							<div class="mt-1 flex gap-2">
+								<select id="model-pick" class="min-w-0 flex-1 rounded-md border border-zinc-200 bg-white px-2 py-1 text-xs text-zinc-800 outline-none">
+									<option value="">无可用模型</option>
+								</select>
+								<button id="reload-models" class="shrink-0 rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50" type="button">刷新</button>
+								<button id="levels" class="shrink-0 rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50" type="button">查询档位</button>
+							</div>
 						</div>
 						<div class="mt-2 flex flex-wrap gap-2">
 							<button id="send" class="rounded-md bg-violet-600 px-3 py-1.5 text-sm text-white hover:bg-violet-700" type="button">发送</button>
@@ -117,6 +125,9 @@
 
 			let source = null
 			let reconnectTimer = 0
+			let availableModels = []
+			let defaultModel = null
+			let sessionModel = null
 			let currentId = null
 
 			function base() {
@@ -245,7 +256,101 @@
 				if (!btn) return
 				const item = lastSessions.find((row) => row.id === btn.dataset.id)
 				setCurrent(btn.dataset.id, item ? item.status : "")
+				loadSessionModel(btn.dataset.id).catch((err) => showMain(err.message))
 			})
+
+			function modelKey(provider, id) {
+				return provider + "\t" + id
+			}
+
+			function parseModelKey(value) {
+				const index = value.indexOf("\t")
+				if (index <= 0) return null
+				return { provider: value.slice(0, index), id: value.slice(index + 1) }
+			}
+
+			function modelLabel(provider, id) {
+				return provider + "/" + id
+			}
+
+			function paintModel() {
+				const select = $("model-pick")
+				const selected = select.value
+				select.replaceChildren()
+				if (!availableModels.length && !sessionModel) {
+					const empty = document.createElement("option")
+					empty.value = ""
+					empty.textContent = "无可用模型"
+					select.append(empty)
+				}
+				const seen = new Set()
+				for (const model of availableModels) {
+					const key = modelKey(model.provider, model.id)
+					seen.add(key)
+					const option = document.createElement("option")
+					option.value = key
+					const isDefault =
+						defaultModel && defaultModel.provider === model.provider && defaultModel.id === model.id
+					option.textContent =
+						(model.name || model.id) + " · " + modelLabel(model.provider, model.id) + (isDefault ? " · 默认" : "")
+					select.append(option)
+				}
+				if (sessionModel) {
+					const key = modelKey(sessionModel.provider, sessionModel.modelId)
+					if (!seen.has(key)) {
+						const option = document.createElement("option")
+						option.value = key
+						option.textContent = modelLabel(sessionModel.provider, sessionModel.modelId) + " · 当前会话，不在可用列表"
+						select.append(option)
+					}
+				}
+				const fallback = defaultModel ? modelKey(defaultModel.provider, defaultModel.id) : ""
+				const prefer = sessionModel
+					? modelKey(sessionModel.provider, sessionModel.modelId)
+					: [...select.options].some((option) => option.value && option.value === selected)
+						? selected
+						: fallback
+				if ([...select.options].some((option) => option.value === prefer)) select.value = prefer
+				else if (select.options.length) select.selectedIndex = 0
+
+				if (currentId && sessionModel) {
+					$("model-usage").textContent = "当前会话 " + modelLabel(sessionModel.provider, sessionModel.modelId)
+				} else if (currentId) {
+					$("model-usage").textContent = "当前会话还没有模型"
+				} else {
+					const picked = parseModelKey(select.value)
+					$("model-usage").textContent = picked
+						? "新建将使用 " + modelLabel(picked.provider, picked.id)
+						: "没有可用模型，新建会 409"
+				}
+			}
+
+			async function loadModels() {
+				const listed = await request("GET", "/api/models")
+				const defaults = await request("GET", "/api/models/default")
+				availableModels = listed.models || []
+				defaultModel = defaults.model || null
+				paintModel()
+			}
+
+			async function loadSessionModel(id) {
+				if (!id) {
+					sessionModel = null
+					paintModel()
+					return
+				}
+				const history = await request("GET", "/api/sessions/" + encodeURIComponent(id) + "/history")
+				sessionModel = history.model || null
+				paintModel()
+			}
+
+			function applyThinkingLevels(levels) {
+				const supported = new Set(levels || [])
+				for (const option of $("thinking").options) {
+					if (!option.value) continue
+					option.disabled = supported.size > 0 && !supported.has(option.value)
+				}
+			}
 
 			function promptBody(text) {
 				const body = { text }
@@ -263,9 +368,23 @@
 			async function send() {
 				const text = $("text").value.trim()
 				if (!text) return
+				const creating = !currentId
+				const body = promptBody(text)
+				const picked = parseModelKey($("model-pick").value)
+				if (picked) {
+					body.provider = picked.provider
+					body.model = picked.id
+				}
 				const path = currentId ? "/api/sessions/" + encodeURIComponent(currentId) + "/prompt" : "/api/sessions"
-				const record = await request("POST", path, promptBody(text))
+				const record = await request("POST", path, body)
+				if (creating && picked) {
+					sessionModel = { provider: picked.provider, modelId: picked.id }
+					defaultModel = { provider: picked.provider, id: picked.id, usable: true }
+				} else if (picked) {
+					sessionModel = { provider: picked.provider, modelId: picked.id }
+				}
 				setCurrent(record.id, record.status)
+				paintModel()
 				$("text").value = ""
 				await loadList()
 			}
@@ -273,6 +392,8 @@
 			$("base").addEventListener("change", () => {
 				localStorage.setItem("relax-api-base", $("base").value)
 				connectSse()
+				loadModels().catch((err) => showMain(err.message))
+				loadList().catch((err) => showMain(err.message))
 			})
 			$("refresh").addEventListener("click", () => {
 				loadList().catch((err) => showMain(err.message))
@@ -315,7 +436,9 @@
 				if (!currentId) return showMain("先在左侧点一条会话，或先发送新建。")
 				request("DELETE", "/api/sessions/" + currentId)
 					.then(() => {
+						sessionModel = null
 						setCurrent(null)
+						paintModel()
 						showMain("已删除")
 						return loadList()
 					})
@@ -334,31 +457,68 @@
 					.catch((err) => showMain(err.message))
 			})
 			$("levels").addEventListener("click", () => {
-				const provider = $("provider").value.trim()
-				const id = $("model-id").value.trim()
-				if (!provider || !id) return showMain("填写 provider 和模型 id。")
+				const picked = parseModelKey($("model-pick").value)
+				if (!picked) return showMain("先选出一个模型。")
 				const path =
 					"/api/models/thinking-levels?provider=" +
-					encodeURIComponent(provider) +
+					encodeURIComponent(picked.provider) +
 					"&id=" +
-					encodeURIComponent(id)
+					encodeURIComponent(picked.id)
 				request("GET", path)
 					.then((body) => {
-						const supported = new Set(body.thinkingLevels || [])
-						for (const option of $("thinking").options) {
-							if (!option.value) continue
-							option.disabled = supported.size > 0 && !supported.has(option.value)
-						}
+						applyThinkingLevels(body.thinkingLevels)
 						showMain(body)
 					})
 					.catch((err) => showMain(err.message))
 			})
-			$("clear-current").addEventListener("click", () => setCurrent(null))
+			$("reload-models").addEventListener("click", () => {
+				loadModels().catch((err) => showMain(err.message))
+			})
+			$("model-pick").addEventListener("change", () => {
+				const picked = parseModelKey($("model-pick").value)
+				if (!picked) {
+					$("model-usage").textContent = "没有可用模型，新建会 409"
+					return
+				}
+				const previous = sessionModel
+				if (!currentId) {
+					$("model-usage").textContent = "新建将使用 " + modelLabel(picked.provider, picked.id)
+					return
+				}
+				request("POST", "/api/sessions/" + encodeURIComponent(currentId) + "/model", {
+					provider: picked.provider,
+					model: picked.id,
+				})
+					.then(() => {
+						defaultModel = { provider: picked.provider, id: picked.id, usable: true }
+						const current = sessionModel
+							? modelLabel(sessionModel.provider, sessionModel.modelId)
+							: "还没有模型"
+						$("model-usage").textContent =
+							"默认已改为 " +
+							modelLabel(picked.provider, picked.id) +
+							"。当前会话仍是 " +
+							current +
+							"，发送后如果不同才会改"
+					})
+					.catch((err) => {
+						sessionModel = previous
+						paintModel()
+						showMain(err.message)
+					})
+			})
+			$("clear-current").addEventListener("click", () => {
+				sessionModel = null
+				setCurrent(null)
+				$("model-pick").value = ""
+				paintModel()
+			})
 			$("clear-log").addEventListener("click", () => {
 				$("log").textContent = ""
 			})
 
 			connectSse()
+			loadModels().catch((err) => showMain(err.message))
 			loadList().catch((err) => showMain(err.message))
 		</script>
 	</body>

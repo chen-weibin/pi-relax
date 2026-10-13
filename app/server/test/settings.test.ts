@@ -10,6 +10,7 @@ import { Agent } from '../src/agent/agent.js'
 import type { RuntimeFactory } from '../src/agent/factory.js'
 import { createApp } from '../src/app.js'
 import { abortPolicyFor, patchSettings, readGlobalSettings, settingsPath } from '../src/config/settings.js'
+import { saveApiKey, writeDefault } from '../src/agent/models.js'
 import { removeHome, tempRelaxHome } from './home.js'
 
 describe('settings store', () => {
@@ -72,6 +73,8 @@ describe('settings http', () => {
 
 	before(async () => {
 		home = tempRelaxHome()
+		await saveApiKey('minimax', 'test-key')
+		await writeDefault('minimax', 'MiniMax-M3')
 		modes = {}
 		const factory: RuntimeFactory = async ({ sessionManager }) => {
 			const listeners = new Set<(event: AgentSessionEvent) => void>()

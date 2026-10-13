@@ -17,7 +17,9 @@ import {
 } from '../sessions/index.js'
 import { abortPolicyFor, type SettingsPatch } from '../config/settings.js'
 import { BusyError, HttpError, SessionNotFoundError } from '../utils/errors.js'
-import { createPiRuntime, defaultModelThinkingLevels, type RuntimeFactory } from './factory.js'
+import { getSupportedThinkingLevels } from '@earendil-works/pi-ai'
+import { createPiRuntime, type RuntimeFactory } from './factory.js'
+import { modelForNewSession, modelForSwitch, writeDefault } from './models.js'
 
 const THINKING_LEVELS = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'] as const
 type ThinkingLevelName = (typeof THINKING_LEVELS)[number]
@@ -98,17 +100,18 @@ export class Agent {
 		cwd?: string
 		streamingBehavior?: StreamingBehavior
 		thinkingLevel?: string
+		provider?: string
+		model?: string
 	}): Promise<SessionRecord> {
 		const text = input.text.trim()
 		if (!text) throw new Error('text is required')
-		if (input.thinkingLevel !== undefined && !input.sessionId) {
-			assertThinkingLevel(input.thinkingLevel, defaultModelThinkingLevels())
-		}
+		const choice = modelChoice(input.provider, input.model)
 		const slot = input.sessionId
 			? await this.open(input.sessionId)
-			: await this.create(input.cwd ?? defaultCwd())
+			: await this.createNew(input.cwd ?? defaultCwd(), choice, input.thinkingLevel)
 		const busy = slot.running || slot.session.isStreaming
 		if (busy && !input.streamingBehavior) throw new BusyError()
+		if (input.sessionId && choice) await this.useModelIfChanged(slot, choice)
 		if (input.thinkingLevel !== undefined) {
 			assertThinkingLevel(input.thinkingLevel, slot.session.getAvailableThinkingLevels())
 			slot.session.setThinkingLevel(input.thinkingLevel)
@@ -180,9 +183,34 @@ export class Agent {
 		if (event.type === 'agent_settled') this.disposeIdle()
 	}
 
-	private async create(cwd: string): Promise<Slot> {
+	/** 只改全局默认，不改这条会话的 model_change。会话记录留到发送且模型不同时再写。 */
+	async selectModel(id: string, provider: string, modelId: string): Promise<SessionRecord> {
+		const record = await this.get(id)
+		await modelForSwitch(provider, modelId)
+		await writeDefault(provider, modelId)
+		return record
+	}
+
+	private async useModelIfChanged(slot: Slot, choice: { provider: string; id: string }): Promise<void> {
+		const model = await modelForSwitch(choice.provider, choice.id)
+		const current = slot.session.model
+		if (current?.provider === model.provider && current.id === model.id) return
+		await slot.session.setModel(model)
+	}
+
+	private async createNew(
+		cwd: string,
+		choice: { provider: string; id: string } | undefined,
+		thinkingLevel: string | undefined,
+	): Promise<Slot> {
+		const model = await modelForNewSession(choice)
+		if (thinkingLevel !== undefined) assertThinkingLevel(thinkingLevel, getSupportedThinkingLevels(model))
+		return this.create(cwd, model)
+	}
+
+	private async create(cwd: string, model: Awaited<ReturnType<typeof modelForNewSession>>): Promise<Slot> {
 		const manager = createSessionManager(cwd)
-		return this.attach(manager)
+		return this.attach(manager, model)
 	}
 
 	private async open(id: string): Promise<Slot> {
@@ -193,10 +221,11 @@ export class Agent {
 		return this.attach(openSession(info.path))
 	}
 
-	private async attach(manager: SessionManager): Promise<Slot> {
+	private async attach(manager: SessionManager, model?: Awaited<ReturnType<typeof modelForNewSession>>): Promise<Slot> {
 		const { session } = await this.createRuntime({
 			cwd: manager.getCwd(),
 			sessionManager: manager,
+			model,
 		})
 		const id = session.sessionManager.getSessionId()
 		const unsubscribe = session.subscribe((event) => this.emit(id, event))
@@ -229,6 +258,12 @@ export class Agent {
 			this.slots.delete(id)
 		}
 	}
+}
+
+function modelChoice(provider?: string, model?: string): { provider: string; id: string } | undefined {
+	if (provider === undefined && model === undefined) return undefined
+	if (!provider || !model) throw new HttpError(400, 'BAD_REQUEST', 'provider and model must be provided together')
+	return { provider, id: model }
 }
 
 function assertThinkingLevel(level: string, supported: readonly string[]): asserts level is ThinkingLevelName {

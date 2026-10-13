@@ -241,6 +241,8 @@ type HealthResponse = {
 							{ name: "text", type: "string", required: true, description: "用户输入", example: "你好" },
 							{ name: "cwd", type: "string", required: false, description: "工作区目录", example: "/Users/chen" },
 							{ name: "thinkingLevel", type: "string", required: false, description: "思考档位。不传则新会话为 medium", example: "medium" },
+							{ name: "provider", type: "string", required: false, description: "和 model 一起给。这次会话用它，并写成全局默认", example: "minimax" },
+							{ name: "model", type: "string", required: false, description: "模型 id。和 provider 一起给", example: "MiniMax-M3" },
 						],
 						body: "{\n  \"text\": \"你好\"\n}",
 						requestType: `/** JSON body。 */
@@ -251,6 +253,10 @@ type CreateSessionRequest = {
 	cwd?: string
 	/** 思考档位。不传则新会话为 medium。不在该模型支持列表里时 400 BAD_REQUEST */
 	thinkingLevel?: "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max"
+	/** 提供商。和 model 一起给。这次用它，并写成全局默认。只给一个时 400 BAD_REQUEST */
+	provider?: string
+	/** 模型 id。和 provider 一起给 */
+	model?: string
 }`,
 						responseType: `/** HTTP 202。此时 status 为 "running"。第一条 user 消息发出后落盘。 */
 
@@ -342,6 +348,8 @@ ${ERROR_BODY}`,
 							{ name: "text", type: "string", required: true, description: "用户输入", example: "继续" },
 							{ name: "streamingBehavior", type: "string", required: false, description: "正在生成时的插队方式。steer：当前回复及工具结束后、下次模型调用前插入。followUp：本轮结束后再发", example: "steer" },
 							{ name: "thinkingLevel", type: "string", required: false, description: "思考档位。不传则保持会话当前档位", example: "medium" },
+							{ name: "provider", type: "string", required: false, description: "和 model 一起给。与该会话上次不同才写入会话，不改全局默认", example: "minimax" },
+							{ name: "model", type: "string", required: false, description: "模型 id。和 provider 一起给", example: "MiniMax-M3" },
 						],
 						body: "{\n  \"text\": \"继续\"\n}",
 						requestType: `/** 路径参数 + JSON body。 */
@@ -354,6 +362,10 @@ type PromptRequest = {
 	streamingBehavior?: "steer" | "followUp"
 	/** 思考档位。不传则保持会话当前档位。不在该模型支持列表里时 400 BAD_REQUEST */
 	thinkingLevel?: "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max"
+	/** 提供商。和 model 一起给。与该会话上次不同才追加 model_change。只给一个时 400 BAD_REQUEST */
+	provider?: string
+	/** 模型 id。和 provider 一起给 */
+	model?: string
 }`,
 						responseType: `/** HTTP 202，status 为 "running"。正在生成且未带 streamingBehavior 时 409，code 为 BUSY。 */
 
@@ -387,10 +399,223 @@ ${ERROR_BODY}`,
 					},
 					{
 						group: "模型",
+						name: "提供商",
+						method: "GET",
+						path: "/api/providers",
+						summary: "白名单提供商。configured 表示基座认为已有凭证，不含 key。",
+						queryParams: [],
+						bodyParams: [],
+						body: "",
+						requestType: `/** 无参数。 */
+type ListProvidersRequest = Record<string, never>`,
+						responseType: `/** HTTP 200。 */
+type ListProvidersResponse = {
+	providers: Array<{
+		/** 提供商 id */
+		id: string
+		/** 显示名 */
+		name: string
+		/** auth.json、环境变量或本机凭证任一让基座认为可用 */
+		configured: boolean
+	}>
+}`,
+					},
+					{
+						group: "模型",
+						name: "写入密钥",
+						method: "PUT",
+						path: "/api/providers/:id",
+						summary: "写入或覆盖该提供商的 api key。响应不带回密钥。名单外 404。",
+						queryParams: [],
+						bodyParams: [
+							{ name: "apiKey", type: "string", required: true, description: "API key", example: "sk-test" },
+						],
+						body: "{\n  \"apiKey\": \"sk-test\"\n}",
+						requestType: `/** 路径参数 + JSON body。 */
+type PutProviderRequest = {
+	/** 白名单里的提供商 id。不在名单里时 404 NOT_FOUND */
+	id: string
+	/** 必填。空白为 400 BAD_REQUEST */
+	apiKey: string
+}`,
+						responseType: `/** HTTP 200。 */
+type PutProviderResponse = {
+	id: string
+	configured: true
+}
+
+${ERROR_BODY}`,
+					},
+					{
+						group: "模型",
+						name: "删除密钥",
+						method: "DELETE",
+						path: "/api/providers/:id",
+						summary: "删除 auth.json 里的这一条。环境变量仍可让基座认为可用。",
+						queryParams: [],
+						bodyParams: [],
+						body: "",
+						requestType: `/** 路径参数。无 body。 */
+type DeleteProviderRequest = {
+	/** 白名单里的提供商 id。不在名单里时 404 NOT_FOUND */
+	id: string
+}`,
+						responseType: `/** HTTP 204。无 body。 */
+
+${ERROR_BODY}`,
+					},
+					{
+						group: "模型",
+						name: "提供商模型目录",
+						method: "GET",
+						path: "/api/providers/:id/models",
+						summary: "该提供商的对话模型。底表加已缓存的刷新结果。不要求已填 key。",
+						queryParams: [],
+						bodyParams: [],
+						body: "",
+						requestType: `/** 路径参数。无 body。 */
+type ProviderModelsRequest = {
+	/** 白名单里的提供商 id。不在名单里时 404 NOT_FOUND */
+	id: string
+}`,
+						responseType: `/** HTTP 200。 */
+type ProviderModelsResponse = {
+	models: ModelSummary[]
+}
+
+type ModelSummary = {
+	provider: string
+	id: string
+	name: string
+	reasoning: boolean
+	contextWindow: number
+	maxTokens: number
+}
+
+${ERROR_BODY}`,
+					},
+					{
+						group: "模型",
+						name: "可用模型",
+						method: "GET",
+						path: "/api/models",
+						summary: "当前可用的对话模型。没有全局默认时会补写。不向厂商试 key。",
+						queryParams: [
+							{ name: "provider", type: "string", required: false, description: "只看这一家", example: "minimax" },
+						],
+						bodyParams: [],
+						body: "",
+						requestType: `/** Query。无 body。 */
+type AvailableModelsRequest = {
+	provider?: string
+}`,
+						responseType: `/** HTTP 200。 */
+type AvailableModelsResponse = {
+	/** 过滤后至少有一条 */
+	available: boolean
+	models: ModelSummary[]
+}`,
+					},
+					{
+						group: "模型",
+						name: "读取默认模型",
+						method: "GET",
+						path: "/api/models/default",
+						summary: "全局默认。没有可用模型时 model 为 null。有可用模型但还没默认时先补写。",
+						queryParams: [],
+						bodyParams: [],
+						body: "",
+						requestType: `/** 无参数。 */
+type GetDefaultModelRequest = Record<string, never>`,
+						responseType: `/** HTTP 200。 */
+type GetDefaultModelResponse = {
+	model: {
+		provider: string
+		id: string
+		/** 补写或读到的一对当时可用 */
+		usable: boolean
+	} | null
+}`,
+					},
+					{
+						group: "模型",
+						name: "修改默认模型",
+						method: "PUT",
+						path: "/api/models/default",
+						summary: "改全局默认。不改已经打开的会话。模型当前不可用时 400。",
+						queryParams: [],
+						bodyParams: [
+							{ name: "provider", type: "string", required: true, description: "提供商", example: "minimax" },
+							{ name: "model", type: "string", required: true, description: "模型 id", example: "MiniMax-M3" },
+						],
+						body: "{\n  \"provider\": \"minimax\",\n  \"model\": \"MiniMax-M3\"\n}",
+						requestType: `/** JSON body。 */
+type PutDefaultModelRequest = {
+	provider: string
+	model: string
+}`,
+						responseType: `/** HTTP 200。目录里没有时 404 NOT_FOUND。当前不可用时 400 BAD_REQUEST。 */
+type PutDefaultModelResponse = {
+	model: {
+		provider: string
+		id: string
+		usable: true
+	}
+}
+
+${ERROR_BODY}`,
+					},
+					{
+						group: "模型",
+						name: "刷新模型目录",
+						method: "POST",
+						path: "/api/models/refresh",
+						summary: "手动从 pi.dev 更新白名单提供商的模型目录。失败的保留底表和旧缓存。",
+						queryParams: [],
+						bodyParams: [],
+						body: "",
+						requestType: `/** 无 body。 */
+type RefreshModelsRequest = Record<string, never>`,
+						responseType: `/** HTTP 200。 */
+type RefreshModelsResponse = {
+	providers: Array<{
+		id: string
+		ok: boolean
+		error?: string
+	}>
+}`,
+					},
+					{
+						group: "会话",
+						name: "切换模型",
+						method: "POST",
+						path: "/api/sessions/:id/model",
+						summary: "只把所选模型写成全局默认，不改这条会话文件里的上次模型。",
+						queryParams: [],
+						bodyParams: [
+							{ name: "provider", type: "string", required: true, description: "提供商", example: "minimax" },
+							{ name: "model", type: "string", required: true, description: "模型 id", example: "MiniMax-M3" },
+						],
+						body: "{\n  \"provider\": \"minimax\",\n  \"model\": \"MiniMax-M3\"\n}",
+						requestType: `/** 路径参数 + JSON body。 */
+type SwitchSessionModelRequest = {
+	/** 会话 id。找不到时 404 NOT_FOUND */
+	id: string
+	provider: string
+	model: string
+}`,
+						responseType: `/** HTTP 200。目录里没有时 404 NOT_FOUND。当前不可用时 409 PROVIDER_REQUIRED。不改会话的 model_change。 */
+
+${SESSION_RECORD}
+
+${ERROR_BODY}`,
+					},
+					{
+						group: "模型",
 						name: "思考档位",
 						method: "GET",
 						path: "/api/models/thinking-levels",
-						summary: "按已注册模型查询可选思考档位。不打开会话。",
+						summary: "按目录中的模型查询可选思考档位。不打开会话。",
 						queryParams: [
 							{ name: "provider", type: "string", required: true, description: "提供商", example: "minimax" },
 							{ name: "id", type: "string", required: true, description: "模型 id", example: "MiniMax-M3" },
@@ -399,9 +624,9 @@ ${ERROR_BODY}`,
 						body: "",
 						requestType: `/** Query。无 body。 */
 type ThinkingLevelsRequest = {
-	/** 提供商。未注册时 404 NOT_FOUND */
+	/** 提供商。目录里没有时 404 NOT_FOUND */
 	provider: string
-	/** 模型 id。未注册时 404 NOT_FOUND */
+	/** 模型 id。目录里没有时 404 NOT_FOUND */
 	id: string
 }`,
 						responseType: `/** HTTP 200。缺 provider 或 id 时 400 BAD_REQUEST。 */

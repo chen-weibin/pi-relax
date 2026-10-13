@@ -16,16 +16,29 @@ function tracingEnabled(): boolean {
 }
 
 function secretValues(): string[] {
-	return [process.env.LANGFUSE_PUBLIC_KEY, process.env.LANGFUSE_SECRET_KEY, process.env.MINIMAX_API_KEY].filter(
-		(value): value is string => Boolean(value?.trim()),
-	)
+	const values: string[] = []
+	for (const [name, value] of Object.entries(process.env)) {
+		if (!value?.trim()) continue
+		if (
+			name === 'LANGFUSE_PUBLIC_KEY' ||
+			name === 'LANGFUSE_SECRET_KEY' ||
+			name.endsWith('_API_KEY') ||
+			name === 'HF_TOKEN' ||
+			name === 'COPILOT_GITHUB_TOKEN' ||
+			name === 'ANTHROPIC_AUTH_TOKEN' ||
+			name === 'ANTHROPIC_OAUTH_TOKEN'
+		) {
+			values.push(value)
+		}
+	}
+	return values
 }
 
 function escapeRegExp(text: string): string {
 	return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
-/** 把密钥从即将上传的请求体里换掉。请求头里的 Authorization 不在 payload 里，这里碰不到。 */
+/** 把密钥从即将上传的请求体里换掉。名为 apiKey 的字段会整段打码。请求头里的 Authorization 不在 payload 里。 */
 export function redactProviderPayload(payload: unknown, secrets: readonly string[]): unknown {
 	const pattern = new RegExp([...secrets.filter((secret) => secret.length > 0).map(escapeRegExp), LANGFUSE_KEY].join('|'), 'g')
 	const walk = (value: unknown, seen: WeakSet<object>): unknown => {
@@ -38,7 +51,10 @@ export function redactProviderPayload(payload: unknown, secrets: readonly string
 		seen.add(value)
 		if (Array.isArray(value)) return value.map((item) => walk(item, seen))
 		const fields: Record<string, unknown> = {}
-		for (const [key, field] of Object.entries(value)) fields[key] = walk(field, seen)
+		const SECRET_FIELDS = new Set(['apikey', 'api_key', 'authorization'])
+		for (const [key, field] of Object.entries(value)) {
+			fields[key] = SECRET_FIELDS.has(key.toLowerCase()) && typeof field === 'string' ? REDACTED : walk(field, seen)
+		}
 		return fields
 	}
 	return walk(payload, new WeakSet())

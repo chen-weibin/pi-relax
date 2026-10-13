@@ -63,7 +63,7 @@ pi 没有会话索引。`list(cwd)` 扫该编码目录下的 `*.jsonl`，`listAl
 - **一条对话**。`createAgentSession` 造出 `AgentSession`：`prompt` 发送，`subscribe` 收事件，`abort` 中止，`dispose` 释放。`steer` / `followUp` 是生成过程中插队。`compact` 是手动压缩。`navigateTree` 是同一份 JSONL 里换分支。
 - **会话文件**。`SessionManager` 管 JSONL，不跑模型。`create` 新建，`open` 打开路径，`continueRecent` 续最近一条，`inMemory` 不落盘，`list` / `listAll` 列目录，`forkFrom` 从旧文件分出新文件。
 - **切换当前这一条**。`createAgentSessionRuntime` 得到 `AgentSessionRuntime`，里面始终只有 `runtime.session`。`newSession`、`switchSession`、`fork`、`importFromJsonl` 会先中止并 `dispose` 旧会话，再换上新的。订阅绑在旧对象上，换完要重新 `subscribe`。
-- **模型**。`ModelRuntime.create` 管密钥、`models.json` 和供应商。当前只接 MiniMax，仍走这个入口。
+- **模型**。`ModelRuntime.create` 管密钥、`models.json` 和供应商。白名单里的内置提供商可以填 key、选模型。自定义提供商和 OAuth 不做。
 - **提示词、技能、规则、扩展从哪读**。`DefaultResourceLoader`，或自己实现 `ResourceLoader` 传进 `createAgentSession`。`loadSkills` / `loadSkillsFromDir` 是单独扫技能目录。
 - **工具**。`createAgentSession` 的 `tools` / `noTools` / `customTools` 控制启用哪些。`createReadTool`、`createCodingTools` 等工厂是要换工作目录或换文件操作实现时用的。
 - **设置**。`SettingsManager` 读 pi 的 `settings.json`。我们要可控的项优先走自己的 `.relax` 和 loader，不默默吃 `~/.pi`。
@@ -81,7 +81,7 @@ pi 暴露的加载点都要能指定到 `.relax` 或配置里的路径，不默�
 
 - 系统提示词、技能、规则、扩展都要可控。默认路径等那一块开工再定。扩展能执行代码，磁盘扫描默认关掉。当前显式挂 Langfuse 官方插件和 `pi-web-access`，见下文「追踪」。找官方或社区插件时看 [https://pi.dev/packages](https://pi.dev/packages)（查阅时机：要加扩展、避免自己再写一份已有能力时）。
 - 工具白名单写在会话工厂：八个内置（`read`、`bash`、`edit`、`write`、`grep`、`find`、`ls`、`powershell`）、`codemode`，以及 `pi-web-access` 的 `web_search`、`fetch_content`、`get_search_content`、`source_check`。`tool_search` 和 `web_enable` 不开。`powershell` 在非 Windows 上调用会由基座报错。模式以后再按这份名单切换。路径仍是该会话的 cwd。
-- 模型当前只接 MiniMax。密钥用 `MINIMAX_API_KEY`（启动时已有的环境变量优先，否则读 `app/server/.env`），或写在 `.relax` 里由我们指定的 auth 文件。选型走 pi 的 `ModelRuntime`。以后加提供商只加配置，不改会话和事件通路。
+- 模型走 pi 的 `ModelRuntime`，不另建配置文件。白名单在 `app/server/src/agent/models.ts` 的 `KEY_PROVIDERS`，只收一把 key 就能对话的内置提供商（`pi-ai@1.0.4`）。升 `@earendil-works/pi-ai` 后对照 `providers/*.ts` 的 `auth` 再核一次。名单外的 id，包括 `models.json` 里自造的提供商，接口拒绝。同时带 OAuth 的只走 `api_key` 登录。密钥写入 `~/.relax/agent/auth.json`，同一 id 再提交是修改。不删除环境变量：基座认为可用就算可用，包括 `auth.json`、环境变量和该提供商会读的本机凭证。不向厂商发请求试 key。可用对话模型至少有一个、但全局还没有一对仍可用的默认时，按基座 `defaultModelPerProvider` 的顺序补写 `settings.json` 的 `defaultProvider` / `defaultModel`（该常量未从包入口导出，顺序抄在 `DEFAULT_MODEL_ORDER`）。新建会话用这一对；请求里带了 `provider` 和 `model` 时这次用它，并写成新的默认。打开旧会话仍恢复该文件自己的 `model_change`。对话框里改模型只写全局默认，不改当前会话文件。续发带了 `provider` 和 `model`、且与该会话上次记录不同时，才追加 `model_change`，不改默认。没带则继续用该会话已恢复的模型。模型目录的底表在 npm 包里；手动更新是 `POST /api/models/refresh`，转调 `refresh({ allowNetwork: true, force: true })`，结果进 `~/.relax/agent/models-store.json`。不在启动或列模型时自动刷新。
 - 上下文压缩沿用 pi 的自动行为，不单独做接口。它是上下文体积的安全阀。
 - 分支、fork、从某一条消息重开是高级能力。JSONL 里的树先留着，当前不设计接口。文件快照式的回滚也不做。
 
@@ -107,7 +107,7 @@ pi 暴露的加载点都要能指定到 `.relax` 或配置里的路径，不默�
 
 `app/server/src/agent/` 是唯一调用 pi 会话 API 的目录。类内部按 sessionId 缓存 `{ session: AgentSession }`，同一套工厂（内部 `createAgentSessionRuntime`，对外只返回 session）。对外 `prompt`（可无 id，可带 `thinkingLevel` 与 `streamingBehavior`）、`rename`、`abort`、`applyQueueModes`、`status`、`subscribe`。HTTP 和 SSE 只订这个类。档位查询和运行配置不经过这个类的模型调用；出队模式的热更新走 `applyQueueModes`。
 
-剖面本轮：`tools` 为八个内置工具、`codemode` 和四个联网工具。loader `noSkills` / `noExtensions` / `noContextFiles` / `noPromptTemplates` / `noThemes`。`noExtensions` 只停磁盘扫描；`additionalExtensionPaths` 指向 Langfuse 和 `pi-web-access`；`extensionFactories` 来自 `app/server/src/extensions/`，含 `createCodemodeExtension()`。模型 MiniMax（`MINIMAX_API_KEY`），`agentDir` 指向 `~/.relax/agent`。
+剖面本轮：`tools` 为八个内置工具、`codemode` 和四个联网工具。loader `noSkills` / `noExtensions` / `noContextFiles` / `noPromptTemplates` / `noThemes`。`noExtensions` 只停磁盘扫描；`additionalExtensionPaths` 指向 Langfuse 和 `pi-web-access`；`extensionFactories` 来自 `app/server/src/extensions/`，含 `createCodemodeExtension()`。模型用白名单里的内置提供商，`agentDir` 指向 `~/.relax/agent`。
 
 新对话：`SessionManager.create(cwd)` 后立刻 `prompt`。文件等第一条 user 消息。思考档位默认 `medium`。正在回复时，不带 `streamingBehavior` 再 `prompt` 得 `BUSY`；`steer` 在当前回复及其工具结束后、下一次模型调用前插入，`followUp` 在本轮结束后再发。两者都不打断正在吐的字。多条排队的出队读全局 `~/.relax/agent/settings.json` 的 `steeringMode` / `followUpMode`（各自 `all` 或 `one-at-a-time`，缺省 `one-at-a-time`）。新建会话由基座 `SettingsManager` 合并该文件与工作区 `.pi/settings.json`，工厂里不调用 setter。`PATCH /api/settings` 之后，内存里的会话用 `setSteeringMode` / `setFollowUpMode` 立刻换模式。
 
@@ -119,15 +119,24 @@ pi 暴露的加载点都要能指定到 `.relax` 或配置里的路径，不默�
 
 `BUSY` 为 409。`GET /api/sessions/events` 写在 `/:id` 之前。请求和返回的字段以调试页为准。
 
-- `POST /api/sessions` 第一次发送并创建，202。可选 `thinkingLevel`，不传则 `medium`
+- `POST /api/sessions` 第一次发送并创建，202。可选 `thinkingLevel`，不传则 `medium`。可选 `provider` 与 `model`，要一起给；不给则用全局默认
 - `GET /api/sessions` 列表，默认全部工作区
 - `GET /api/sessions/:id` 一条信息
 - `GET /api/sessions/:id/history` `buildSessionContext()`
 - `DELETE /api/sessions/:id` 中止并删除文件，204
-- `POST /api/sessions/:id/prompt` 续发，202。可选 `streamingBehavior`（`steer` | `followUp`）和 `thinkingLevel`
+- `POST /api/sessions/:id/prompt` 续发，202。可选 `streamingBehavior`（`steer` | `followUp`）、`thinkingLevel`，以及一起出现的 `provider` 与 `model`。带了模型且与该会话上次不同时才写入会话
+- `POST /api/sessions/:id/model` 只把所选模型写成全局默认，不改这条会话的上次模型
 - `POST /api/sessions/:id/name` 手动设置 `name`，空字符串清空
 - `POST /api/sessions/:id/abort` 中止。热会话按 `relax.abortPolicy`：`clear-then-abort`（默认）先 `clearQueue` 再 `abort`；`abort-only` 只 `abort`，队列留下。响应是会话信息加上 `cleared: { steering, followUp }`。没有清队列、会话不在内存里时两个数组为空，`status` 为 `idle`
-- `GET /api/models/thinking-levels?provider=&id=` 查询该模型可选思考档位和默认档位 `medium`。未注册 404
+- `GET /api/providers` 白名单提供商。`configured` 表示基座认为该提供商已有凭证
+- `PUT /api/providers/:id` 写入或覆盖 api key。名单外 404
+- `DELETE /api/providers/:id` 删除 `auth.json` 里的这一条。环境变量仍可让基座认为可用
+- `GET /api/providers/:id/models` 该提供商的对话模型目录，不要求已填 key
+- `GET /api/models` 当前可用对话模型。`available` 表示至少有一条。没有默认时会补写
+- `GET /api/models/default` 全局默认。没有可用模型时 `model` 为 null
+- `PUT /api/models/default` 修改全局默认，不改已经打开的会话
+- `POST /api/models/refresh` 手动从 pi.dev 更新模型目录。测试不调用
+- `GET /api/models/thinking-levels?provider=&id=` 查询该模型可选思考档位和默认档位 `medium`。目录里没有 404
 - `GET /api/settings` 全局出队模式和中止策略。缺文件时返回默认值
 - `PATCH /api/settings` 改上述字段的子集。出队模式写入后套到热会话
 - `GET /api/sessions/events` 全局 SSE，不进 api.html。`data` 为 `{ sessionId, event }`，内层是 pi 的 `AgentSessionEvent`
@@ -173,7 +182,7 @@ SSE 断线不补，客户端用历史对齐。发送和中止走 HTTP。本轮�
 
 1. 进程、`.relax` 根、健康检查、单会话错误不拖垮进程
 2. 项目、默认工作区、会话索引（不调用模型）
-3. 对话运行时：MiniMax、流式、中止、`buildSessionContext` 历史、全局 SSE
+3. 对话运行时：可选模型、流式、中止、`buildSessionContext` 历史、全局 SSE
 4. 工具：读、写、编辑，然后才是 shell
 5. 技能
 6. 规则与系统提示词（开工前先核对 loader）
@@ -181,7 +190,7 @@ SSE 断线不补，客户端用历史对齐。发送和中止走 HTTP。本轮�
 8. 终端
 9. 用户名和头像
 
-分支、fork、多提供商、附件、命令审批不在这个序列里。前端接入另行指定。
+分支、fork、附件、命令审批不在这个序列里。多提供商里「一把 key 就能对话」的已经接上，自定义提供商和 OAuth 没有。前端接入另行指定。
 
 ## 文件系统
 
@@ -235,9 +244,9 @@ app/server/src/
   utils/text.ts         消息纯文本
   utils/request.ts      请求体 text / cwd
   sessions/             列、打开、历史、删
-  agent/                智能体类、Runtime 工厂、剖面
+  agent/                智能体类、Runtime 工厂、模型白名单
   routes/health.ts      GET /health
-  routes/models.ts      GET /api/models/thinking-levels
+  routes/models.ts      提供商、可用模型、默认模型、手动刷新、思考档位
   routes/settings.ts    GET / PATCH /api/settings
   routes/sessions.ts    会话路由与 SSE
 app/server/test/
@@ -267,6 +276,6 @@ app/server/test/
 
 ## 和 Cursor / Codex 的差距
 
-多项目、多会话、不选项目也能聊，这一层对齐。流式正文、思考、中止、历史回放，pi 够用，线上格式跟 pi。工具、规则、技能目录可控，但是 loader 的具体行为要在对应那一块重新验证。模型当前只有 MiniMax。文件树用按目录订阅。终端不经过 pi。
+多项目、多会话、不选项目也能聊，这一层对齐。流式正文、思考、中止、历史回放，pi 够用，线上格式跟 pi。工具、规则、技能目录可控，但是 loader 的具体行为要在对应那一块重新验证。模型用白名单里的内置提供商，密钥在 `auth.json`。文件树用按目录订阅。终端不经过 pi。
 
 往后放的能力：分支和 fork、附件、检查点回滚、命令审批、多根工作区。用户名和头像优先级最低。

@@ -2,7 +2,7 @@
 
 只记当前代码里已经能用的能力。规划、上限和还没做的块在 [server.md](server.md)。查阅时机：想看服务端现在做到哪、对照联调页该点哪一项时。改行为时和 [server.md](server.md) 一起改本页。
 
-手工入口：`pnpm dev:server`（端口 `3001`）。`pnpm dev:server:open` 拉起同一个服务，`/health` 成功后用系统打开本地 [index.html](../app/server/test/html/index.html)（`open` 文件，不另起静态服务）；该端口已在听则只打开页面。逐条 HTTP 用 [api.html](../app/server/test/html/api.html)，整段会话用 [sessions.html](../app/server/test/html/sessions.html)。前端 `app/web` 还没接这些接口。
+手工入口：`pnpm dev:server`（端口 `3001`）。`pnpm dev:server:open` 拉起同一个服务，`/health` 成功后用系统打开本地 [index.html](../app/server/test/html/index.html)（`open` 文件，不另起静态服务）；该端口已在听则只打开页面。逐条 HTTP 用 [api.html](../app/server/test/html/api.html)，整段会话用 [sessions.html](../app/server/test/html/sessions.html)。会话页的模型下拉来自 `GET /api/models`：没选中会话时显示新建将用的模型，选中后显示该会话历史里的模型。改下拉只改全局默认；发送时带上所选模型，和该会话上次不同才写入会话。前端 `app/web` 还没接这些接口。
 
 ## 进程
 
@@ -33,14 +33,20 @@
 
 ## 模型与思考档位
 
-1. 当前只注册 MiniMax-M3，密钥用 `MINIMAX_API_KEY`。
-2. 新会话思考档位默认 `medium`。创建和续发都可以指定档位；不在该模型支持列表里则 400。
-3. 按模型查询可选档位：`GET /api/models/thinking-levels?provider=minimax&id=MiniMax-M3`。未注册的模型返回 404。MiniMax-M3 当前是 `off`、`minimal`、`low`、`medium`、`high`。
+1. 白名单在 `app/server/src/agent/models.ts`。只收一把 key 就能对话的内置提供商。`azure`、`openai-codex`、Bedrock、Vertex、Cloudflare、`typesafe` 不在里面。升 `@earendil-works/pi-ai` 后要对照 `providers/*.ts` 再核一次。
+2. `PUT /api/providers/:id` 把 api key 写入 `~/.relax/agent/auth.json`。同一 id 再提交是修改。响应不带回 key。`DELETE` 只删这一条存储。
+3. 基座认为有凭证就算可用：`auth.json`、环境变量、本机凭证。不发请求试 key。`GET /api/models` 的 `available` 表示当前至少有一条可用对话模型。
+4. 全局默认是 `settings.json` 的 `defaultProvider` 和 `defaultModel`。还没有可用默认、但已经有可用模型时，查询可用列表或读取默认会按基座内置顺序补写。`PUT /api/models/default` 只改这一对，不改热会话。
+5. 新建会话用全局默认。请求里同时带 `provider` 和 `model` 时，这次用它，并写成新的默认。一个可用模型都没有时 409 `PROVIDER_REQUIRED`。
+6. `POST /api/sessions/:id/model` 只把所选模型写成全局默认，不改这条会话的上次模型。续发带了 `provider` 和 `model`，且与该会话上次记录不同时，才追加 `model_change`。没带则继续用该会话已恢复的模型。打开旧会话、只改默认不发送，记录保持不变。
+7. `POST /api/models/refresh` 手动更新目录，转调基座 `refresh({ allowNetwork: true, force: true })`，缓存进 `models-store.json`。
+8. 新会话思考档位默认 `medium`。创建和续发都可以指定档位；不在该模型支持列表里则 400。
+9. `GET /api/models/thinking-levels?provider=&id=` 查目录里的模型。没有则 404。
 
 ## 追踪
 
 1. 会话工厂把 `@langfuse/pi-observability-plugin@0.1.2` 的入口放进 `additionalExtensionPaths`。磁盘上的其它扩展仍然不加载。官方插件记的是这一轮用户刚说的那句。
-2. 自己写的扩展在 `app/server/src/extensions/`。当前 `providerRequestTrace` 在每次模型 API 调用前，把请求体记到同一条 Conversational Turn 下的 `Provider Request`。那份 input 是发给接口的参数，`messages` 含此前轮次。不上传 `Authorization`。
+2. 自己写的扩展在 `app/server/src/extensions/`。当前 `providerRequestTrace` 在每次模型 API 调用前，把请求体记到同一条 Conversational Turn 下的 `Provider Request`。那份 input 是发给接口的参数，`messages` 含此前轮次。请求体里的 `apiKey` 会打码。环境里的模型 key 和 Langfuse 密钥也会从正文里换掉。不上传 `Authorization` 头。
 3. 密钥在 `app/server/.env`：`LANGFUSE_PUBLIC_KEY`、`LANGFUSE_SECRET_KEY`、`LANGFUSE_BASE_URL`（当前是 `https://cloud.langfuse.com`）。一次用户消息一条 trace，同一条会话共用一个 session。
 4. 默认上传。`LANGFUSE_TRACING_ENABLED=false` 时两边都不报，改完要重启 server。
 
