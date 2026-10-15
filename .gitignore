@@ -12,6 +12,7 @@ node_modules/
 /pi/
 
 *.tsbuildinfo
+app/server/test/user/output/
 
 # Logs
 logs

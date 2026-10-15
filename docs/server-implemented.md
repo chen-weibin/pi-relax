@@ -61,3 +61,7 @@
 ## 当前关掉的剖面
 
 技能、提示词模板、主题、上下文文件都显式关掉。磁盘扩展不扫。`tool_search` 和 `web_enable` 不开。文件监听和终端还没做。
+
+## 手工脚本
+
+`app/server/test/user/` 放自己跑的验证脚本，不进 `pnpm test`。用法写在各文件顶部。查阅时机：要看当前构建出来的系统提示词时执行 `tsx system-prompt.ts`；要看已声明给模型的工具时执行 `tsx tools.ts`。都在该目录下跑，加 `--file` 写到 `output/`：系统提示词是 `system-prompt.md`，工具是 `tools.json`。
