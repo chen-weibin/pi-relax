@@ -2,7 +2,7 @@
 
 只记当前代码里已经能用的能力。规划、上限和还没做的块在 [server.md](server.md)。查阅时机：想看服务端现在做到哪、对照联调页该点哪一项时。改行为时和 [server.md](server.md) 一起改本页。
 
-手工入口：`pnpm dev:server`（端口 `3001`）。`pnpm dev:server:open` 拉起同一个服务，`/health` 成功后用系统打开本地 [index.html](../app/server/test/html/index.html)（`open` 文件，不另起静态服务）；该端口已在听则只打开页面。逐条 HTTP 用 [api.html](../app/server/test/html/api.html)，整段会话用 [sessions.html](../app/server/test/html/sessions.html)。会话页的模型下拉来自 `GET /api/models`：没选中会话时显示新建将用的模型，选中后显示该会话历史里的模型。改下拉只改全局默认；发送时带上所选模型，和该会话上次不同才写入会话。前端 `app/web` 还没接这些接口。
+手工入口：`pnpm dev:server`（端口 `3001`）。`pnpm dev` 和 `pnpm start` 做同一件事：先起这个服务，`/health` 成功后再起 `pnpm dev:web`（Vite 默认 `5173`）；任一端口已在听则跳过该服务。`pnpm dev:server:open` 拉起同一个服务，`/health` 成功后用系统打开本地 [index.html](../app/server/test/html/index.html)（`open` 文件，不另起静态服务）；该端口已在听则只打开页面。逐条 HTTP 用 [api.html](../app/server/test/html/api.html)，整段会话用 [sessions.html](../app/server/test/html/sessions.html)。会话页的模型下拉来自 `GET /api/models`：没选中会话时显示新建将用的模型，选中后显示该会话历史里的模型。改下拉只改全局默认；发送时带上所选模型，和该会话上次不同才写入会话。前端 `app/web` 还没接这些接口。
 
 ## 进程
 

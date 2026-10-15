@@ -6,6 +6,8 @@
 		"node": ">=20"
 	},
 	"scripts": {
+		"dev": "node script/dev.mjs",
+		"start": "node script/dev.mjs",
 		"dev:web": "pnpm --filter web dev",
 		"dev:server": "pnpm --filter @relax/server dev",
 		"dev:server:open": "node script/dev-server-open.mjs",
