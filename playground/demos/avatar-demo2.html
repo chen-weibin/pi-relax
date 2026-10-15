@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>动态头像2</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      height: 100%;
+      background: #171717;
+      color: #e5e5e5;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif;
+    }
+
+    body {
+      display: grid;
+      place-items: center;
+      padding: 28px 320px 28px 28px;
+    }
+
+    .by {
+      position: fixed;
+      top: 18px;
+      left: 20px;
+      font-size: 12px;
+      letter-spacing: 0.4px;
+      color: #a1a1a1;
+    }
+
+    .stage {
+      width: min(340px, 100%);
+      aspect-ratio: 1;
+    }
+
+    #view {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .panel {
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      width: 280px;
+      max-height: calc(100vh - 40px);
+      overflow: auto;
+      padding: 14px 14px 16px;
+      background: #1e1e1e;
+      border: 1px solid #2a2a2a;
+      border-radius: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .panel h2 {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: #a1a1a1;
+      margin-bottom: 8px;
+    }
+
+    .shapes {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 6px;
+    }
+
+    .shape {
+      aspect-ratio: 1;
+      border: 1px solid #2a2a2a;
+      border-radius: 8px;
+      background: #171717;
+      padding: 4px;
+      cursor: pointer;
+    }
+
+    .shape svg { display: block; width: 100%; height: 100%; }
+    .shape path { fill: var(--swatch, #ffb4a2); }
+
+    .shape.active,
+    .expr.active {
+      border-color: #6a6a6a;
+      background: #2e2e2e;
+    }
+
+    .colors {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .picker {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      overflow: hidden;
+      border: 2px solid #3a3a3a;
+      cursor: pointer;
+      position: relative;
+    }
+
+    .picker input {
+      position: absolute;
+      inset: -4px;
+      width: 34px;
+      height: 34px;
+      border: 0;
+      padding: 0;
+      background: none;
+      cursor: pointer;
+    }
+
+    .picker input::-webkit-color-swatch-wrapper { padding: 0; }
+    .picker input::-webkit-color-swatch { border: none; }
+    .picker input::-moz-color-swatch { border: none; }
+
+    .exprs {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+    }
+
+    .expr {
+      height: 34px;
+      border-radius: 8px;
+      border: 1px solid #2a2a2a;
+      background: #171717;
+      color: #e5e5e5;
+      font: inherit;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .expr:hover,
+    .shape:hover { border-color: #4a4a4a; }
+
+    button:focus-visible,
+    .picker:focus-within {
+      outline: 2px solid #e5e5e5;
+      outline-offset: 2px;
+    }
+
+    @media (max-width: 760px) {
+      body { padding: 24px 24px 250px; }
+      .panel { left: 16px; right: 16px; width: auto; }
+    }
+  </style>
+</head>
+<body>
+  <p class="by">Grok 4.7 实现</p>
+  <div class="stage">
+    <canvas id="view" aria-label="头像预览"></canvas>
+  </div>
+
+  <aside class="panel" aria-label="头像控制">
+    <section>
+      <h2>形状</h2>
+      <div id="shapes" class="shapes"></div>
+    </section>
+    <section>
+      <h2>颜色</h2>
+      <div id="colors" class="colors"></div>
+    </section>
+    <section>
+      <h2>表情</h2>
+      <div id="exprs" class="exprs"></div>
+    </section>
+  </aside>
+
+  <script type="importmap">
+    { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js" } }
+  </script>
+  <script type="module">
+    import * as THREE from 'three'
+
+    const BASE = '#FFB4A2'
+    const K = 0.65
+
+    const EXPRESSIONS = [
+      { id: 'happy', name: '开心' },
+      { id: 'joyful', name: '愉悦' },
+      { id: 'angry', name: '生气' },
+      { id: 'sad', name: '难过' },
+      { id: 'think', name: '思考' },
+      { id: 'surprised', name: '惊讶' },
+    ]
+
+    function regular(n, cx, cy, radius, rotation) {
+      const pts = []
+      for (let i = 0; i < n; i++) {
+        const a = rotation + (i * 2 * Math.PI) / n
+        pts.push({ x: cx + radius * Math.cos(a), y: cy + radius * Math.sin(a) })
+      }
+      return pts
+    }
+
+    const SHAPES = [
+      { id: 'circle', name: '圆', face: [100, 106, 1], kind: 'circle' },
+      {
+        id: 'squircle', name: '圆角方', face: [100, 102, 1],
+        pts: [{ x: 26, y: 26 }, { x: 174, y: 26 }, { x: 174, y: 174 }, { x: 26, y: 174 }], r: 46,
+      },
+      {
+        id: 'triangle', name: '三角', face: [100, 124, 0.88],
+        pts: [{ x: 100, y: 20 }, { x: 184, y: 176 }, { x: 16, y: 176 }], r: 30,
+      },
+      {
+        id: 'diamond', name: '菱形', face: [100, 104, 0.9],
+        pts: [{ x: 100, y: 14 }, { x: 186, y: 100 }, { x: 100, y: 186 }, { x: 14, y: 100 }], r: 24,
+      },
+      {
+        id: 'pentagon', name: '五边', face: [100, 112, 0.92],
+        pts: regular(5, 100, 106, 86, -Math.PI / 2), r: 20,
+      },
+      {
+        id: 'hexagon', name: '六边', face: [100, 104, 0.94],
+        pts: regular(6, 100, 100, 88, 0), r: 18,
+      },
+      { id: 'capsule', name: '胶囊', face: [100, 104, 0.82], kind: 'capsule' },
+      {
+        id: 'trapezoid', name: '梯形', face: [100, 114, 0.94],
+        pts: [{ x: 62, y: 30 }, { x: 138, y: 30 }, { x: 178, y: 176 }, { x: 22, y: 176 }], r: 22,
+      },
+      {
+        id: 'octagon', name: '八边', face: [100, 104, 0.96],
+        pts: regular(8, 100, 100, 88, Math.PI / 8), r: 14,
+      },
+      { id: 'arch', name: '拱形', face: [100, 126, 0.96], kind: 'arch' },
+    ]
+
+    const MOTION = {
+      happy: { duration: 520, keys: [
+        { t: 0, x: 0, y: 0, rz: 0, sx: 1, sy: 1 },
+        { t: 0.35, x: 0, y: -22 * K, rz: -14, sx: 1.06, sy: 0.9 },
+        { t: 0.68, x: 0, y: 14 * K, rz: 6, sx: 0.96, sy: 1.08 },
+        { t: 1, x: 0, y: 0, rz: 0, sx: 1, sy: 1 },
+      ]},
+      joyful: { duration: 560, keys: [
+        { t: 0, x: 0, y: 0, rz: 0, sx: 1, sy: 1 },
+        { t: 0.25, x: 0, y: 0, rz: 18, sx: 1, sy: 1 },
+        { t: 0.55, x: 0, y: 0, rz: -16, sx: 1, sy: 1 },
+        { t: 0.8, x: 0, y: 0, rz: 5, sx: 1, sy: 1 },
+        { t: 1, x: 0, y: 0, rz: 0, sx: 1, sy: 1 },
+      ]},
+      angry: { duration: 480, keys: [
+        { t: 0, x: 0, y: 0, rz: 0, sx: 1, sy: 1 },
+        { t: 0.14, x: -28 * K, y: 0, rz: 8, sx: 1, sy: 1 },
+        { t: 0.32, x: 28 * K, y: 0, rz: -8, sx: 1, sy: 1 },
+        { t: 0.5, x: -18 * K, y: 0, rz: 5, sx: 1, sy: 1 },
+        { t: 0.68, x: 12 * K, y: 0, rz: -3, sx: 1, sy: 1 },
+        { t: 0.84, x: -4 * K, y: 0, rz: 0, sx: 1, sy: 1 },
+        { t: 1, x: 0, y: 0, rz: 0, sx: 1, sy: 1 },
+      ]},
+      sad: { duration: 640, keys: [
+        { t: 0, x: 0, y: 0, rz: 0, sx: 1, sy: 1 },
+        { t: 0.48, x: 0, y: -32 * K, rz: -16, sx: 1.04, sy: 0.92 },
+        { t: 1, x: 0, y: 0, rz: 0, sx: 1, sy: 1 },
+      ]},
+      think: { duration: 620, keys: [
+        { t: 0, x: 0, y: 0, rz: 0, sx: 1, sy: 1 },
+        { t: 0.38, x: 0, y: 0, rz: 22, sx: 1, sy: 1 },
+        { t: 0.7, x: 0, y: 0, rz: 16, sx: 1, sy: 1 },
+        { t: 1, x: 0, y: 0, rz: 0, sx: 1, sy: 1 },
+      ]},
+      surprised: { duration: 500, keys: [
+        { t: 0, x: 0, y: 0, rz: 0, sx: 1, sy: 1 },
+        { t: 0.28, x: 0, y: 36 * K, rz: 0, sx: 1.14, sy: 1.14 },
+        { t: 0.6, x: 0, y: -10 * K, rz: 0, sx: 0.94, sy: 1.08 },
+        { t: 1, x: 0, y: 0, rz: 0, sx: 1, sy: 1 },
+      ]},
+    }
+
+    const state = { shapeId: 'circle', expression: 'happy', hex: BASE }
+    const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches
+
+    function svgPath(shape) {
+      if (shape.kind === 'circle') return 'M 18 100 A 82 82 0 1 0 182 100 A 82 82 0 1 0 18 100 Z'
+      if (shape.kind === 'capsule') return 'M 100 16 A 48 48 0 0 1 148 64 L 148 136 A 48 48 0 0 1 100 184 A 48 48 0 0 1 52 136 L 52 64 A 48 48 0 0 1 100 16 Z'
+      if (shape.kind === 'arch') return 'M 28 162 L 28 108 A 72 72 0 0 1 172 108 L 172 162 Q 172 184 150 184 L 50 184 Q 28 184 28 162 Z'
+      const n = shape.pts.length
+      let d = ''
+      for (let i = 0; i < n; i++) {
+        const prev = shape.pts[(i - 1 + n) % n]
+        const curr = shape.pts[i]
+        const next = shape.pts[(i + 1) % n]
+        const v1x = curr.x - prev.x
+        const v1y = curr.y - prev.y
+        const v2x = next.x - curr.x
+        const v2y = next.y - curr.y
+        const len1 = Math.hypot(v1x, v1y)
+        const len2 = Math.hypot(v2x, v2y)
+        const rr = Math.min(shape.r, len1 / 2, len2 / 2)
+        const p1x = curr.x - (v1x / len1) * rr
+        const p1y = curr.y - (v1y / len1) * rr
+        const p2x = curr.x + (v2x / len2) * rr
+        const p2y = curr.y + (v2y / len2) * rr
+        const f = (v) => (Math.round(v * 10) / 10)
+        d += i === 0 ? `M ${f(p1x)} ${f(p1y)}` : ` L ${f(p1x)} ${f(p1y)}`
+        d += ` Q ${f(curr.x)} ${f(curr.y)} ${f(p2x)} ${f(p2y)}`
+      }
+      return d + ' Z'
+    }
+
+    function toWorld(p) {
+      return { x: p.x - 100, y: 100 - p.y }
+    }
+
+    function roundedShape(pts, radius) {
+      const world = pts.map(toWorld)
+      if (THREE.ShapeUtils.isClockWise(world)) world.reverse()
+      const n = world.length
+      const shape = new THREE.Shape()
+      for (let i = 0; i < n; i++) {
+        const prev = world[(i - 1 + n) % n]
+        const curr = world[i]
+        const next = world[(i + 1) % n]
+        const v1x = curr.x - prev.x
+        const v1y = curr.y - prev.y
+        const v2x = next.x - curr.x
+        const v2y = next.y - curr.y
+        const len1 = Math.hypot(v1x, v1y)
+        const len2 = Math.hypot(v2x, v2y)
+        const rr = Math.min(radius, len1 / 2, len2 / 2)
+        const p1x = curr.x - (v1x / len1) * rr
+        const p1y = curr.y - (v1y / len1) * rr
+        const p2x = curr.x + (v2x / len2) * rr
+        const p2y = curr.y + (v2y / len2) * rr
+        if (i === 0) shape.moveTo(p1x, p1y)
+        else shape.lineTo(p1x, p1y)
+        shape.quadraticCurveTo(curr.x, curr.y, p2x, p2y)
+      }
+      shape.closePath()
+      return shape
+    }
+
+    function makeShape(def) {
+      if (def.kind === 'circle') {
+        const shape = new THREE.Shape()
+        shape.absarc(0, 0, 82, 0, Math.PI * 2, false)
+        return shape
+      }
+      if (def.kind === 'capsule') {
+        const shape = new THREE.Shape()
+        shape.moveTo(-48, 36)
+        shape.absarc(0, 36, 48, Math.PI, 0, true)
+        shape.lineTo(48, -36)
+        shape.absarc(0, -36, 48, 0, Math.PI, true)
+        shape.closePath()
+        return shape
+      }
+      if (def.kind === 'arch') {
+        const shape = new THREE.Shape()
+        shape.moveTo(-72, -62)
+        shape.lineTo(-72, -8)
+        shape.absarc(0, -8, 72, Math.PI, 0, true)
+        shape.lineTo(72, -62)
+        shape.quadraticCurveTo(72, -84, 50, -84)
+        shape.lineTo(-50, -84)
+        shape.quadraticCurveTo(-72, -84, -72, -62)
+        shape.closePath()
+        return shape
+      }
+      return roundedShape(def.pts, def.r)
+    }
+
+    function parseHex(hex) {
+      const h = hex.replace('#', '')
+      const full = h.length === 3 ? h.split('').map(c => c + c).join('') : h
+      const n = parseInt(full, 16)
+      return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 }
+    }
+
+    function luminance(hex) {
+      const { r, g, b } = parseHex(hex)
+      const f = (c) => {
+        const s = c / 255
+        return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4
+      }
+      return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b)
+    }
+
+    function shade(hex, amt) {
+      const { r, g, b } = parseHex(hex)
+      const t = amt < 0 ? 0 : 255
+      const p = Math.abs(amt)
+      const c = (v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')
+      return '#' + c(r + (t - r) * p) + c(g + (t - g) * p) + c(b + (t - b) * p)
+    }
+
+    function ink(hex) {
+      return luminance(hex) < 0.18 ? shade(hex, 0.78) : shade(hex, -0.7)
+    }
+
+    function currentShape() {
+      return SHAPES.find(s => s.id === state.shapeId)
+    }
+
+    const stage = document.querySelector('.stage')
+    const canvas = document.getElementById('view')
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false })
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2))
+    renderer.setClearColor(0x171717, 1)
+    renderer.outputColorSpace = THREE.SRGBColorSpace
+
+    const scene = new THREE.Scene()
+    const camera = new THREE.PerspectiveCamera(30, 1, 1, 2000)
+    camera.position.set(48, 28, 400)
+    camera.lookAt(0, 0, 0)
+
+    scene.add(new THREE.AmbientLight(0xffffff, 0.86))
+    const key = new THREE.DirectionalLight(0xffffff, 0.48)
+    key.position.set(-90, 140, 220)
+    scene.add(key)
+
+    const head = new THREE.Group()
+    scene.add(head)
+
+    const bodyMat = new THREE.MeshStandardMaterial({ color: BASE, roughness: 0.92, metalness: 0 })
+    let bodyMesh = null
+
+    const faceCanvas = document.createElement('canvas')
+    faceCanvas.width = 256
+    faceCanvas.height = 256
+    const faceCtx = faceCanvas.getContext('2d')
+    const faceMap = new THREE.CanvasTexture(faceCanvas)
+    faceMap.colorSpace = THREE.SRGBColorSpace
+    const faceMat = new THREE.MeshBasicMaterial({
+      map: faceMap,
+      transparent: true,
+      alphaTest: 0.35,
+      depthTest: false,
+      side: THREE.DoubleSide,
+    })
+    const faceMesh = new THREE.Mesh(new THREE.PlaneGeometry(90, 90), faceMat)
+    head.add(faceMesh)
+
+    const shadow = new THREE.Mesh(
+      new THREE.CircleGeometry(54, 40),
+      new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.28 })
+    )
+    shadow.scale.set(1.15, 0.28, 1)
+    scene.add(shadow)
+
+    function drawFace(id, color) {
+      const ctx = faceCtx
+      ctx.clearRect(0, 0, 256, 256)
+      ctx.save()
+      ctx.translate(128, 128)
+      ctx.scale(2.15, 2.15)
+      ctx.strokeStyle = color
+      ctx.fillStyle = color
+      ctx.lineCap = 'round'
+      ctx.lineJoin = 'round'
+      const eye = (r, ry, dx = 0) => {
+        const h = ry ?? r
+        for (const cx of [-26, 26]) {
+          ctx.beginPath()
+          ctx.ellipse(cx + dx, 0, r, h, 0, 0, Math.PI * 2)
+          ctx.fill()
+        }
+      }
+      if (id === 'happy') {
+        eye(8.2)
+        strokePath(ctx, 'M -20 18 Q 0 34 20 18', 4.2)
+      } else if (id === 'joyful') {
+        strokePath(ctx, 'M -38 -2 Q -26 -16 -14 -2', 4.4)
+        strokePath(ctx, 'M 14 -2 Q 26 -16 38 -2', 4.4)
+        strokePath(ctx, 'M -28 16 Q 0 44 28 16', 5)
+      } else if (id === 'angry') {
+        strokePath(ctx, 'M -40 -18 L -12 -9', 4.2)
+        strokePath(ctx, 'M 40 -18 L 12 -9', 4.2)
+        eye(7.2, 5.4)
+        strokePath(ctx, 'M -16 24 Q 0 12 16 24', 4.2)
+      } else if (id === 'sad') {
+        strokePath(ctx, 'M -40 -8 L -14 -18', 4)
+        strokePath(ctx, 'M 40 -8 L 14 -18', 4)
+        eye(8, 7.2)
+        strokePath(ctx, 'M -18 26 Q 0 14 18 26', 4.2)
+      } else if (id === 'think') {
+        strokePath(ctx, 'M -40 -10 Q -27 -24 -12 -10', 4)
+        strokePath(ctx, 'M 14 -12 H 40', 4)
+        eye(8, 8, 4)
+        strokePath(ctx, 'M -4 20 Q 6 25 16 18', 4)
+      } else {
+        eye(11)
+        ctx.beginPath()
+        ctx.lineWidth = 4
+        ctx.ellipse(0, 24, 8, 10, 0, 0, Math.PI * 2)
+        ctx.stroke()
+      }
+      ctx.restore()
+      faceMap.needsUpdate = true
+    }
+
+    function strokePath(ctx, d, width) {
+      ctx.beginPath()
+      ctx.lineWidth = width
+      let y = 0
+      const cmds = d.match(/[MQHL][^MQHL]*/g)
+      for (const cmd of cmds) {
+        const k = cmd[0]
+        const n = cmd.slice(1).trim().split(/[\s,]+/).map(Number)
+        if (k === 'M') { ctx.moveTo(n[0], n[1]); y = n[1] }
+        else if (k === 'L') { ctx.lineTo(n[0], n[1]); y = n[1] }
+        else if (k === 'Q') { ctx.quadraticCurveTo(n[0], n[1], n[2], n[3]); y = n[3] }
+        else if (k === 'H') { ctx.lineTo(n[0], y) }
+      }
+      ctx.stroke()
+    }
+
+    function rebuild() {
+      const def = currentShape()
+      if (bodyMesh) {
+        head.remove(bodyMesh)
+        bodyMesh.geometry.dispose()
+      }
+      const geometry = new THREE.ExtrudeGeometry(makeShape(def), {
+        depth: 26,
+        bevelEnabled: true,
+        bevelThickness: 8,
+        bevelSize: 8,
+        bevelSegments: 4,
+        curveSegments: 32,
+      })
+      geometry.computeBoundingBox()
+      const box = geometry.boundingBox
+      const cx = (box.max.x + box.min.x) / 2
+      const cy = (box.max.y + box.min.y) / 2
+      const cz = (box.max.z + box.min.z) / 2
+      geometry.translate(-cx, -cy, -cz)
+      geometry.computeVertexNormals()
+      bodyMesh = new THREE.Mesh(geometry, bodyMat)
+      head.add(bodyMesh)
+      const [fx, fy, fs] = def.face
+      faceMesh.position.set((fx - 100) - cx, (100 - fy) - cy, box.max.z - cz + 3)
+      faceMesh.renderOrder = 2
+      faceMesh.scale.set(fs, fs, 1)
+      shadow.position.set(0, box.min.y - cy - 18, -8)
+      bodyMat.color.set(state.hex)
+      drawFace(state.expression, ink(state.hex))
+      canvas.setAttribute('aria-label', `${def.name}头像，${EXPRESSIONS.find(e => e.id === state.expression).name}`)
+      document.documentElement.style.setProperty('--swatch', state.hex)
+      document.querySelectorAll('.shape').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.id === state.shapeId)
+      })
+      document.querySelectorAll('.expr').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.id === state.expression)
+      })
+    }
+
+    let gesture = null
+    function playGesture(id) {
+      if (reduceMotion) return
+      gesture = { id, t0: performance.now() }
+    }
+
+    function sample(keys, t) {
+      let i = 0
+      while (i < keys.length - 1 && keys[i + 1].t < t) i++
+      const a = keys[i]
+      const b = keys[Math.min(i + 1, keys.length - 1)]
+      const u = b.t === a.t ? 1 : Math.min(1, Math.max(0, (t - a.t) / (b.t - a.t)))
+      const lerp = (p, q) => p + (q - p) * u
+      return {
+        x: lerp(a.x, b.x),
+        y: lerp(a.y, b.y),
+        rz: lerp(a.rz, b.rz),
+        sx: lerp(a.sx, b.sx),
+        sy: lerp(a.sy, b.sy),
+      }
+    }
+
+    function applyGesture(now) {
+      head.position.set(0, 0, 0)
+      head.rotation.set(0, 0, 0)
+      head.scale.set(1, 1, 1)
+      if (!gesture) return
+      const motion = MOTION[gesture.id]
+      const t = (now - gesture.t0) / motion.duration
+      if (t >= 1) {
+        gesture = null
+        return
+      }
+      const k = sample(motion.keys, t)
+      head.position.set(k.x, k.y, 0)
+      head.rotation.z = k.rz * Math.PI / 180
+      head.scale.set(k.sx, k.sy, 1)
+    }
+
+    function resize() {
+      const w = stage.clientWidth
+      const h = stage.clientHeight
+      renderer.setSize(w, h, false)
+      camera.aspect = w / Math.max(h, 1)
+      camera.updateProjectionMatrix()
+    }
+
+    addEventListener('resize', resize)
+    resize()
+
+    for (const shape of SHAPES) {
+      const btn = document.createElement('button')
+      btn.type = 'button'
+      btn.className = 'shape'
+      btn.dataset.id = shape.id
+      btn.title = shape.name
+      btn.setAttribute('aria-label', shape.name)
+      btn.innerHTML = `<svg viewBox="0 0 200 200" aria-hidden="true"><path d="${svgPath(shape)}"/></svg>`
+      btn.addEventListener('click', () => {
+        state.shapeId = shape.id
+        rebuild()
+      })
+      document.getElementById('shapes').appendChild(btn)
+    }
+
+    const pickerLabel = document.createElement('label')
+    pickerLabel.className = 'picker'
+    pickerLabel.title = '底色'
+    const picker = document.createElement('input')
+    picker.type = 'color'
+    picker.value = state.hex
+    picker.setAttribute('aria-label', '底色')
+    picker.addEventListener('input', () => {
+      state.hex = picker.value
+      rebuild()
+    })
+    pickerLabel.appendChild(picker)
+    document.getElementById('colors').appendChild(pickerLabel)
+
+    for (const expr of EXPRESSIONS) {
+      const btn = document.createElement('button')
+      btn.type = 'button'
+      btn.className = 'expr'
+      btn.dataset.id = expr.id
+      btn.textContent = expr.name
+      btn.addEventListener('click', () => {
+        state.expression = expr.id
+        rebuild()
+        playGesture(expr.id)
+      })
+      document.getElementById('exprs').appendChild(btn)
+    }
+
+    rebuild()
+
+    function frame(now) {
+      applyGesture(now)
+      renderer.render(scene, camera)
+      requestAnimationFrame(frame)
+    }
+    requestAnimationFrame(frame)
+  </script>
+</body>
+</html>

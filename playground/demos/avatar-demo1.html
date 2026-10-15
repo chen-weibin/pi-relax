@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>动态头像1</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      height: 100%;
+      background: #171717;
+      color: #e5e5e5;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif;
+    }
+
+    body {
+      display: grid;
+      place-items: center;
+      padding: 28px 320px 28px 28px;
+    }
+
+    .by {
+      position: fixed;
+      top: 18px;
+      left: 20px;
+      font-size: 12px;
+      letter-spacing: 0.4px;
+      color: #a1a1a1;
+    }
+
+    .stage {
+      position: relative;
+      width: min(340px, 100%);
+    }
+
+    .floor {
+      position: absolute;
+      left: 50%;
+      bottom: 4%;
+      width: 52%;
+      height: 22px;
+      transform: translateX(-50%);
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.38);
+      filter: blur(10px);
+      pointer-events: none;
+    }
+
+    #rig {
+      width: 100%;
+      transform-origin: 50% 72%;
+    }
+
+    #rig svg {
+      display: block;
+      width: 100%;
+      height: auto;
+      overflow: visible;
+    }
+
+    #rig.gesture-happy { animation: head-nod 520ms linear; }
+    #rig.gesture-joyful { animation: head-sway 560ms linear; }
+    #rig.gesture-angry { animation: head-shake 480ms linear; }
+    #rig.gesture-sad { animation: head-droop 640ms linear; }
+    #rig.gesture-think { animation: head-tilt 620ms linear; }
+    #rig.gesture-surprised { animation: head-pop 500ms linear; }
+
+    @keyframes head-nod {
+      0% { transform: none; }
+      35% { transform: translateY(22px) rotate(14deg) scale(1.06, 0.9); }
+      68% { transform: translateY(-14px) rotate(-6deg) scale(0.96, 1.08); }
+      100% { transform: none; }
+    }
+
+    @keyframes head-sway {
+      0% { transform: none; }
+      25% { transform: rotate(-18deg); }
+      55% { transform: rotate(16deg); }
+      80% { transform: rotate(-5deg); }
+      100% { transform: none; }
+    }
+
+    @keyframes head-shake {
+      0% { transform: none; }
+      14% { transform: translateX(-28px) rotate(-8deg); }
+      32% { transform: translateX(28px) rotate(8deg); }
+      50% { transform: translateX(-18px) rotate(-5deg); }
+      68% { transform: translateX(12px) rotate(3deg); }
+      84% { transform: translateX(-4px); }
+      100% { transform: none; }
+    }
+
+    @keyframes head-droop {
+      0% { transform: none; }
+      48% { transform: translateY(32px) rotate(16deg) scale(1.04, 0.92); }
+      100% { transform: none; }
+    }
+
+    @keyframes head-tilt {
+      0% { transform: none; }
+      38% { transform: rotate(-22deg); }
+      70% { transform: rotate(-16deg); }
+      100% { transform: none; }
+    }
+
+    @keyframes head-pop {
+      0% { transform: none; }
+      28% { transform: translateY(-36px) scale(1.14); }
+      60% { transform: translateY(10px) scale(0.94, 1.08); }
+      100% { transform: none; }
+    }
+
+    .panel {
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      width: 280px;
+      max-height: calc(100vh - 40px);
+      overflow: auto;
+      padding: 14px 14px 16px;
+      background: #1e1e1e;
+      border: 1px solid #2a2a2a;
+      border-radius: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .panel h2 {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: #a1a1a1;
+      margin-bottom: 8px;
+    }
+
+    .shapes {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 6px;
+    }
+
+    .shape {
+      aspect-ratio: 1;
+      border: 1px solid #2a2a2a;
+      border-radius: 8px;
+      background: #171717;
+      padding: 4px;
+      cursor: pointer;
+    }
+
+    .shape svg { display: block; width: 100%; height: 100%; }
+    .shape path { fill: var(--swatch, #ffb4a2); }
+
+    .shape.active,
+    .expr.active {
+      border-color: #6a6a6a;
+      background: #2e2e2e;
+    }
+
+    .colors {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .picker {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      overflow: hidden;
+      border: 2px solid #3a3a3a;
+      cursor: pointer;
+      position: relative;
+    }
+
+    .picker input {
+      position: absolute;
+      inset: -4px;
+      width: 34px;
+      height: 34px;
+      border: 0;
+      padding: 0;
+      background: none;
+      cursor: pointer;
+    }
+
+    .picker input::-webkit-color-swatch-wrapper { padding: 0; }
+    .picker input::-webkit-color-swatch { border: none; }
+    .picker input::-moz-color-swatch { border: none; }
+
+    .exprs {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+    }
+
+    .expr {
+      height: 34px;
+      border-radius: 8px;
+      border: 1px solid #2a2a2a;
+      background: #171717;
+      color: #e5e5e5;
+      font: inherit;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .expr:hover,
+    .shape:hover {
+      border-color: #4a4a4a;
+    }
+
+    button:focus-visible,
+    .picker:focus-within {
+      outline: 2px solid #e5e5e5;
+      outline-offset: 2px;
+    }
+
+    @media (max-width: 760px) {
+      body { padding: 24px 24px 250px; }
+      .panel { left: 16px; right: 16px; width: auto; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      #rig.gesture-happy,
+      #rig.gesture-joyful,
+      #rig.gesture-angry,
+      #rig.gesture-sad,
+      #rig.gesture-think,
+      #rig.gesture-surprised { animation: none; }
+    }
+  </style>
+</head>
+<body>
+  <p class="by">Grok 4.7 实现</p>
+  <div class="stage">
+    <div class="floor" aria-hidden="true"></div>
+    <div id="rig">
+      <svg viewBox="0 0 200 200" role="img" aria-label="头像预览">
+        <path id="body" />
+        <g id="face" fill="currentColor"></g>
+      </svg>
+    </div>
+  </div>
+
+  <aside class="panel" aria-label="头像控制">
+    <section>
+      <h2>形状</h2>
+      <div id="shapes" class="shapes"></div>
+    </section>
+    <section>
+      <h2>颜色</h2>
+      <div id="colors" class="colors"></div>
+    </section>
+    <section>
+      <h2>表情</h2>
+      <div id="exprs" class="exprs"></div>
+    </section>
+  </aside>
+
+  <script>
+    const BASE = '#FFB4A2'
+
+    const EXPRESSIONS = [
+      { id: 'happy', name: '开心' },
+      { id: 'joyful', name: '愉悦' },
+      { id: 'angry', name: '生气' },
+      { id: 'sad', name: '难过' },
+      { id: 'think', name: '思考' },
+      { id: 'surprised', name: '惊讶' },
+    ]
+
+    function regular(n, cx, cy, radius, rotation) {
+      const pts = []
+      for (let i = 0; i < n; i++) {
+        const a = rotation + (i * 2 * Math.PI) / n
+        pts.push({ x: cx + radius * Math.cos(a), y: cy + radius * Math.sin(a) })
+      }
+      return pts
+    }
+
+    const SHAPES = [
+      { id: 'circle', name: '圆', face: [100, 106, 1], origin: [100, 100], kind: 'circle' },
+      {
+        id: 'squircle', name: '圆角方', face: [100, 102, 1], origin: [100, 100],
+        pts: [{ x: 26, y: 26 }, { x: 174, y: 26 }, { x: 174, y: 174 }, { x: 26, y: 174 }], r: 46,
+      },
+      {
+        id: 'triangle', name: '三角', face: [100, 124, 0.88], origin: [100, 124],
+        pts: [{ x: 100, y: 20 }, { x: 184, y: 176 }, { x: 16, y: 176 }], r: 30,
+      },
+      {
+        id: 'diamond', name: '菱形', face: [100, 104, 0.9], origin: [100, 100],
+        pts: [{ x: 100, y: 14 }, { x: 186, y: 100 }, { x: 100, y: 186 }, { x: 14, y: 100 }], r: 24,
+      },
+      {
+        id: 'pentagon', name: '五边', face: [100, 112, 0.92], origin: [100, 106],
+        pts: regular(5, 100, 106, 86, -Math.PI / 2), r: 20,
+      },
+      {
+        id: 'hexagon', name: '六边', face: [100, 104, 0.94], origin: [100, 100],
+        pts: regular(6, 100, 100, 88, 0), r: 18,
+      },
+      { id: 'capsule', name: '胶囊', face: [100, 104, 0.82], origin: [100, 100], kind: 'capsule' },
+      {
+        id: 'trapezoid', name: '梯形', face: [100, 114, 0.94], origin: [100, 108],
+        pts: [{ x: 62, y: 30 }, { x: 138, y: 30 }, { x: 178, y: 176 }, { x: 22, y: 176 }], r: 22,
+      },
+      {
+        id: 'octagon', name: '八边', face: [100, 104, 0.96], origin: [100, 100],
+        pts: regular(8, 100, 100, 88, Math.PI / 8), r: 14,
+      },
+      { id: 'arch', name: '拱形', face: [100, 126, 0.96], origin: [100, 112], kind: 'arch' },
+    ]
+
+    const state = {
+      shapeId: 'circle',
+      expression: 'happy',
+      hex: BASE,
+    }
+
+    const rig = document.getElementById('rig')
+    const body = document.getElementById('body')
+    const face = document.getElementById('face')
+    const svg = rig.querySelector('svg')
+    const GESTURES = EXPRESSIONS.map(e => 'gesture-' + e.id)
+
+    function fmt(v) {
+      return (Math.round(v * 10) / 10).toString()
+    }
+
+    function roundedPoly(pts, radius) {
+      const n = pts.length
+      let d = ''
+      for (let i = 0; i < n; i++) {
+        const prev = pts[(i - 1 + n) % n]
+        const curr = pts[i]
+        const next = pts[(i + 1) % n]
+        const v1x = curr.x - prev.x
+        const v1y = curr.y - prev.y
+        const v2x = next.x - curr.x
+        const v2y = next.y - curr.y
+        const len1 = Math.hypot(v1x, v1y)
+        const len2 = Math.hypot(v2x, v2y)
+        const rr = Math.min(radius, len1 / 2, len2 / 2)
+        const p1x = curr.x - (v1x / len1) * rr
+        const p1y = curr.y - (v1y / len1) * rr
+        const p2x = curr.x + (v2x / len2) * rr
+        const p2y = curr.y + (v2y / len2) * rr
+        d += i === 0
+          ? `M ${fmt(p1x)} ${fmt(p1y)}`
+          : ` L ${fmt(p1x)} ${fmt(p1y)}`
+        d += ` Q ${fmt(curr.x)} ${fmt(curr.y)} ${fmt(p2x)} ${fmt(p2y)}`
+      }
+      return d + ' Z'
+    }
+
+    function shapePath(shape) {
+      if (shape.kind === 'circle') {
+        return 'M 18 100 A 82 82 0 1 0 182 100 A 82 82 0 1 0 18 100 Z'
+      }
+      if (shape.kind === 'capsule') {
+        return 'M 100 16 A 48 48 0 0 1 148 64 L 148 136 A 48 48 0 0 1 100 184 A 48 48 0 0 1 52 136 L 52 64 A 48 48 0 0 1 100 16 Z'
+      }
+      if (shape.kind === 'arch') {
+        return 'M 28 162 L 28 108 A 72 72 0 0 1 172 108 L 172 162 Q 172 184 150 184 L 50 184 Q 28 184 28 162 Z'
+      }
+      return roundedPoly(shape.pts, shape.r)
+    }
+
+    function parseHex(hex) {
+      const h = hex.replace('#', '')
+      const full = h.length === 3 ? h.split('').map(c => c + c).join('') : h
+      const n = parseInt(full, 16)
+      return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 }
+    }
+
+    function toHex(r, g, b) {
+      const c = (v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')
+      return '#' + c(r) + c(g) + c(b)
+    }
+
+    function shade(hex, amt) {
+      const { r, g, b } = parseHex(hex)
+      const t = amt < 0 ? 0 : 255
+      const p = Math.abs(amt)
+      return toHex(r + (t - r) * p, g + (t - g) * p, b + (t - b) * p)
+    }
+
+    function luminance(hex) {
+      const { r, g, b } = parseHex(hex)
+      const f = (c) => {
+        const s = c / 255
+        return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4
+      }
+      return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b)
+    }
+
+    function ink(hex) {
+      return luminance(hex) < 0.18 ? shade(hex, 0.78) : shade(hex, -0.7)
+    }
+
+    function eyes(r, ry, dx = 0) {
+      const h = ry ?? r
+      let s = ''
+      for (const cx of [-26, 26]) {
+        s += `<ellipse cx="${cx + dx}" cy="0" rx="${r}" ry="${h}"/>`
+      }
+      return s
+    }
+
+    function stroke(d, width) {
+      return `<path d="${d}" fill="none" stroke="currentColor" stroke-width="${width}" stroke-linecap="round"/>`
+    }
+
+    function faceMarkup(id) {
+      if (id === 'happy') {
+        return eyes(8.2) + stroke('M -20 18 Q 0 34 20 18', 4.2)
+      }
+      if (id === 'joyful') {
+        return stroke('M -38 -2 Q -26 -16 -14 -2', 4.4)
+          + stroke('M 14 -2 Q 26 -16 38 -2', 4.4)
+          + stroke('M -28 16 Q 0 44 28 16', 5)
+      }
+      if (id === 'angry') {
+        return stroke('M -40 -18 L -12 -9', 4.2)
+          + stroke('M 40 -18 L 12 -9', 4.2)
+          + eyes(7.2, 5.4)
+          + stroke('M -16 24 Q 0 12 16 24', 4.2)
+      }
+      if (id === 'sad') {
+        return stroke('M -40 -8 L -14 -18', 4)
+          + stroke('M 40 -8 L 14 -18', 4)
+          + eyes(8, 7.2)
+          + stroke('M -18 26 Q 0 14 18 26', 4.2)
+      }
+      if (id === 'think') {
+        return stroke('M -40 -10 Q -27 -24 -12 -10', 4)
+          + stroke('M 14 -12 H 40', 4)
+          + eyes(8, 8, 4)
+          + stroke('M -4 20 Q 6 25 16 18', 4)
+      }
+      return eyes(11)
+        + `<ellipse cx="0" cy="24" rx="8" ry="10" fill="none" stroke="currentColor" stroke-width="4"/>`
+    }
+
+    function currentShape() {
+      return SHAPES.find(s => s.id === state.shapeId)
+    }
+
+    function render() {
+      const shape = currentShape()
+      const d = shapePath(shape)
+      body.setAttribute('d', d)
+      body.setAttribute('fill', state.hex)
+      const [fx, fy, fs] = shape.face
+      face.setAttribute('transform', `translate(${fx} ${fy}) scale(${fs})`)
+      face.innerHTML = faceMarkup(state.expression)
+      const [ox, oy] = shape.origin
+      rig.style.transformOrigin = `${(ox / 200) * 100}% ${Math.min(90, (oy / 200) * 100 + 22)}%`
+
+      svg.style.color = ink(state.hex)
+      document.documentElement.style.setProperty('--swatch', state.hex)
+
+      document.querySelectorAll('.shape').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.id === state.shapeId)
+      })
+      document.querySelectorAll('.expr').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.id === state.expression)
+      })
+      svg.setAttribute('aria-label', `${shape.name}头像，${EXPRESSIONS.find(e => e.id === state.expression).name}`)
+    }
+
+    function playGesture(id) {
+      rig.classList.remove(...GESTURES)
+      void rig.offsetWidth
+      rig.classList.add('gesture-' + id)
+    }
+
+    const shapesEl = document.getElementById('shapes')
+    for (const shape of SHAPES) {
+      const btn = document.createElement('button')
+      btn.type = 'button'
+      btn.className = 'shape'
+      btn.dataset.id = shape.id
+      btn.title = shape.name
+      btn.setAttribute('aria-label', shape.name)
+      btn.innerHTML = `<svg viewBox="0 0 200 200" aria-hidden="true"><path d="${shapePath(shape)}"/></svg>`
+      btn.addEventListener('click', () => {
+        state.shapeId = shape.id
+        render()
+      })
+      shapesEl.appendChild(btn)
+    }
+
+    const colorsEl = document.getElementById('colors')
+    const pickerLabel = document.createElement('label')
+    pickerLabel.className = 'picker'
+    pickerLabel.title = '底色'
+    const picker = document.createElement('input')
+    picker.type = 'color'
+    picker.value = state.hex
+    picker.setAttribute('aria-label', '底色')
+    picker.addEventListener('input', () => {
+      state.hex = picker.value
+      render()
+    })
+    pickerLabel.appendChild(picker)
+    colorsEl.appendChild(pickerLabel)
+
+    const exprsEl = document.getElementById('exprs')
+    for (const expr of EXPRESSIONS) {
+      const btn = document.createElement('button')
+      btn.type = 'button'
+      btn.className = 'expr'
+      btn.dataset.id = expr.id
+      btn.textContent = expr.name
+      btn.addEventListener('click', () => {
+        state.expression = expr.id
+        render()
+        playGesture(expr.id)
+      })
+      exprsEl.appendChild(btn)
+    }
+
+    render()
+  </script>
+</body>
+</html>

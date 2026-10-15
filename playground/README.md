@@ -19,6 +19,13 @@
 - 设计规范文档 → `docs/design-system.md`
 - 临时单次实验 → `tmp/`
 
+## 动态头像
+
+同一套形状、表情和单色，两页对照。查阅时机：比较 SVG 和 Three.js 的头像表现，还没决定是否写进 `app/web` 时。
+
+- `demos/avatar-demo1.html`（侧栏「动态头像1」，`#avatar1`）。SVG。页内标有「Grok 4.7 实现」。10 款固定圆角几何基底。六个表情各有不同的头部动作。底色只选一个，头像本体是这块纯色。
+- `demos/avatar-demo2.html`（侧栏「动态头像2」，`#avatar2`）。Three.js 挤出同一批圆角几何，页内同样标有「Grok 4.7 实现」，动作和选色与动态头像1对应。`three` 从 CDN 加载，不进 `package.json`。
+
 ## Demo 命名
 
 kebab-case + 后缀(如 `loading-dots-demo.html`、`theme-colors.html`)。
