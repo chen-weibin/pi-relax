@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>卡通头像 SVG</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --app: #171717; --panel: #1e1e1e; --border: #2a2a2a;
+      --hover: #292929; --active: #2e2e2e;
+      --fg: #e5e5e5; --fg-2: #c7c7c7; --fg-3: #8a8a8a;
+    }
+    html, body {
+      height: 100%;
+      background: var(--app);
+      color: var(--fg);
+      font: 13px/1.4 -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
+    }
+    body { display: flex; overflow: hidden; }
+    button, input { font: inherit; color: inherit; }
+    button { cursor: pointer; }
+
+    /* 预览区 */
+    .stage { position: relative; flex: 1; min-width: 0; }
+    .stage #scene { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; outline: none; user-select: none; }
+    .stage #scene.dragging { cursor: grabbing; }
+    .title { position: absolute; top: 16px; left: 20px; font-size: 12px; color: var(--fg-3); letter-spacing: .3px; pointer-events: none; }
+    .hud {
+      position: absolute; left: 50%; bottom: 20px; transform: translateX(-50%);
+      display: flex; align-items: center; gap: 12px;
+      padding: 6px 6px 6px 14px; border-radius: 999px;
+      background: rgba(30, 30, 30, .78); border: 1px solid var(--border);
+      backdrop-filter: blur(8px); font-size: 12px; color: var(--fg-3); white-space: nowrap;
+    }
+
+    /* 控制面板 */
+    .panel { width: 320px; flex: none; background: var(--panel); border-left: 1px solid var(--border); overflow-y: auto; }
+    .section { padding: 16px; border-bottom: 1px solid var(--border); }
+    .section h2 { font-size: 11px; font-weight: 600; letter-spacing: .6px; text-transform: uppercase; color: var(--fg-3); margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+    .row { display: flex; align-items: center; gap: 10px; min-height: 30px; }
+    .row + .row { margin-top: 6px; }
+    .row > label:first-child { width: 52px; color: var(--fg-2); flex: none; }
+
+    .btn {
+      height: 28px; padding: 0 12px; border-radius: 7px;
+      background: var(--active); border: 1px solid #383838; font-size: 12px;
+    }
+    .btn:hover { background: #363636; }
+    .btn:focus-visible, .tile:focus-visible, .seg button:focus-visible, .swatch:focus-visible { outline: 2px solid #6b9cff; outline-offset: 1px; }
+    .btn.ghost { background: transparent; border-color: transparent; color: var(--fg-3); }
+    .btn.ghost:hover { color: var(--fg); background: var(--hover); }
+
+    .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+    .tile {
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      padding: 8px 4px 6px; border-radius: 9px; background: transparent; border: 1px solid transparent;
+      font-size: 11px; color: var(--fg-3);
+    }
+    .tile svg { width: 44px; height: 44px; display: block; }
+    .tile:hover { background: var(--hover); }
+    .tile[aria-pressed="true"] { background: var(--active); border-color: #3a3a3a; color: var(--fg); }
+
+    .seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; padding: 2px; background: #161616; border-radius: 9px; border: 1px solid var(--border); }
+    .seg button { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 0 6px; border: 0; border-radius: 7px; background: transparent; font-size: 11px; color: var(--fg-3); }
+    .seg button svg { width: 22px; height: 22px; }
+    .seg button:hover { color: var(--fg); }
+    .seg button[aria-pressed="true"] { background: var(--active); color: var(--fg); }
+
+    .swatches { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+    .swatch { width: 30px; height: 30px; border-radius: 50%; border: 1px solid #3a3a3a; padding: 0; display: grid; place-items: center; }
+    .swatch i { width: 16px; height: 16px; border-radius: 50%; display: grid; place-items: center; }
+    .swatch b { width: 5px; height: 5px; border-radius: 50%; }
+    .swatch[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--panel), 0 0 0 3px var(--fg-2); }
+
+    input[type="color"] { width: 28px; height: 28px; border: 1px solid #3a3a3a; border-radius: 7px; background: none; padding: 2px; cursor: pointer; flex: none; }
+    input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+    input[type="color"]::-webkit-color-swatch { border: 0; border-radius: 5px; }
+    input[type="color"]:disabled { opacity: .35; cursor: default; }
+    .hex { width: 84px; height: 28px; padding: 0 8px; border-radius: 7px; border: 1px solid var(--border); background: #161616; font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
+    .hex:focus { outline: none; border-color: #4a4a4a; }
+    .hex:disabled { opacity: .35; }
+    input[type="range"] { flex: 1; accent-color: #d4d4d4; }
+    input[type="checkbox"] { accent-color: #d4d4d4; width: 14px; height: 14px; }
+    .val { width: 40px; text-align: right; font-variant-numeric: tabular-nums; color: var(--fg-2); font-size: 12px; }
+    .spacer { flex: 1; }
+
+    .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+    .chip { font-size: 11px; padding: 2px 8px; border-radius: 999px; background: #262626; color: var(--fg-3); }
+
+    pre {
+      max-height: 260px; overflow: auto; padding: 10px 12px; border-radius: 8px;
+      background: #141414; border: 1px solid var(--border);
+      font: 11.5px/1.55 ui-monospace, Menlo, monospace; color: var(--fg-2);
+    }
+    .actions { display: flex; gap: 8px; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <main class="stage" id="stage">
+    <svg id="scene" viewBox="-1.45 -1.45 2.9 2.9" preserveAspectRatio="xMidYMid meet" tabindex="0" role="img" aria-label="头像预览，可拖拽倾斜、滚轮缩放、方向键微调"></svg>
+    <div class="title">卡通头像 · SVG</div>
+    <div class="hud">
+      <span>拖拽倾斜 · 滚轮缩放 · 双击复位</span>
+      <button class="btn" id="resetView">重置视角</button>
+    </div>
+  </main>
+
+  <aside class="panel">
+    <section class="section">
+      <h2>表情</h2>
+      <div class="grid" id="expr"></div>
+      <div class="row" style="margin-top: 12px"><label>五官尺寸</label><div class="seg" id="faceSize" style="flex: 1"></div></div>
+    </section>
+
+    <section class="section">
+      <h2>形状</h2>
+      <div class="seg" id="shape"></div>
+    </section>
+
+    <section class="section">
+      <h2>颜色</h2>
+      <div class="swatches" id="palettes"></div>
+      <div class="row"><label for="c-body">主体</label><input type="color" id="c-body" data-role="body"><input class="hex" data-role="body" aria-label="主体颜色 hex"></div>
+      <div class="row"><label for="c-face">面部</label><input type="color" id="c-face" data-role="face"><input class="hex" data-role="face" aria-label="面部颜色 hex"></div>
+      <div class="row"><label for="c-background">背景</label><input type="color" id="c-background" data-role="background"><input class="hex" data-role="background" aria-label="背景颜色 hex"></div>
+      <div class="row">
+        <label for="c-outline">轮廓</label><input type="color" id="c-outline" data-role="outline"><input class="hex" data-role="outline" aria-label="轮廓颜色 hex">
+        <span class="spacer"></span><input type="checkbox" id="outlineOn" aria-label="启用轮廓">
+      </div>
+      <div class="row"><label for="outlineW">粗细</label><input type="range" id="outlineW" min="0.02" max="0.12" step="0.005"><span class="val" id="outlineWVal"></span></div>
+    </section>
+
+    <section class="section">
+      <h2>动画</h2>
+      <div class="row"><label for="loopOn">循环</label><input type="checkbox" id="loopOn"></div>
+      <div class="row"><label for="speed">速度</label><input type="range" id="speed" min="0" max="3" step="0.05"><span class="val" id="speedVal"></span></div>
+      <div class="actions">
+        <button class="btn" id="pause"></button>
+        <button class="btn ghost" id="resetAnim">重置动画</button>
+      </div>
+      <div class="chips" id="loops"></div>
+    </section>
+
+    <section class="section">
+      <h2>配置</h2>
+      <pre id="json"></pre>
+      <div class="actions">
+        <button class="btn" id="copy">复制 JSON</button>
+        <button class="btn ghost" id="resetAll">恢复默认</button>
+      </div>
+    </section>
+  </aside>
+
+  <script type="module">
+    /* ============ 1. 配置：纯 JSON，可直接复用 ============ */
+    const DEFAULT_CONFIG = {
+      shape: 'circle',
+      expression: 'neutral',
+      faceSize: 'small',
+      colors: { body: '#f4f4f1', face: '#1c1c20', outline: '#0b0b0d', background: '#171717' },
+      outline: { enabled: false, width: 0.05 },
+      animation: { loop: true, speed: 1, paused: false },
+    }
+
+    const PALETTES = [
+      { name: '经典', colors: { body: '#f4f4f1', face: '#1c1c20', outline: '#0b0b0d', background: '#171717' } },
+      { name: '薄荷', colors: { body: '#c4f0d8', face: '#123527', outline: '#0a1d15', background: '#0f1a15' } },
+      { name: '蜜桃', colors: { body: '#ffd6bf', face: '#3b1f14', outline: '#20110a', background: '#1b1411' } },
+      { name: '丁香', colors: { body: '#dcd4ff', face: '#241b4d', outline: '#120d29', background: '#14121d' } },
+      { name: '天空', colors: { body: '#cbe6ff', face: '#0f2a45', outline: '#081626', background: '#0f151d' } },
+      { name: '柠檬', colors: { body: '#fff1a6', face: '#2e2a10', outline: '#181507', background: '#181712' } },
+      { name: '夜', colors: { body: '#2c2c2e', face: '#f2f2f2', outline: '#000000', background: '#0d0d0d' } },
+    ]
+
+    const FACE_SIZES = { small: '小', middle: '中', large: '大' }
+
+    /* ============ 2. 形状：归一化轮廓（最大半径 1）+ 每档五官尺寸的面部锚点 ============ */
+    const SEG = 180
+    const ring = (radius) => Array.from({ length: SEG }, (_, i) => {
+      const a = (i / SEG) * Math.PI * 2, r = radius(a)
+      return { x: Math.cos(a) * r, y: Math.sin(a) * r }
+    })
+    const normalizeRing = (pts) => {
+      const m = Math.max(...pts.map((p) => Math.hypot(p.x, p.y)))
+      return pts.map((p) => ({ x: p.x / m, y: p.y / m }))
+    }
+
+    const SHAPES = {
+      circle: {
+        label: '圆形',
+        face: { small: { y: 0, scale: 1 }, middle: { y: 0, scale: 1.3 }, large: { y: 0.04, scale: 1.3, grow: 1.14 } },
+        outline: () => ring(() => 1),
+      },
+      blob: {
+        label: 'Blob',
+        face: { small: { y: 0.03, scale: 0.94 }, middle: { y: 0.03, scale: 1.22 }, large: { y: 0.02, scale: 1.22, grow: 1.16 } },
+        outline: () => normalizeRing(ring((a) => 1 + 0.04 * Math.sin(3 * a + 0.6) + 0.025 * Math.sin(2 * a - 0.9) + 0.01 * Math.sin(5 * a + 2.1))),
+      },
+      roundedSquare: {
+        label: '大圆角方形',
+        face: { small: { y: 0, scale: 1.04 }, middle: { y: 0.04, scale: 1.25 }, large: { y: 0.09, scale: 1.25, grow: 1.2 } },
+        // 超椭圆（squircle），比四段圆弧拼接的圆角矩形曲率更连续
+        outline: () => ring((a) => 0.93 * Math.pow(Math.abs(Math.cos(a)) ** 4.2 + Math.abs(Math.sin(a)) ** 4.2, -1 / 4.2)),
+      },
+    }
+
+    /* ============ 3. 面部特征：参数化粗曲线 ============
+       中心线是二次贝塞尔 (-w/2,0) → (0,2·bend) → (w/2,0)，两侧按半宽外扩，端点收圆。
+       thick ≥ w/2 时退化为椭圆（w × 2·thick）；lift=-1 时只往下鼓（D 形张嘴）。 */
+    const FEATURE_KEYS = ['x', 'y', 'w', 'bend', 'thick', 'bulge', 'lift', 'rot']
+    const FEATURE_DEFAULT = { x: 0, y: 0, w: 0.2, bend: 0, thick: 0.03, bulge: 0, lift: 0, rot: 0 }
+    const FN = 48
+
+    function sampleFeature(p, out) {
+      const L = Math.max(1e-3, Math.hypot(p.w, 2.2 * p.bend))
+      const c = Math.min(0.5, Math.max(1e-3, p.thick) / L)
+      const cr = Math.cos(p.rot), sr = Math.sin(p.rot)
+      for (let i = 0; i < FN; i++) {
+        const s = (1 - Math.cos((Math.PI * i) / (FN - 1))) / 2
+        const cx = (s - 0.5) * p.w, cy = 4 * p.bend * s * (1 - s)
+        let tx = p.w, ty = 4 * p.bend * (1 - 2 * s)
+        const tl = Math.hypot(tx, ty) || 1
+        tx /= tl; ty /= tl
+        const u = (s - Math.min(Math.max(s, c), 1 - c)) / c
+        const env = Math.sqrt(Math.max(0, 1 - u * u))
+        const b = p.bulge * Math.sin(Math.PI * s)
+        const up = (p.thick + (b * (1 + p.lift)) / 2) * env
+        const dn = (p.thick + (b * (1 - p.lift)) / 2) * env
+        const ax = cx - ty * up, ay = cy + tx * up
+        const bx = cx + ty * dn, by = cy - tx * dn
+        out[i * 4] = ax * cr - ay * sr + p.x
+        out[i * 4 + 1] = ax * sr + ay * cr + p.y
+        out[i * 4 + 2] = bx * cr - by * sr + p.x
+        out[i * 4 + 3] = bx * sr + by * cr + p.y
+      }
+      return out
+    }
+
+    // 五官尺寸档：只放大五官本身，不移动位置，避免大号五官挤到主体边缘
+    const GROW_KEYS = ['w', 'bend', 'thick', 'bulge']
+    function growFeature(p, g) {
+      for (const key of GROW_KEYS) p[key] *= g
+      return p
+    }
+
+    function lerpFeature(cur, target, k) {
+      for (const key of FEATURE_KEYS) cur[key] += (target[key] - cur[key]) * k
+    }
+
+    /* ============ 4. 表情：只是参数集 [左眼, 右眼, 嘴] + 基础姿态 + 循环动画 ============ */
+    const feat = (o) => ({ ...FEATURE_DEFAULT, ...o })
+    const sym = (o, shift = 0) => [feat({ ...o, x: -o.x + shift, rot: -(o.rot || 0) }), feat({ ...o, x: o.x + shift })]
+    const OVAL = { x: 0.3, y: 0.07, w: 0.16, thick: 0.125 }
+    const ARC_UP = { x: 0.3, y: 0.09, w: 0.28, bend: 0.1, thick: 0.045 }
+
+    const EXPRESSIONS = {
+      neutral: {
+        label: '默认',
+        features: [...sym(OVAL), feat({ y: -0.25, w: 0.2, bend: -0.04, thick: 0.037 })],
+        loops: ['blink', 'breathe'],
+      },
+      happy: {
+        label: '开心',
+        features: [...sym(ARC_UP), feat({ y: -0.21, w: 0.34, bend: -0.12, thick: 0.043 })],
+        loops: ['breathe', 'sway'],
+      },
+      thinking: {
+        label: '思考',
+        features: [...sym({ ...OVAL, y: 0.12, w: 0.14, thick: 0.11 }, 0.07), feat({ x: 0.1, y: -0.26, w: 0.16, bend: 0.014, thick: 0.037, rot: 0.18 })],
+        body: { rz: 0.08 },
+        loops: ['blink', 'ponder'],
+      },
+      surprised: {
+        label: '惊讶',
+        features: [...sym({ ...OVAL, y: 0.11, w: 0.19, thick: 0.15 }), feat({ y: -0.29, w: 0.16, thick: 0.1 })],
+        body: { y: 0.03 },
+        loops: ['blink', 'breathe'],
+      },
+      sad: {
+        label: '难过',
+        features: [...sym({ ...OVAL, y: 0.02, w: 0.15, thick: 0.1 }), feat({ y: -0.29, w: 0.24, bend: 0.065, thick: 0.037 })],
+        body: { y: -0.04, rx: 0.12 },
+        loops: ['blink', 'droop'],
+      },
+      wink: {
+        label: '眨眼',
+        features: [feat({ ...OVAL, x: -0.3 }), feat({ ...ARC_UP, y: 0.08, w: 0.26 }), feat({ x: 0.03, y: -0.23, w: 0.3, bend: -0.09, thick: 0.041 })],
+        body: { rz: -0.07 },
+        loops: ['breathe', 'sway'],
+      },
+      sleepy: {
+        label: '困倦',
+        features: [...sym({ x: 0.3, y: 0.04, w: 0.26, bend: -0.05, thick: 0.04 }), feat({ y: -0.27, w: 0.1, thick: 0.055 })],
+        body: { rx: 0.1, rz: 0.05 },
+        loops: ['doze'],
+      },
+      excited: {
+        label: '兴奋',
+        features: [...sym({ ...OVAL, y: 0.1, w: 0.18, thick: 0.145 }), feat({ y: -0.2, w: 0.38, bend: -0.05, thick: 0.04, bulge: 0.2, lift: -1 })],
+        loops: ['blink', 'bounce'],
+      },
+    }
+
+    /* ============ 5. 循环动画：(t, pose, weight) 在基础参数上叠加偏移 ============ */
+    const hash = (n) => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x) }
+    function blinkAmount(t) {
+      const P = 3.6, k = Math.floor(t / P), d = t - k * P - (0.4 + hash(k) * 1.8)
+      const pulse = (x) => (x > 0 && x < 0.17 ? Math.sin((Math.PI * x) / 0.17) : 0)
+      return Math.max(pulse(d), hash(k + 9) > 0.72 ? pulse(d - 0.3) : 0)
+    }
+    const eyesOf = (pose) => [pose.f[0], pose.f[1]]
+
+    const ANIMATIONS = {
+      blink: { label: '眨眼', run: (t, p, w) => {
+        const b = blinkAmount(t) * w
+        for (const e of eyesOf(p)) { e.thick *= 1 - 0.85 * b; e.w *= 1 + 0.12 * b }
+      } },
+      breathe: { label: '呼吸', run: (t, p, w) => {
+        const s = Math.sin((t * Math.PI * 2) / 3.8) * w
+        p.body.sy *= 1 + 0.016 * s; p.body.sx *= 1 - 0.008 * s; p.body.y += 0.012 * s
+      } },
+      sway: { label: '摇摆', run: (t, p, w) => {
+        p.body.rz += 0.045 * Math.sin(t * 1.9) * w
+        p.body.y += 0.014 * Math.sin(t * 3.8) * w
+      } },
+      ponder: { label: '思索', run: (t, p, w) => {
+        const gx = (Math.sin(t * 0.8) * 0.6 + Math.sin(t * 1.7) * 0.4) * w, gy = Math.sin(t * 0.55 + 1) * w
+        for (const e of eyesOf(p)) { e.x += 0.035 * gx; e.y += 0.018 * gy }
+        p.f[2].x += 0.012 * gx
+        p.body.ry += 0.08 * gx; p.body.rz += 0.035 * Math.sin(t * 0.5) * w
+      } },
+      bounce: { label: '弹跳', run: (t, p, w) => {
+        const hop = Math.sin(Math.PI * ((t * 1.7) % 1)), land = Math.max(0, 1 - hop * 4) ** 2
+        p.body.y += 0.1 * hop * w
+        p.body.sy *= 1 - 0.06 * land * w; p.body.sx *= 1 + 0.04 * land * w
+        p.f[2].bulge *= 1 + 0.12 * hop * w
+      } },
+      doze: { label: '打盹', run: (t, p, w) => {
+        const s = Math.sin((t * Math.PI * 2) / 5.2), open = Math.max(0, s) * w
+        p.body.rx += 0.07 * s * w; p.body.sy *= 1 + 0.02 * s * w
+        p.f[2].thick *= 1 + 0.35 * open; p.f[2].w *= 1 + 0.25 * open
+      } },
+      droop: { label: '低落', run: (t, p, w) => {
+        p.body.y += 0.01 * Math.sin(t * 1.1) * w
+        p.body.rz += 0.025 * Math.sin(t * 0.6) * w
+        p.f[2].bend += 0.008 * Math.sin(t * 1.1) * w
+      } },
+    }
+
+    /* ============ 6. 渲染器（SVG） ============ */
+    const BODY_POSE = { y: 0, rx: 0, ry: 0, rz: 0 }
+    const isHex = (v) => typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v)
+    const clamp = (v, lo, hi, fallback) => (Number.isFinite(+v) ? Math.min(hi, Math.max(lo, +v)) : fallback)
+
+    // 伪 3D：把正面看成离中心 FRONT_DEPTH 的平面，倾斜时五官按 sin 视差位移、按 cos 压缩。
+    // ponytail: 不是真实旋转，倾斜上限 TILT 内才自然；要看侧面/背面请用 Three.js 版（avatar-demo3）
+    const FRONT_DEPTH = 0.42
+    const TILT = { yaw: 0.6, pitch: 0.45 }
+    // 体积只用一块纯色背光色块：主体减去向左上偏移的同形主体，留下右下的月牙
+    const SHADE = 0.86
+    const LIGHT = { x: -0.075, y: 0.075 }
+    const DEG = 180 / Math.PI
+
+    const shadeHex = (hex, k) => '#' + [1, 3, 5]
+      .map((i) => Math.round(parseInt(hex.slice(i, i + 2), 16) * k).toString(16).padStart(2, '0')).join('')
+    const ringPath = (pts, dx = 0, dy = 0) =>
+      'M' + pts.map((p) => `${(p.x + dx).toFixed(4)} ${(p.y + dy).toFixed(4)}`).join('L') + 'Z'
+
+    function featurePath(s) {
+      let d = `M${s[0].toFixed(4)} ${s[1].toFixed(4)}`
+      for (let j = 1; j < FN; j++) d += `L${s[j * 4].toFixed(4)} ${s[j * 4 + 1].toFixed(4)}`
+      for (let j = FN - 1; j >= 0; j--) d += `L${s[j * 4 + 2].toFixed(4)} ${s[j * 4 + 3].toFixed(4)}`
+      return d + 'Z'
+    }
+
+    let uid = 0
+
+    class AvatarRenderer {
+      constructor(svg, config = DEFAULT_CONFIG, { onChange } = {}) {
+        this.svg = svg
+        this.onChange = onChange
+        this.config = structuredClone(DEFAULT_CONFIG)
+
+        const clipId = `avatar-clip-${++uid}`
+        // 外层 scale(1 -1) 把坐标翻成 y 向上，与数据层的归一化坐标一致
+        svg.innerHTML = `
+          <defs><clipPath id="${clipId}"><path data-el="clip"/></clipPath></defs>
+          <g data-el="view"><g transform="scale(1 -1)"><g data-el="root">
+            <path data-el="outline" fill="none" stroke-linejoin="round"/>
+            <path data-el="body"/>
+            <path data-el="shade" fill-rule="evenodd" clip-path="url(#${clipId})"/>
+            <g data-el="face"><path/><path/><path/></g>
+          </g></g></g>`
+        const el = (n) => svg.querySelector(`[data-el="${n}"]`)
+        this.$view = el('view')
+        this.$root = el('root')
+        this.$outline = el('outline')
+        this.$body = el('body')
+        this.$shade = el('shade')
+        this.$clip = el('clip')
+        this.$face = el('face')
+        this.$features = [...this.$face.children]
+        this.sample = new Float32Array(FN * 4)
+
+        this.clock = 0
+        this.popT = 10
+        this.weights = Object.fromEntries(Object.keys(ANIMATIONS).map((k) => [k, 0]))
+        this.pose = { f: [{}, {}, {}], body: {} }
+        this.view = { yaw: 0, pitch: 0, zoom: 1 }
+        this.viewGoal = { ...this.view }
+
+        const goal = this.viewGoal
+        const tilt = (dx, dy) => {
+          goal.yaw = clamp(goal.yaw + dx, -TILT.yaw, TILT.yaw, 0)
+          goal.pitch = clamp(goal.pitch + dy, -TILT.pitch, TILT.pitch, 0)
+        }
+        this._onDown = (e) => {
+          this._drag = { x: e.clientX, y: e.clientY }
+          svg.setPointerCapture(e.pointerId)
+          svg.classList.add('dragging')
+        }
+        this._onMove = (e) => {
+          if (!this._drag) return
+          tilt((e.clientX - this._drag.x) * 0.006, (e.clientY - this._drag.y) * 0.006)
+          this._drag = { x: e.clientX, y: e.clientY }
+        }
+        this._onUp = () => {
+          this._drag = null
+          svg.classList.remove('dragging')
+        }
+        this._onWheel = (e) => {
+          e.preventDefault()
+          goal.zoom = clamp(goal.zoom * Math.exp(-e.deltaY * 0.0015), 0.6, 1.6, 1)
+        }
+        this._onKey = (e) => {
+          const step = { ArrowLeft: [-0.1, 0], ArrowRight: [0.1, 0], ArrowUp: [0, -0.1], ArrowDown: [0, 0.1] }[e.key]
+          if (step) { e.preventDefault(); tilt(...step) }
+        }
+        this._onDblClick = () => this.resetView()
+        this._onVisibility = () => (document.hidden ? this._stop() : this._start())
+        this._listeners = [
+          [svg, 'pointerdown', this._onDown], [svg, 'pointermove', this._onMove],
+          [svg, 'pointerup', this._onUp], [svg, 'pointercancel', this._onUp],
+          [svg, 'wheel', this._onWheel, { passive: false }], [svg, 'keydown', this._onKey],
+          [svg, 'dblclick', this._onDblClick], [document, 'visibilitychange', this._onVisibility],
+        ]
+        for (const [t, n, f, o] of this._listeners) t.addEventListener(n, f, o)
+
+        this.setConfig(config)
+        this.cur = this.target.map((p) => ({ ...p }))
+        this.curBody = { ...this.targetBody }
+        for (const k of EXPRESSIONS[this.config.expression].loops) this.weights[k] = 1
+        this._ready = true
+        this._start()
+      }
+
+      getConfig() { return structuredClone(this.config) }
+
+      setConfig(patch = {}) {
+        const prev = this.config
+        const next = {
+          shape: SHAPES[patch.shape] ? patch.shape : prev.shape,
+          expression: EXPRESSIONS[patch.expression] ? patch.expression : prev.expression,
+          faceSize: FACE_SIZES[patch.faceSize] ? patch.faceSize : prev.faceSize,
+          colors: { ...prev.colors },
+          outline: {
+            enabled: typeof patch.outline?.enabled === 'boolean' ? patch.outline.enabled : prev.outline.enabled,
+            width: clamp(patch.outline?.width ?? prev.outline.width, 0, 0.15, prev.outline.width),
+          },
+          animation: {
+            loop: typeof patch.animation?.loop === 'boolean' ? patch.animation.loop : prev.animation.loop,
+            paused: typeof patch.animation?.paused === 'boolean' ? patch.animation.paused : prev.animation.paused,
+            speed: clamp(patch.animation?.speed ?? prev.animation.speed, 0, 3, prev.animation.speed),
+          },
+        }
+        for (const [k, v] of Object.entries(patch.colors || {})) if (k in next.colors && isHex(v)) next.colors[k] = v.toLowerCase()
+        this.config = next
+
+        if (next.shape !== this._shape) this._applyShape(next.shape)
+        if (next.expression !== this._expression) this._applyExpression(next.expression)
+        const ft = SHAPES[next.shape].face[next.faceSize]
+        this.faceTarget = { y: ft.y, scale: ft.scale, grow: ft.grow ?? 1 }
+        if (!this._ready) this.faceCur = { ...this.faceTarget }
+
+        const c = next.colors
+        this.$body.setAttribute('fill', c.body)
+        this.$shade.setAttribute('fill', shadeHex(c.body, SHADE))
+        this.$face.setAttribute('fill', c.face)
+        this.$outline.setAttribute('stroke', c.outline)
+        this.$outline.setAttribute('stroke-width', next.outline.width * 2)
+        this.$outline.style.display = next.outline.enabled ? '' : 'none'
+        this.svg.style.background = c.background
+
+        this.onChange?.(this.getConfig())
+      }
+
+      resetView() { Object.assign(this.viewGoal, { yaw: 0, pitch: 0, zoom: 1 }) }
+      resetAnimation() { this.clock = 0 }
+
+      _applyShape(name) {
+        this._pts = SHAPES[name].outline()
+        const d = ringPath(this._pts)
+        for (const p of [this.$body, this.$outline, this.$clip]) p.setAttribute('d', d)
+        this._shadeKey = null
+        this._shape = name
+        if (this._ready) this.popT = 0
+      }
+
+      _applyExpression(name) {
+        const e = EXPRESSIONS[name]
+        this.target = e.features
+        this.targetBody = { ...BODY_POSE, ...e.body }
+        this._expression = name
+        if (this._ready) this.popT = 0
+      }
+
+      _frame = (now) => {
+        this._raf = requestAnimationFrame(this._frame)
+        const dt = Math.min(0.05, (now - (this._last ?? now)) / 1000)
+        this._last = now
+        const anim = this.config.animation
+        if (!anim.paused) this.clock += dt * anim.speed
+
+        // 表情过渡：指数趋近，帧率无关
+        const k = 1 - Math.exp(-dt * 9)
+        this.cur.forEach((c, i) => lerpFeature(c, this.target[i], k))
+        for (const key in BODY_POSE) this.curBody[key] += (this.targetBody[key] - this.curBody[key]) * k
+        for (const key in this.faceTarget) this.faceCur[key] += (this.faceTarget[key] - this.faceCur[key]) * k
+
+        const loops = EXPRESSIONS[this._expression].loops
+        const kw = 1 - Math.exp(-dt * 4)
+        for (const name in this.weights) {
+          const goal = anim.loop && loops.includes(name) ? 1 : 0
+          this.weights[name] += (goal - this.weights[name]) * kw
+        }
+
+        const pose = this.pose
+        this.cur.forEach((c, i) => Object.assign(pose.f[i], c))
+        Object.assign(pose.body, this.curBody, { sx: 1, sy: 1 })
+        for (const name in ANIMATIONS) {
+          const w = this.weights[name]
+          if (w > 1e-3) ANIMATIONS[name].run(this.clock, pose, w)
+        }
+        for (const f of pose.f) growFeature(f, this.faceCur.grow)
+
+        const kv = 1 - Math.exp(-dt * 10)
+        for (const key in this.view) this.view[key] += (this.viewGoal[key] - this.view[key]) * kv
+        const b = pose.body
+        const yaw = this.view.yaw + b.ry, pitch = this.view.pitch + b.rx
+
+        // 切换表情 / 形状时的一次小弹性
+        this.popT += dt
+        const pop = 0.05 * Math.exp(-this.popT * 6) * Math.sin(this.popT * 20)
+        const sx = b.sx * (1 - pop * 0.6) * (1 - 0.06 * yaw * yaw)
+        const sy = b.sy * (1 + pop) * (1 - 0.06 * pitch * pitch)
+        this.$view.setAttribute('transform', `scale(${this.view.zoom.toFixed(4)})`)
+        this.$root.setAttribute('transform',
+          `translate(0 ${b.y.toFixed(4)}) rotate(${(b.rz * DEG).toFixed(3)}) scale(${sx.toFixed(4)} ${sy.toFixed(4)})`)
+
+        const fc = this.faceCur
+        const fx = FRONT_DEPTH * Math.sin(yaw)
+        const fy = fc.y * Math.cos(pitch) - FRONT_DEPTH * Math.sin(pitch)
+        this.$face.setAttribute('transform',
+          `translate(${fx.toFixed(4)} ${fy.toFixed(4)}) scale(${(fc.scale * Math.cos(yaw)).toFixed(4)} ${(fc.scale * Math.cos(pitch)).toFixed(4)})`)
+
+        // 倾斜时背光面跟着变：转向右侧右缘变窄，低头时下缘变宽
+        const ox = LIGHT.x + 0.1 * yaw, oy = LIGHT.y + 0.1 * pitch
+        const shadeKey = `${ox.toFixed(4)},${oy.toFixed(4)}`
+        if (shadeKey !== this._shadeKey) {
+          this._shadeKey = shadeKey
+          this.$shade.setAttribute('d', 'M-3 -3H3V3H-3Z' + ringPath(this._pts, ox, oy))
+        }
+
+        const s = this.sample
+        this.$features.forEach((path, i) => path.setAttribute('d', featurePath(sampleFeature(pose.f[i], s))))
+      }
+
+      _start() {
+        if (this._raf || document.hidden || this._disposed) return
+        this._last = undefined
+        this._raf = requestAnimationFrame(this._frame)
+      }
+
+      _stop() {
+        cancelAnimationFrame(this._raf)
+        this._raf = 0
+      }
+
+      dispose() {
+        this._disposed = true
+        this._stop()
+        for (const [t, n, f, o] of this._listeners) t.removeEventListener(n, f, o)
+        this.svg.innerHTML = ''
+      }
+    }
+
+    /* ============ 7. 自检：数据结构坏了在控制台直接报 ============ */
+    function selfCheck() {
+      const buf = new Float32Array(FN * 4)
+      for (const [id, e] of Object.entries(EXPRESSIONS)) {
+        console.assert(e.features.length === 3, `表情 ${id} 需要 3 个特征`)
+        for (const p of e.features) {
+          console.assert(FEATURE_KEYS.every((k) => Number.isFinite(p[k])), `表情 ${id} 参数非数值`)
+          console.assert(sampleFeature(p, buf).every(Number.isFinite), `表情 ${id} 采样出 NaN`)
+        }
+        for (const l of e.loops) console.assert(ANIMATIONS[l], `表情 ${id} 引用了不存在的动画 ${l}`)
+      }
+      for (const [id, s] of Object.entries(SHAPES)) {
+        const pts = s.outline()
+        console.assert(pts.length >= 16 && pts.every((p) => Number.isFinite(p.x + p.y)), `形状 ${id} 轮廓无效`)
+        console.assert(Object.keys(FACE_SIZES).every((k) => s.face[k]), `形状 ${id} 缺少五官尺寸锚点`)
+      }
+      const a = { ...EXPRESSIONS.neutral.features[2] }, t = EXPRESSIONS.excited.features[2]
+      lerpFeature(a, t, 1)
+      console.assert(FEATURE_KEYS.every((k) => Math.abs(a[k] - t[k]) < 1e-9), '插值终点不等于目标')
+    }
+    selfCheck()
+
+    /* ============ 8. Playground UI ============ */
+    const $ = (s) => document.querySelector(s)
+    const $$ = (s) => [...document.querySelectorAll(s)]
+    const thumbBuf = new Float32Array(FN * 4)
+
+    const outlinePath = (shape, s = 1) =>
+      'M' + SHAPES[shape].outline().map((p) => `${(p.x * s).toFixed(3)} ${(-p.y * s).toFixed(3)}`).join('L') + 'Z'
+
+    function featurePolygon(p, face) {
+      sampleFeature(p, thumbBuf)
+      const pt = (x, y) => `${(x * face.scale).toFixed(3)},${(-(y * face.scale + face.y)).toFixed(3)}`
+      const top = [], bottom = []
+      for (let j = 0; j < FN; j++) {
+        top.push(pt(thumbBuf[j * 4], thumbBuf[j * 4 + 1]))
+        bottom.unshift(pt(thumbBuf[j * 4 + 2], thumbBuf[j * 4 + 3]))
+      }
+      return `<polygon points="${top.concat(bottom).join(' ')}"/>`
+    }
+
+    function thumb(shape, expr, size) {
+      const face = SHAPES[shape].face[size]
+      return `<path d="${outlinePath(shape)}" fill="var(--t-body)"/>` +
+        `<g fill="var(--t-face)">${EXPRESSIONS[expr].features.map((p) => featurePolygon(growFeature({ ...p }, face.grow ?? 1), face)).join('')}</g>`
+    }
+
+    const exprGrid = $('#expr')
+    for (const [id, e] of Object.entries(EXPRESSIONS)) {
+      const b = document.createElement('button')
+      b.className = 'tile'
+      b.dataset.id = id
+      b.innerHTML = `<svg viewBox="-1.1 -1.1 2.2 2.2" aria-hidden="true"></svg><span>${e.label}</span>`
+      b.onclick = () => avatar.setConfig({ expression: id })
+      exprGrid.append(b)
+    }
+
+    const shapeSeg = $('#shape')
+    for (const [id, s] of Object.entries(SHAPES)) {
+      const b = document.createElement('button')
+      b.dataset.id = id
+      b.innerHTML = `<svg viewBox="-1.1 -1.1 2.2 2.2" aria-hidden="true"><path d="${outlinePath(id)}" fill="currentColor"/></svg><span>${s.label}</span>`
+      b.onclick = () => avatar.setConfig({ shape: id })
+      shapeSeg.append(b)
+    }
+
+    const sizeSeg = $('#faceSize')
+    for (const [id, label] of Object.entries(FACE_SIZES)) {
+      const b = document.createElement('button')
+      b.dataset.id = id
+      b.textContent = label
+      b.onclick = () => avatar.setConfig({ faceSize: id })
+      sizeSeg.append(b)
+    }
+
+    const palWrap = $('#palettes')
+    PALETTES.forEach((p, i) => {
+      const b = document.createElement('button')
+      b.className = 'swatch'
+      b.dataset.i = i
+      b.title = p.name
+      b.setAttribute('aria-label', `色板：${p.name}`)
+      b.style.background = p.colors.background
+      b.innerHTML = `<i style="background:${p.colors.body}"><b style="background:${p.colors.face}"></b></i>`
+      b.onclick = () => avatar.setConfig({ colors: p.colors })
+      palWrap.append(b)
+    })
+
+    for (const el of $$('input[type="color"][data-role]')) {
+      el.oninput = () => avatar.setConfig({ colors: { [el.dataset.role]: el.value } })
+    }
+    for (const el of $$('.hex[data-role]')) {
+      el.onchange = () => {
+        const v = el.value.trim()
+        avatar.setConfig({ colors: { [el.dataset.role]: v.startsWith('#') ? v : '#' + v } })
+        sync(avatar.getConfig())
+      }
+    }
+    $('#outlineOn').onchange = (e) => avatar.setConfig({ outline: { enabled: e.target.checked } })
+    $('#outlineW').oninput = (e) => avatar.setConfig({ outline: { width: +e.target.value, enabled: true } })
+    $('#loopOn').onchange = (e) => avatar.setConfig({ animation: { loop: e.target.checked } })
+    $('#speed').oninput = (e) => avatar.setConfig({ animation: { speed: +e.target.value } })
+    $('#pause').onclick = () => avatar.setConfig({ animation: { paused: !avatar.config.animation.paused } })
+    $('#resetAnim').onclick = () => {
+      avatar.resetAnimation()
+      avatar.setConfig({ animation: structuredClone(DEFAULT_CONFIG.animation) })
+    }
+    $('#resetView').onclick = () => avatar.resetView()
+    $('#resetAll').onclick = () => {
+      avatar.setConfig(structuredClone(DEFAULT_CONFIG))
+      avatar.resetAnimation()
+      avatar.resetView()
+    }
+    $('#copy').onclick = async (e) => {
+      const text = JSON.stringify(avatar.getConfig(), null, 2)
+      try {
+        await navigator.clipboard.writeText(text)
+      } catch {
+        const ta = Object.assign(document.createElement('textarea'), { value: text })
+        document.body.append(ta)
+        ta.select()
+        document.execCommand('copy')
+        ta.remove()
+      }
+      e.target.textContent = '已复制'
+      setTimeout(() => (e.target.textContent = '复制 JSON'), 1200)
+    }
+
+    let thumbKey
+    function sync(cfg) {
+      $$('#expr .tile').forEach((b) => b.setAttribute('aria-pressed', b.dataset.id === cfg.expression))
+      $$('#shape button').forEach((b) => b.setAttribute('aria-pressed', b.dataset.id === cfg.shape))
+      $$('#palettes .swatch').forEach((b) => {
+        const p = PALETTES[b.dataset.i].colors
+        b.setAttribute('aria-pressed', Object.keys(p).every((k) => p[k] === cfg.colors[k]))
+      })
+      $$('#faceSize button').forEach((b) => b.setAttribute('aria-pressed', b.dataset.id === cfg.faceSize))
+      if (thumbKey !== cfg.shape + cfg.faceSize) {
+        thumbKey = cfg.shape + cfg.faceSize
+        $$('#expr .tile').forEach((b) => (b.querySelector('svg').innerHTML = thumb(cfg.shape, b.dataset.id, cfg.faceSize)))
+      }
+      exprGrid.style.setProperty('--t-body', cfg.colors.body)
+      exprGrid.style.setProperty('--t-face', cfg.colors.face)
+
+      for (const el of $$('input[type="color"][data-role]')) el.value = cfg.colors[el.dataset.role]
+      for (const el of $$('.hex[data-role]')) if (document.activeElement !== el) el.value = cfg.colors[el.dataset.role]
+      $('#c-outline').disabled = !cfg.outline.enabled
+      $('.hex[data-role="outline"]').disabled = !cfg.outline.enabled
+      $('#outlineOn').checked = cfg.outline.enabled
+      $('#outlineW').value = cfg.outline.width
+      $('#outlineWVal').textContent = cfg.outline.width.toFixed(3)
+
+      $('#loopOn').checked = cfg.animation.loop
+      $('#speed').value = cfg.animation.speed
+      $('#speedVal').textContent = cfg.animation.speed.toFixed(2) + '×'
+      $('#pause').textContent = cfg.animation.paused ? '恢复' : '暂停'
+      $('#loops').innerHTML = EXPRESSIONS[cfg.expression].loops.map((l) => `<span class="chip">${ANIMATIONS[l].label}</span>`).join('')
+
+      $('#stage').style.background = cfg.colors.background
+      $('#json').textContent = JSON.stringify(cfg, null, 2)
+    }
+
+    const avatar = new AvatarRenderer($('#scene'), DEFAULT_CONFIG, { onChange: sync })
+    window.avatar = avatar
+    window.addEventListener('pagehide', () => avatar.dispose(), { once: true })
+    window.addEventListener('pageshow', (e) => e.persisted && location.reload())
+  </script>
+</body>
+</html>
