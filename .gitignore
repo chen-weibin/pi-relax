@@ -1,15 +1,15 @@
 tmp/
 .env
+.env.*
+!.env.example
 dist/
 .DS_Store
 
-.cursor/
-.agents/
 skills-lock.json
-.trae/
 .superpowers/
 node_modules/
 /pi/
+.pnpm-store/
 
 *.tsbuildinfo
 app/server/test/user/output/
