@@ -327,7 +327,7 @@ src/
 
 | 区 | `defaultSize` | `minSize` | `maxSize` | `groupResizeBehavior` | 所在 Group |
 |---|---|---|---|---|---|
-| Sidebar | `260`px | 200px | 400px | (默认) | 外层 |
+| Sidebar | `260`px | 200px | 400px | `preserve-pixel-size` | 外层 |
 | main | 剩余空间 | 630px(= 320 + 300 + 分隔条) | — | (默认) | 外层 |
 | content(MainContainer) | 剩余空间(无 `defaultSize`) | 320px | — | (默认) | 内层 |
 | Extension | `540`px | 300px | — | `preserve-pixel-size` | 内层 |
@@ -338,6 +338,7 @@ src/
 - `content` Panel 不写 `defaultSize`,library 自动把内层剩余空间全部分给它 — 主展示区总是尽可能宽。
 - `Extension` 用绝对值 `540`px + `preserve-pixel-size`,外层 Group 整体宽度变化时,先保住 Extension 的像素宽度,多出的空间让给其他可伸缩面板。适合"右侧固定宽度"的场景。
 - `main` 的 `minSize={630}` 保证内层 content(320) + ext(300) + 分隔条不会把空间压到不可用。
+- `Sidebar` 用 `preserve-pixel-size`:窗口缩放时先保住左侧像素宽度,多出或少掉的空间让给右侧 `main`。拖分隔条仍可在 200–400px 之间改宽度;窗口缩到 `main` 的 `minSize` 顶住后,侧边栏才会被迫变窄。
 - `Sidebar` 的 `maxSize={400}` 防止拖太宽挤掉主展示区。
 
 ### 收起/展开

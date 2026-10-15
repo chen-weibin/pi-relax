@@ -44,7 +44,7 @@ export function App() {
 			>
 				{sidebarOpen && (
 					<>
-						<ResizablePanel id="sidebar" defaultSize={250} minSize={200} maxSize={400}>
+						<ResizablePanel id="sidebar" groupResizeBehavior="preserve-pixel-size" defaultSize={250} minSize={200} maxSize={400}>
 							<Sidebar />
 						</ResizablePanel>
 						<ResizableHandle />
