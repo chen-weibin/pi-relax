@@ -204,7 +204,7 @@ type SessionRecord = {
 				const ERROR_BODY = `/** 失败时的 JSON。2xx 不返回这个形状。 */
 type ErrorBody = {
 	error: {
-		/** BAD_REQUEST | NOT_FOUND | BUSY | INTERNAL */
+		/** BAD_REQUEST | NOT_FOUND | BUSY | PAYLOAD_TOO_LARGE | RANGE_NOT_SATISFIABLE | INTERNAL */
 		code: string
 		/** 给人看的说明 */
 		message: string
@@ -748,6 +748,226 @@ type DeleteSessionRequest = {
 
 ${ERROR_BODY}`,
 					},
+					{
+						group: "会话",
+						name: "全局事件",
+						method: "SSE",
+						path: "/api/sessions/events",
+						wire: "sse",
+						summary: "全局 SSE。每条 data 是 { sessionId, event }，内层是 pi 的 AgentSessionEvent。断线不补。",
+						queryParams: [],
+						bodyParams: [],
+						body: "",
+						requestType: `/** 无 body。连接保持打开。 */
+type SessionEventsRequest = Record<string, never>`,
+						responseType: `/** text/event-stream。每条消息一行 data。 */
+
+type SessionEventMessage = {
+	sessionId: string
+	/** pi 的 AgentSessionEvent */
+	event: unknown
+}`,
+					},
+					{
+						group: "文件",
+						name: "列出一层",
+						method: "GET",
+						path: "/api/fs/list",
+						summary: "列出目录的直接子项，不递归。子项带 size 和 mtime。目录的 size 不是里面文件的合计。",
+						queryParams: [
+							{ name: "path", type: "string", required: true, description: "已存在的绝对路径。服务端不展开 ~", example: "" },
+						],
+						bodyParams: [],
+						body: "",
+						requestType: `/** Query。path 用 encodeURIComponent 一次。 */
+type ListFsRequest = {
+	/** 绝对路径，必须已存在且是目录。缺省、相对路径、以 ~ 开头为 400 */
+	path: string
+}`,
+						responseType: `/** HTTP 200。 */
+type FsEntry = {
+	name: string
+	/** 绝对路径 */
+	path: string
+	kind: "file" | "dir"
+	/** 该项自己的字节大小 */
+	size: number
+	/** 修改时间，毫秒 */
+	mtime: number
+}
+
+type ListFsResponse = {
+	path: string
+	entries: FsEntry[]
+}
+
+${ERROR_BODY}`,
+					},
+					{
+						group: "文件",
+						name: "元信息",
+						method: "GET",
+						path: "/api/fs/stat",
+						summary: "看单个路径是文件还是目录，以及字节大小和修改时间。不读正文。",
+						queryParams: [
+							{ name: "path", type: "string", required: true, description: "已存在的绝对路径", example: "" },
+						],
+						bodyParams: [],
+						body: "",
+						requestType: `/** Query。 */
+type StatFsRequest = {
+	/** 绝对路径，必须已存在。不存在 404 */
+	path: string
+}`,
+						responseType: `/** HTTP 200。 */
+type StatFsResponse = {
+	kind: "file" | "dir"
+	size: number
+	/** 修改时间，毫秒 */
+	mtime: number
+}
+
+${ERROR_BODY}`,
+					},
+					{
+						group: "文件",
+						name: "读文件",
+						method: "GET",
+						path: "/api/fs/read",
+						rawResponse: true,
+						summary: "正文是原文。不带分段时流式读出整个文件。offset+length 与 Range 二选一，一段超过 FS_MAX_BYTES（默认 16 MiB）为 413。",
+						queryParams: [
+							{ name: "path", type: "string", required: true, description: "已存在的文件绝对路径", example: "" },
+							{ name: "offset", type: "string", required: false, description: "与 length 成对。和 Range 不要同时给", example: "" },
+							{ name: "length", type: "string", required: false, description: "这一段的字节数，必须大于 0", example: "" },
+						],
+						bodyParams: [],
+						body: "",
+						requestType: `/** Query。可选请求头 Range: bytes=start-end 或 bytes=start-。 */
+type ReadFsRequest = {
+	path: string
+	/** 与 length 成对。起点在文件末尾之后为 416 */
+	offset?: number
+	length?: number
+}`,
+						responseType: `/** 200 整文件，或 206 一段。响应头 X-Relax-Transfer: text | binary，Accept-Ranges: bytes。分段另有 Content-Range。正文不是 JSON。 */
+
+${ERROR_BODY}`,
+					},
+					{
+						group: "文件",
+						name: "写文件",
+						method: "PUT",
+						path: "/api/fs/file",
+						rawBody: true,
+						summary: "正文是原文，不要用 application/json。不带 offset 时先写临时文件再替换。带 offset 只接受 binary。单次正文超过 FS_MAX_BYTES 为 413，原文件保留。",
+						queryParams: [
+							{ name: "path", type: "string", required: true, description: "文件绝对路径", example: "" },
+							{ name: "recursive", type: "string", required: false, description: "true 时缺失的父目录一并建出", example: "" },
+							{ name: "offset", type: "string", required: false, description: "写到该位置。小于当前长度则覆盖，等于则追加，大于则 400", example: "" },
+						],
+						headerParams: [
+							{ name: "X-Relax-Transfer", type: "string", required: true, description: "text 或 binary。带 offset 时只能是 binary", example: "text" },
+						],
+						bodyParams: [],
+						body: "hello",
+						requestType: `/** Query + 原始正文。请求头 X-Relax-Transfer 必填。 */
+type WriteFsRequest = {
+	path: string
+	recursive?: boolean
+	offset?: number
+}`,
+						responseType: `/** HTTP 204，响应体为空。 */
+
+${ERROR_BODY}`,
+					},
+					{
+						group: "文件",
+						name: "建目录",
+						method: "POST",
+						path: "/api/fs/dir",
+						summary: "只建这一层。recursive 为 true 时缺失的父目录一并建出。路径已存在为 400。",
+						queryParams: [],
+						bodyParams: [
+							{ name: "path", type: "string", required: true, description: "新目录的绝对路径", example: "" },
+							{ name: "recursive", type: "boolean", required: false, description: "是否一并建出缺失的父目录", example: false },
+						],
+						body: "{\n  \"path\": \"\"\n}",
+						requestType: `/** JSON body。 */
+type MkdirRequest = {
+	/** 绝对路径。已存在为 400 */
+	path: string
+	recursive?: boolean
+}`,
+						responseType: `/** HTTP 204，响应体为空。 */
+
+${ERROR_BODY}`,
+					},
+					{
+						group: "文件",
+						name: "删文件",
+						method: "DELETE",
+						path: "/api/fs/file",
+						summary: "只删文件。路径是目录则 400。",
+						queryParams: [
+							{ name: "path", type: "string", required: true, description: "文件绝对路径", example: "" },
+						],
+						bodyParams: [],
+						body: "",
+						requestType: `/** Query。 */
+type DeleteFileRequest = {
+	path: string
+}`,
+						responseType: `/** HTTP 204，响应体为空。 */
+
+${ERROR_BODY}`,
+					},
+					{
+						group: "文件",
+						name: "删目录",
+						method: "DELETE",
+						path: "/api/fs/dir",
+						summary: "只删目录。默认必须为空。recursive=true 时连同里面的内容一起删。路径是文件则 400。",
+						queryParams: [
+							{ name: "path", type: "string", required: true, description: "目录绝对路径", example: "" },
+							{ name: "recursive", type: "string", required: false, description: "true 时递归删除", example: "" },
+						],
+						bodyParams: [],
+						body: "",
+						requestType: `/** Query。 */
+type DeleteDirRequest = {
+	path: string
+	recursive?: boolean
+}`,
+						responseType: `/** HTTP 204，响应体为空。非空且未带 recursive 时 400，message 说明目录非空。 */
+
+${ERROR_BODY}`,
+					},
+					{
+						group: "文件",
+						name: "监听目录",
+						method: "WS",
+						path: "/ws/fs",
+						wire: "ws",
+						summary: "递归监听一个根目录。变化在 FS_WATCH_DEBOUNCE_MS（默认 600）后合成一条 change。同时监听的根不超过 FS_WATCH_MAX（默认 16）。",
+						queryParams: [],
+						bodyParams: [],
+						body: '{\n  "type": "watch",\n  "path": ""\n}',
+						requestType: `/** 客户端消息。path 是绝对路径，放在 JSON 里，不做百分号编码。 */
+type FsClientMessage =
+	| { type: "watch"; path: string }
+	| { type: "unwatch"; path: string }`,
+						responseType: `/** 服务端推送。 */
+type FsServerMessage =
+	| { type: "watching"; path: string }
+	| {
+			type: "change"
+			/** 订阅的根 */
+			path: string
+			changes: { event: "add" | "change" | "unlink" | "addDir" | "unlinkDir"; path: string }[]
+	  }
+	| { type: "error"; path: string; error: { code: string; message: string } }`,
+					},
 				];
 
 				const $ = (id) => document.querySelector(id);
@@ -762,7 +982,12 @@ ${ERROR_BODY}`,
 					PUT: { bar: "bg-blue-500", pill: "bg-blue-100 text-blue-700" },
 					PATCH: { bar: "bg-pink-500", pill: "bg-pink-100 text-pink-700" },
 					DELETE: { bar: "bg-red-500", pill: "bg-red-100 text-red-700" },
+					SSE: { bar: "bg-violet-500", pill: "bg-violet-100 text-violet-700" },
+					WS: { bar: "bg-teal-500", pill: "bg-teal-100 text-teal-700" },
 				};
+
+				let liveSse = null;
+				let liveWs = null;
 
 				let activeIndex = 0;
 				let activeTab = "curl";
@@ -846,6 +1071,7 @@ ${ERROR_BODY}`,
 
 				const pathValues = {};
 				const queryValues = {};
+				const headerValues = {};
 
 				function pathParamNames(path) {
 					return [...path.matchAll(/:([A-Za-z_][\w]*)/g)].map((match) => match[1]);
@@ -970,9 +1196,48 @@ ${ERROR_BODY}`,
 						</details>`;
 				}
 
+				function headerKey(endpoint, name) {
+					return `${endpoint.path}\0${name}`;
+				}
+
+				function headerValue(endpoint, param) {
+					const key = headerKey(endpoint, param.name);
+					if (Object.prototype.hasOwnProperty.call(headerValues, key)) return headerValues[key];
+					return param.required ? param.example ?? "" : "";
+				}
+
+				function headerCard(endpoint) {
+					const list = endpoint.headerParams ?? [];
+					if (!list.length) return "";
+					const body = `<div class="border-t border-zinc-200">
+							${list
+								.map(
+									(p) => `<div class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 border-b border-zinc-100 px-4 py-3 last:border-b-0">
+									<div class="flex items-center gap-2 min-w-0">
+										<span class="shrink-0 rounded bg-violet-50 px-2 py-0.5 font-mono text-xs font-medium text-violet-700">${escapeHtml(p.name)}</span>
+										<span class="font-mono text-xs text-zinc-500">${escapeHtml(p.type)}</span>
+										${p.required ? '<span class="text-[10px] font-semibold text-red-500">必填</span>' : ""}
+									</div>
+									<div class="text-xs text-zinc-400">${p.required ? "必填" : "可选"}</div>
+									${p.description ? `<div class="col-span-2 text-xs text-zinc-500">${escapeHtml(p.description)}</div>` : ""}
+									<input data-header-param="${escapeHtml(p.name)}" value="${escapeHtml(headerValue(endpoint, p))}" placeholder="${escapeHtml(p.example || p.name)}" class="col-span-2 mt-1 w-full rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 font-mono text-[12px] outline-none focus:border-violet-300 focus:bg-white" spellcheck="false" />
+								</div>`,
+								)
+								.join("")}
+						</div>`;
+					return `<details class="overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]" open>
+							<summary class="flex items-center gap-2 px-4 py-3 text-sm font-medium hover:bg-zinc-50">
+								<svg class="chev text-zinc-400" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+								<span>请求头</span>
+								<span class="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-medium text-zinc-500">${list.length}</span>
+							</summary>
+							${body}
+						</details>`;
+				}
+
 				function bodyCard(endpoint) {
 					const list = endpoint.bodyParams ?? [];
-					const canHaveBody = !["GET", "HEAD"].includes(endpoint.method);
+					const canHaveBody = endpoint.rawBody || endpoint.wire === "ws" || (!["GET", "HEAD", "SSE"].includes(endpoint.method) && endpoint.wire !== "sse");
 					const templateBody = (endpoint.body || "").trim();
 					const initBody =
 						templateBody ||
@@ -1028,11 +1293,12 @@ ${ERROR_BODY}`,
 
 				function renderParams(endpoint) {
 					const c = $("#params-container");
-					c.innerHTML = authCard(endpoint) + pathCard(endpoint) + queryCard(endpoint) + bodyCard(endpoint);
+					c.innerHTML = authCard(endpoint) + pathCard(endpoint) + queryCard(endpoint) + headerCard(endpoint) + bodyCard(endpoint);
 					const total =
 						(endpoint.auth ? 1 : 0) +
 						pathParamList(endpoint).length +
 						(endpoint.queryParams?.length ?? 0) +
+						(endpoint.headerParams?.length ?? 0) +
 						(endpoint.bodyParams?.length ?? 0);
 					$("#param-count").textContent = total ? `${total} 个参数` : "";
 					const refreshPath = () => {
@@ -1051,16 +1317,37 @@ ${ERROR_BODY}`,
 							refreshPath();
 						});
 					}
+					for (const input of c.querySelectorAll("[data-header-param]")) {
+						input.addEventListener("input", () => {
+							headerValues[headerKey(endpoint, input.dataset.headerParam)] = input.value;
+							renderExample(endpoint);
+						});
+					}
+				}
+
+				function extraHeaders(endpoint) {
+					const headers = {};
+					for (const param of endpoint.headerParams ?? []) {
+						const value = headerValue(endpoint, param).trim();
+						if (value) headers[param.name] = value;
+					}
+					return headers;
 				}
 
 				function buildCurl(endpoint, base) {
 					let url = base + requestPath(endpoint, true);
+					if (endpoint.wire === "sse") return `curl -N '${url}'`;
+					if (endpoint.wire === "ws") return `# 连接 ${base.replace(/^http/, "ws")}${requestPath(endpoint, true)}\n# 发送下方正文`;
 					const lines = [`curl -X ${endpoint.method} '${url}'`];
 					if (endpoint.auth) lines.push(`  -H 'Authorization: Bearer YOUR_TOKEN'`);
+					for (const [name, value] of Object.entries(extraHeaders(endpoint))) {
+						lines.push(`  -H '${name}: ${value}'`);
+					}
 					const body = ($("#body-input")?.value || "").trim();
-					if (body && !["GET", "HEAD"].includes(endpoint.method)) {
-						lines.push(`  -H 'Content-Type: application/json'`);
-						lines.push(`  -d '${body.replace(/'/g, "'\\''")}'`);
+					if (body && (endpoint.rawBody || endpoint.wire === "ws" || !["GET", "HEAD", "SSE"].includes(endpoint.method))) {
+						if (endpoint.rawBody) lines.push(`  -H 'Content-Type: application/octet-stream'`);
+						else if (endpoint.wire !== "ws") lines.push(`  -H 'Content-Type: application/json'`);
+						lines.push(`  --data-binary '${body.replace(/'/g, "'\\''")}'`);
 					}
 					return lines.join(" \\\n");
 				}
@@ -1068,12 +1355,16 @@ ${ERROR_BODY}`,
 				function buildJs(endpoint, base) {
 					let url = base + requestPath(endpoint, true);
 					const opts = [`  method: '${endpoint.method}'`];
-					if (endpoint.auth) opts.push(`  headers: { 'Authorization': 'Bearer YOUR_TOKEN' }`);
+					const headers = { ...extraHeaders(endpoint) };
+					if (endpoint.auth) headers.Authorization = "Bearer YOUR_TOKEN";
+					if (endpoint.rawBody) headers["Content-Type"] = "application/octet-stream";
+					if (Object.keys(headers).length) opts.push(`  headers: ${JSON.stringify(headers)}`);
 					const body = ($("#body-input")?.value || "").trim();
-					if (body && !["GET", "HEAD"].includes(endpoint.method)) {
-						opts.push(`  body: ${body.replace(/\n/g, " ")}`);
+					if (body && (endpoint.rawBody || endpoint.wire === "ws" || !["GET", "HEAD", "SSE"].includes(endpoint.method))) {
+						opts.push(`  body: ${endpoint.rawBody || endpoint.wire === "ws" ? JSON.stringify(body) : body.replace(/\n/g, " ")}`);
 					}
-					return `await fetch(${JSON.stringify(url)}, {\n${opts.join(",\n")}\n}).then(r => r.json())`;
+					const read = endpoint.rawResponse ? "r.arrayBuffer()" : "r.json()";
+					return `await fetch(${JSON.stringify(url)}, {\n${opts.join(",\n")}\n}).then(r => ${read})`;
 				}
 
 				function renderExample(endpoint) {
@@ -1082,6 +1373,10 @@ ${ERROR_BODY}`,
 				}
 
 				function select() {
+					liveSse?.close();
+					liveSse = null;
+					liveWs?.close();
+					liveWs = null;
 					const endpoint = ENDPOINTS[activeIndex];
 					$("#title").textContent = endpoint.name;
 					$("#breadcrumb").textContent = endpoint.group;
@@ -1128,17 +1423,85 @@ ${ERROR_BODY}`,
 					renderExample(ENDPOINTS[activeIndex]);
 				});
 
+				function showRaw(response) {
+					const bytes = new Uint8Array(response.data);
+					const transfer = response.headers?.["x-relax-transfer"];
+					const range = response.headers?.["content-range"];
+					const body = transfer === "binary" ? `binary ${bytes.byteLength} bytes` : new TextDecoder().decode(bytes);
+					return [transfer ? `X-Relax-Transfer: ${transfer}` : "", range ? `Content-Range: ${range}` : "", body]
+						.filter(Boolean)
+						.join("\n");
+				}
+
+				async function runSse(endpoint, base) {
+					liveSse?.close();
+					$("#status").textContent = "连接中…";
+					$("#status").className = "font-semibold text-zinc-400";
+					$("#result").textContent = "";
+					const source = new EventSource(base + requestPath(endpoint, true));
+					liveSse = source;
+					source.onopen = () => {
+						$("#status").textContent = "已连接";
+						$("#status").className = "font-semibold text-emerald-600";
+					};
+					source.onmessage = (event) => {
+						$("#result").textContent += `${event.data}\n`;
+					};
+					source.onerror = () => {
+						$("#status").textContent = "断开";
+						$("#status").className = "font-semibold text-red-600";
+					};
+				}
+
+				async function runWs(endpoint, base) {
+					const wsUrl = base.replace(/^http/, "ws") + requestPath(endpoint, true);
+					if (!liveWs || liveWs.url !== wsUrl || liveWs.readyState !== WebSocket.OPEN) {
+						liveWs?.close();
+						liveWs = new WebSocket(wsUrl);
+						$("#result").textContent = "";
+						liveWs.addEventListener("message", (event) => {
+							const text = typeof event.data === "string" ? event.data : String(event.data);
+							$("#result").textContent += `${text}\n`;
+						});
+						await new Promise((resolve, reject) => {
+							liveWs.addEventListener("open", resolve, { once: true });
+							liveWs.addEventListener("error", () => reject(new Error("WebSocket 连接失败")), { once: true });
+						});
+					}
+					const raw = ($("#body-input")?.value || "").trim();
+					if (raw) liveWs.send(raw);
+					$("#status").textContent = "已连接";
+					$("#status").className = "font-semibold text-emerald-600";
+				}
+
 				async function run() {
 					const base = baseInput.value.trim().replace(/\/$/, "");
 					localStorage.setItem("relax-api-base", base);
 					const endpoint = ENDPOINTS[activeIndex];
 					const method = endpoint.method;
 					const missing = [...missingPathParams(endpoint), ...missingQueryParams(endpoint)];
+					for (const param of endpoint.headerParams ?? []) {
+						if (param.required && !headerValue(endpoint, param).trim()) missing.push(param.name);
+					}
 					if (missing.length) {
 						$("#status").textContent = "未发送";
 						$("#status").className = "font-semibold text-zinc-400";
 						$("#meta").textContent = "";
 						$("#result").textContent = `先填写参数：${missing.join("、")}`;
+						return;
+					}
+					if (endpoint.wire === "sse") {
+						await runSse(endpoint, base);
+						return;
+					}
+					if (endpoint.wire === "ws") {
+						try {
+							await runWs(endpoint, base);
+						} catch (error) {
+							$("#status").textContent = "失败";
+							$("#status").className = "font-semibold text-red-600";
+							$("#result").textContent = String(error);
+						}
 						return;
 					}
 					const raw = ($("#body-input")?.value || "").trim();
@@ -1149,10 +1512,20 @@ ${ERROR_BODY}`,
 					$("#result").textContent = "";
 					const started = performance.now();
 					try {
+						const headers = extraHeaders(endpoint);
+						let data;
+						if (endpoint.rawBody) {
+							headers["Content-Type"] = "application/octet-stream";
+							data = raw;
+						} else if (raw && !["GET", "HEAD"].includes(method)) {
+							data = JSON.parse(raw);
+						}
 						const response = await axios({
 							method,
 							url: base + requestPath(endpoint, true),
-							data: raw && !["GET", "HEAD"].includes(method) ? JSON.parse(raw) : undefined,
+							headers,
+							data,
+							responseType: endpoint.rawResponse ? "arraybuffer" : undefined,
 							validateStatus: () => true,
 						});
 						const ms = Math.round(performance.now() - started);
@@ -1160,8 +1533,11 @@ ${ERROR_BODY}`,
 						$("#status").textContent = `${response.status} ${response.statusText || ""}`;
 						$("#status").className = ok ? "font-semibold text-emerald-600" : "font-semibold text-red-600";
 						$("#meta").textContent = `${ms} ms · ${response.headers?.["content-type"] ?? ""}`;
-						$("#result").textContent =
-							typeof response.data === "string" ? response.data : JSON.stringify(response.data, null, 2);
+						$("#result").textContent = endpoint.rawResponse
+							? showRaw(response)
+							: typeof response.data === "string"
+								? response.data
+								: JSON.stringify(response.data, null, 2);
 					} catch (error) {
 						$("#status").textContent = "失败";
 						$("#status").className = "font-semibold text-red-600";

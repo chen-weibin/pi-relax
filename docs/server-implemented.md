@@ -2,7 +2,7 @@
 
 只记当前代码里已经能用的能力。规划、上限和还没做的块在 [server.md](server.md)。查阅时机：想看服务端现在做到哪、对照联调页该点哪一项时。改行为时和 [server.md](server.md) 一起改本页。
 
-手工入口：`pnpm dev:server`（端口 `3001`）。`pnpm dev` 和 `pnpm start` 做同一件事：先起这个服务，`/health` 成功后再起 `pnpm dev:web`（Vite 默认 `5173`）；任一端口已在听则跳过该服务。`pnpm dev:server:open` 拉起同一个服务，`/health` 成功后用系统打开本地 [index.html](../app/server/test/html/index.html)（`open` 文件，不另起静态服务）；该端口已在听则只打开页面。逐条 HTTP 用 [api.html](../app/server/test/html/api.html)，整段会话用 [sessions.html](../app/server/test/html/sessions.html)。会话页的模型下拉来自 `GET /api/models`：没选中会话时显示新建将用的模型，选中后显示该会话历史里的模型。改下拉只改全局默认；发送时带上所选模型，和该会话上次不同才写入会话。前端 `app/web` 还没接这些接口。
+手工入口：`pnpm dev:server`（端口 `3001`）。`pnpm dev` 和 `pnpm start` 做同一件事：先起这个服务，`/health` 成功后再起 `pnpm dev:web`（Vite 默认 `5173`）；任一端口已在听则跳过该服务。`pnpm dev:server:open` 拉起同一个服务，`/health` 成功后用系统打开本地 [index.html](../app/server/test/html/index.html)（`open` 文件，不另起静态服务）；该端口已在听则只打开页面。逐条接口用 [api.html](../app/server/test/html/api.html)，整段会话用 [sessions.html](../app/server/test/html/sessions.html)，文件系统用 [fs.html](../app/server/test/html/fs.html)。会话页的模型下拉来自 `GET /api/models`：没选中会话时显示新建将用的模型，选中后显示该会话历史里的模型。改下拉只改全局默认；发送时带上所选模型，和该会话上次不同才写入会话。前端 `app/web` 还没接这些接口。
 
 ## 进程
 
@@ -58,9 +58,19 @@
 4. 抓取全文缓存在 `~/.relax/agent/web-search-cache/`。插件读的是 `PI_CODING_AGENT_DIR`，启动时已指到 `~/.relax/agent`。
 5. 斜杠命令仍注册。用户原文以 `/` 开头且名字对上时，先执行命令，不把这句发给模型。
 
+## 文件系统
+
+1. 路径必须是绝对路径。没传、相对路径、以 `~` 开头为 400。不设默认目录，也不限制必须在某个工作区里。
+2. `GET /api/fs/list` 只列一层，子项带 `size` 和 `mtime`。`GET /api/fs/stat` 查单个路径。
+3. `GET /api/fs/read` 返回原文，响应头 `X-Relax-Transfer` 为 `text` 或 `binary`。不带分段时流式读出整个文件。`offset`+`length` 或 `Range` 读一段。
+4. `PUT /api/fs/file` 写入原文。整文件先写临时文件再替换。带 `offset` 时只接受 `binary`，可以覆盖已写过的那段。`POST /api/fs/dir` 建目录。`DELETE /api/fs/file` 和 `DELETE /api/fs/dir` 分开删。`recursive=true` 才递归创建或递归删除。
+5. 一次分段或一次写入的上限是 `FS_MAX_BYTES`，默认 16 MiB。超过为 413 `PAYLOAD_TOO_LARGE`，`message` 带当前大小和上限。整文件流式读不受这个上限。
+6. WebSocket `/ws/fs` 递归监听调用方给的一个根。`FS_WATCH_DEBOUNCE_MS` 默认 600，`FS_WATCH_MAX` 默认 16。推送 `watching`、`change`、`error`。
+7. `app/web` 的文件插件仍用 mock。手工页是 [fs.html](../app/server/test/html/fs.html)：左边目录，右边内容。
+
 ## 当前关掉的剖面
 
-技能、提示词模板、主题、上下文文件都显式关掉。磁盘扩展不扫。`tool_search` 和 `web_enable` 不开。文件监听和终端还没做。
+技能、提示词模板、主题、上下文文件都显式关掉。磁盘扩展不扫。`tool_search` 和 `web_enable` 不开。终端还没做。`app/web` 还没接文件系统。
 
 ## 手工脚本
 

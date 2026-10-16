@@ -158,7 +158,7 @@ SSE 断线不补，客户端用历史对齐。发送和中止走 HTTP。本轮�
 - **能力剖面**。每次创建 `AgentSession` 都带一份显式剖面：工具、技能、扩展、规则和上下文文件、提示词，各自是关还是一组路径。关掉必须传给 pi（如 `noSkills`、`noExtensions`、不扫描上下文），不能靠这段代码还没写。工具用 `tools` 白名单。磁盘扩展仍关，只多给 `additionalExtensionPaths`（Langfuse、`pi-web-access`），再加上 `app/server/src/extensions/` 里的 factory。
 - **列表**。本轮无索引，走 `SessionManager.list` / `listAll` 全量扫描，并上智能体里尚未落盘的热会话。
 - **会话宿主**。智能体类持有多份 `AgentSession`（多工作目录可同时生成）。事件是 `(sessionId, AgentSessionEvent)`。SDK 会话默认不加载 CLI 的 `codemode` / MCP。`codemode` 由 `createCodemodeExtension()` 显式挂上。`tool_search` 和 MCP 当前不挂。
-- **未做到的子系统不启动**。文件监听、PTY、技能扫描各自独立模块，对应那一块开始之前不加载、不占文件描述符。
+- **未做到的子系统不启动**。文件监听在有 WebSocket 订阅时才 `watch`，启动时不订磁盘。PTY、技能扫描仍不加载。
 
 ## 性能上限
 
@@ -171,7 +171,7 @@ SSE 断线不补，客户端用历史对齐。发送和中止走 HTTP。本轮�
 - **流式**。服务端不另存一份完整正文。pi 追加 JSONL，我们转发事件。客户端读得慢就背压，缓冲有上限，满了断开这一条连接。
 - **历史**。只在打开该会话时读。单文件读取有上限。上下文体积靠 pi 自带压缩兜住。
 - **事件循环**。请求路径上不同步读大目录或大文件。订阅回调里的异常记到该会话，不让进程退出。中止按 `relax.abortPolicy`，默认先清空排队文本，再传到模型请求。
-- **文件监听**（做到才启用）。只订已打开的那一层目录，不递归整棵仓库。防抖后再推列表。忽略 `node_modules`、`.git`、`dist`。watcher 数量有上限。
+- **文件监听**。客户端订一个根目录，服务端递归监听这棵树，防抖后推这棵树上的变化路径，不推整棵目录表。同时存在的根由 `FS_WATCH_MAX` 限制，默认 16。同一根的多条连接只占 1。服务端不过滤名字。
 - **终端**（做到才启用）。PTY 个数有上限，回放缓冲约 100KB，关闭时必须释放文件描述符。
 - **工具**。已启用八个内置工具（含 `bash`）和 `codemode`，以及 `pi-web-access` 的四个联网工具。`bash` 这一步没有另加超时或路径限制，范围是该会话的 cwd。`powershell` 非 Windows 上由基座在调用时报错。
 - **技能与规则**（做到才启用）。只扫剖面里的目录，不向上搜。条数和正文大小有上限，避免系统提示把上下文撑满。
@@ -194,11 +194,21 @@ SSE 断线不补，客户端用历史对齐。发送和中止走 HTTP。本轮�
 
 ## 文件系统
 
-`chokidar` 加 WebSocket `/ws/fs` 即可，不上 Watchman。原生 watcher 等目录规模真出问题再考虑。
+`chokidar` 加 WebSocket `/ws/fs`，不上 Watchman。`app/web` 仍用 mock，这一轮只接服务端和 [fs.html](../app/server/test/html/fs.html)。
 
-对齐前端 `FsApi`：监听推的是防抖后的完整目录列表，不是 chokidar 原始事件。HTTP 先做 `list`、`stat`、`read`（文本）。`write`、`create`、`delete` 的形状可以一起定，实现放到文件那一块。忽略列表放进 `.relax` 的配置，文件名等做文件系统时再定。
+路径必须是调用方传入的绝对路径。没传、相对路径、以 `~` 开头都是 400，服务端不展开家目录，也不设默认目录。不限制必须落在某个项目根里。服务端不过滤 `node_modules`、`.git`、`dist`，显示什么由调用方决定。
 
-所有路径先解析真实路径，必须落在该项目根或默认工作区里。`..` 和逃出根目录的符号链接拒绝。
+字段和错误文案以 [api.html](../app/server/test/html/api.html) 的「文件」分组为准。行为：
+
+- `list` 只列一层，子项带自己的 `size` 和 `mtime`。目录的 `size` 不把里面的文件加总。
+- `stat` 查单个路径的类型、大小和修改时间。
+- `read` 的正文是原文，响应头 `X-Relax-Transfer` 为 `text` 或 `binary`。不带分段时流式吐出整个文件，开头 8 KiB 用来标类型。`offset`+`length` 与请求头 `Range` 二选一，读一段并返回 206。
+- `PUT /api/fs/file` 的正文也是原文，请求头标明 `text` 或 `binary`。不带 `offset` 时先写临时文件，成功后再替换，失败留下原文件。`text` 要整段都是合法 UTF-8。带 `offset` 只接受 `binary`：小于当前长度则覆盖该段，等于则追加，大于则拒绝。
+- `POST /api/fs/dir` 建目录。`DELETE /api/fs/file` 只删文件，`DELETE /api/fs/dir` 只删目录。目录默认必须为空，`recursive=true` 才连内容一起删。创建时 `recursive=true` 会把缺失的父目录一并建出。
+
+`FS_MAX_BYTES` 默认 16777216（16 MiB），只限制一次分段读取或一次写入的正文。整文件流式读不受这个上限。超过时 413，`code` 为 `PAYLOAD_TOO_LARGE`，`message` 写明当前字节数和上限。偏移落在文件末尾之后为 416，`code` 为 `RANGE_NOT_SATISFIABLE`。其它失败的 `message` 也要写出具体原因。
+
+`/ws/fs` 的客户端消息是 `watch` / `unwatch`。服务端先回 `watching`，之后把 `FS_WATCH_DEBOUNCE_MS`（默认 600）窗口里的变化合成一条 `change`（`add`、`change`、`unlink`、`addDir`、`unlinkDir`）。失败回 `error`，里面是同一套 `{ code, message }`。同时监听的根目录棵数是 `FS_WATCH_MAX`，默认 16；同一个根的多条连接只占 1。没有订阅时不占描述符。
 
 ## 终端
 
@@ -213,7 +223,7 @@ PTY 活到关闭或进程退出。断线可以再订阅，并用最近约 100KB 
 - `GET /health`：健康检查，不在 `/api` 下。返回 `{ "status": "ok" }`
 - HTTP JSON 用 `/api` 前缀。会话见上文接口。
 - 对话推送：`GET /api/sessions/events`（SSE）
-- 文件变化：WebSocket `/ws/fs`。做到文件系统再实现
+- 文件变化：WebSocket `/ws/fs`
 - 终端：WebSocket `/ws/pty`。做到终端再实现
 
 跨域当前全部放开，响应带 `Access-Control-Allow-Origin: *`，不带 cookie。以后做登录再收紧。
@@ -224,7 +234,7 @@ PTY 活到关闭或进程退出。断线可以再订阅，并用最近约 100KB 
 { "error": { "code": "NOT_FOUND", "message": "..." } }
 ```
 
-骨架用 `BAD_REQUEST`、`NOT_FOUND`、`INTERNAL`。对话模块另有 `BUSY`（409）。JSON 请求体上限 1mb。
+骨架用 `BAD_REQUEST`、`NOT_FOUND`、`INTERNAL`。对话模块另有 `BUSY`（409）。文件读写另有 `PAYLOAD_TOO_LARGE`（413）和 `RANGE_NOT_SATISFIABLE`（416）。JSON 请求体上限 1mb。文件正文不走这 1mb，单次写入和分段读取看 `FS_MAX_BYTES`。
 
 `/api`、`/ws/fs`、`/ws/pty` 是不同路径，前面加反向代理时可以按前缀分别转发。
 
@@ -249,23 +259,27 @@ app/server/src/
   routes/models.ts      提供商、可用模型、默认模型、手动刷新、思考档位
   routes/settings.ts    GET / PATCH /api/settings
   routes/sessions.ts    会话路由与 SSE
+  routes/fs.ts          文件列表、元信息、读写、建目录、删除
+  fs/                   路径、读写、按根目录递归监听
 app/server/test/
   health.test.ts
   sessions.test.ts
   sessions-http.test.ts
   agent.test.ts
   settings.test.ts
+  fs.test.ts
   html/
-    index.html        手工测试页目录，卡片链到下面两页
+    index.html        手工测试页目录
     sessions.html     会话联调：进页即连 SSE
-    api.html          单接口 HTTP 调试，含请求类型与返回类型
+    api.html          单接口调试，含请求类型与返回类型。SSE 和 /ws/fs 也在这页
+    fs.html           文件系统：左目录，右内容
 ```
 
-还没建的目录：`fs/`、`pty/`，以及 `/ws/fs`、`/ws/pty` 的处理。`agent/` 是唯一直接调用 pi 会话 API 的目录。
+还没建的目录：`pty/`，以及 `/ws/pty` 的处理。`agent/` 是唯一直接调用 pi 会话 API 的目录。
 
-手工测试页在 [html/](../app/server/test/html/)，服务需已由 `pnpm dev:server` 拉起。`pnpm dev:server:open`（[script/dev-server-open.mjs](../script/dev-server-open.mjs)）做同一件事，并在 `/health` 成功后用系统打开本地 `index.html`。端口已被占用时不另起进程，只打开页面。`pnpm dev` 与 `pnpm start` 都走 [script/dev.mjs](../script/dev.mjs)：先跑 `dev:server`，`/health` 成功后再跑 `dev:web`；`3001` 或 web 的 `5173` 已在听则跳过对应那一个，不另占端口。查阅时机：要同时起服务端和前端时。会话相关接口互相依赖，用 [sessions.html](../app/server/test/html/sessions.html)：进入即连 `GET /api/sessions/events`，可在同一页发送、续发（含 steer / followUp）、设置思考档位、查询模型档位、设置标题、中止、列会话、看历史和删除。逐条 HTTP 仍用 [api.html](../app/server/test/html/api.html)。字段含义以该页的 `requestType` / `responseType` 为准。每新增一个 HTTP 接口，在文件顶部的 `ENDPOINTS` 追加一项并写上带字段注释的类型；接口调整时改这一处和实现，不必在本文再抄参数。查阅时机：加路由后自己点发送，或要看当前有哪些 HTTP 接口及其字段含义时。SSE 不进 api.html。
+手工测试页在 [html/](../app/server/test/html/)，服务需已由 `pnpm dev:server` 拉起。`pnpm dev:server:open`（[script/dev-server-open.mjs](../script/dev-server-open.mjs)）做同一件事，并在 `/health` 成功后用系统打开本地 `index.html`。端口已被占用时不另起进程，只打开页面。`pnpm dev` 与 `pnpm start` 都走 [script/dev.mjs](../script/dev.mjs)：先跑 `dev:server`，`/health` 成功后再跑 `dev:web`；`3001` 或 web 的 `5173` 已在听则跳过对应那一个，不另占端口。查阅时机：要同时起服务端和前端时。会话相关接口互相依赖，用 [sessions.html](../app/server/test/html/sessions.html)：进入即连 `GET /api/sessions/events`，可在同一页发送、续发（含 steer / followUp）、设置思考档位、查询模型档位、设置标题、中止、列会话、看历史和删除。逐条接口仍用 [api.html](../app/server/test/html/api.html)，文件系统整页用 [fs.html](../app/server/test/html/fs.html)。字段含义以该页的 `requestType` / `responseType` 为准。每新增一个接口，在文件顶部的 `ENDPOINTS` 追加一项并写上带字段注释的类型；接口调整时改这一处和实现，不必在本文再抄参数。查阅时机：加路由后自己点发送，或要看当前有哪些接口及其字段含义时。SSE 和 `/ws/fs` 也登记在 api.html。
 
-`ENDPOINTS` 每项必填 `group` / `name` / `method` / `path` / `summary` / `requestType` / `responseType`。`requestType`、`responseType` 是 TypeScript 文本，字段用行注释说明含义，调试页在「响应」后面以深色代码块展示。可填 `auth`（鉴权描述，如 `"JWT Bearer"`，不填则卡片显示「无需鉴权」）、`queryParams` / `bodyParams`（`{ name, type, required, description, example }` 数组，填了渲染参数卡并自动生成 cURL / JS 示例；`body` 是纯 JSON 字符串模板，不填且 `bodyParams` 也没填时 textarea 为空）。`path` 里的 `:name` 会自动变成可填写的路径参数，发送、顶栏路径和示例都会替换；可选 `pathParams`（形状同 `queryParams`）补充说明和示例。`queryParams` 同样有输入框：必填项用 `example` 预填，可选项留空，发送时只带已填写的项。这些字段不回传服务端，只是让调试页更接近接口文档的观感。
+`ENDPOINTS` 每项必填 `group` / `name` / `method` / `path` / `summary` / `requestType` / `responseType`。`requestType`、`responseType` 是 TypeScript 文本，字段用行注释说明含义，调试页在「响应」后面以深色代码块展示。可填 `auth`（鉴权描述，如 `"JWT Bearer"`，不填则卡片显示「无需鉴权」）、`queryParams` / `bodyParams`（`{ name, type, required, description, example }` 数组，填了渲染参数卡并自动生成 cURL / JS 示例；`body` 是纯 JSON 字符串模板，不填且 `bodyParams` 也没填时 textarea 为空）。`path` 里的 `:name` 会自动变成可填写的路径参数，发送、顶栏路径和示例都会替换；可选 `pathParams`（形状同 `queryParams`）补充说明和示例。`queryParams` 同样有输入框：必填项用 `example` 预填，可选项留空，发送时只带已填写的项。可填 `headerParams`（形状同 `queryParams`），发送时放进请求头。`wire` 为 `sse` 或 `ws` 时卡片改走事件流或 WebSocket；`rawBody` / `rawResponse` 表示正文不是 JSON。这些字段不回传服务端，只是让调试页更接近接口文档的观感。
 
 约定：
 
@@ -276,6 +290,6 @@ app/server/test/
 
 ## 和 Cursor / Codex 的差距
 
-多项目、多会话、不选项目也能聊，这一层对齐。流式正文、思考、中止、历史回放，pi 够用，线上格式跟 pi。工具、规则、技能目录可控，但是 loader 的具体行为要在对应那一块重新验证。模型用白名单里的内置提供商，密钥在 `auth.json`。文件树用按目录订阅。终端不经过 pi。
+多项目、多会话、不选项目也能聊，这一层对齐。流式正文、思考、中止、历史回放，pi 够用，线上格式跟 pi。工具、规则、技能目录可控，但是 loader 的具体行为要在对应那一块重新验证。模型用白名单里的内置提供商，密钥在 `auth.json`。文件变化按调用方给定的根目录递归监听，`app/web` 还没接。终端不经过 pi。
 
 往后放的能力：分支和 fork、附件、检查点回滚、命令审批、多根工作区。用户名和头像优先级最低。

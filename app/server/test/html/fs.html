@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="zh-CN">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>relax · 文件系统</title>
+		<script src="cdn/tailwind.js"></script>
+		<style>
+			html,
+			body {
+				font-family: -apple-system, BlinkMacSystemFont, "PingFang SC",
+					"Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", sans-serif;
+			}
+			code,
+			pre,
+			textarea,
+			input {
+				font-family: ui-monospace, "SF Mono", Menlo, Monaco, Consolas, monospace;
+			}
+		</style>
+	</head>
+	<body class="h-screen overflow-hidden bg-zinc-50 text-zinc-900 antialiased">
+		<div class="flex h-full flex-col">
+			<header class="flex shrink-0 items-center gap-3 border-b border-zinc-200 bg-white px-4 py-2.5">
+				<a class="text-sm font-semibold tracking-tight" href="./index.html">文件系统</a>
+				<label class="flex w-56 shrink-0 items-center gap-2 rounded-md border border-zinc-200 px-2 py-1 text-xs">
+					<span class="shrink-0 text-zinc-400">服务</span>
+					<input id="base" class="min-w-0 flex-1 bg-transparent outline-none" value="http://127.0.0.1:3001" spellcheck="false" />
+				</label>
+				<label class="flex min-w-0 flex-1 items-center gap-2 rounded-md border border-zinc-200 px-2 py-1 text-xs">
+					<span class="shrink-0 text-zinc-400">根路径</span>
+					<input id="root" class="min-w-0 flex-1 bg-transparent outline-none" value="/Users/chen/.relax/workspace" spellcheck="false" />
+				</label>
+				<button id="open" class="rounded-md bg-violet-600 px-3 py-1 text-xs font-medium text-white" type="button">打开</button>
+				<span id="ws" class="rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-medium text-zinc-500">未连接</span>
+				<a class="text-xs text-zinc-500 hover:text-zinc-800" href="./api.html">单接口调试</a>
+			</header>
+			<div class="flex shrink-0 items-center gap-3 border-b border-zinc-200 bg-white px-4 py-2 text-xs">
+				<button id="new-file" class="rounded-md border border-zinc-200 px-2 py-1" type="button">新建文件</button>
+				<button id="new-dir" class="rounded-md border border-zinc-200 px-2 py-1" type="button">新建目录</button>
+				<label class="flex items-center gap-1 text-zinc-500"><input id="create-recursive" type="checkbox" /> 连带父目录</label>
+				<button id="remove" class="rounded-md border border-zinc-200 px-2 py-1 text-red-600" type="button">删除</button>
+				<label class="flex items-center gap-1 text-zinc-500"><input id="delete-recursive" type="checkbox" /> 递归删除目录</label>
+				<span id="hint" class="min-w-0 flex-1 truncate text-zinc-400"></span>
+			</div>
+			<div class="grid min-h-0 flex-1 grid-cols-[minmax(220px,320px)_minmax(0,1fr)]">
+				<aside id="tree" class="min-h-0 overflow-auto border-r border-zinc-200 bg-white p-2"></aside>
+				<section class="flex min-h-0 flex-col bg-zinc-50">
+					<div class="flex shrink-0 items-center justify-between gap-3 border-b border-zinc-200 bg-white px-4 py-2">
+						<span id="transfer" class="text-xs text-zinc-500">未选择文件</span>
+						<button id="save" class="rounded-md bg-zinc-900 px-3 py-1 text-xs font-medium text-white disabled:opacity-40" type="button" disabled>保存</button>
+					</div>
+					<textarea id="editor" class="min-h-0 flex-1 resize-none bg-transparent p-4 text-sm outline-none" spellcheck="false" placeholder="选择左边的文件"></textarea>
+				</section>
+			</div>
+		</div>
+		<script>
+			const $ = (id) => document.getElementById(id);
+			const expanded = new Set();
+			const children = new Map();
+			let selected = null;
+			let dirty = false;
+			let ws = null;
+			let rootPath = "";
+
+			function setWs(text, ok) {
+				$("ws").textContent = text;
+				$("ws").className = ok
+					? "rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-700"
+					: "rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-medium text-zinc-500";
+			}
+
+			function hint(text) {
+				$("hint").textContent = text;
+			}
+
+			function apiUrl(path, query) {
+				const url = new URL(path, $("base").value.trim());
+				for (const [key, value] of Object.entries(query)) {
+					if (value !== undefined && value !== "") url.searchParams.set(key, value);
+				}
+				return url;
+			}
+
+			async function readError(response) {
+				try {
+					const body = await response.json();
+					return body.error?.message || response.statusText;
+				} catch {
+					return response.statusText || String(response.status);
+				}
+			}
+
+			async function list(path) {
+				const response = await fetch(apiUrl("/api/fs/list", { path }));
+				if (!response.ok) throw new Error(await readError(response));
+				const body = await response.json();
+				children.set(path, body.entries);
+				return body.entries;
+			}
+
+			function parentOf(path) {
+				const cut = path.lastIndexOf("/");
+				return cut <= 0 ? path : path.slice(0, cut);
+			}
+
+			function renderTree() {
+				const box = $("tree");
+				box.replaceChildren();
+				const draw = (path, depth) => {
+					for (const entry of children.get(path) ?? []) {
+						const row = document.createElement("button");
+						row.type = "button";
+						row.className = `flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-sm ${selected?.path === entry.path ? "bg-violet-100 text-violet-900" : "hover:bg-zinc-100"}`;
+						row.style.paddingLeft = `${8 + depth * 14}px`;
+						const open = expanded.has(entry.path);
+						row.textContent = `${entry.kind === "dir" ? (open ? "▾" : "▸") : "·"} ${entry.name}`;
+						row.addEventListener("click", () => onClick(entry));
+						box.append(row);
+						if (entry.kind === "dir" && open) draw(entry.path, depth + 1);
+					}
+				};
+				draw(rootPath, 0);
+			}
+
+			async function onClick(entry) {
+				if (entry.kind === "dir") {
+					if (expanded.has(entry.path)) expanded.delete(entry.path);
+					else {
+						expanded.add(entry.path);
+						if (!children.has(entry.path)) {
+							try {
+								await list(entry.path);
+							} catch (error) {
+								hint(String(error.message || error));
+							}
+						}
+					}
+					selected = entry;
+					renderTree();
+					return;
+				}
+				selected = entry;
+				dirty = false;
+				renderTree();
+				await showFile(entry.path);
+			}
+
+			async function showFile(path) {
+				const response = await fetch(apiUrl("/api/fs/read", { path }));
+				if (response.status === 404) {
+					$("transfer").textContent = "文件不存在";
+					$("editor").value = "";
+					$("save").disabled = true;
+					return;
+				}
+				if (!response.ok) {
+					hint(await readError(response));
+					return;
+				}
+				const transfer = response.headers.get("x-relax-transfer") || "";
+				const bytes = new Uint8Array(await response.arrayBuffer());
+				$("transfer").textContent = transfer === "binary" ? `binary · ${bytes.byteLength} 字节` : "text";
+				if (transfer === "binary") {
+					$("editor").value = "";
+					$("editor").placeholder = "这是二进制，这一页不把它放进文本框";
+					$("save").disabled = true;
+					return;
+				}
+				$("editor").placeholder = "选择左边的文件";
+				$("editor").value = new TextDecoder().decode(bytes);
+				$("save").disabled = false;
+				dirty = false;
+			}
+
+			async function openRoot() {
+				rootPath = $("root").value.trim();
+				if (!rootPath) {
+					hint("先填写绝对路径");
+					return;
+				}
+				expanded.clear();
+				children.clear();
+				selected = null;
+				expanded.add(rootPath);
+				try {
+					await list(rootPath);
+				} catch (error) {
+					hint(String(error.message || error));
+					$("tree").replaceChildren();
+					return;
+				}
+				hint("");
+				renderTree();
+				connect(rootPath);
+			}
+
+			function connect(path) {
+				ws?.close();
+				const url = $("base").value.trim().replace(/\/$/, "").replace(/^http/, "ws") + "/ws/fs";
+				ws = new WebSocket(url);
+				setWs("连接中", false);
+				ws.addEventListener("open", () => {
+					ws.send(JSON.stringify({ type: "watch", path }));
+				});
+				ws.addEventListener("message", (event) => {
+					const message = JSON.parse(typeof event.data === "string" ? event.data : String(event.data));
+					if (message.type === "watching") setWs("监听中", true);
+					if (message.type === "error") {
+						setWs("错误", false);
+						hint(message.error?.message || "监听失败");
+					}
+					if (message.type === "change") void applyChanges(message.changes || []);
+				});
+				ws.addEventListener("close", () => setWs("未连接", false));
+			}
+
+			async function applyChanges(changes) {
+				const parents = new Set();
+				for (const change of changes) {
+					const parent = parentOf(change.path);
+					if (parent === rootPath || expanded.has(parent)) parents.add(parent);
+					if (change.path === rootPath) parents.add(rootPath);
+				}
+				for (const parent of parents) {
+					try {
+						await list(parent);
+					} catch {
+						children.delete(parent);
+						expanded.delete(parent);
+					}
+				}
+				renderTree();
+				if (!selected || dirty) return;
+				const hit = changes.find((change) => change.path === selected.path);
+				if (!hit) return;
+				if (hit.event === "unlink") {
+					$("transfer").textContent = "文件不存在";
+					$("editor").value = "";
+					$("save").disabled = true;
+					return;
+				}
+				await showFile(selected.path);
+			}
+
+			function targetDir() {
+				if (!selected) return rootPath;
+				if (selected.kind === "dir") return selected.path;
+				return parentOf(selected.path);
+			}
+
+			async function createFile() {
+				const name = window.prompt("文件名");
+				if (!name || !rootPath) return;
+				const path = `${targetDir().replace(/\/$/, "")}/${name}`;
+				const response = await fetch(apiUrl("/api/fs/file", { path, recursive: $("create-recursive").checked ? "true" : "" }), {
+					method: "PUT",
+					headers: { "X-Relax-Transfer": "text" },
+					body: "",
+				});
+				if (!response.ok) hint(await readError(response));
+			}
+
+			async function createDir() {
+				const name = window.prompt("目录名");
+				if (!name || !rootPath) return;
+				const path = `${targetDir().replace(/\/$/, "")}/${name}`;
+				const response = await fetch(apiUrl("/api/fs/dir", {}), {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ path, recursive: $("create-recursive").checked }),
+				});
+				if (!response.ok) hint(await readError(response));
+			}
+
+			async function removeSelected() {
+				if (!selected) return;
+				const path = selected.path;
+				const recursive = $("delete-recursive").checked;
+				if (path === rootPath && !window.confirm("删除当前根目录？")) return;
+				const response =
+					selected.kind === "dir"
+						? await fetch(apiUrl("/api/fs/dir", { path, recursive: recursive ? "true" : "" }), { method: "DELETE" })
+						: await fetch(apiUrl("/api/fs/file", { path }), { method: "DELETE" });
+				if (!response.ok) hint(await readError(response));
+				else if (selected?.path === path) {
+					selected = null;
+					$("editor").value = "";
+					$("transfer").textContent = "未选择文件";
+					$("save").disabled = true;
+				}
+			}
+
+			async function save() {
+				if (!selected || selected.kind !== "file") return;
+				const response = await fetch(apiUrl("/api/fs/file", { path: selected.path }), {
+					method: "PUT",
+					headers: { "X-Relax-Transfer": "text" },
+					body: $("editor").value,
+				});
+				if (!response.ok) hint(await readError(response));
+				else {
+					dirty = false;
+					hint("已保存");
+				}
+			}
+
+			$("open").addEventListener("click", () => void openRoot());
+			$("root").addEventListener("keydown", (event) => {
+				if (event.key === "Enter") void openRoot();
+			});
+			$("new-file").addEventListener("click", () => void createFile());
+			$("new-dir").addEventListener("click", () => void createDir());
+			$("remove").addEventListener("click", () => void removeSelected());
+			$("save").addEventListener("click", () => void save());
+			$("editor").addEventListener("input", () => {
+				dirty = true;
+			});
+		</script>
+	</body>
+</html>

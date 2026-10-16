@@ -6,16 +6,18 @@ import { healthRouter } from './routes/health.js'
 import { modelsRouter } from './routes/models.js'
 import { sessionsRouter } from './routes/sessions.js'
 import { settingsRouter } from './routes/settings.js'
+import { fsRouter } from './routes/fs.js'
 
 export function createApp(options: { agent?: Agent } = {}) {
 	const agent = options.agent ?? new Agent()
 	const app = express()
-	app.use(cors())
+	app.use(cors({ exposedHeaders: ['X-Relax-Transfer', 'Content-Range', 'Accept-Ranges'] }))
 	app.use(express.json({ limit: '1mb' }))
 	app.use(healthRouter)
 	app.use(modelsRouter())
 	app.use(settingsRouter(agent))
 	app.use(sessionsRouter(agent))
+	app.use(fsRouter())
 	app.use(notFound)
 	app.use(errorHandler)
 	return app
