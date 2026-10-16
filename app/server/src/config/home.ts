@@ -1,9 +1,9 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
-import { homedir } from 'node:os'
 import { join } from 'node:path'
+import { serverConfig } from './server.js'
 
 export function getRelaxHome(): string {
-	return process.env.RELAX_HOME ?? join(homedir(), '.relax')
+	return serverConfig.home
 }
 
 export function getRelaxAgentDir(): string {

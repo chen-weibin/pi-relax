@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { after, before, describe, it } from 'node:test'
 import { createApp } from '../src/app.js'
+import { serverConfig } from '../src/config/server.js'
 import { attachFs, closeFsWatchers } from '../src/fs/watch.js'
 
 describe('fs http', () => {
@@ -104,7 +105,8 @@ describe('fs http', () => {
 	it('非法 text 和超限写入留下原文件，整文件流式读不受上限', async () => {
 		const file = join(dir, 'keep.txt')
 		writeFileSync(file, 'hello')
-		process.env.FS_MAX_BYTES = '4'
+		const savedMaxBytes = serverConfig.fsMaxBytes
+		serverConfig.fsMaxBytes = 4
 		try {
 			const bad = await fetch(url('/api/fs/file', { path: file }), {
 				method: 'PUT',
@@ -134,7 +136,7 @@ describe('fs http', () => {
 			const openRange = await fetch(url('/api/fs/read', { path: file }), { headers: { Range: 'bytes=0-' } })
 			assert.equal(openRange.status, 413)
 		} finally {
-			delete process.env.FS_MAX_BYTES
+			serverConfig.fsMaxBytes = savedMaxBytes
 		}
 	})
 
@@ -203,32 +205,37 @@ describe('fs http', () => {
 	})
 
 	it('订阅根目录后能收到变更，超过路数则报错', async () => {
-		process.env.FS_WATCH_DEBOUNCE_MS = '40'
-		process.env.FS_WATCH_MAX = '1'
-		const root = await mkdtemp(join(dir, 'watch-'))
-		const other = await mkdtemp(join(dir, 'watch-'))
-		const messages: { type: string; path?: string; changes?: { path: string }[]; error?: { message: string } }[] = []
-		const ws = new WebSocket(base.replace('http', 'ws') + '/ws/fs')
-		ws.addEventListener('message', (event) => {
-			const data = typeof event.data === 'string' ? event.data : String(event.data)
-			messages.push(JSON.parse(data) as (typeof messages)[number])
-		})
-		await new Promise<void>((resolve, reject) => {
-			ws.addEventListener('open', () => resolve())
-			ws.addEventListener('error', () => reject(new Error('ws failed')))
-		})
-		ws.send(JSON.stringify({ type: 'watch', path: root }))
-		await waitFor(() => messages.some((message) => message.type === 'watching'))
-		const file = join(root, 'n.txt')
-		await writeFile(file, 'n')
-		await waitFor(() => messages.some((message) => message.changes?.some((change) => change.path === file)))
-		ws.send(JSON.stringify({ type: 'watch', path: other }))
-		await waitFor(() => messages.some((message) => message.type === 'error' && message.path === other))
-		assert.match(messages.find((message) => message.type === 'error')?.error?.message ?? '', /上限/)
-		ws.close()
-		delete process.env.FS_WATCH_DEBOUNCE_MS
-		delete process.env.FS_WATCH_MAX
-		await closeFsWatchers()
+		const savedDebounce = serverConfig.fsWatchDebounceMs
+		const savedWatchMax = serverConfig.fsWatchMax
+		serverConfig.fsWatchDebounceMs = 40
+		serverConfig.fsWatchMax = 1
+		try {
+			const root = await mkdtemp(join(dir, 'watch-'))
+			const other = await mkdtemp(join(dir, 'watch-'))
+			const messages: { type: string; path?: string; changes?: { path: string }[]; error?: { message: string } }[] = []
+			const ws = new WebSocket(base.replace('http', 'ws') + '/ws/fs')
+			ws.addEventListener('message', (event) => {
+				const data = typeof event.data === 'string' ? event.data : String(event.data)
+				messages.push(JSON.parse(data) as (typeof messages)[number])
+			})
+			await new Promise<void>((resolve, reject) => {
+				ws.addEventListener('open', () => resolve())
+				ws.addEventListener('error', () => reject(new Error('ws failed')))
+			})
+			ws.send(JSON.stringify({ type: 'watch', path: root }))
+			await waitFor(() => messages.some((message) => message.type === 'watching'))
+			const file = join(root, 'n.txt')
+			await writeFile(file, 'n')
+			await waitFor(() => messages.some((message) => message.changes?.some((change) => change.path === file)))
+			ws.send(JSON.stringify({ type: 'watch', path: other }))
+			await waitFor(() => messages.some((message) => message.type === 'error' && message.path === other))
+			assert.match(messages.find((message) => message.type === 'error')?.error?.message ?? '', /上限/)
+			ws.close()
+		} finally {
+			serverConfig.fsWatchDebounceMs = savedDebounce
+			serverConfig.fsWatchMax = savedWatchMax
+			await closeFsWatchers()
+		}
 	})
 })
 

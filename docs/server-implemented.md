@@ -7,8 +7,8 @@
 ## 进程
 
 1. `GET /health` 返回 `{ "status": "ok" }`。
-2. 数据根默认 `~/.relax`，`RELAX_HOME` 可整棵换走。会话文件在 `~/.relax/agent/sessions/`，不写进 `~/.pi`。
-3. 未指定工作区时，cwd 用 `~/.relax/workspace`（随 `RELAX_HOME` 换走）。
+2. 数据根默认 `~/.relax`，改 `app/server/config.json` 的 `home`。会话文件在 `~/.relax/agent/sessions/`，不写进 `~/.pi`。
+3. 未指定工作区时，cwd 用 `~/.relax/workspace`（随 `home` 换走）。
 4. HTTP JSON 走 `/api`，错误体是 `{ "error": { "code", "message" } }`。跨域放开，不带 cookie。
 
 ## 会话
@@ -26,7 +26,7 @@
 
 ## 运行配置
 
-1. 全局文件是 `~/.relax/agent/settings.json`（随 `RELAX_HOME` 换走），与基座 `settings.json` 同一相对路径。不另建配置文件。
+1. 全局文件是 `~/.relax/agent/settings.json`（随 `config.json` 的 `home` 换走），与基座 `settings.json` 同一相对路径。对话设置不另建文件。进程怎么跑放 `.env`（端口 `PORT`，默认 `3001`）。代码里可调的逻辑参数放 `app/server/config.json`，由 `src/config/server.ts` 读入：缺字段或类型不对用代码默认值，JSON 解析失败则启动失败。
 2. `GET /api/settings` 返回 `steeringMode`、`followUpMode`、`abortPolicy`。缺文件时为 `one-at-a-time`、`one-at-a-time`、`clear-then-abort`。
 3. `PATCH /api/settings` 只改传入的字段。出队模式写在顶层，中止策略写在 `relax.abortPolicy`。文件里其它键保留。空对象、未知字段、非法枚举为 400。
 4. 接口只读写全局这一份。工作区 `.pi/settings.json` 仍可按基座规则盖过，新建会话和中止时会看到项目层。
@@ -64,8 +64,8 @@
 2. `GET /api/fs/list` 只列一层，子项带 `size` 和 `mtime`。`GET /api/fs/stat` 查单个路径。
 3. `GET /api/fs/read` 返回原文，响应头 `X-Relax-Transfer` 为 `text` 或 `binary`。不带分段时流式读出整个文件。`offset`+`length` 或 `Range` 读一段。
 4. `PUT /api/fs/file` 写入原文。整文件先写临时文件再替换。带 `offset` 时只接受 `binary`，可以覆盖已写过的那段。`POST /api/fs/dir` 建目录。`DELETE /api/fs/file` 和 `DELETE /api/fs/dir` 分开删。`recursive=true` 才递归创建或递归删除。
-5. 一次分段或一次写入的上限是 `FS_MAX_BYTES`，默认 16 MiB。超过为 413 `PAYLOAD_TOO_LARGE`，`message` 带当前大小和上限。整文件流式读不受这个上限。
-6. WebSocket `/ws/fs` 递归监听调用方给的一个根。`FS_WATCH_DEBOUNCE_MS` 默认 600，`FS_WATCH_MAX` 默认 16。推送 `watching`、`change`、`error`。
+5. 一次分段或一次写入的上限是 `config.json` 的 `fsMaxBytes`，默认 16 MiB。超过为 413 `PAYLOAD_TOO_LARGE`，`message` 带当前大小和上限。整文件流式读不受这个上限。
+6. WebSocket `/ws/fs` 递归监听调用方给的一个根。`fsWatchDebounceMs` 默认 600，`fsWatchMax` 默认 16。推送 `watching`、`change`、`error`。
 7. `app/web` 的文件插件仍用 mock。手工页是 [fs.html](../app/server/test/html/fs.html)：左边目录，右边内容。
 
 ## 当前关掉的剖面

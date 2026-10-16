@@ -3,17 +3,24 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { SessionManager } from '@earendil-works/pi-coding-agent'
 import { ensureRelaxHome } from '../src/config/home.js'
+import { serverConfig } from '../src/config/server.js'
 import { createSessionManager } from '../src/sessions/index.js'
+
+let previousHome: string | undefined
 
 export function tempRelaxHome(): string {
 	const dir = mkdtempSync(join(tmpdir(), 'relax-home-'))
-	process.env.RELAX_HOME = dir
+	if (previousHome === undefined) previousHome = serverConfig.home
+	serverConfig.home = dir
 	ensureRelaxHome()
 	return dir
 }
 
 export function removeHome(dir: string): void {
 	rmSync(dir, { recursive: true, force: true })
+	if (previousHome === undefined) return
+	serverConfig.home = previousHome
+	previousHome = undefined
 }
 
 export function persistChat(cwd: string, user: string, assistant: string): SessionManager {

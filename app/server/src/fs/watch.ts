@@ -2,8 +2,8 @@ import type { Server } from 'node:http'
 import { realpath, stat } from 'node:fs/promises'
 import { watch, type FSWatcher } from 'chokidar'
 import { WebSocketServer, type WebSocket } from 'ws'
+import { serverConfig } from '../config/server.js'
 import { HttpError } from '../utils/errors.js'
-import { fsWatchDebounceMs, fsWatchMax } from './limits.js'
 import { requireAbsolutePath } from './ops.js'
 
 type FsEvent = 'add' | 'change' | 'unlink' | 'addDir' | 'unlinkDir'
@@ -51,7 +51,7 @@ function flush(key: string) {
 function schedule(key: string) {
 	const root = roots.get(key)
 	if (!root || root.timer) return
-	root.timer = setTimeout(() => flush(key), fsWatchDebounceMs())
+	root.timer = setTimeout(() => flush(key), serverConfig.fsWatchDebounceMs)
 }
 
 function fromReal(subscribed: string, real: string, filePath: string): string {
@@ -102,7 +102,7 @@ async function watchRoot(ws: WebSocket, path: string) {
 	}
 	let root = roots.get(key)
 	if (!root) {
-		const max = fsWatchMax()
+		const max = serverConfig.fsWatchMax
 		if (roots.size >= max) {
 			throw new HttpError(400, 'BAD_REQUEST', `根目录监听已有 ${roots.size} 路，达到上限 ${max}`)
 		}

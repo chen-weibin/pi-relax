@@ -3,8 +3,8 @@ import { createReadStream } from 'node:fs'
 import { mkdir, open, readdir, rename, rm, rmdir, stat, unlink, writeFile } from 'node:fs/promises'
 import { isAbsolute, dirname, join } from 'node:path'
 import type { Response } from 'express'
+import { serverConfig } from '../config/server.js'
 import { HttpError } from '../utils/errors.js'
-import { fsMaxBytes } from './limits.js'
 
 export type FsKind = 'file' | 'dir'
 export type FsTransfer = 'text' | 'binary'
@@ -120,7 +120,7 @@ type Slice = { start: number; end: number }
 
 /** end 为包含。请求跨度超过上限，或起点已在末尾之后时抛错。 */
 function clampSlice(path: string, size: number, start: number, end: number, requested: number): Slice {
-	const limit = fsMaxBytes()
+	const limit = serverConfig.fsMaxBytes
 	if (requested > limit) throw tooLarge(requested, limit, '请求的这一段')
 	if (size === 0 || start >= size) throw unsatisfiable(path, size)
 	if (end < start) throw new HttpError(400, 'BAD_REQUEST', `Range 的结束位置小于开始位置：${path}`)
@@ -204,7 +204,7 @@ export async function readBody(
 	req: AsyncIterable<unknown> & { destroy?: () => void },
 	declared: number | undefined,
 ): Promise<Buffer> {
-	const limit = fsMaxBytes()
+	const limit = serverConfig.fsMaxBytes
 	if (declared !== undefined && declared > limit) throw tooLarge(declared, limit, '这一次写入')
 	const chunks: Buffer[] = []
 	let total = 0

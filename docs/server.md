@@ -38,13 +38,13 @@ pi 没有会话索引。`list(cwd)` 扫该编码目录下的 `*.jsonl`，`listAl
 
 ### 我们的根
 
-默认 `~/.relax`，环境变量 `RELAX_HOME` 可整棵换走。传给 pi 的 `agentDir` 是 `~/.relax/agent`。进程里把 `PI_CODING_AGENT_DIR` 设成这个路径，这样 `SessionManager.list` / `listAll` 不会落到 `~/.pi/agent`。
+默认 `~/.relax`。家目录写在 `app/server/config.json` 的 `home`（`~` 会展开），缺这个字段时用代码默认值。传给 pi 的 `agentDir` 是 `~/.relax/agent`。进程里把 `PI_CODING_AGENT_DIR` 设成这个路径，这样 `SessionManager.list` / `listAll` 不会落到 `~/.pi/agent`。
 
 ```text
 ~/.relax/agent/sessions/--<cwd 编码>--/<时间戳>_<sessionId>.jsonl
 ```
 
-未指定工作区时 cwd 为 `~/.relax/workspace`（随 `RELAX_HOME` 换走）。本轮不读技能、提示词、主题、上下文文件，也不扫磁盘上的扩展。显式挂 Langfuse 官方插件 `@langfuse/pi-observability-plugin` 和 `pi-web-access`。不写索引文件。
+未指定工作区时 cwd 为 `~/.relax/workspace`（随 `config.json` 的 `home` 换走）。本轮不读技能、提示词、主题、上下文文件，也不扫磁盘上的扩展。显式挂 Langfuse 官方插件 `@langfuse/pi-observability-plugin` 和 `pi-web-access`。不写索引文件。
 
 三条原则：
 
@@ -171,7 +171,7 @@ SSE 断线不补，客户端用历史对齐。发送和中止走 HTTP。本轮�
 - **流式**。服务端不另存一份完整正文。pi 追加 JSONL，我们转发事件。客户端读得慢就背压，缓冲有上限，满了断开这一条连接。
 - **历史**。只在打开该会话时读。单文件读取有上限。上下文体积靠 pi 自带压缩兜住。
 - **事件循环**。请求路径上不同步读大目录或大文件。订阅回调里的异常记到该会话，不让进程退出。中止按 `relax.abortPolicy`，默认先清空排队文本，再传到模型请求。
-- **文件监听**。客户端订一个根目录，服务端递归监听这棵树，防抖后推这棵树上的变化路径，不推整棵目录表。同时存在的根由 `FS_WATCH_MAX` 限制，默认 16。同一根的多条连接只占 1。服务端不过滤名字。
+- **文件监听**。客户端订一个根目录，服务端递归监听这棵树，防抖后推这棵树上的变化路径，不推整棵目录表。同时存在的根由 `config.json` 的 `fsWatchMax` 限制，默认 16。同一根的多条连接只占 1。服务端不过滤名字。
 - **终端**（做到才启用）。PTY 个数有上限，回放缓冲约 100KB，关闭时必须释放文件描述符。
 - **工具**。已启用八个内置工具（含 `bash`）和 `codemode`，以及 `pi-web-access` 的四个联网工具。`bash` 这一步没有另加超时或路径限制，范围是该会话的 cwd。`powershell` 非 Windows 上由基座在调用时报错。
 - **技能与规则**（做到才启用）。只扫剖面里的目录，不向上搜。条数和正文大小有上限，避免系统提示把上下文撑满。
@@ -206,9 +206,9 @@ SSE 断线不补，客户端用历史对齐。发送和中止走 HTTP。本轮�
 - `PUT /api/fs/file` 的正文也是原文，请求头标明 `text` 或 `binary`。不带 `offset` 时先写临时文件，成功后再替换，失败留下原文件。`text` 要整段都是合法 UTF-8。带 `offset` 只接受 `binary`：小于当前长度则覆盖该段，等于则追加，大于则拒绝。
 - `POST /api/fs/dir` 建目录。`DELETE /api/fs/file` 只删文件，`DELETE /api/fs/dir` 只删目录。目录默认必须为空，`recursive=true` 才连内容一起删。创建时 `recursive=true` 会把缺失的父目录一并建出。
 
-`FS_MAX_BYTES` 默认 16777216（16 MiB），只限制一次分段读取或一次写入的正文。整文件流式读不受这个上限。超过时 413，`code` 为 `PAYLOAD_TOO_LARGE`，`message` 写明当前字节数和上限。偏移落在文件末尾之后为 416，`code` 为 `RANGE_NOT_SATISFIABLE`。其它失败的 `message` 也要写出具体原因。
+`config.json` 的 `fsMaxBytes` 默认 16777216（16 MiB），只限制一次分段读取或一次写入的正文。整文件流式读不受这个上限。超过时 413，`code` 为 `PAYLOAD_TOO_LARGE`，`message` 写明当前字节数和上限。偏移落在文件末尾之后为 416，`code` 为 `RANGE_NOT_SATISFIABLE`。其它失败的 `message` 也要写出具体原因。
 
-`/ws/fs` 的客户端消息是 `watch` / `unwatch`。服务端先回 `watching`，之后把 `FS_WATCH_DEBOUNCE_MS`（默认 600）窗口里的变化合成一条 `change`（`add`、`change`、`unlink`、`addDir`、`unlinkDir`）。失败回 `error`，里面是同一套 `{ code, message }`。同时监听的根目录棵数是 `FS_WATCH_MAX`，默认 16；同一个根的多条连接只占 1。没有订阅时不占描述符。
+`/ws/fs` 的客户端消息是 `watch` / `unwatch`。服务端先回 `watching`，之后把 `fsWatchDebounceMs`（默认 600）窗口里的变化合成一条 `change`（`add`、`change`、`unlink`、`addDir`、`unlinkDir`）。失败回 `error`，里面是同一套 `{ code, message }`。同时监听的根目录棵数是 `fsWatchMax`，默认 16；同一个根的多条连接只占 1。没有订阅时不占描述符。
 
 ## 终端
 
@@ -234,7 +234,7 @@ PTY 活到关闭或进程退出。断线可以再订阅，并用最近约 100KB 
 { "error": { "code": "NOT_FOUND", "message": "..." } }
 ```
 
-骨架用 `BAD_REQUEST`、`NOT_FOUND`、`INTERNAL`。对话模块另有 `BUSY`（409）。文件读写另有 `PAYLOAD_TOO_LARGE`（413）和 `RANGE_NOT_SATISFIABLE`（416）。JSON 请求体上限 1mb。文件正文不走这 1mb，单次写入和分段读取看 `FS_MAX_BYTES`。
+骨架用 `BAD_REQUEST`、`NOT_FOUND`、`INTERNAL`。对话模块另有 `BUSY`（409）。文件读写另有 `PAYLOAD_TOO_LARGE`（413）和 `RANGE_NOT_SATISFIABLE`（416）。JSON 请求体上限是 `config.json` 的 `jsonBodyLimit`，默认 1 MiB。文件正文不走这个上限，单次写入和分段读取看 `fsMaxBytes`。SSE 心跳间隔是 `ssePingMs`，默认 15000。
 
 `/api`、`/ws/fs`、`/ws/pty` 是不同路径，前面加反向代理时可以按前缀分别转发。
 
@@ -245,10 +245,12 @@ PTY 活到关闭或进程退出。断线可以再订阅，并用最近约 100KB 
 按职责分目录。入口文件只负责启动，不把路由、会话、文件监听堆在 `src/index.ts`。没做到的能力不建空目录，做到那一块再加对应目录，并在这里补上实际路径。
 
 ```
+app/server/config.json  代码逻辑可调参数：家目录、传输上限、监听、JSON 体、SSE 心跳
 app/server/src/
-  index.ts              加载 .env，确保 ~/.relax/agent，监听端口
+  index.ts              加载 .env（端口 PORT），确保 ~/.relax/agent，监听端口
   app.ts                组装应用，测试从这里创建
-  config/home.ts        RELAX_HOME、agentDir、PI_CODING_AGENT_DIR
+  config/server.ts      读 config.json，缺字段或类型不对用代码默认值
+  config/home.ts        home、agentDir、PI_CODING_AGENT_DIR
   config/settings.ts    全局 settings.json：出队模式与中止策略
   utils/errors.ts       错误类型与 Express 错误中间件
   utils/text.ts         消息纯文本
@@ -268,6 +270,7 @@ app/server/test/
   agent.test.ts
   settings.test.ts
   fs.test.ts
+  server-config.test.ts
   html/
     index.html        手工测试页目录
     sessions.html     会话联调：进页即连 SSE

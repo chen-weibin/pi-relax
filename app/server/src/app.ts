@@ -1,6 +1,7 @@
 import cors from 'cors'
 import express from 'express'
 import { Agent } from './agent/agent.js'
+import { serverConfig } from './config/server.js'
 import { errorHandler, notFound } from './utils/errors.js'
 import { healthRouter } from './routes/health.js'
 import { modelsRouter } from './routes/models.js'
@@ -12,7 +13,7 @@ export function createApp(options: { agent?: Agent } = {}) {
 	const agent = options.agent ?? new Agent()
 	const app = express()
 	app.use(cors({ exposedHeaders: ['X-Relax-Transfer', 'Content-Range', 'Accept-Ranges'] }))
-	app.use(express.json({ limit: '1mb' }))
+	app.use(express.json({ limit: serverConfig.jsonBodyLimit }))
 	app.use(healthRouter)
 	app.use(modelsRouter())
 	app.use(settingsRouter(agent))

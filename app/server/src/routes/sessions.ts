@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import type { Agent, StreamingBehavior } from '../agent/agent.js'
+import { serverConfig } from '../config/server.js'
 import { asyncHandler, HttpError } from '../utils/errors.js'
 import { bodyText, cwdOf, optionalString } from '../utils/request.js'
 
@@ -36,7 +37,7 @@ export function sessionsRouter(agent: Agent): Router {
 		const unsubscribe = agent.subscribe(send)
 		const ping = setInterval(() => {
 			res.write(': ping\n\n')
-		}, 15_000)
+		}, serverConfig.ssePingMs)
 		req.on('close', () => {
 			clearInterval(ping)
 			unsubscribe()
