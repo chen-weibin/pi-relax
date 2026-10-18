@@ -93,8 +93,8 @@ function queryDim(name: string, raw: string | null): number | undefined {
 
 function sizeOf(cols: number | undefined, rows: number | undefined): { cols: number; rows: number } {
 	return {
-		cols: cols ?? serverConfig.ptyCols,
-		rows: rows ?? serverConfig.ptyRows,
+		cols: cols ?? serverConfig.pty.cols,
+		rows: rows ?? serverConfig.pty.rows,
 	}
 }
 
@@ -156,7 +156,7 @@ function reap(session: Session) {
 }
 
 function pushOutput(session: Session, chunk: string) {
-	session.replay = trimReplay(session.replay + chunk, serverConfig.ptyReplayBytes)
+	session.replay = trimReplay(session.replay + chunk, serverConfig.pty.replayBytes)
 	const sock = session.socket
 	if (!session.live || !sock || sock.readyState !== sock.OPEN) return
 	sock.send(Buffer.from(chunk))
@@ -228,7 +228,7 @@ function bind(session: Session, ws: WebSocket) {
 		session.grace = setTimeout(() => {
 			session.grace = null
 			reap(session)
-		}, serverConfig.ptyGraceMs)
+		}, serverConfig.pty.graceMs)
 	})
 }
 
@@ -265,8 +265,8 @@ export async function acceptPty(ws: WebSocket, url: URL): Promise<void> {
 		}
 		return
 	}
-	if (sessions.size >= serverConfig.ptyMax) {
-		throw new PtyClose(CLOSE_FULL, `终端已有 ${sessions.size} 路，达到上限 ${serverConfig.ptyMax}`)
+	if (sessions.size >= serverConfig.pty.max) {
+		throw new PtyClose(CLOSE_FULL, `终端已有 ${sessions.size} 路，达到上限 ${serverConfig.pty.max}`)
 	}
 	const session: Session = {
 		id: randomUUID(),

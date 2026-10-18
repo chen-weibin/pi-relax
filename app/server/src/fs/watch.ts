@@ -52,7 +52,7 @@ function flush(key: string) {
 function schedule(key: string) {
 	const root = roots.get(key)
 	if (!root || root.timer) return
-	root.timer = setTimeout(() => flush(key), serverConfig.fsWatchDebounceMs)
+	root.timer = setTimeout(() => flush(key), serverConfig.fs.watchDebounceMs)
 }
 
 function fromReal(subscribed: string, real: string, filePath: string): string {
@@ -103,7 +103,7 @@ async function watchRoot(ws: WebSocket, path: string) {
 	}
 	let root = roots.get(key)
 	if (!root) {
-		const max = serverConfig.fsWatchMax
+		const max = serverConfig.fs.watchMax
 		if (roots.size >= max) {
 			throw new HttpError(400, 'BAD_REQUEST', `根目录监听已有 ${roots.size} 路，达到上限 ${max}`)
 		}

@@ -3,32 +3,50 @@ import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-export type ServerConfig = {
-	home: string
-	fsMaxBytes: number
-	fsWatchDebounceMs: number
-	fsWatchMax: number
+export type FsConfig = {
+	maxBytes: number
+	watchDebounceMs: number
+	watchMax: number
+}
+
+export type HttpConfig = {
 	jsonBodyLimit: number
 	ssePingMs: number
-	ptyCols: number
-	ptyRows: number
-	ptyMax: number
-	ptyReplayBytes: number
-	ptyGraceMs: number
+}
+
+export type PtyConfig = {
+	cols: number
+	rows: number
+	max: number
+	replayBytes: number
+	graceMs: number
+}
+
+export type ServerConfig = {
+	home: string
+	fs: FsConfig
+	http: HttpConfig
+	pty: PtyConfig
 }
 
 const DEFAULTS: ServerConfig = {
 	home: join(homedir(), '.relax'),
-	fsMaxBytes: 16 * 1024 * 1024,
-	fsWatchDebounceMs: 600,
-	fsWatchMax: 16,
-	jsonBodyLimit: 1024 * 1024,
-	ssePingMs: 15_000,
-	ptyCols: 80,
-	ptyRows: 24,
-	ptyMax: 16,
-	ptyReplayBytes: 100 * 1024,
-	ptyGraceMs: 15_000,
+	fs: {
+		maxBytes: 16 * 1024 * 1024,
+		watchDebounceMs: 600,
+		watchMax: 16,
+	},
+	http: {
+		jsonBodyLimit: 1024 * 1024,
+		ssePingMs: 15_000,
+	},
+	pty: {
+		cols: 80,
+		rows: 24,
+		max: 16,
+		replayBytes: 100 * 1024,
+		graceMs: 15_000,
+	},
 }
 
 export function serverConfigPath(): string {
@@ -55,9 +73,23 @@ function homeOf(value: unknown): string {
 	return expandHome(value)
 }
 
-/** 缺文件、缺键、类型不对的字段用代码默认值。JSON 解析失败则抛错。 */
+function section(record: Record<string, unknown>, key: string): Record<string, unknown> {
+	const value = record[key]
+	return isRecord(value) ? value : {}
+}
+
+function copyDefaults(): ServerConfig {
+	return {
+		home: DEFAULTS.home,
+		fs: { ...DEFAULTS.fs },
+		http: { ...DEFAULTS.http },
+		pty: { ...DEFAULTS.pty },
+	}
+}
+
+/** 缺文件、缺组、缺键、类型不对的字段用代码默认值。JSON 解析失败则抛错。 */
 export function loadServerConfig(file: string): ServerConfig {
-	if (!existsSync(file)) return { ...DEFAULTS }
+	if (!existsSync(file)) return copyDefaults()
 	let parsed: unknown
 	try {
 		parsed = JSON.parse(readFileSync(file, 'utf8'))
@@ -66,18 +98,27 @@ export function loadServerConfig(file: string): ServerConfig {
 		throw new Error(`无法解析 ${file}：${message}`)
 	}
 	const record = isRecord(parsed) ? parsed : {}
+	const fs = section(record, 'fs')
+	const http = section(record, 'http')
+	const pty = section(record, 'pty')
 	return {
 		home: homeOf(record.home),
-		fsMaxBytes: positiveInt(record.fsMaxBytes, DEFAULTS.fsMaxBytes),
-		fsWatchDebounceMs: positiveInt(record.fsWatchDebounceMs, DEFAULTS.fsWatchDebounceMs),
-		fsWatchMax: positiveInt(record.fsWatchMax, DEFAULTS.fsWatchMax),
-		jsonBodyLimit: positiveInt(record.jsonBodyLimit, DEFAULTS.jsonBodyLimit),
-		ssePingMs: positiveInt(record.ssePingMs, DEFAULTS.ssePingMs),
-		ptyCols: positiveInt(record.ptyCols, DEFAULTS.ptyCols),
-		ptyRows: positiveInt(record.ptyRows, DEFAULTS.ptyRows),
-		ptyMax: positiveInt(record.ptyMax, DEFAULTS.ptyMax),
-		ptyReplayBytes: positiveInt(record.ptyReplayBytes, DEFAULTS.ptyReplayBytes),
-		ptyGraceMs: positiveInt(record.ptyGraceMs, DEFAULTS.ptyGraceMs),
+		fs: {
+			maxBytes: positiveInt(fs.maxBytes, DEFAULTS.fs.maxBytes),
+			watchDebounceMs: positiveInt(fs.watchDebounceMs, DEFAULTS.fs.watchDebounceMs),
+			watchMax: positiveInt(fs.watchMax, DEFAULTS.fs.watchMax),
+		},
+		http: {
+			jsonBodyLimit: positiveInt(http.jsonBodyLimit, DEFAULTS.http.jsonBodyLimit),
+			ssePingMs: positiveInt(http.ssePingMs, DEFAULTS.http.ssePingMs),
+		},
+		pty: {
+			cols: positiveInt(pty.cols, DEFAULTS.pty.cols),
+			rows: positiveInt(pty.rows, DEFAULTS.pty.rows),
+			max: positiveInt(pty.max, DEFAULTS.pty.max),
+			replayBytes: positiveInt(pty.replayBytes, DEFAULTS.pty.replayBytes),
+			graceMs: positiveInt(pty.graceMs, DEFAULTS.pty.graceMs),
+		},
 	}
 }
 

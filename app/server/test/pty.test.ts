@@ -18,8 +18,8 @@ describe('pty ws', { concurrency: 1 }, () => {
 	let base: string
 	let server: Server
 	const saved = {
-		ptyGraceMs: serverConfig.ptyGraceMs,
-		ptyMax: serverConfig.ptyMax,
+		ptyGraceMs: serverConfig.pty.graceMs,
+		ptyMax: serverConfig.pty.max,
 		zdot: process.env.ZDOTDIR,
 	}
 
@@ -42,8 +42,8 @@ describe('pty ws', { concurrency: 1 }, () => {
 	after(async () => {
 		closeAllPty()
 		await closeFsWatchers()
-		serverConfig.ptyGraceMs = saved.ptyGraceMs
-		serverConfig.ptyMax = saved.ptyMax
+		serverConfig.pty.graceMs = saved.ptyGraceMs
+		serverConfig.pty.max = saved.ptyMax
 		if (saved.zdot === undefined) delete process.env.ZDOTDIR
 		else process.env.ZDOTDIR = saved.zdot
 		await new Promise<void>((resolve, reject) => server.close((err) => (err ? reject(err) : resolve())))
@@ -192,7 +192,7 @@ describe('pty ws', { concurrency: 1 }, () => {
 	})
 
 	it('宽限到期后 id 作废', async () => {
-		serverConfig.ptyGraceMs = 200
+		serverConfig.pty.graceMs = 200
 		try {
 			const ws = connect({ cwd: dir })
 			const opened = await ready(ws)
@@ -203,7 +203,7 @@ describe('pty ws', { concurrency: 1 }, () => {
 			const againClose = await closed(again)
 			assert.equal(againClose.code, 4404)
 		} finally {
-			serverConfig.ptyGraceMs = saved.ptyGraceMs
+			serverConfig.pty.graceMs = saved.ptyGraceMs
 		}
 	})
 
@@ -217,8 +217,8 @@ describe('pty ws', { concurrency: 1 }, () => {
 		assert.match(result.reason, /exit/)
 	})
 
-	it('超过 ptyMax 时拒绝新连接', async () => {
-		serverConfig.ptyMax = 1
+	it('超过 pty.max 时拒绝新连接', async () => {
+		serverConfig.pty.max = 1
 		try {
 			const ws = connect({ cwd: dir })
 			await ready(ws)
@@ -229,7 +229,7 @@ describe('pty ws', { concurrency: 1 }, () => {
 			ws.send(JSON.stringify({ type: 'close' }))
 			await closed(ws)
 		} finally {
-			serverConfig.ptyMax = saved.ptyMax
+			serverConfig.pty.max = saved.ptyMax
 		}
 	})
 })

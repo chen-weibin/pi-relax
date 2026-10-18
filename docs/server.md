@@ -171,7 +171,7 @@ SSE 断线不补，客户端用历史对齐。发送和中止走 HTTP。本轮�
 - **流式**。服务端不另存一份完整正文。pi 追加 JSONL，我们转发事件。客户端读得慢就背压，缓冲有上限，满了断开这一条连接。
 - **历史**。只在打开该会话时读。单文件读取有上限。上下文体积靠 pi 自带压缩兜住。
 - **事件循环**。请求路径上不同步读大目录或大文件。订阅回调里的异常记到该会话，不让进程退出。中止按 `relax.abortPolicy`，默认先清空排队文本，再传到模型请求。
-- **文件监听**。客户端订一个根目录，服务端递归监听这棵树，防抖后推这棵树上的变化路径，不推整棵目录表。同时存在的根由 `config.json` 的 `fsWatchMax` 限制，默认 16。同一根的多条连接只占 1。服务端不过滤名字。
+- **文件监听**。客户端订一个根目录，服务端递归监听这棵树，防抖后推这棵树上的变化路径，不推整棵目录表。同时存在的根由 `config.json` 的 `fs.watchMax` 限制，默认 16。同一根的多条连接只占 1。服务端不过滤名字。
 - **终端**（做到才启用）。PTY 个数有上限，回放缓冲约 100KB，关闭时必须释放文件描述符。
 - **工具**。已启用八个内置工具（含 `bash`）和 `codemode`，以及 `pi-web-access` 的四个联网工具。`bash` 这一步没有另加超时或路径限制，范围是该会话的 cwd。`powershell` 非 Windows 上由基座在调用时报错。
 - **技能与规则**（做到才启用）。只扫剖面里的目录，不向上搜。条数和正文大小有上限，避免系统提示把上下文撑满。
@@ -206,17 +206,17 @@ SSE 断线不补，客户端用历史对齐。发送和中止走 HTTP。本轮�
 - `PUT /api/fs/file` 的正文也是原文，请求头标明 `text` 或 `binary`。不带 `offset` 时先写临时文件，成功后再替换，失败留下原文件。`text` 要整段都是合法 UTF-8。带 `offset` 只接受 `binary`：小于当前长度则覆盖该段，等于则追加，大于则拒绝。
 - `POST /api/fs/dir` 建目录。`DELETE /api/fs/file` 只删文件，`DELETE /api/fs/dir` 只删目录。目录默认必须为空，`recursive=true` 才连内容一起删。创建时 `recursive=true` 会把缺失的父目录一并建出。
 
-`config.json` 的 `fsMaxBytes` 默认 16777216（16 MiB），只限制一次分段读取或一次写入的正文。整文件流式读不受这个上限。超过时 413，`code` 为 `PAYLOAD_TOO_LARGE`，`message` 写明当前字节数和上限。偏移落在文件末尾之后为 416，`code` 为 `RANGE_NOT_SATISFIABLE`。其它失败的 `message` 也要写出具体原因。
+`config.json` 的 `fs.maxBytes` 默认 16777216（16 MiB），只限制一次分段读取或一次写入的正文。整文件流式读不受这个上限。超过时 413，`code` 为 `PAYLOAD_TOO_LARGE`，`message` 写明当前字节数和上限。偏移落在文件末尾之后为 416，`code` 为 `RANGE_NOT_SATISFIABLE`。其它失败的 `message` 也要写出具体原因。
 
-`/ws/fs` 的客户端消息是 `watch` / `unwatch`。服务端先回 `watching`，之后把 `fsWatchDebounceMs`（默认 600）窗口里的变化合成一条 `change`（`add`、`change`、`unlink`、`addDir`、`unlinkDir`）。失败回 `error`，里面是同一套 `{ code, message }`。同时监听的根目录棵数是 `fsWatchMax`，默认 16；同一个根的多条连接只占 1。没有订阅时不占描述符。
+`/ws/fs` 的客户端消息是 `watch` / `unwatch`。服务端先回 `watching`，之后把 `fs.watchDebounceMs`（默认 600）窗口里的变化合成一条 `change`（`add`、`change`、`unlink`、`addDir`、`unlinkDir`）。失败回 `error`，里面是同一套 `{ code, message }`。同时监听的根目录棵数是 `fs.watchMax`，默认 16；同一个根的多条连接只占 1。没有订阅时不占描述符。
 
 ## 终端
 
-一条 WebSocket `/ws/pty` 就是一台终端。同一目录连两次是两台。实现用 `node-pty`。`cwd` 必填，必须是已存在的绝对目录，放在查询参数里，由 `URLSearchParams` 编码一次；服务端用解码后的字符串，不展开 `~`，也没有默认目录。`cols` / `rows` 可省略，用 `config.json` 的 `ptyCols` / `ptyRows`（80 / 24）。shell 用 `SHELL`，没有则 `/bin/zsh`。
+一条 WebSocket `/ws/pty` 就是一台终端。同一目录连两次是两台。实现用 `node-pty`。`cwd` 必填，必须是已存在的绝对目录，放在查询参数里，由 `URLSearchParams` 编码一次；服务端用解码后的字符串，不展开 `~`，也没有默认目录。`cols` / `rows` 可省略，用 `config.json` 的 `pty.cols` / `pty.rows`（80 / 24）。shell 用 `SHELL`，没有则 `/bin/zsh`。
 
 连上后服务端先发文本帧 `{ "type": "ready", "id" }`。`id` 只用于断线重连，由服务端生成。之后双向二进制帧是终端字节。文本帧 `{ "type": "resize", "cols", "rows" }` 改大小。`{ "type": "close" }` 是主动关闭，立刻杀掉进程。`node-pty` 的 `spawn-helper` 若没有执行位，进程会在第一次启动终端前补上。
 
-没收到 `close` 就断开（网络波动，或调用方直接关掉套接字）时，进程和内存缓冲先留着，时限是 `ptyGraceMs`（默认 15000）。期限内用 `?id=` 重连，`ready` 里带 `replay`（最近 `ptyReplayBytes`，默认 100KB），再继续推实时输出。超时、主动关闭、shell 自己退出之后，这个 id 就没了。缓冲不写磁盘。服务重启后终端全部没有。同时存活的终端（含宽限中的）不超过 `ptyMax`（默认 16）。
+没收到 `close` 就断开（网络波动，或调用方直接关掉套接字）时，进程和内存缓冲先留着，时限是 `pty.graceMs`（默认 15000）。期限内用 `?id=` 重连，`ready` 里带 `replay`（最近 `pty.replayBytes`，默认 100KB），再继续推实时输出。超时、主动关闭、shell 自己退出之后，这个 id 就没了。缓冲不写磁盘。服务重启后终端全部没有。同时存活的终端（含宽限中的）不超过 `pty.max`（默认 16）。
 
 `app/web` 的终端插件仍用 mock。手工页是 [pty.html](../app/server/test/html/pty.html)。
 
@@ -238,7 +238,7 @@ SSE 断线不补，客户端用历史对齐。发送和中止走 HTTP。本轮�
 { "error": { "code": "NOT_FOUND", "message": "..." } }
 ```
 
-骨架用 `BAD_REQUEST`、`NOT_FOUND`、`INTERNAL`。对话模块另有 `BUSY`（409）。文件读写另有 `PAYLOAD_TOO_LARGE`（413）和 `RANGE_NOT_SATISFIABLE`（416）。JSON 请求体上限是 `config.json` 的 `jsonBodyLimit`，默认 1 MiB。文件正文不走这个上限，单次写入和分段读取看 `fsMaxBytes`。SSE 心跳间隔是 `ssePingMs`，默认 15000。
+骨架用 `BAD_REQUEST`、`NOT_FOUND`、`INTERNAL`。对话模块另有 `BUSY`（409）。文件读写另有 `PAYLOAD_TOO_LARGE`（413）和 `RANGE_NOT_SATISFIABLE`（416）。JSON 请求体上限是 `config.json` 的 `http.jsonBodyLimit`，默认 1 MiB。文件正文不走这个上限，单次写入和分段读取看 `fs.maxBytes`。SSE 心跳间隔是 `http.ssePingMs`，默认 15000。
 
 `/api`、`/ws/fs`、`/ws/pty` 是不同路径，前面加反向代理时可以按前缀分别转发。两条 WebSocket 共用同一次 HTTP upgrade 分发：`ws` 若各自监听，路径不匹配时会回 400，把另一条的握手拆掉。
 
@@ -249,11 +249,11 @@ SSE 断线不补，客户端用历史对齐。发送和中止走 HTTP。本轮�
 按职责分目录。入口文件只负责启动，不把路由、会话、文件监听堆在 `src/index.ts`。没做到的能力不建空目录，做到那一块再加对应目录，并在这里补上实际路径。
 
 ```
-app/server/config.json  代码逻辑可调参数：家目录、传输上限、监听、JSON 体、SSE 心跳、终端行列 / 路数 / 回放 / 宽限
+app/server/config.json  代码逻辑可调参数，按 home、fs、http、pty 分组
 app/server/src/
   index.ts              加载 .env（端口 PORT），确保 ~/.relax/agent，监听端口
   app.ts                组装应用，测试从这里创建
-  config/server.ts      读 config.json，缺字段或类型不对用代码默认值
+  config/server.ts      读 config.json，缺组、缺字段或类型不对用代码默认值
   config/home.ts        home、agentDir、PI_CODING_AGENT_DIR
   config/settings.ts    全局 settings.json：出队模式与中止策略
   utils/errors.ts       错误类型与 Express 错误中间件

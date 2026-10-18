@@ -105,8 +105,8 @@ describe('fs http', () => {
 	it('非法 text 和超限写入留下原文件，整文件流式读不受上限', async () => {
 		const file = join(dir, 'keep.txt')
 		writeFileSync(file, 'hello')
-		const savedMaxBytes = serverConfig.fsMaxBytes
-		serverConfig.fsMaxBytes = 4
+		const savedMaxBytes = serverConfig.fs.maxBytes
+		serverConfig.fs.maxBytes = 4
 		try {
 			const bad = await fetch(url('/api/fs/file', { path: file }), {
 				method: 'PUT',
@@ -136,7 +136,7 @@ describe('fs http', () => {
 			const openRange = await fetch(url('/api/fs/read', { path: file }), { headers: { Range: 'bytes=0-' } })
 			assert.equal(openRange.status, 413)
 		} finally {
-			serverConfig.fsMaxBytes = savedMaxBytes
+			serverConfig.fs.maxBytes = savedMaxBytes
 		}
 	})
 
@@ -205,10 +205,10 @@ describe('fs http', () => {
 	})
 
 	it('订阅根目录后能收到变更，超过路数则报错', async () => {
-		const savedDebounce = serverConfig.fsWatchDebounceMs
-		const savedWatchMax = serverConfig.fsWatchMax
-		serverConfig.fsWatchDebounceMs = 40
-		serverConfig.fsWatchMax = 1
+		const savedDebounce = serverConfig.fs.watchDebounceMs
+		const savedWatchMax = serverConfig.fs.watchMax
+		serverConfig.fs.watchDebounceMs = 40
+		serverConfig.fs.watchMax = 1
 		try {
 			const root = await mkdtemp(join(dir, 'watch-'))
 			const other = await mkdtemp(join(dir, 'watch-'))
@@ -232,8 +232,8 @@ describe('fs http', () => {
 			assert.match(messages.find((message) => message.type === 'error')?.error?.message ?? '', /上限/)
 			ws.close()
 		} finally {
-			serverConfig.fsWatchDebounceMs = savedDebounce
-			serverConfig.fsWatchMax = savedWatchMax
+			serverConfig.fs.watchDebounceMs = savedDebounce
+			serverConfig.fs.watchMax = savedWatchMax
 			await closeFsWatchers()
 		}
 	})

@@ -12,24 +12,24 @@ describe('server config', () => {
 	it('缺文件用默认，缺键保留默认，合法值被采用', () => {
 		const defaults = loadServerConfig(join(dir, 'missing.json'))
 		assert.equal(defaults.home, join(homedir(), '.relax'))
-		assert.equal(defaults.fsMaxBytes, 16 * 1024 * 1024)
-		assert.equal(defaults.fsWatchDebounceMs, 600)
-		assert.equal(defaults.fsWatchMax, 16)
-		assert.equal(defaults.jsonBodyLimit, 1024 * 1024)
-		assert.equal(defaults.ssePingMs, 15_000)
-		assert.equal(defaults.ptyCols, 80)
-		assert.equal(defaults.ptyRows, 24)
-		assert.equal(defaults.ptyMax, 16)
-		assert.equal(defaults.ptyReplayBytes, 100 * 1024)
-		assert.equal(defaults.ptyGraceMs, 15_000)
+		assert.equal(defaults.fs.maxBytes, 16 * 1024 * 1024)
+		assert.equal(defaults.fs.watchDebounceMs, 600)
+		assert.equal(defaults.fs.watchMax, 16)
+		assert.equal(defaults.http.jsonBodyLimit, 1024 * 1024)
+		assert.equal(defaults.http.ssePingMs, 15_000)
+		assert.equal(defaults.pty.cols, 80)
+		assert.equal(defaults.pty.rows, 24)
+		assert.equal(defaults.pty.max, 16)
+		assert.equal(defaults.pty.replayBytes, 100 * 1024)
+		assert.equal(defaults.pty.graceMs, 15_000)
 
 		const partial = join(dir, 'partial.json')
-		writeFileSync(partial, JSON.stringify({ home: '~/custom', fsMaxBytes: 8 }))
+		writeFileSync(partial, JSON.stringify({ home: '~/custom', fs: { maxBytes: 8 } }))
 		const loaded = loadServerConfig(partial)
 		assert.equal(loaded.home, join(homedir(), 'custom'))
-		assert.equal(loaded.fsMaxBytes, 8)
-		assert.equal(loaded.fsWatchMax, defaults.fsWatchMax)
-		assert.equal(loaded.ssePingMs, defaults.ssePingMs)
+		assert.equal(loaded.fs.maxBytes, 8)
+		assert.equal(loaded.fs.watchMax, defaults.fs.watchMax)
+		assert.equal(loaded.http.ssePingMs, defaults.http.ssePingMs)
 	})
 
 	it('类型不对的字段回退默认，JSON 解析失败则抛错', () => {
@@ -39,11 +39,8 @@ describe('server config', () => {
 			bad,
 			JSON.stringify({
 				home: '',
-				fsMaxBytes: '4',
-				fsWatchDebounceMs: 1.5,
-				fsWatchMax: -1,
-				jsonBodyLimit: 0,
-				ssePingMs: true,
+				fs: { maxBytes: '4', watchDebounceMs: 1.5, watchMax: -1 },
+				http: { jsonBodyLimit: 0, ssePingMs: true },
 			}),
 		)
 		const loaded = loadServerConfig(bad)

@@ -26,7 +26,7 @@
 
 ## 运行配置
 
-1. 全局文件是 `~/.relax/agent/settings.json`（随 `config.json` 的 `home` 换走），与基座 `settings.json` 同一相对路径。对话设置不另建文件。进程怎么跑放 `.env`（端口 `PORT`，默认 `3001`）。代码里可调的逻辑参数放 `app/server/config.json`，由 `src/config/server.ts` 读入：缺字段或类型不对用代码默认值，JSON 解析失败则启动失败。
+1. 全局文件是 `~/.relax/agent/settings.json`（随 `config.json` 的 `home` 换走），与基座 `settings.json` 同一相对路径。对话设置不另建文件。进程怎么跑放 `.env`（端口 `PORT`，默认 `3001`）。代码里可调的逻辑参数放 `app/server/config.json`，按 `home`、`fs`、`http`、`pty` 分组，由 `src/config/server.ts` 读入：缺组、缺字段或类型不对用代码默认值，JSON 解析失败则启动失败。
 2. `GET /api/settings` 返回 `steeringMode`、`followUpMode`、`abortPolicy`。缺文件时为 `one-at-a-time`、`one-at-a-time`、`clear-then-abort`。
 3. `PATCH /api/settings` 只改传入的字段。出队模式写在顶层，中止策略写在 `relax.abortPolicy`。文件里其它键保留。空对象、未知字段、非法枚举为 400。
 4. 接口只读写全局这一份。工作区 `.pi/settings.json` 仍可按基座规则盖过，新建会话和中止时会看到项目层。
@@ -64,16 +64,16 @@
 2. `GET /api/fs/list` 只列一层，子项带 `size` 和 `mtime`。`GET /api/fs/stat` 查单个路径。
 3. `GET /api/fs/read` 返回原文，响应头 `X-Relax-Transfer` 为 `text` 或 `binary`。不带分段时流式读出整个文件。`offset`+`length` 或 `Range` 读一段。
 4. `PUT /api/fs/file` 写入原文。整文件先写临时文件再替换。带 `offset` 时只接受 `binary`，可以覆盖已写过的那段。`POST /api/fs/dir` 建目录。`DELETE /api/fs/file` 和 `DELETE /api/fs/dir` 分开删。`recursive=true` 才递归创建或递归删除。
-5. 一次分段或一次写入的上限是 `config.json` 的 `fsMaxBytes`，默认 16 MiB。超过为 413 `PAYLOAD_TOO_LARGE`，`message` 带当前大小和上限。整文件流式读不受这个上限。
-6. WebSocket `/ws/fs` 递归监听调用方给的一个根。`fsWatchDebounceMs` 默认 600，`fsWatchMax` 默认 16。推送 `watching`、`change`、`error`。
+5. 一次分段或一次写入的上限是 `config.json` 的 `fs.maxBytes`，默认 16 MiB。超过为 413 `PAYLOAD_TOO_LARGE`，`message` 带当前大小和上限。整文件流式读不受这个上限。
+6. WebSocket `/ws/fs` 递归监听调用方给的一个根。`fs.watchDebounceMs` 默认 600，`fs.watchMax` 默认 16。推送 `watching`、`change`、`error`。
 7. `app/web` 的文件插件仍用 mock。手工页是 [fs.html](../app/server/test/html/fs.html)：左边目录，右边内容。
 
 ## 终端
 
 1. WebSocket `/ws/pty`，一条连接一台终端。`cwd` 必填，必须是已存在的绝对目录，放在查询参数里并编码一次。没有默认目录。
-2. 不传 `cols` / `rows` 时用 `config.json` 的 `ptyCols` / `ptyRows`（80 / 24）。shell 用 `SHELL`，没有则 `/bin/zsh`。
+2. 不传 `cols` / `rows` 时用 `config.json` 的 `pty.cols` / `pty.rows`（80 / 24）。shell 用 `SHELL`，没有则 `/bin/zsh`。
 3. 连上先收到文本帧 `ready`（服务端生成 `id`）。终端字节走二进制帧。`resize` 改大小，`close` 立刻结束进程。
-4. 没发 `close` 就断开时，进程保留 `ptyGraceMs`（默认 15000）。期限内用同一个 `id` 重连，`ready.replay` 是最近 `ptyReplayBytes`（默认 100KB）的输出。同时存活不超过 `ptyMax`（默认 16），含宽限中的。
+4. 没发 `close` 就断开时，进程保留 `pty.graceMs`（默认 15000）。期限内用同一个 `id` 重连，`ready.replay` 是最近 `pty.replayBytes`（默认 100KB）的输出。同时存活不超过 `pty.max`（默认 16），含宽限中的。
 5. `app/web` 的终端插件仍用 mock。手工页是 [pty.html](../app/server/test/html/pty.html)。
 
 ## 当前关掉的剖面

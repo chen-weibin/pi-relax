@@ -1,13 +1,19 @@
 {
 	"home": "~/.relax",
-	"fsMaxBytes": 16777216,
-	"fsWatchDebounceMs": 600,
-	"fsWatchMax": 16,
-	"jsonBodyLimit": 1048576,
-	"ssePingMs": 15000,
-	"ptyCols": 80,
-	"ptyRows": 24,
-	"ptyMax": 16,
-	"ptyReplayBytes": 102400,
-	"ptyGraceMs": 15000
+	"fs": {
+		"maxBytes": 16777216,
+		"watchDebounceMs": 600,
+		"watchMax": 16
+	},
+	"http": {
+		"jsonBodyLimit": 1048576,
+		"ssePingMs": 15000
+	},
+	"pty": {
+		"cols": 80,
+		"rows": 24,
+		"max": 16,
+		"replayBytes": 102400,
+		"graceMs": 15000
+	}
 }

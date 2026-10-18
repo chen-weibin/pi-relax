@@ -37,7 +37,7 @@ export function sessionsRouter(agent: Agent): Router {
 		const unsubscribe = agent.subscribe(send)
 		const ping = setInterval(() => {
 			res.write(': ping\n\n')
-		}, serverConfig.ssePingMs)
+		}, serverConfig.http.ssePingMs)
 		req.on('close', () => {
 			clearInterval(ping)
 			unsubscribe()

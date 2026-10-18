@@ -13,7 +13,7 @@ export function createApp(options: { agent?: Agent } = {}) {
 	const agent = options.agent ?? new Agent()
 	const app = express()
 	app.use(cors({ exposedHeaders: ['X-Relax-Transfer', 'Content-Range', 'Accept-Ranges'] }))
-	app.use(express.json({ limit: serverConfig.jsonBodyLimit }))
+	app.use(express.json({ limit: serverConfig.http.jsonBodyLimit }))
 	app.use(healthRouter)
 	app.use(modelsRouter())
 	app.use(settingsRouter(agent))
