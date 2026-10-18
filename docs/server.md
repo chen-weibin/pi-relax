@@ -44,7 +44,7 @@ pi 没有会话索引。`list(cwd)` 扫该编码目录下的 `*.jsonl`，`listAl
 ~/.relax/agent/sessions/--<cwd 编码>--/<时间戳>_<sessionId>.jsonl
 ```
 
-未指定工作区时 cwd 为 `~/.relax/workspace`（随 `config.json` 的 `home` 换走）。本轮不读技能、提示词、主题、上下文文件，也不扫磁盘上的扩展。显式挂 Langfuse 官方插件 `@langfuse/pi-observability-plugin` 和 `pi-web-access`。不写索引文件。
+未指定工作区时 cwd 为 `~/.relax/workspace`（随 `config.json` 的 `home` 换走）。技能按基座默认目录加载，见「技能」。提示词、主题、上下文文件仍不读，也不扫磁盘上的扩展。显式挂 Langfuse 官方插件 `@langfuse/pi-observability-plugin` 和 `pi-web-access`。不写索引文件。
 
 三条原则：
 
@@ -73,13 +73,13 @@ pi 没有会话索引。`list(cwd)` 扫该编码目录下的 `*.jsonl`，`listAl
 
 ## 自定义
 
-pi 暴露的加载点都要能指定到 `.relax` 或配置里的路径，不默默读 `~/.pi`，也不默默向上搜文件。包括：系统提示词、技能目录、规则和上下文文件、会话存放、`agentDir`、工具列表。
+pi 暴露的加载点都要能指定到 `.relax` 或配置里的路径，不默默读 `~/.pi`。技能是当前的例外：用户级已经落在 `.relax`，项目级和向上搜索仍是基座默认，见「技能」。包括：系统提示词、技能目录、规则和上下文文件、会话存放、`agentDir`、工具列表。
 
-`app/agenttest` 里对各类 override 的尝试只是草草看过。做到提示词、技能、规则时，对着当时的 pi 源码做一次最小复现，再把结论写进本文：哪一个 override 会换掉整段提示、工具说明还在不在、技能路径实际读哪些。
+`app/agenttest` 里对各类 override 的尝试只是草草看过。技能实际读哪些目录，结论在「技能」。提示词和规则开工前，再对着当时的 pi 源码核对 loader。
 
 当前只定范围：
 
-- 系统提示词、技能、规则、扩展都要可控。默认路径等那一块开工再定。扩展能执行代码，磁盘扫描默认关掉。当前显式挂 Langfuse 官方插件和 `pi-web-access`，见下文「追踪」。找官方或社区插件时看 [https://pi.dev/packages](https://pi.dev/packages)（查阅时机：要加扩展、避免自己再写一份已有能力时）。
+- 系统提示词、规则、扩展都要可控。技能已按基座默认目录加载，路径见「技能」。扩展能执行代码，磁盘扫描默认关掉。当前显式挂 Langfuse 官方插件和 `pi-web-access`，见下文「追踪」。找官方或社区插件时看 [https://pi.dev/packages](https://pi.dev/packages)（查阅时机：要加扩展、避免自己再写一份已有能力时）。
 - 工具白名单写在会话工厂：八个内置（`read`、`bash`、`edit`、`write`、`grep`、`find`、`ls`、`powershell`）、`codemode`，以及 `pi-web-access` 的 `web_search`、`fetch_content`、`get_search_content`、`source_check`。`tool_search` 和 `web_enable` 不开。`powershell` 在非 Windows 上调用会由基座报错。模式以后再按这份名单切换。路径仍是该会话的 cwd。
 - 模型走 pi 的 `ModelRuntime`，不另建配置文件。白名单在 `app/server/src/agent/models.ts` 的 `KEY_PROVIDERS`，只收一把 key 就能对话的内置提供商（`pi-ai@1.0.4`）。升 `@earendil-works/pi-ai` 后对照 `providers/*.ts` 的 `auth` 再核一次。名单外的 id，包括 `models.json` 里自造的提供商，接口拒绝。同时带 OAuth 的只走 `api_key` 登录。密钥写入 `~/.relax/agent/auth.json`，同一 id 再提交是修改。不删除环境变量：基座认为可用就算可用，包括 `auth.json`、环境变量和该提供商会读的本机凭证。不向厂商发请求试 key。可用对话模型至少有一个、但全局还没有一对仍可用的默认时，按基座 `defaultModelPerProvider` 的顺序补写 `settings.json` 的 `defaultProvider` / `defaultModel`（该常量未从包入口导出，顺序抄在 `DEFAULT_MODEL_ORDER`）。新建会话用这一对；请求里带了 `provider` 和 `model` 时这次用它，并写成新的默认。打开旧会话仍恢复该文件自己的 `model_change`。对话框里改模型只写全局默认，不改当前会话文件。续发带了 `provider` 和 `model`、且与该会话上次记录不同时，才追加 `model_change`，不改默认。没带则继续用该会话已恢复的模型。模型目录的底表在 npm 包里；手动更新是 `POST /api/models/refresh`，转调 `refresh({ allowNetwork: true, force: true })`，结果进 `~/.relax/agent/models-store.json`。不在启动或列模型时自动刷新。
 - 上下文压缩沿用 pi 的自动行为，不单独做接口。它是上下文体积的安全阀。
@@ -92,6 +92,28 @@ pi 暴露的加载点都要能指定到 `.relax` 或配置里的路径，不默�
 会话创建时把 `@langfuse/pi-observability-plugin` 的 `src/index.ts` 和 `pi-web-access` 的 `dist/index.js` 放进 `additionalExtensionPaths`。`noExtensions` 仍关掉磁盘扫描，这两条显式路径会加载。Langfuse 包没有 `main`，由基座用 jiti 读 TypeScript。`pi-web-access` 用发布包声明的 `./dist` 入口。自己写的扩展在 `app/server/src/extensions/`，由 `extensionFactories` 挂上：`providerRequestTrace` 在每次模型 API 调用前把请求体记成同一条 turn 下的 `Provider Request`；`createCodemodeExtension()` 提供 `codemode`。密钥在 `app/server/.env` 的 `LANGFUSE_PUBLIC_KEY`、`LANGFUSE_SECRET_KEY`、`LANGFUSE_BASE_URL`。默认上传。`LANGFUSE_TRACING_ENABLED=false` 时两边都不报，改完重启 server。已实现说明见 [server-implemented.md](server-implemented.md) 的「追踪」（查阅时机：对一下面板里能看到什么、或临时关掉上传时）。
 
 `pi-web-access` 的配置和抓取缓存跟 `PI_CODING_AGENT_DIR`。`ensureRelaxHome()` 启动时把它设成 `~/.relax/agent`，所以配置是 `~/.relax/agent/web-search.json`，全文缓存在 `~/.relax/agent/web-search-cache/`。文件不存在时写入 `{ "toolActivation": "eager" }`，四个联网工具从第一轮就在，不注册 `web_enable`。已有文件不覆盖。插件自带的斜杠命令仍会注册：用户原文以 `/` 开头且名字对上时，`prompt` 先执行命令，不把这句发给模型。
+
+## 技能
+
+创建会话时不传 `noSkills`，用基座 `DefaultResourceLoader` 的默认发现。不另做过滤，不加 `skillsOverride` 或 `additionalSkillPaths`。技能在创建这条 `AgentSession` 时读入。已经留在内存里的会话不重扫，卸掉再打开才看到磁盘上的修改。
+
+用户级和项目级的目录名不一致，这一轮不改，以后再定。用户数据根是 `config.json` 的 `home`（默认 `~/.relax`），`agentDir` 是 `{home}/agent`，所以用户技能在 `{home}/agent/skills`，不在 `~/.pi/agent/skills`。项目目录名来自基座包 `@earendil-works/pi-coding-agent` 的 `package.json` 字段 `piConfig.configDir`，当前是 `.pi`。发布包启动时读这份 JSON。服务端配置改不了它。`{cwd}/.relax/skills` 不会被读到。改成 `.relax` 要换基座包的 `piConfig.configDir` 并重新安装；只改仓库里只读的 `pi/` 源码不会作用到正在用的 npm 包。只改这一个字段不必重编 TypeScript。
+
+同名时先发现的留下。标识是 frontmatter 的 `name`，缺省用 `SKILL.md` 的父目录名。路径只是正文位置。系统提示里只有名字、描述和 markdown 的绝对路径，正文要由 `read` 再去读。按占住名字的顺序：
+
+- `{cwd}/.pi/settings.json` 的 `skills` 数组。路径相对 `{cwd}/.pi`。基座写死 `.pi`。
+- `{cwd}/.pi/skills`。只扫这一层 cwd，不向上找别的 `.pi/skills`。
+- 从 cwd 向上每一层的 `.agents/skills`。基座写死 `.agents`。有 git 仓库时停在仓库根，否则到文件系统根。近的先于远的。`~/.agents/skills` 不放进这一串。
+- `{home}/agent/settings.json` 的 `skills` 数组。路径相对 `{home}/agent`。
+- `{home}/agent/skills`。
+- `~/.agents/skills`。基座写死 `.agents`，不跟着 `home` 走。
+- 上面两份 settings 里 `packages` 声明的 Pi package 所带的 `skills/`，或该包 `package.json` 的 `pi.skills`。排在最后。
+
+当前挂上的 Langfuse 和 `pi-web-access` 的 `pi` 清单里没有 skills，不会从这两个扩展带出技能。也不会读 `~/.pi/agent/skills`。
+
+目录内部：有 `SKILL.md` 就停在这一层，不再往下。没有则继续进子目录，跳过点目录和 `node_modules`，跟随符号链接，套用 `.gitignore`、`.ignore`、`.fdignore`。`{home}/agent/skills` 和 `{cwd}/.pi/skills` 会收根上带 `description` 的独立 `*.md`。`.agents/skills` 不收根上的 `*.md`。`name` 须为小写字母、数字、连字符，最长 64。`description` 必填，最长 1024。没有 description 的不加载。`disable-model-invocation: true` 仍占名字，但不进系统提示。基座没有单文件字节数上限，也没有条数上限。这一轮不加我们自己的上限。
+
+信任以后再做入口。服务端没有让用户信任某个项目的接口，也不读写信任决定。创建会话时不传 `resolveProjectTrust`。基座 `SettingsManager` 默认把项目当成已信任，所以上面的项目级 `.pi` 和祖先 `.agents/skills` 现在会加载。基座自己的规则是未信任时不读这些项目资源，用户级 `{home}/agent/skills` 和 `~/.agents/skills` 仍读。信任文件在 `{home}/agent/trust.json`，当前没有功能去写它。
 
 ## 对话
 
@@ -107,7 +129,7 @@ pi 暴露的加载点都要能指定到 `.relax` 或配置里的路径，不默�
 
 `app/server/src/agent/` 是唯一调用 pi 会话 API 的目录。类内部按 sessionId 缓存 `{ session: AgentSession }`，同一套工厂（内部 `createAgentSessionRuntime`，对外只返回 session）。对外 `prompt`（可无 id，可带 `thinkingLevel` 与 `streamingBehavior`）、`rename`、`abort`、`applyQueueModes`、`status`、`subscribe`。HTTP 和 SSE 只订这个类。档位查询和运行配置不经过这个类的模型调用；出队模式的热更新走 `applyQueueModes`。
 
-剖面本轮：`tools` 为八个内置工具、`codemode` 和四个联网工具。loader `noSkills` / `noExtensions` / `noContextFiles` / `noPromptTemplates` / `noThemes`。`noExtensions` 只停磁盘扫描；`additionalExtensionPaths` 指向 Langfuse 和 `pi-web-access`；`extensionFactories` 来自 `app/server/src/extensions/`，含 `createCodemodeExtension()`。模型用白名单里的内置提供商，`agentDir` 指向 `~/.relax/agent`。
+剖面本轮：`tools` 为八个内置工具、`codemode` 和四个联网工具。loader 不传 `noSkills`，技能走基座默认发现。`noExtensions` / `noContextFiles` / `noPromptTemplates` / `noThemes` 仍关。`noExtensions` 只停磁盘扫描；`additionalExtensionPaths` 指向 Langfuse 和 `pi-web-access`；`extensionFactories` 来自 `app/server/src/extensions/`，含 `createCodemodeExtension()`。模型用白名单里的内置提供商，`agentDir` 指向 `~/.relax/agent`。
 
 新对话：`SessionManager.create(cwd)` 后立刻 `prompt`。文件等第一条 user 消息。思考档位默认 `medium`。正在回复时，不带 `streamingBehavior` 再 `prompt` 得 `BUSY`；`steer` 在当前回复及其工具结束后、下一次模型调用前插入，`followUp` 在本轮结束后再发。两者都不打断正在吐的字。多条排队的出队读全局 `~/.relax/agent/settings.json` 的 `steeringMode` / `followUpMode`（各自 `all` 或 `one-at-a-time`，缺省 `one-at-a-time`）。新建会话由基座 `SettingsManager` 合并该文件与工作区 `.pi/settings.json`，工厂里不调用 setter。`PATCH /api/settings` 之后，内存里的会话用 `setSteeringMode` / `setFollowUpMode` 立刻换模式。
 
@@ -158,7 +180,7 @@ SSE 断线不补，客户端用历史对齐。发送和中止走 HTTP。本轮�
 - **能力剖面**。每次创建 `AgentSession` 都带一份显式剖面：工具、技能、扩展、规则和上下文文件、提示词，各自是关还是一组路径。关掉必须传给 pi（如 `noSkills`、`noExtensions`、不扫描上下文），不能靠这段代码还没写。工具用 `tools` 白名单。磁盘扩展仍关，只多给 `additionalExtensionPaths`（Langfuse、`pi-web-access`），再加上 `app/server/src/extensions/` 里的 factory。
 - **列表**。本轮无索引，走 `SessionManager.list` / `listAll` 全量扫描，并上智能体里尚未落盘的热会话。
 - **会话宿主**。智能体类持有多份 `AgentSession`（多工作目录可同时生成）。事件是 `(sessionId, AgentSessionEvent)`。SDK 会话默认不加载 CLI 的 `codemode` / MCP。`codemode` 由 `createCodemodeExtension()` 显式挂上。`tool_search` 和 MCP 当前不挂。
-- **未做到的子系统不启动**。文件监听在有 WebSocket 订阅时才 `watch`，启动时不订磁盘。PTY、技能扫描仍不加载。
+- **未做到的子系统不启动**。文件监听在有 WebSocket 订阅时才 `watch`，启动时不订磁盘。PTY 仍不在启动时加载。技能在创建会话时按基座默认目录扫描。
 
 ## 性能上限
 
@@ -174,7 +196,7 @@ SSE 断线不补，客户端用历史对齐。发送和中止走 HTTP。本轮�
 - **文件监听**。客户端订一个根目录，服务端递归监听这棵树，防抖后推这棵树上的变化路径，不推整棵目录表。同时存在的根由 `config.json` 的 `fs.watchMax` 限制，默认 16。同一根的多条连接只占 1。服务端不过滤名字。
 - **终端**（做到才启用）。PTY 个数有上限，回放缓冲约 100KB，关闭时必须释放文件描述符。
 - **工具**。已启用八个内置工具（含 `bash`）和 `codemode`，以及 `pi-web-access` 的四个联网工具。`bash` 这一步没有另加超时或路径限制，范围是该会话的 cwd。`powershell` 非 Windows 上由基座在调用时报错。
-- **技能与规则**（做到才启用）。只扫剖面里的目录，不向上搜。条数和正文大小有上限，避免系统提示把上下文撑满。
+- **技能**。已按基座默认目录加载，见「技能」。这一轮没有另加条数或正文大小上限。规则仍未做。
 
 ## 优先级
 
@@ -299,6 +321,6 @@ app/server/test/
 
 ## 和 Cursor / Codex 的差距
 
-多项目、多会话、不选项目也能聊，这一层对齐。流式正文、思考、中止、历史回放，pi 够用，线上格式跟 pi。工具、规则、技能目录可控，但是 loader 的具体行为要在对应那一块重新验证。模型用白名单里的内置提供商，密钥在 `auth.json`。文件变化按调用方给定的根目录递归监听，`app/web` 还没接。终端不经过 pi。
+多项目、多会话、不选项目也能聊，这一层对齐。流式正文、思考、中止、历史回放，pi 够用，线上格式跟 pi。工具已按白名单打开。技能按基座默认目录加载，见「技能」。规则的 loader 行为还没核对。模型用白名单里的内置提供商，密钥在 `auth.json`。文件变化按调用方给定的根目录递归监听，`app/web` 还没接。终端不经过 pi。
 
 往后放的能力：分支和 fork、附件、检查点回滚、命令审批、多根工作区。用户名和头像优先级最低。

@@ -58,7 +58,6 @@ async function piFactory(): Promise<CreateAgentSessionRuntimeFactory> {
 				noExtensions: true,
 				additionalExtensionPaths: [langfuseExtensionPath, webAccessExtensionPath],
 				extensionFactories,
-				noSkills: true,
 				noPromptTemplates: true,
 				noThemes: true,
 				noContextFiles: true,

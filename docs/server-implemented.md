@@ -58,6 +58,13 @@
 4. 抓取全文缓存在 `~/.relax/agent/web-search-cache/`。插件读的是 `PI_CODING_AGENT_DIR`，启动时已指到 `~/.relax/agent`。
 5. 斜杠命令仍注册。用户原文以 `/` 开头且名字对上时，先执行命令，不把这句发给模型。
 
+## 技能
+
+1. 创建会话时不传 `noSkills`，按基座默认目录发现。不另做过滤。已经留在内存里的会话不重扫，卸掉再打开才看到修改。
+2. 用户级是 `{home}/agent/skills`（`home` 默认 `~/.relax`）。项目级仍是 `{cwd}/.pi/skills`，以及 `{cwd}/.pi/settings.json` 的 `skills`。`{cwd}/.relax/skills` 和 `~/.pi/agent/skills` 不读。这个不一致先留着：项目目录名是基座包 `piConfig.configDir`（`.pi`），不是服务端配置。
+3. 还会读从 cwd 向上到 git 根的 `.agents/skills`，以及 `~/.agents/skills`，还有两份 settings 里 `packages` 带的技能。同名时项目侧先于用户级 `{home}/agent/skills`。标识是 frontmatter 的 `name`。
+4. 没有让用户信任某个项目的入口，也不读写 `{home}/agent/trust.json`。创建会话时不传 `resolveProjectTrust`，基座默认把项目当成已信任，所以项目级 `.pi` 和祖先 `.agents/skills` 现在会加载。未信任时基座会跳过这些项目资源。以后再做入口。
+
 ## 文件系统
 
 1. 路径必须是绝对路径。没传、相对路径、以 `~` 开头为 400。不设默认目录，也不限制必须在某个工作区里。
@@ -78,7 +85,7 @@
 
 ## 当前关掉的剖面
 
-技能、提示词模板、主题、上下文文件都显式关掉。磁盘扩展不扫。`tool_search` 和 `web_enable` 不开。`app/web` 还没接文件系统和终端。
+提示词模板、主题、上下文文件都显式关掉。磁盘扩展不扫。技能按基座默认目录加载，见上面「技能」。`tool_search` 和 `web_enable` 不开。`app/web` 还没接文件系统和终端。
 
 ## 手工脚本
 
