@@ -2,6 +2,7 @@ import type { Server } from 'node:http'
 import { realpath, stat } from 'node:fs/promises'
 import { watch, type FSWatcher } from 'chokidar'
 import { WebSocketServer, type WebSocket } from 'ws'
+import { mountWebSocket } from '../upgrade.js'
 import { serverConfig } from '../config/server.js'
 import { HttpError } from '../utils/errors.js'
 import { requireAbsolutePath } from './ops.js'
@@ -147,7 +148,8 @@ function unwatch(ws: WebSocket, path: string) {
 }
 
 export function attachFs(server: Server) {
-	const wss = new WebSocketServer({ server, path: '/ws/fs' })
+	const wss = new WebSocketServer({ noServer: true, path: '/ws/fs' })
+	mountWebSocket(server, wss)
 	wss.on('connection', (ws) => {
 		ws.on('message', (data) => {
 			let message: { type?: unknown; path?: unknown }

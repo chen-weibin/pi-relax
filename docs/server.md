@@ -212,9 +212,13 @@ SSE 断线不补，客户端用历史对齐。发送和中止走 HTTP。本轮�
 
 ## 终端
 
-对齐前端 `PtyApi`：创建、写入、调整大小、关闭、订阅输出。实现用 `node-pty`，走 WebSocket `/ws/pty`。工作目录默认该项目根或默认工作区，shell 用 `SHELL`，没有则 `/bin/zsh`。
+一条 WebSocket `/ws/pty` 就是一台终端。同一目录连两次是两台。实现用 `node-pty`。`cwd` 必填，必须是已存在的绝对目录，放在查询参数里，由 `URLSearchParams` 编码一次；服务端用解码后的字符串，不展开 `~`，也没有默认目录。`cols` / `rows` 可省略，用 `config.json` 的 `ptyCols` / `ptyRows`（80 / 24）。shell 用 `SHELL`，没有则 `/bin/zsh`。
 
-PTY 活到关闭或进程退出。断线可以再订阅，并用最近约 100KB 回放。滚动缓冲不写磁盘。服务重启后终端即没。
+连上后服务端先发文本帧 `{ "type": "ready", "id" }`。`id` 只用于断线重连，由服务端生成。之后双向二进制帧是终端字节。文本帧 `{ "type": "resize", "cols", "rows" }` 改大小。`{ "type": "close" }` 是主动关闭，立刻杀掉进程。`node-pty` 的 `spawn-helper` 若没有执行位，进程会在第一次启动终端前补上。
+
+没收到 `close` 就断开（网络波动，或调用方直接关掉套接字）时，进程和内存缓冲先留着，时限是 `ptyGraceMs`（默认 15000）。期限内用 `?id=` 重连，`ready` 里带 `replay`（最近 `ptyReplayBytes`，默认 100KB），再继续推实时输出。超时、主动关闭、shell 自己退出之后，这个 id 就没了。缓冲不写磁盘。服务重启后终端全部没有。同时存活的终端（含宽限中的）不超过 `ptyMax`（默认 16）。
+
+`app/web` 的终端插件仍用 mock。手工页是 [pty.html](../app/server/test/html/pty.html)。
 
 ## 通道
 
@@ -224,7 +228,7 @@ PTY 活到关闭或进程退出。断线可以再订阅，并用最近约 100KB 
 - HTTP JSON 用 `/api` 前缀。会话见上文接口。
 - 对话推送：`GET /api/sessions/events`（SSE）
 - 文件变化：WebSocket `/ws/fs`
-- 终端：WebSocket `/ws/pty`。做到终端再实现
+- 终端：WebSocket `/ws/pty`。一条连接一台终端
 
 跨域当前全部放开，响应带 `Access-Control-Allow-Origin: *`，不带 cookie。以后做登录再收紧。
 
@@ -236,7 +240,7 @@ PTY 活到关闭或进程退出。断线可以再订阅，并用最近约 100KB 
 
 骨架用 `BAD_REQUEST`、`NOT_FOUND`、`INTERNAL`。对话模块另有 `BUSY`（409）。文件读写另有 `PAYLOAD_TOO_LARGE`（413）和 `RANGE_NOT_SATISFIABLE`（416）。JSON 请求体上限是 `config.json` 的 `jsonBodyLimit`，默认 1 MiB。文件正文不走这个上限，单次写入和分段读取看 `fsMaxBytes`。SSE 心跳间隔是 `ssePingMs`，默认 15000。
 
-`/api`、`/ws/fs`、`/ws/pty` 是不同路径，前面加反向代理时可以按前缀分别转发。
+`/api`、`/ws/fs`、`/ws/pty` 是不同路径，前面加反向代理时可以按前缀分别转发。两条 WebSocket 共用同一次 HTTP upgrade 分发：`ws` 若各自监听，路径不匹配时会回 400，把另一条的握手拆掉。
 
 正在用的会话在内存里对应一份 `AgentSession`。列表来自 `SessionManager` 扫描，加上尚未落盘的热会话（`create` 之后、第一条 user 消息之前）。
 
@@ -245,7 +249,7 @@ PTY 活到关闭或进程退出。断线可以再订阅，并用最近约 100KB 
 按职责分目录。入口文件只负责启动，不把路由、会话、文件监听堆在 `src/index.ts`。没做到的能力不建空目录，做到那一块再加对应目录，并在这里补上实际路径。
 
 ```
-app/server/config.json  代码逻辑可调参数：家目录、传输上限、监听、JSON 体、SSE 心跳
+app/server/config.json  代码逻辑可调参数：家目录、传输上限、监听、JSON 体、SSE 心跳、终端行列 / 路数 / 回放 / 宽限
 app/server/src/
   index.ts              加载 .env（端口 PORT），确保 ~/.relax/agent，监听端口
   app.ts                组装应用，测试从这里创建
@@ -263,6 +267,7 @@ app/server/src/
   routes/sessions.ts    会话路由与 SSE
   routes/fs.ts          文件列表、元信息、读写、建目录、删除
   fs/                   路径、读写、按根目录递归监听
+  pty/                  一台 PTY 对应一条连接，宽限重连与滚动缓冲
 app/server/test/
   health.test.ts
   sessions.test.ts
@@ -274,13 +279,14 @@ app/server/test/
   html/
     index.html        手工测试页目录
     sessions.html     会话联调：进页即连 SSE
-    api.html          单接口调试，含请求类型与返回类型。SSE 和 /ws/fs 也在这页
+    api.html          单接口调试，含请求类型与返回类型。SSE、/ws/fs 和 /ws/pty 也在这页
     fs.html           文件系统：左目录，右内容
+    pty.html          终端：填目录新建，模拟断开可重连
 ```
 
-还没建的目录：`pty/`，以及 `/ws/pty` 的处理。`agent/` 是唯一直接调用 pi 会话 API 的目录。
+`agent/` 是唯一直接调用 pi 会话 API 的目录。终端不经过 pi。
 
-手工测试页在 [html/](../app/server/test/html/)，服务需已由 `pnpm dev:server` 拉起。`pnpm dev:server:open`（[script/dev-server-open.mjs](../script/dev-server-open.mjs)）做同一件事，并在 `/health` 成功后用系统打开本地 `index.html`。端口已被占用时不另起进程，只打开页面。`pnpm dev` 与 `pnpm start` 都走 [script/dev.mjs](../script/dev.mjs)：先跑 `dev:server`，`/health` 成功后再跑 `dev:web`；`3001` 或 web 的 `5173` 已在听则跳过对应那一个，不另占端口。查阅时机：要同时起服务端和前端时。会话相关接口互相依赖，用 [sessions.html](../app/server/test/html/sessions.html)：进入即连 `GET /api/sessions/events`，可在同一页发送、续发（含 steer / followUp）、设置思考档位、查询模型档位、设置标题、中止、列会话、看历史和删除。逐条接口仍用 [api.html](../app/server/test/html/api.html)，文件系统整页用 [fs.html](../app/server/test/html/fs.html)。字段含义以该页的 `requestType` / `responseType` 为准。每新增一个接口，在文件顶部的 `ENDPOINTS` 追加一项并写上带字段注释的类型；接口调整时改这一处和实现，不必在本文再抄参数。查阅时机：加路由后自己点发送，或要看当前有哪些接口及其字段含义时。SSE 和 `/ws/fs` 也登记在 api.html。
+手工测试页在 [html/](../app/server/test/html/)，服务需已由 `pnpm dev:server` 拉起。`pnpm dev:server:open`（[script/dev-server-open.mjs](../script/dev-server-open.mjs)）做同一件事，并在 `/health` 成功后用系统打开本地 `index.html`。端口已被占用时不另起进程，只打开页面。`pnpm dev` 与 `pnpm start` 都走 [script/dev.mjs](../script/dev.mjs)：先跑 `dev:server`，`/health` 成功后再跑 `dev:web`；`3001` 或 web 的 `5173` 已在听则跳过对应那一个，不另占端口。查阅时机：要同时起服务端和前端时。会话相关接口互相依赖，用 [sessions.html](../app/server/test/html/sessions.html)：进入即连 `GET /api/sessions/events`，可在同一页发送、续发（含 steer / followUp）、设置思考档位、查询模型档位、设置标题、中止、列会话、看历史和删除。逐条接口仍用 [api.html](../app/server/test/html/api.html)，文件系统整页用 [fs.html](../app/server/test/html/fs.html)，终端整页用 [pty.html](../app/server/test/html/pty.html)。字段含义以该页的 `requestType` / `responseType` 为准。每新增一个接口，在文件顶部的 `ENDPOINTS` 追加一项并写上带字段注释的类型；接口调整时改这一处和实现，不必在本文再抄参数。查阅时机：加路由后自己点发送，或要看当前有哪些接口及其字段含义时。SSE、`/ws/fs` 和 `/ws/pty` 也登记在 api.html。
 
 `ENDPOINTS` 每项必填 `group` / `name` / `method` / `path` / `summary` / `requestType` / `responseType`。`requestType`、`responseType` 是 TypeScript 文本，字段用行注释说明含义，调试页在「响应」后面以深色代码块展示。可填 `auth`（鉴权描述，如 `"JWT Bearer"`，不填则卡片显示「无需鉴权」）、`queryParams` / `bodyParams`（`{ name, type, required, description, example }` 数组，填了渲染参数卡并自动生成 cURL / JS 示例；`body` 是纯 JSON 字符串模板，不填且 `bodyParams` 也没填时 textarea 为空）。`path` 里的 `:name` 会自动变成可填写的路径参数，发送、顶栏路径和示例都会替换；可选 `pathParams`（形状同 `queryParams`）补充说明和示例。`queryParams` 同样有输入框：必填项用 `example` 预填，可选项留空，发送时只带已填写的项。可填 `headerParams`（形状同 `queryParams`），发送时放进请求头。`wire` 为 `sse` 或 `ws` 时卡片改走事件流或 WebSocket；`rawBody` / `rawResponse` 表示正文不是 JSON。这些字段不回传服务端，只是让调试页更接近接口文档的观感。
 

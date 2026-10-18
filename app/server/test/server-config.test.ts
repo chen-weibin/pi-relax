@@ -17,6 +17,11 @@ describe('server config', () => {
 		assert.equal(defaults.fsWatchMax, 16)
 		assert.equal(defaults.jsonBodyLimit, 1024 * 1024)
 		assert.equal(defaults.ssePingMs, 15_000)
+		assert.equal(defaults.ptyCols, 80)
+		assert.equal(defaults.ptyRows, 24)
+		assert.equal(defaults.ptyMax, 16)
+		assert.equal(defaults.ptyReplayBytes, 100 * 1024)
+		assert.equal(defaults.ptyGraceMs, 15_000)
 
 		const partial = join(dir, 'partial.json')
 		writeFileSync(partial, JSON.stringify({ home: '~/custom', fsMaxBytes: 8 }))

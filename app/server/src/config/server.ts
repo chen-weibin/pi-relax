@@ -10,6 +10,11 @@ export type ServerConfig = {
 	fsWatchMax: number
 	jsonBodyLimit: number
 	ssePingMs: number
+	ptyCols: number
+	ptyRows: number
+	ptyMax: number
+	ptyReplayBytes: number
+	ptyGraceMs: number
 }
 
 const DEFAULTS: ServerConfig = {
@@ -19,6 +24,11 @@ const DEFAULTS: ServerConfig = {
 	fsWatchMax: 16,
 	jsonBodyLimit: 1024 * 1024,
 	ssePingMs: 15_000,
+	ptyCols: 80,
+	ptyRows: 24,
+	ptyMax: 16,
+	ptyReplayBytes: 100 * 1024,
+	ptyGraceMs: 15_000,
 }
 
 export function serverConfigPath(): string {
@@ -63,6 +73,11 @@ export function loadServerConfig(file: string): ServerConfig {
 		fsWatchMax: positiveInt(record.fsWatchMax, DEFAULTS.fsWatchMax),
 		jsonBodyLimit: positiveInt(record.jsonBodyLimit, DEFAULTS.jsonBodyLimit),
 		ssePingMs: positiveInt(record.ssePingMs, DEFAULTS.ssePingMs),
+		ptyCols: positiveInt(record.ptyCols, DEFAULTS.ptyCols),
+		ptyRows: positiveInt(record.ptyRows, DEFAULTS.ptyRows),
+		ptyMax: positiveInt(record.ptyMax, DEFAULTS.ptyMax),
+		ptyReplayBytes: positiveInt(record.ptyReplayBytes, DEFAULTS.ptyReplayBytes),
+		ptyGraceMs: positiveInt(record.ptyGraceMs, DEFAULTS.ptyGraceMs),
 	}
 }
 

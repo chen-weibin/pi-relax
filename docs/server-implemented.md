@@ -2,7 +2,7 @@
 
 只记当前代码里已经能用的能力。规划、上限和还没做的块在 [server.md](server.md)。查阅时机：想看服务端现在做到哪、对照联调页该点哪一项时。改行为时和 [server.md](server.md) 一起改本页。
 
-手工入口：`pnpm dev:server`（端口 `3001`）。`pnpm dev` 和 `pnpm start` 做同一件事：先起这个服务，`/health` 成功后再起 `pnpm dev:web`（Vite 默认 `5173`）；任一端口已在听则跳过该服务。`pnpm dev:server:open` 拉起同一个服务，`/health` 成功后用系统打开本地 [index.html](../app/server/test/html/index.html)（`open` 文件，不另起静态服务）；该端口已在听则只打开页面。逐条接口用 [api.html](../app/server/test/html/api.html)，整段会话用 [sessions.html](../app/server/test/html/sessions.html)，文件系统用 [fs.html](../app/server/test/html/fs.html)。会话页的模型下拉来自 `GET /api/models`：没选中会话时显示新建将用的模型，选中后显示该会话历史里的模型。改下拉只改全局默认；发送时带上所选模型，和该会话上次不同才写入会话。前端 `app/web` 还没接这些接口。
+手工入口：`pnpm dev:server`（端口 `3001`）。`pnpm dev` 和 `pnpm start` 做同一件事：先起这个服务，`/health` 成功后再起 `pnpm dev:web`（Vite 默认 `5173`）；任一端口已在听则跳过该服务。`pnpm dev:server:open` 拉起同一个服务，`/health` 成功后用系统打开本地 [index.html](../app/server/test/html/index.html)（`open` 文件，不另起静态服务）；该端口已在听则只打开页面。逐条接口用 [api.html](../app/server/test/html/api.html)，整段会话用 [sessions.html](../app/server/test/html/sessions.html)，文件系统用 [fs.html](../app/server/test/html/fs.html)，终端用 [pty.html](../app/server/test/html/pty.html)。会话页的模型下拉来自 `GET /api/models`：没选中会话时显示新建将用的模型，选中后显示该会话历史里的模型。改下拉只改全局默认；发送时带上所选模型，和该会话上次不同才写入会话。前端 `app/web` 还没接这些接口。
 
 ## 进程
 
@@ -68,9 +68,17 @@
 6. WebSocket `/ws/fs` 递归监听调用方给的一个根。`fsWatchDebounceMs` 默认 600，`fsWatchMax` 默认 16。推送 `watching`、`change`、`error`。
 7. `app/web` 的文件插件仍用 mock。手工页是 [fs.html](../app/server/test/html/fs.html)：左边目录，右边内容。
 
+## 终端
+
+1. WebSocket `/ws/pty`，一条连接一台终端。`cwd` 必填，必须是已存在的绝对目录，放在查询参数里并编码一次。没有默认目录。
+2. 不传 `cols` / `rows` 时用 `config.json` 的 `ptyCols` / `ptyRows`（80 / 24）。shell 用 `SHELL`，没有则 `/bin/zsh`。
+3. 连上先收到文本帧 `ready`（服务端生成 `id`）。终端字节走二进制帧。`resize` 改大小，`close` 立刻结束进程。
+4. 没发 `close` 就断开时，进程保留 `ptyGraceMs`（默认 15000）。期限内用同一个 `id` 重连，`ready.replay` 是最近 `ptyReplayBytes`（默认 100KB）的输出。同时存活不超过 `ptyMax`（默认 16），含宽限中的。
+5. `app/web` 的终端插件仍用 mock。手工页是 [pty.html](../app/server/test/html/pty.html)。
+
 ## 当前关掉的剖面
 
-技能、提示词模板、主题、上下文文件都显式关掉。磁盘扩展不扫。`tool_search` 和 `web_enable` 不开。终端还没做。`app/web` 还没接文件系统。
+技能、提示词模板、主题、上下文文件都显式关掉。磁盘扩展不扫。`tool_search` 和 `web_enable` 不开。`app/web` 还没接文件系统和终端。
 
 ## 手工脚本
 

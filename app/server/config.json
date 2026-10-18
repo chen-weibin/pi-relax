@@ -4,5 +4,10 @@
 	"fsWatchDebounceMs": 600,
 	"fsWatchMax": 16,
 	"jsonBodyLimit": 1048576,
-	"ssePingMs": 15000
+	"ssePingMs": 15000,
+	"ptyCols": 80,
+	"ptyRows": 24,
+	"ptyMax": 16,
+	"ptyReplayBytes": 102400,
+	"ptyGraceMs": 15000
 }

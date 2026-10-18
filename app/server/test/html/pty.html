@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="zh-CN">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>relax · 终端</title>
+		<script src="cdn/tailwind.js"></script>
+		<link rel="stylesheet" href="cdn/xterm.css" />
+		<style>
+			html,
+			body {
+				font-family: -apple-system, BlinkMacSystemFont, "PingFang SC",
+					"Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", sans-serif;
+			}
+			code,
+			input {
+				font-family: ui-monospace, "SF Mono", Menlo, Monaco, Consolas, monospace;
+			}
+			#screen {
+				height: 100%;
+			}
+			#screen .xterm {
+				height: 100%;
+				padding: 8px 10px 4px;
+			}
+		</style>
+	</head>
+	<body class="h-screen overflow-hidden bg-zinc-50 text-zinc-900 antialiased">
+		<div class="flex h-full flex-col">
+			<header class="flex shrink-0 items-center gap-3 border-b border-zinc-200 bg-white px-4 py-2.5">
+				<a class="text-sm font-semibold tracking-tight" href="./index.html">终端</a>
+				<label class="flex w-56 shrink-0 items-center gap-2 rounded-md border border-zinc-200 px-2 py-1 text-xs">
+					<span class="shrink-0 text-zinc-400">服务</span>
+					<input id="base" class="min-w-0 flex-1 bg-transparent outline-none" value="http://127.0.0.1:3001" spellcheck="false" />
+				</label>
+				<label class="flex min-w-0 flex-1 items-center gap-2 rounded-md border border-zinc-200 px-2 py-1 text-xs">
+					<span class="shrink-0 text-zinc-400">目录</span>
+					<input id="cwd" class="min-w-0 flex-1 bg-transparent outline-none" value="/Users/chen/.relax/workspace" spellcheck="false" />
+				</label>
+				<button id="open" class="rounded-md bg-violet-600 px-3 py-1 text-xs font-medium text-white" type="button">新建</button>
+				<button id="drop" class="rounded-md border border-zinc-200 px-3 py-1 text-xs" type="button">模拟断开</button>
+				<button id="close" class="rounded-md border border-zinc-200 px-3 py-1 text-xs text-red-600" type="button">关闭</button>
+				<span id="ws" class="rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-medium text-zinc-500">未连接</span>
+				<a class="text-xs text-zinc-500 hover:text-zinc-800" href="./api.html">单接口调试</a>
+			</header>
+			<p id="hint" class="shrink-0 truncate border-b border-zinc-200 bg-white px-4 py-1.5 text-xs text-zinc-400">一条连接一台终端。模拟断开会重连同一台；关闭会立刻结束。</p>
+			<div class="min-h-0 flex-1 bg-zinc-950">
+				<div id="screen"></div>
+			</div>
+		</div>
+		<script src="cdn/xterm.js"></script>
+		<script src="cdn/addon-fit.js"></script>
+		<script>
+			const $ = (id) => document.getElementById(id);
+			const term = new Terminal({
+				cursorBlink: true,
+				fontSize: 13,
+				fontFamily: 'ui-monospace, "SF Mono", Menlo, Monaco, Consolas, monospace',
+				theme: { background: "#09090b", foreground: "#e4e4e7" },
+				scrollback: 2000,
+			});
+			const fit = new FitAddon.FitAddon();
+			term.loadAddon(fit);
+			term.open($("screen"));
+			fit.fit();
+
+			let attempt = 0;
+			let id = "";
+			let socket = null;
+			let userClosed = false;
+			let retryTimer = 0;
+			let retryUntil = 0;
+			let fitted = "";
+
+			function setStatus(text, kind) {
+				const el = $("ws");
+				el.textContent = text;
+				el.className =
+					"rounded-full px-2 py-0.5 text-[11px] font-medium " +
+					(kind === "ok"
+						? "bg-emerald-100 text-emerald-700"
+						: kind === "wait"
+							? "bg-amber-100 text-amber-700"
+							: "bg-zinc-100 text-zinc-500");
+			}
+
+			function dims() {
+				fit.fit();
+				if (!term.cols || !term.rows) return {};
+				return { cols: String(term.cols), rows: String(term.rows) };
+			}
+
+			function sendResize() {
+				const size = dims();
+				if (!size.cols) return;
+				const key = size.cols + "x" + size.rows;
+				if (key === fitted) return;
+				fitted = key;
+				if (socket && socket.readyState === WebSocket.OPEN) {
+					socket.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }));
+				}
+			}
+
+			function connect(params) {
+				if (retryTimer) {
+					clearTimeout(retryTimer);
+					retryTimer = 0;
+				}
+				const gen = ++attempt;
+				const base = $("base").value.trim().replace(/\/$/, "");
+				const url = new URL("/ws/pty", base.replace(/^http/, "ws"));
+				for (const [key, value] of Object.entries(params)) {
+					if (value !== undefined && value !== "") url.searchParams.set(key, String(value));
+				}
+				const ws = new WebSocket(url);
+				ws.binaryType = "arraybuffer";
+				socket = ws;
+				ws.addEventListener("message", (ev) => {
+					if (gen !== attempt) return;
+					if (typeof ev.data === "string") {
+						let msg;
+						try {
+							msg = JSON.parse(ev.data);
+						} catch {
+							return;
+						}
+						if (msg.type === "ready") {
+							id = msg.id;
+							retryUntil = 0;
+							term.reset();
+							if (msg.replay) term.write(msg.replay);
+							setStatus("已连接", "ok");
+							$("hint").textContent = id;
+							fitted = "";
+							sendResize();
+							term.focus();
+						} else if (msg.type === "error") {
+							$("hint").textContent = msg.error?.message || "出错";
+						}
+						return;
+					}
+					term.write(new Uint8Array(ev.data));
+				});
+				ws.addEventListener("close", (ev) => {
+					if (gen !== attempt) return;
+					socket = null;
+					const stop = userClosed || ev.code === 4000 || ev.code === 4400 || ev.code === 4404 || ev.code === 4429 || !id;
+					if (ev.reason) $("hint").textContent = ev.reason;
+					if (stop) {
+						setStatus("已断开", "off");
+						retryUntil = 0;
+						if (ev.code === 4000 || ev.code === 4404) id = "";
+						return;
+					}
+					if (!retryUntil) retryUntil = Date.now() + 20000;
+					if (Date.now() > retryUntil) {
+						setStatus("已断开", "off");
+						retryUntil = 0;
+						return;
+					}
+					setStatus("正在重连", "wait");
+					retryTimer = setTimeout(() => connect({ id, ...dims() }), 400);
+				});
+			}
+
+			term.onData((data) => {
+				if (!socket || socket.readyState !== WebSocket.OPEN) return;
+				socket.send(new TextEncoder().encode(data));
+			});
+
+			$("open").addEventListener("click", () => {
+				const cwd = $("cwd").value.trim();
+				if (!cwd) {
+					$("hint").textContent = "先填写绝对路径";
+					return;
+				}
+				const prev = socket;
+				id = "";
+				userClosed = true;
+				if (prev && prev.readyState === WebSocket.OPEN) prev.send(JSON.stringify({ type: "close" }));
+				userClosed = false;
+				fitted = "";
+				connect({ cwd, ...dims() });
+			});
+
+			$("drop").addEventListener("click", () => {
+				if (!socket || socket.readyState !== WebSocket.OPEN || !id) return;
+				userClosed = false;
+				socket.close();
+			});
+
+			$("close").addEventListener("click", () => {
+				userClosed = true;
+				if (retryTimer) {
+					clearTimeout(retryTimer);
+					retryTimer = 0;
+				}
+				if (socket && socket.readyState === WebSocket.OPEN) {
+					socket.send(JSON.stringify({ type: "close" }));
+				} else {
+					setStatus("已断开", "off");
+				}
+			});
+
+			new ResizeObserver(() => sendResize()).observe($("screen"));
+			$("cwd").addEventListener("keydown", (ev) => {
+				if (ev.key === "Enter") $("open").click();
+			});
+		</script>
+	</body>
+</html>
