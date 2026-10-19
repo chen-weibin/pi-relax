@@ -184,7 +184,11 @@ export {
 	FileCssIcon,
 	FileHtmlIcon,
 	FileJsIcon,
+	FileJsonIcon,
 	FileMarkdownIcon,
+	FilePackageJsonIcon,
+	FileTsIcon,
+	FileTsxIcon,
 	FileTxtIcon,
 	FileUnknownIcon,
 } from './fileTypes'

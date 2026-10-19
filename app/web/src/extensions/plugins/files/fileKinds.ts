@@ -3,7 +3,11 @@ import {
 	FileCssIcon,
 	FileHtmlIcon,
 	FileJsIcon,
+	FileJsonIcon,
 	FileMarkdownIcon,
+	FilePackageJsonIcon,
+	FileTsIcon,
+	FileTsxIcon,
 	FileTxtIcon,
 	FileUnknownIcon,
 } from '../../../icons'
@@ -49,6 +53,20 @@ export const fileKinds: FileKind[] = [
 		language: 'javascript',
 	},
 	{
+		id: 'ts',
+		extensions: ['ts'],
+		icon: FileTsIcon,
+		viewer: 'monaco',
+		language: 'typescript',
+	},
+	{
+		id: 'tsx',
+		extensions: ['tsx'],
+		icon: FileTsxIcon,
+		viewer: 'monaco',
+		language: 'typescript',
+	},
+	{
 		id: 'css',
 		extensions: ['css'],
 		icon: FileCssIcon,
@@ -61,6 +79,20 @@ export const fileKinds: FileKind[] = [
 		icon: FileHtmlIcon,
 		viewer: 'monaco',
 		language: 'html',
+	},
+	{
+		id: 'package-json',
+		names: ['package.json'],
+		icon: FilePackageJsonIcon,
+		viewer: 'monaco',
+		language: 'json',
+	},
+	{
+		id: 'json',
+		extensions: ['json'],
+		icon: FileJsonIcon,
+		viewer: 'monaco',
+		language: 'json',
 	},
 ]
 

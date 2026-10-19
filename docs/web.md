@@ -241,13 +241,13 @@ streamdown 与插件的 Tailwind 类扫描写在 [`ui/MarkdownView/index.css`](.
 | 风格 | 根属性 | 适用 | 现有图标 |
 |---|---|---|---|
 | 实心单色 | `width=14 height=14 viewBox="<shape-bbox>" fill="currentColor"` | 来源是第三方/参考 SVG 的填充字形 | `PanelLeftIcon` / `PanelRightIcon` / `SendIcon` / `SearchIcon` / `BlocksIcon` / `SettingsIcon` / `ChevronRightIcon` / `FolderClosedIcon` / `FolderOpenIcon` / `FolderIcon` / `AddFolderIcon` / `FilterIcon` / `PlusIcon` / `FileIcon` / `TerminalIcon` / `CloseIcon` / `ListIcon` |
-| 彩色文件类型 | `width=14 height=14 viewBox="0 0 1024 1024"`,path 写死 `fill` hex | 扩展名图标,多色不能吃 `currentColor` | [`fileTypes.tsx`](../app/web/src/icons/fileTypes.tsx): `FileMarkdownIcon` / `FileTxtIcon` / `FileJsIcon` / `FileCssIcon` / `FileHtmlIcon` / `FileUnknownIcon` |
+| 彩色文件类型 | `width=14 height=14 viewBox="0 0 1024 1024"`,path 写死 `fill` hex | 扩展名图标,多色不能吃 `currentColor` | [`fileTypes.tsx`](../app/web/src/icons/fileTypes.tsx): `FileMarkdownIcon` / `FileTxtIcon` / `FileJsIcon` / `FileTsIcon` / `FileTsxIcon` / `FileCssIcon` / `FileHtmlIcon` / `FileJsonIcon` / `FilePackageJsonIcon` / `FileUnknownIcon` |
 
 实心单色图标的关键:**`viewBox` 设成 path 实际可见形状的 bounding box**(不是固定的 `0 0 1024 1024`)。原因:不同来源 SVG 的 path 占据的 bbox 大小差异很大(如一个纸飞机可能只占 viewBox 的 70%,一个 Blocks 网格占 85%),直接用源 viewBox 会导致渲染出来大小不一致。按 bbox 裁切后每个图标都充满 14×14 渲染区,视觉大小一致。bbox 之外留约 3% 内边距(在 viewBox 内侧加 padding),避免图形贴边。
 
 新增单色图标:在 `index.tsx` 内追加 `export function NameIcon()`,根属性按上表选实心单色;颜色走 `currentColor`,不要写死 hex。
 
-新增文件类型彩色图标:写在 `fileTypes.tsx`,从 `index.tsx` re-export;保留源 SVG 的多 path `fill`。文件插件用 [`fileKinds.ts`](../app/web/src/extensions/plugins/files/fileKinds.ts) 把扩展名绑到图标 + Monaco language。
+新增文件类型彩色图标:写在 `fileTypes.tsx`,从 `index.tsx` re-export;保留源 SVG 的多 path `fill`。源图贴满 `1024` 画布、看起来比旁边图标大时,加大 viewBox 留白,图形仍居中(如 `FileJsonIcon` / `FilePackageJsonIcon`)。文件插件用 [`fileKinds.ts`](../app/web/src/extensions/plugins/files/fileKinds.ts) 把扩展名绑到图标 + Monaco language。
 
 ## 布局
 

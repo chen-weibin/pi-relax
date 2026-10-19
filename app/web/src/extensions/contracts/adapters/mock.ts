@@ -119,6 +119,16 @@ const tree: MockNode = {
 			text: "export function greet(name) {\n\treturn `hello ${name}`\n}\n\nconsole.log(greet('pi'))\n",
 		},
 		{
+			name: 'demo.ts',
+			kind: 'file',
+			text: "export function greet(name: string) {\n\treturn `hello ${name}`\n}\n",
+		},
+		{
+			name: 'demo.tsx',
+			kind: 'file',
+			text: 'export function Demo() {\n\treturn <span>pi</span>\n}\n',
+		},
+		{
 			name: 'styles.css',
 			kind: 'file',
 			text: ':root {\n\t--app: #171717;\n}\n\nbody {\n\tmargin: 0;\n\tbackground: var(--app);\n}\n',
@@ -129,6 +139,11 @@ const tree: MockNode = {
 			text: '<!doctype html>\n<html lang="zh-CN">\n\t<head>\n\t\t<meta charset="utf-8" />\n\t\t<title>pi</title>\n\t</head>\n\t<body>\n\t\t<p>mock html</p>\n\t</body>\n</html>\n',
 		},
 		{ name: 'package.json', kind: 'file', text: '{ "name": "relax-root" }\n' },
+		{
+			name: 'data.json',
+			kind: 'file',
+			text: '{\n\t"name": "pi",\n\t"ok": true\n}\n',
+		},
 	],
 }
 
@@ -164,8 +179,12 @@ export const mockRecents: FsEntry[] = [
 	{ name: 'README.md', path: 'pi/README.md', kind: 'file' },
 	{ name: 'notes.txt', path: 'pi/notes.txt', kind: 'file' },
 	{ name: 'demo.js', path: 'pi/demo.js', kind: 'file' },
+	{ name: 'demo.ts', path: 'pi/demo.ts', kind: 'file' },
+	{ name: 'demo.tsx', path: 'pi/demo.tsx', kind: 'file' },
 	{ name: 'styles.css', path: 'pi/styles.css', kind: 'file' },
 	{ name: 'index.html', path: 'pi/index.html', kind: 'file' },
+	{ name: 'package.json', path: 'pi/package.json', kind: 'file' },
+	{ name: 'data.json', path: 'pi/data.json', kind: 'file' },
 	{ name: 'index.tsx', path: 'pi/app/web/src/ui/MarkdownView/index.tsx', kind: 'file' },
 ]
 
