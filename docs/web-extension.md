@@ -22,7 +22,7 @@ app/web/src/extensions/
 
 打开文件、打开终端都走 `openTab`。插件不做自己的 tab 条。文件树和终端会话列表都在插件 `PaneHeader` 内折叠，不走壳层 `renderSide`。
 
-壳层 tab 图标：`tab.icon ?? plugin.icon`。彩色类型图标在 [`icons/fileTypes.tsx`](../app/web/src/icons/fileTypes.tsx)，登记表在 [`plugins/files/fileKinds.ts`](../app/web/src/extensions/plugins/files/fileKinds.ts)。
+壳层 tab 图标：`tab.icon ?? plugin.icon`。彩色类型图标在 [`icons/fileTypes.tsx`](../app/web/src/icons/fileTypes.tsx)，匹配在 [`icons/matchFileIcon.ts`](../app/web/src/icons/matchFileIcon.ts)，登记表在 [`plugins/files/fileKinds.ts`](../app/web/src/extensions/plugins/files/fileKinds.ts)。
 
 壳层 tab 条溢出时：`+` 钉在右侧，条可横向滚动（无滚动条；悬停时滚轮竖滑改成横滑）。**选中 / 新增 / 从右侧会话列表切入** 时，会把当前 tab **完整**滚进可视区，避开右侧 `+` 和渐隐遮罩（半截挡住也要滚到全部露出）。`prefers-reduced-motion` 时不做平滑滚动。
 
@@ -93,7 +93,7 @@ useExtensionStore.getState().setEmptyExtensionHandler(() => 'welcome')
 | New File | 按钮占位，无 `FsApi.create` | 契约扩展 `create` 后接入 |
 | 目录树 | `FileTree/` + `treeStore`；展开才 `list`；加载中图标槽 `DotMatrix` xs；选中跟当前 tab | 全局搜索、watch 刷新 |
 | 文件预览 | `viewers/` 按 `fileKinds.viewer` 分发；本期仅 `monaco` → [`MonacoEditor`](ui.md#monacoeditor) | 图片等其它 viewer |
-| 类型扩展 | `names` 精确文件名优先，再 `extensions`，否则 unknown 图标 + monaco plaintext | 有图标时加 `package.json` 等 `names` 行 |
+| 类型扩展 | [`matchFileIcon`](../app/web/src/icons/matchFileIcon.ts):父目录/文件名、文件名、从长到短的扩展名、语言 id,否则 unknown。表在 [`fileKinds.ts`](../app/web/src/extensions/plugins/files/fileKinds.ts);`.jsx` 与 `.tsx` 共用 `FileTsxIcon`。待补清单在 [`file-icons.md`](file-icons.md) | 目录名图标;有图后再加 `spec.ts` 等更长扩展名 |
 | Header | 左路径面包屑（仅绑定文件时）；右 `FolderIcon` 收起/展开树（展开收起同一图标） | 面包屑可点击跳转目录 |
 | 文案 | 部分英文（`Files, Folders...`、`Recents`、`New File`） | 统一中文或 i18n |
 

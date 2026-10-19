@@ -11,6 +11,7 @@ import {
 	FileTxtIcon,
 	FileUnknownIcon,
 } from '../../../icons'
+import { matchFileIcon, type FileIconAssociations } from '../../../icons/matchFileIcon'
 
 export type FileViewerId = 'monaco'
 
@@ -67,6 +68,13 @@ export const fileKinds: FileKind[] = [
 		language: 'typescript',
 	},
 	{
+		id: 'jsx',
+		extensions: ['jsx'],
+		icon: FileTsxIcon,
+		viewer: 'monaco',
+		language: 'javascript',
+	},
+	{
 		id: 'css',
 		extensions: ['css'],
 		icon: FileCssIcon,
@@ -96,23 +104,18 @@ export const fileKinds: FileKind[] = [
 	},
 ]
 
-export function extensionFromPath(path: string) {
-	const name = path.split('/').filter(Boolean).pop() ?? ''
-	const dot = name.lastIndexOf('.')
-	if (dot <= 0) return ''
-	return name.slice(dot + 1).toLowerCase()
+function fileKindAssociations(kinds: FileKind[]): FileIconAssociations<FileKind> {
+	const fileNames: Record<string, FileKind> = {}
+	const fileExtensions: Record<string, FileKind> = {}
+	for (const kind of kinds) {
+		for (const name of kind.names ?? []) fileNames[name.toLowerCase()] = kind
+		for (const ext of kind.extensions ?? []) fileExtensions[ext.toLowerCase()] = kind
+	}
+	return { fileNames, fileExtensions, file: unknownFileKind }
 }
 
+const fileIconAssociations = fileKindAssociations(fileKinds)
+
 export function resolveFileKind(path: string): FileKind {
-	const name = (path.split('/').filter(Boolean).pop() ?? '').toLowerCase()
-	const byName = fileKinds.find((kind) =>
-		kind.names?.some((item) => item.toLowerCase() === name),
-	)
-	if (byName) return byName
-	const ext = extensionFromPath(path)
-	if (ext) {
-		const byExt = fileKinds.find((kind) => kind.extensions?.includes(ext))
-		if (byExt) return byExt
-	}
-	return unknownFileKind
+	return matchFileIcon(path, fileIconAssociations) ?? unknownFileKind
 }

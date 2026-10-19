@@ -32,7 +32,7 @@
 ## 文档索引
 
 - [`docs/web-app.md`](docs/web-app.md) — `app/web` 接入会话与对话的顶层设计：目录 / 当前会话 / 草稿、SSE 与历史对齐、发布与 Markdown 绘制拆开、Worker 与空闲时间的边界、可逐块做的模块。查阅时机：接会话列表、发送、全局 SSE、历史回放，或改帧通知、Markdown 节流、Worker 时。块怎么画仍看 [`docs/web-conversation.md`](docs/web-conversation.md)。
-- [`docs/web.md`](docs/web.md) — `app/web` 的 Tailwind / 设计 token 接入、Cursor 风四区布局、Composer 视觉规格。查阅时机：在 `app/web/` 下改 Tailwind 配置、调设计 token、改三栏尺寸、改 Composer / Setting / Sidebar 外壳时。原子组件的「何时用 / API / 视觉」在 [`docs/ui.md`](ui.md)。对话区渲染架构见 [`docs/web-conversation.md`](docs/web-conversation.md)。会话与 SSE 的接入顺序见 [`docs/web-app.md`](docs/web-app.md)。右侧扩展区插件、壳层 tab、FsApi/PtyApi 见 [`docs/web-extension.md`](docs/web-extension.md)。
+- [`docs/web.md`](docs/web.md) — `app/web` 的 Tailwind / 设计 token 接入、Cursor 风四区布局、Composer 视觉规格。查阅时机：在 `app/web/` 下改 Tailwind 配置、调设计 token、改三栏尺寸、改 Composer / Setting / Sidebar 外壳时。文件类型图标哪些已有、哪些待补见 [`docs/file-icons.md`](docs/file-icons.md)。原子组件的「何时用 / API / 视觉」在 [`docs/ui.md`](ui.md)。对话区渲染架构见 [`docs/web-conversation.md`](docs/web-conversation.md)。会话与 SSE 的接入顺序见 [`docs/web-app.md`](docs/web-app.md)。右侧扩展区插件、壳层 tab、FsApi/PtyApi 见 [`docs/web-extension.md`](docs/web-extension.md)。
 - [`docs/web-conversation.md`](docs/web-conversation.md) — 对话区分层、`BlockSnapshot` 判别联合、runtime、滚动/打字机约定、mock 与真实事件边界、打磨 UI 改哪一层。查阅时机：改对话列表、块类型、贴底滚动、打字机、消息观感，或把 mock feed 换成 `AgentSessionEvent` 时。
 - [`docs/ui.md`](docs/ui.md) — `app/web/src/ui/` 组件库的唯一详细文档。决策表、反例、每个组件的「何时用 / 何时不用 / API / 视觉 / 踩坑 / 查阅时机」全部在此。查阅时机：在 `app/web` 下新增 / 调用 UI 组件、为某需求选组件、判断「该不该自己写」、查阅组件完整 API 时。
 - [`docs/web-extension.md`](docs/web-extension.md) — 右侧扩展区插件架构：编译期 registry、唯一一层壳层 tab、`reuseKey`、空态策略、FsApi / PtyApi 与 mock 边界。查阅时机：新增插件、改欢迎页 / tab 条、改关最后一 tab 是否收起、接真实文件系统或 PTY 时。
