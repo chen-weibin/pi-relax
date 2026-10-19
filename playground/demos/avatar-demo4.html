@@ -7,8 +7,8 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     :root {
-      --app: #171717; --panel: #1e1e1e; --border: #2a2a2a;
-      --hover: #292929; --active: #2e2e2e;
+      --app: #151515; --panel: #252525; --border: #313131;
+      --hover: #303030; --active: #353535;
       --fg: #e5e5e5; --fg-2: #c7c7c7; --fg-3: #8a8a8a;
     }
     html, body {
@@ -44,7 +44,7 @@
 
     .btn {
       height: 28px; padding: 0 12px; border-radius: 7px;
-      background: var(--active); border: 1px solid #383838; font-size: 12px;
+      background: var(--active); border: 1px solid #3F3F3F; font-size: 12px;
     }
     .btn:hover { background: #363636; }
     .btn:focus-visible, .tile:focus-visible, .seg button:focus-visible, .swatch:focus-visible { outline: 2px solid #6b9cff; outline-offset: 1px; }
@@ -158,13 +158,13 @@
       shape: 'circle',
       expression: 'neutral',
       faceSize: 'small',
-      colors: { body: '#f4f4f1', face: '#1c1c20', outline: '#0b0b0d', background: '#171717' },
+      colors: { body: '#f4f4f1', face: '#1c1c20', outline: '#0b0b0d', background: '#151515' },
       outline: { enabled: false, width: 0.05 },
       animation: { loop: true, speed: 1, paused: false },
     }
 
     const PALETTES = [
-      { name: '经典', colors: { body: '#f4f4f1', face: '#1c1c20', outline: '#0b0b0d', background: '#171717' } },
+      { name: '经典', colors: { body: '#f4f4f1', face: '#1c1c20', outline: '#0b0b0d', background: '#151515' } },
       { name: '薄荷', colors: { body: '#c4f0d8', face: '#123527', outline: '#0a1d15', background: '#0f1a15' } },
       { name: '蜜桃', colors: { body: '#ffd6bf', face: '#3b1f14', outline: '#20110a', background: '#1b1411' } },
       { name: '丁香', colors: { body: '#dcd4ff', face: '#241b4d', outline: '#120d29', background: '#14121d' } },

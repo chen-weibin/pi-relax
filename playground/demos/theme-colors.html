@@ -5,15 +5,15 @@
 <title>app/web 主题色说明</title>
 <style>
   :root { color-scheme: dark; }
-  body { font: 14px/1.6 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; margin: 32px auto; max-width: 720px; padding: 0 16px; color: #E5E5E5; background: #171717; }
+  body { font: 14px/1.6 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; margin: 32px auto; max-width: 720px; padding: 0 16px; color: #E5E5E5; background: #151515; }
   h1 { font-size: 20px; margin: 0 0 8px; }
   h2 { font-size: 16px; margin: 24px 0 8px; color: #F5F5F5; }
   .lead { color: #A1A1A1; margin: 0 0 24px; }
   table { border-collapse: collapse; width: 100%; }
-  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid #2A2A2A; }
+  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid #313131; }
   th { color: #C7C7C7; font-weight: 500; }
-  code { font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; background: #242424; padding: 1px 6px; border-radius: 4px; }
-  .sw { display: inline-block; width: 14px; height: 14px; border-radius: 3px; vertical-align: -2px; margin-right: 6px; border: 1px solid #2A2A2A; }
+  code { font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; background: #2B2B2B; padding: 1px 6px; border-radius: 4px; }
+  .sw { display: inline-block; width: 14px; height: 14px; border-radius: 3px; vertical-align: -2px; margin-right: 6px; border: 1px solid #313131; }
   .note { color: #A1A1A1; font-size: 12px; }
 </style>
 </head>
@@ -28,11 +28,12 @@
   <h2>背景层</h2>
   <table>
     <tr><th>变量</th><th>值</th><th>用途</th></tr>
-    <tr><td><code>--app</code></td><td><span class="sw" style="background:#171717"></span>#171717</td><td>主背景(中 Conversation / 右 Extension / Setting)</td></tr>
-    <tr><td><code>--sidebar</code></td><td><span class="sw" style="background:#1E1E1E"></span>#1E1E1E</td><td>左 Sidebar</td></tr>
-    <tr><td><code>--surface</code></td><td><span class="sw" style="background:#242424"></span>#242424</td><td>浮起表面(scrollbar)</td></tr>
-    <tr><td><code>--surface-hover</code></td><td><span class="sw" style="background:#292929"></span>#292929</td><td>hover</td></tr>
-    <tr><td><code>--surface-active</code></td><td><span class="sw" style="background:#2E2E2E"></span>#2E2E2E</td><td>active</td></tr>
+    <tr><td><code>--app</code></td><td><span class="sw" style="background:#151515"></span>#151515</td><td>主背景(中 Conversation / 右 Extension / Setting)</td></tr>
+    <tr><td><code>--sidebar</code></td><td><span class="sw" style="background:#252525"></span>#252525</td><td>左 Sidebar,比主背景亮 16 个灰阶</td></tr>
+    <tr><td><code>--panel</code></td><td><span class="sw" style="background:#1C1C1C"></span>#1C1C1C</td><td>扩展区侧栏,只比主背景亮 7 阶</td></tr>
+    <tr><td><code>--surface</code></td><td><span class="sw" style="background:#2B2B2B"></span>#2B2B2B</td><td>浮起表面</td></tr>
+    <tr><td><code>--surface-hover</code></td><td><span class="sw" style="background:#303030"></span>#303030</td><td>hover</td></tr>
+    <tr><td><code>--surface-active</code></td><td><span class="sw" style="background:#353535"></span>#353535</td><td>active</td></tr>
   </table>
 
   <h2>文字</h2>
@@ -48,8 +49,8 @@
   <h2>边框</h2>
   <table>
     <tr><th>变量</th><th>值</th><th>用途</th></tr>
-    <tr><td><code>--border</code></td><td><span class="sw" style="background:#2A2A2A"></span>#2A2A2A</td><td>默认边框</td></tr>
-    <tr><td><code>--border-hover</code></td><td><span class="sw" style="background:#383838"></span>#383838</td><td>hover 边框</td></tr>
+    <tr><td><code>--border</code></td><td><span class="sw" style="background:#313131"></span>#313131</td><td>默认边框</td></tr>
+    <tr><td><code>--border-hover</code></td><td><span class="sw" style="background:#3F3F3F"></span>#3F3F3F</td><td>hover 边框</td></tr>
   </table>
 
   <h2>语义色</h2>

@@ -484,7 +484,7 @@
 |---|---|
 | 圆角 | 10px(`rounded-lg` 等价) |
 | 边框 | `1px solid var(--border)` |
-| 背景 | `#202020`(比 `--surface` 略深) |
+| 背景 | `#1E1E1E`(比 `--app` 亮 9 阶,比 `--surface` 深) |
 | 内边距 | `12px` |
 | 文字色 | `text-fg`(14px,`text-base`) |
 
@@ -1065,8 +1065,8 @@ const loadOptions = async ({ query, offset, limit }: Params): Promise<Result<V>>
 
 | 项 | 值 | 来源 |
 |---|---|---|
-| 背景 | `bg-sidebar` (`#1E1E1E`) | 与 Sidebar 同色,"沉下去" |
-| 边框 | `border-border-hover` (`#383838`) | 比背景亮一档,对比明显 |
+| 背景 | `bg-sidebar` (`#252525`) | 与 Sidebar 同色,"沉下去" |
+| 边框 | `border-border-hover` (`#3F3F3F`) | 比背景亮一档,对比明显 |
 | 圆角 | `rounded-lg` (10px) | §34 |
 | 阴影 | `shadow-lg` | 微凸 |
 | 字号 | `text-sm` (12px) | §3.1 |

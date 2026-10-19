@@ -47,8 +47,8 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
 ```css
 :root,
 [data-theme="dark"] {
-  --app: #171717;
-  --surface: #242424;
+  --app: #151515;
+  --surface: #2b2b2b;
   /* ... */
 }
 
@@ -71,18 +71,19 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
 
 | CSS 变量 | Tailwind 类 | 暗色值 | 用途 |
 |---|---|---|---|
-| `--app` | `bg-app` | `#171717` | 主背景(中 Conversation、右 Extension、Setting 覆盖层) |
-| `--sidebar` | `bg-sidebar` | `#1E1E1E` | 左 Sidebar |
-| `--surface` | `bg-surface` | `#242424` | 浮起表面(目前仅 scrollbar 用) |
-| `--surface-hover` | `bg-surface-hover` | `#292929` | hover |
-| `--surface-active` | `bg-surface-active` | `#2E2E2E` | active |
+| `--app` | `bg-app` | `#151515` | 主背景(中 Conversation、右 Extension、Setting 覆盖层) |
+| `--sidebar` | `bg-sidebar` | `#252525` | 左 Sidebar,比主背景亮 16 个灰阶 |
+| `--panel` | `bg-panel` | `#1C1C1C` | 扩展区侧栏(文件树、终端会话列表),只比主背景亮 7 阶 |
+| `--surface` | `bg-surface` | `#2B2B2B` | 浮起表面(Composer、设置分组、输入框、滚动条) |
+| `--surface-hover` | `bg-surface-hover` | `#303030` | hover |
+| `--surface-active` | `bg-surface-active` | `#353535` | active |
 | `--fg` | `text-fg` | `#E5E5E5` | 主文字 |
 | `--fg-bright` | `text-fg-bright` | `#F5F5F5` | hover / active 高亮 |
 | `--fg-2` | `text-fg-2` | `#C7C7C7` | 次文字 |
 | `--fg-3` | `text-fg-3` | `#A1A1A1` | 三级文字 |
 | `--fg-disabled` | `text-fg-disabled` | `#737373` | 禁用 |
-| `--border` | `border-border` | `#2A2A2A` | 默认边框 |
-| `--border-hover` | `border-border-hover` | `#383838` | hover 边框 |
+| `--border` | `border-border` | `#313131` | 默认边框 |
+| `--border-hover` | `border-border-hover` | `#3F3F3F` | hover 边框 |
 | `--accent` | `bg-accent` / `text-accent` | `#00C487` | 主交互 / 成功 |
 | `--success` | `bg-success` | `#00C487` | 成功 |
 | `--error` | `bg-error` | `#F05252` | 错误 |

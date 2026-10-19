@@ -77,41 +77,37 @@ Subtle Accent
 
 2.1 Global Background
 
-主背景：
-
-#171717 ~ #1E1E1E
-
-页面不同区域可以使用非常接近的深色：
+主背景压在暗部,侧栏比主区亮一档,分界靠灰阶而不是亮色:
 
 App Background:
-#171717
+#151515
 
 Sidebar:
-#1E1E1E
+#252525
+
+Extension panel:
+#1C1C1C
 
 Main Content:
-#171717
+#151515
 
 Elevated Surface:
-#242424
+#2B2B2B
 
-Card Surface:
-#272727
+Hover:
+#303030
+
+Active:
+#353535
 
 
 重点：
 
-不同区域之间不依赖明显色差。
+侧栏与主区靠这一档灰分开,整体仍压在暗部。
 
-主要通过：
+控件浮起靠同一条阶梯,不单把侧栏抬亮。
 
-Border
-+
-Spacing
-+
-Hierarchy
-
-进行区分。
+文字与强调色保持原亮度。
 
 
 2.2 Text
@@ -150,11 +146,11 @@ Disabled:
 
 默认：
 
-#2A2A2A
+#313131
 
 Hover：
 
-#383838
+#3F3F3F
 
 Active：
 
@@ -349,7 +345,7 @@ Sidebar 是非常重要的一级导航区域。
 视觉：
 
 Background:
-#1E1E1E
+#252525
 
 
 内容结构：
@@ -1831,11 +1827,12 @@ Context Menu
 
 COLOR
 
---color-bg: #171717
---color-sidebar: #1E1E1E
---color-surface: #242424
---color-surface-hover: #292929
---color-surface-active: #2E2E2E
+--color-bg: #151515
+--color-sidebar: #252525
+--color-panel: #1C1C1C
+--color-surface: #2B2B2B
+--color-surface-hover: #303030
+--color-surface-active: #353535
 
 --color-text: #E5E5E5
 --color-text-bright: #F5F5F5
@@ -1843,8 +1840,8 @@ COLOR
 --color-text-tertiary: #A1A1A1
 --color-text-disabled: #737373
 
---color-border: #2A2A2A
---color-border-hover: #383838
+--color-border: #313131
+--color-border-hover: #3F3F3F
 
 --color-primary: #00C487
 

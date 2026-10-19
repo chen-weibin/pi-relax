@@ -88,7 +88,7 @@ export function FilesView({ tab }: PluginRenderProps) {
 				<div
 					aria-hidden={!navOpen}
 					className={classNames(
-						'shrink-0 overflow-hidden bg-sidebar transition-[width] duration-200 ease-out motion-reduce:transition-none',
+						'shrink-0 overflow-hidden bg-panel transition-[width] duration-200 ease-out motion-reduce:transition-none',
 						navOpen ? 'border-l border-border' : 'pointer-events-none',
 					)}
 					style={{ width: navOpen ? FILES_NAV_WIDTH : 0 }}

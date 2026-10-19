@@ -49,7 +49,7 @@ async function loadMonacoTheme() {
 		highlighter.getTheme(MONACO_THEME),
 	) as monaco.editor.IStandaloneThemeData
 	const colors = theme.colors
-	const background = cssColor('--app', '#171717')
+	const background = cssColor('--app', '#151515')
 	const lineNumber =
 		colors['editorLineNumber.activeForeground'] ??
 		colors['editorLineNumber.foreground'] ??

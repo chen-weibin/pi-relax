@@ -59,7 +59,7 @@
 .markdown-view :where(:not(pre) > code) {
 	font-family: var(--font-mono);
 	font-size: 12px;
-	background: #2e2e2e;
+	background: var(--surface-active);
 	border-radius: 4px;
 	padding: 2px 5px;
 }

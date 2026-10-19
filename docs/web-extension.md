@@ -105,7 +105,7 @@ useExtensionStore.getState().setEmptyExtensionHandler(() => 'welcome')
 |---|---|---|
 | 主区 | `@xterm/xterm` + fit；实例按 `sessionId` 保活，切 tab 只挪 DOM，关 tab 才 dispose | 真实 PTY 数据流 |
 | 插件顶栏 | `PaneHeader` 38px、`pr-3` 与壳层 toggle 右对齐；右 `ListIcon` 16px / 按钮 26 | 左侧可加 cwd / 操作 |
-| 会话列表 | 右侧占位 nav，`bg-sidebar`；宽度 0↔220，终端 fit 剩余宽度；item hover 显示关闭 | — |
+| 会话列表 | 右侧占位 nav，`bg-panel`；宽度 0↔220，终端 fit 剩余宽度；item hover 显示关闭 | — |
 | 后端 | `mockPty.write` 回显（含 Enter / Backspace），无命令执行 | `node-pty` + WebSocket；`write` / `resize` 走 `PtyApi` |
 
 关终端 tab 会 `releaseTerminalRuntime` + `mockPty.dispose`；切换终端 / 切到文件再回来会保留缓冲。换真实适配器时保持此行为。

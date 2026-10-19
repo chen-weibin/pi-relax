@@ -11,14 +11,14 @@ function cssVar(name: string, fallback: string) {
 
 function readTheme() {
 	const fg = cssVar('--fg', '#e5e5e5')
-	const bg = cssVar('--app', '#171717')
+	const bg = cssVar('--app', '#151515')
 	const muted = cssVar('--fg-3', '#a1a1a1')
 	return {
 		foreground: fg,
 		background: bg,
 		cursor: fg,
 		cursorAccent: bg,
-		selectionBackground: cssVar('--surface-active', '#2e2e2e'),
+		selectionBackground: cssVar('--surface-active', '#353535'),
 		selectionForeground: fg,
 		black: '#1a1a1a',
 		red: cssVar('--error', '#f05252'),
