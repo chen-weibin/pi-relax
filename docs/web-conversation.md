@@ -1,6 +1,6 @@
 # 对话区渲染架构
 
-查阅时机：改对话列表、块类型、贴底滚动、打字机、把 mock feed 换成真实 `AgentSessionEvent` 时。布局 / token / 四区 shell 仍看 [`web.md`](web.md)。UI 组件(用什么 / 别造轮子)见 [`docs/ui.md`](ui.md);原子组件 API / 视觉细节见 [`web.md` §UI 组件库](web.md#ui-组件库ui)。
+查阅时机：改对话列表、块类型、贴底滚动、打字机、把 mock feed 换成真实 `AgentSessionEvent` 时。布局 / token / 四区 shell 仍看 [`web.md`](web.md)。UI 组件(用什么 / 别造轮子)见 [`docs/ui.md`](ui.md);原子组件 API / 视觉细节见 [`web.md` §UI 组件库](web.md#ui-组件库ui)。会话列表、发送、全局 SSE、历史对齐，以及帧通知 / Markdown 节流 / Worker 的边界见 [`web-app.md`](web-app.md)（查阅时机：把 mock 换成服务端会话时）。本文的「明确不做」是渲染层当前不做的事；接入顺序在那篇里。
 
 ## 分层
 

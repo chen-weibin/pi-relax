@@ -1,0 +1,164 @@
+# app/web 接入顶层设计
+
+查阅时机：接会话列表、发送、全局 SSE、历史回放，或改前端性能边界（帧通知、Markdown 节流、Worker）时。块怎么画仍看 [web-conversation.md](web-conversation.md)。四区 shell 与 Composer 外壳仍看 [web.md](web.md)。服务端接口与上限仍看 [server.md](server.md)，字段以 [api.html](../app/server/test/html/api.html) 为准，本文不抄一份类型。
+
+本文是当前方案，不是必须照做的合同。文档效力见 [AGENTS.md](../AGENTS.md) 的「开发记录规范」：实现改了就改文档；有问题或更合适的做法就提出来，用代码和测量核对。下面的 16ms、32ms、8ms 是当前取舍，改它们的条件写在「发布与绘制」。
+
+服务端对话已经能用。`app/web` 的侧栏项目和对话列仍是 mock。下面按块做，每次只做一块。
+
+## 权威与三份状态
+
+会话正文只有一份：pi 的 JSONL。读历史用 `GET /api/sessions/:id/history`（`buildSessionContext`）。线上增量用 `GET /api/sessions/events`，每条是 `{ sessionId, event }`，内层是 pi 的 `AgentSessionEvent`。前端不另存一套消息档案。`BlockFeedEvent` 是 UI 投影，不是协议。适配器放在 web 侧，把事件译成现有块，见 [web-conversation.md](web-conversation.md)。
+
+```text
+SSE / HTTP  →  按 sessionId 分流
+                ├─ 目录（侧栏：状态、标题、时间）
+                └─ 当前打开的那一条 → adapter → runtime → ConversationView
+打开历史：history JSON → Worker 译成一份快照 → runtime.replace
+```
+
+三份状态分开存。目录 store 不放正文，侧栏不订阅当前会话的块。
+
+- **目录**。侧栏一行：`id`、`cwd`、`name`、`firstMessage`、`created`、`modified`、`status`。`status` 只有 `idle` | `running`，与服务端一致。侧栏 mock 里的 success / failure 不进目录。展示标题：`name` 非空用 `name`，否则用 `firstMessage`。
+- **当前会话**。现有 `ConversationSnapshot`。同一时刻 React 只挂这一份全文。切走就丢掉块树，再打开用历史重建。
+- **草稿**。还没发送的新对话没有 sessionId，草稿只在内存里，按「当前这次新对话」存。刷新丢失可以接受。不写进会话文件。
+
+重连：SSE 断线不补。重连或打开某条会话时，历史是权威。历史应用完成之后，才把这条的实时事件送进 runtime。拉历史期间到达的事件按 sessionId 留在短队列，历史落地后重放。避免先应用流、再盖上历史，把块写乱。
+
+## 发布与绘制
+
+现有 `createBlockRuntime` 把 `*_delta` 放进 `pending`，下一次 `requestAnimationFrame` 再 `apply` 并 `emit`。这是把两次绘制之间到达的增量合成一次通知，大约 16ms（60Hz）。字符串拼接不是热点。热点是：每次 `emit` 新建整份 `byKey`、React 重绘、以及 `Streamdown` 对未完成 Markdown 的整段重解析（代码高亮、公式、Mermaid）。
+
+把「通知 React」和「把文本交给 Markdown」拆开。把通知再推迟到两帧或三帧，解析次数并不少，光标只是更晚一拍。
+
+当前取舍：
+
+- **内存追加**。每个 delta 到达就拼进该块文本。留在主线程。
+- **通知 React**。下一帧，且一帧最多一次（约 16ms）。`user`、`*_start`、`*_end`、`run_*` 立刻 flush。流式结束的那一帧立刻把最终文本画出来，不吃下面的绘制节流。
+- **流式 Markdown**。块的 `contentPhase` 仍是 `open` 时，最多每 32ms（约 30fps）把最新文本交给 `MarkdownView`。runtime 可以比这更勤。30fps 的正文看起来连续。`blurIn` 是 200ms，比 30fps 更密的解析看不见。50ms（三帧）在中文逐字上会一顿一顿，不用。已经 `complete` 的块不再解析。只有正在开着的那一块换文本。
+- **结构共享**。接上真实流式时，`emit` 只替换正在写的那一块，不为它复制整份 `order` / `byKey`。现有 runtime 每次 flush 都新建整份 `byKey`，那是 mock 能用的写法，接 SSE 时要改。这比多等一帧更影响主线程。
+- **高亮**。围栏或图未闭合时不算 Shiki、不算 Mermaid。`contentPhase === 'complete'` 再算。流式中的代码块先当普通文本。
+
+改这些数字的条件：通知间隔只有在测量到「一帧一次的通知本身」超过预算时才加长，加长之前先确认贵的不是 Markdown。绘制间隔若在中文逐字上已经能看出停顿，就缩短；若 32ms 下解析仍经常超过约 8ms，先确认高亮已经延后、完成块已不再解析，再考虑把解析移出主线程（见下节）。没量到之前不改常数。
+
+## Worker 与空闲时间
+
+Worker 做「算一次、结果不参与当前这一帧」的事。打开历史时，把 history JSON 译成一份快照，一次 postMessage 回来。传字符串，或可转移的 buffer。主线程只 `replace` 一次。Worker 不可用就在主线程做同一件事。
+
+token 流不进 Worker。每条增量拷进 Worker 再拷回来，比在主线程拼接字符串贵，而且晚一拍。
+
+`Streamdown` 组件不进 Worker，它要产出 DOM。能挪的是解析。当前不挪。先做 32ms 节流、完成块不重解析、高亮延后。这样做完之后，若单次流式解析仍经常超过约 8ms，再把「解析出 HTML 或 AST」放进 Worker，主线程只插入结果。没量到之前不另写一套 Markdown。
+
+`requestIdleCallback` 不用于流式。流式时主线程忙，空闲回调要么排不上，要么积成一大段然后卡一下。空闲时间只给可以晚一点的目录工作（例如以后的搜索索引），并且带 timeout；超时就在下一帧做完，避免侧栏停在旧数据上。几百条会话的分桶和排序留在主线程，不为这个加 Worker。
+
+后台会话：SSE 只改目录里的 `status`、`modified`，以及事件里确实带上的标题字段。不为看不见的会话建块树，不跑 Markdown。
+
+对话列仍不上虚拟列表，这是 [web-conversation.md](web-conversation.md) 的现结论。块数先把主线程打满时再评估窗口化，本文不预做。侧栏行高一致，会话多到滚动卡住时再虚拟化这一列。
+
+Store 继续按字段切片订阅。做法见 [web-zustand-store-design.md](superpowers/specs/2026-09-11-web-zustand-store-design.md)（查阅时机：加 store、避免整店订阅时）。
+
+## 传输
+
+全应用一条 `GET /api/sessions/events`。发送、中止、列表、历史、改名走 HTTP JSON。错误体是 `{ error: { code, message } }`。`BUSY` 为 409。
+
+断线后重新连接，不在传输层补事件。打开着的那条用历史对齐，再接上之后的实时事件。目录在重连后重新拉列表，校正 `status`。
+
+## 目录与项目登记
+
+侧栏用 `GET /api/sessions` 替换 `ProjectSection` 里的 mock。会话按 `cwd` 分桶。
+
+服务端还没有项目登记接口。用户钉住的文件夹是前端的薄登记：`cwd` 加显示名，先放 localStorage。以后服务端有登记接口，只换这个登记的存储，分桶键仍是 `cwd`。列表里出现、但没钉住的 `cwd` 仍然显示，避免把已有会话藏起来。未指定工作区时的桶是 `~/.relax/workspace`（随服务端 `home` 换走，见 [server.md](server.md)）。多根工作区不做。
+
+新建对话只是空草稿。第一次发送才 `POST /api/sessions`。不先造空会话文件。
+
+删除走 `DELETE /api/sessions/:id`。改名走 `POST /api/sessions/:id/name`，空字符串清空标题，界面回到 `firstMessage`。
+
+## 打开历史
+
+选中已有会话时拉 history。Worker 译成一份快照（或译成现有 runtime 能 `replace` 的已完成消息）。主线程 `replace` 一次。此阶段不发送。
+
+正在生成的会话也可以打开：先落地历史，再把短队列里积下的事件放进 runtime，然后接上这条的实时事件。
+
+## 发送与中止
+
+`Composer` 的 `onSubmit` 接到会话。没有 sessionId 时走创建并发送；已有则走续发。当前会话的 SSE 经 adapter 进入 `runtime.apply`。
+
+通知仍是一帧一次。流式 Markdown 按 32ms 画，结束立刻画最终文本。快照只换正在写的那一块。
+
+同一条正在生成时，不带 `streamingBehavior` 再发会得到 409 `BUSY`。`steer` 在当前回复及其工具结束后、下一次模型调用前插入；`followUp` 在这一轮结束后再发。两种都不打断正在吐的字。出队模式在服务端全局设置里，本文不另做开关，除非单独开一块。
+
+中止走 `POST /api/sessions/:id/abort`。策略由服务端 `abortPolicy` 决定，前端不在本地猜队列清没清，以响应为准。
+
+## 后台会话
+
+非当前会话的事件只更新目录。切到一条正在跑的会话时，走「打开历史」：先历史，再接实时。不在后台把全文收进 React。
+
+## 后续块
+
+模型与思考档位读已有的 `/api/models` 和 thinking-levels。新建用全局默认。续发带上所选模型，且与该会话上次不同时，才由服务端写入会话。对话框里只改默认、不发送，不改这条会话的上次模型。这块不改块模型。
+
+工具调用和错误要上 UI 时，在 `BlockKind` 上加成员，adapter 加分支。暂时没有界面就先走 `GenericBlock`。协议仍是 `AgentSessionEvent`，不另造事件。
+
+## 明确不做
+
+这些不在下面的模块里：分支 / fork、附件、checkpoint、命令审批、自动标题、文件与终端从 mock 换成真接口（仍看 [web-extension.md](web-extension.md)，查阅时机：接真实文件系统或 PTY 时）、对话列虚拟列表、把 token 流或 `Streamdown` 组件搬进 Worker。解析进 Worker 只是「发布与绘制」里的测量后门，不单独立项。
+
+## 模块
+
+每块可以单独做完。后一块用前一块的数据形状，不依赖后一块的界面。
+
+### 1. 传输
+
+依赖：服务端已有的 `/api` 与全局 SSE。
+
+验收：页面能拉列表、能保持一条 SSE，断线重连后目录状态与一条打开中的会话能靠历史对上。尚无侧栏替换、尚无发送。
+
+此块不做：改 `ProjectSection`、改 runtime、解析 Markdown。
+
+### 2. 目录
+
+依赖：模块 1。
+
+验收：侧栏来自真实列表，按 `cwd` 分桶；可以钉住文件夹、选择会话、删除、改名。点「新对话」得到空草稿，刷新前不出现新的会话文件。
+
+此块不做：打开历史后的正文、发送。
+
+### 3. 打开历史
+
+依赖：模块 1、模块 2 的「选中哪一条」。
+
+验收：点一条已有会话，正文来自 history，经 Worker 译一次再 `replace`。切走再打开，内容与文件一致。此块不能发送。
+
+此块不做：流式节流、结构共享改造。
+
+### 4. 发送与中止
+
+依赖：模块 3 的 runtime 替换路径；空草稿来自模块 2。
+
+验收：发送后看到流式正文。生成中的 Markdown 约 30fps 更新，结束立刻是最终文本。完成的块不再跟着重解析。未闭合代码块不高亮。同一条生成中直接再发得到 `BUSY`；`steer` / `followUp` 按服务端排队。中止后目录变为 `idle`，正文停在已收到的内容。快照更新不复制整份块表。
+
+此块不做：后台会话的全文、模型选择器、工具块 UI。
+
+### 5. 后台状态
+
+依赖：模块 1 的分流、模块 4 的当前会话。
+
+验收：A 在生成时看 B，A 的侧栏状态仍会变成 `running` / `idle`，B 的正文不重绘。再点回 A，先看到历史，再接上尚未画完的增量。
+
+此块不做：为后台会话预解析 Markdown。
+
+### 6. 模型与思考档位
+
+依赖：模块 4 的发送请求能带上可选字段。
+
+验收：能看到可用模型和该模型的思考档位。新建用全局默认。续发改了模型且与该会话上次不同，服务端才写入。只改默认、不发送，这条会话的上次模型不变。
+
+此块不做：新的块类型。
+
+### 7. 工具与错误块
+
+依赖：模块 4 的 adapter 已经在收 `AgentSessionEvent`。
+
+验收：工具或错误在块模型里有自己的 `kind` 和 `data`。有界面就画，没有就先 `GenericBlock`。不把这些事件收成 `{ text: string }`。
+
+此块不做：命令审批、文件回滚。

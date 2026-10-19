@@ -6,7 +6,7 @@
 
 对接 pi 之前先读源码，不要只凭本文的 API 摘要选函数。本地克隆在仓库根的 `pi/`（已 git 忽略），会话相关源码在 `pi/packages/coding-agent/src/core/`，说明在 `pi/packages/coding-agent/docs/sdk.md`。运行时安装的是 `@earendil-works/pi-coding-agent@^1.0.4`（与 `pi-ai` 同版本）。类型或文档和源码不一致时，以源码为准，并把结论回写本文。
 
-相关文档：当前已经实现的能力清单见 [server-implemented.md](server-implemented.md)（查阅时机：想看服务端现在做到哪、对照联调页时）。对话区现有块模型见 [web-conversation.md](web-conversation.md)（查阅时机：把服务端事件译成现有 UI 时）。文件与终端的前端契约见 [web-extension.md](web-extension.md)（查阅时机：做文件系统或 PTY 时）。`app/agenttest` 只是加载试验，不能当作已验证结论。
+相关文档：当前已经实现的能力清单见 [server-implemented.md](server-implemented.md)（查阅时机：想看服务端现在做到哪、对照联调页时）。对话区现有块模型见 [web-conversation.md](web-conversation.md)（查阅时机：把服务端事件译成现有 UI 时）。前端怎么接会话、目录和 SSE 见 [web-app.md](web-app.md)（查阅时机：开始做 `app/web` 的对话与会话管理时）。文件与终端的前端契约见 [web-extension.md](web-extension.md)（查阅时机：做文件系统或 PTY 时）。`app/agenttest` 只是加载试验，不能当作已验证结论。
 
 ## 产品形态
 

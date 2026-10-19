@@ -223,7 +223,7 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
 
 ### Conversation(v1)
 
-对话区渲染的分层、数据模型、runtime、滚动/打字机约定、mock 与真实事件边界,见 [`docs/web-conversation.md`](web-conversation.md)(改对话列表、块类型、贴底滚动、打字机,或把 mock feed 换成 `AgentSessionEvent` 时查阅)。打磨消息卡片 / 思考折叠 / Markdown / 打字机观感时也先看该文档的「打磨 UI」节,再改 `ui/` 或 `components/conversation/`。本节只记接入点。
+对话区渲染的分层、数据模型、runtime、滚动/打字机约定、mock 与真实事件边界,见 [`docs/web-conversation.md`](web-conversation.md)(改对话列表、块类型、贴底滚动、打字机,或把 mock feed 换成 `AgentSessionEvent` 时查阅)。会话列表、发送、全局 SSE、历史回放和前端性能边界见 [`docs/web-app.md`](web-app.md)(接真实会话或改帧通知、Markdown 节流、Worker 时查阅)。打磨消息卡片 / 思考折叠 / Markdown / 打字机观感时也先看 [`web-conversation.md`](web-conversation.md) 的「打磨 UI」节,再改 `ui/` 或 `components/conversation/`。本节只记接入点。
 
 消息列与 Composer 共用 `max-w-[800px]` + `px-4` 居中。列贴底用 [`use-stick-to-bottom`](https://www.npmjs.com/package/use-stick-to-bottom)(`StickToBottom`，`initial`/`resize` 均为 `instant`；发送与模拟流式强制 `scrollToBottom`)。Streamdown `animated` 只管文字出现，不管列表滚动；代码块内部滚动仍由 `isAnimating` + MarkdownView 外壳 max-height 处理。数据层在 [`src/conversation/`](../app/web/src/conversation/)(类型 + runtime,不是 UI);组装与渲染在 [`components/conversation/`](../app/web/src/components/conversation/)。
 
