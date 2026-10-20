@@ -60,7 +60,7 @@ function ExtensionTabItem({
 			className={classNames(
 				'group/tab relative h-[26px] w-max min-w-[54px] max-w-[160px] shrink-0 overflow-hidden rounded-md',
 				active
-					? 'bg-surface-active text-fg-bright'
+					? 'bg-surface-hover text-fg-bright'
 					: 'text-fg-2 hover:bg-surface-hover hover:text-fg-bright',
 			)}
 		>
@@ -80,9 +80,7 @@ function ExtensionTabItem({
 				aria-hidden
 				className={classNames(
 					'pointer-events-none absolute inset-y-0 right-0 w-9 opacity-0 transition-opacity duration-100 group-hover/tab:opacity-100',
-					active
-						? 'bg-[linear-gradient(to_right,transparent_0%,var(--surface-active)_38%,var(--surface-active)_100%)]'
-						: 'bg-[linear-gradient(to_right,transparent_0%,var(--surface-hover)_38%,var(--surface-hover)_100%)]',
+					'bg-[linear-gradient(to_right,transparent_0%,var(--surface-hover)_38%,var(--surface-hover)_100%)]',
 				)}
 			/>
 			<button

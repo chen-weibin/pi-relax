@@ -24,6 +24,8 @@ app/web/src/extensions/
 
 壳层 tab 图标：`tab.icon ?? plugin.icon`。彩色类型图标在 [`icons/fileTypes.tsx`](../app/web/src/icons/fileTypes.tsx)，匹配在 [`icons/matchFileIcon.ts`](../app/web/src/icons/matchFileIcon.ts)，登记表在 [`plugins/files/fileKinds.ts`](../app/web/src/extensions/plugins/files/fileKinds.ts)。
 
+壳层 tab 选中底用 `bg-surface-hover`（`#303030`），不用 `bg-surface-active`。条本身贴在 `--app`（`#151515`）上，`#353535` 会显得过亮。文字仍是 `text-fg-bright`。未选中悬停同色，靠常驻底色和更亮的字区分选中。
+
 壳层 tab 条溢出时：`+` 钉在右侧，条可横向滚动（无滚动条；悬停时滚轮竖滑改成横滑）。**选中 / 新增 / 从右侧会话列表切入** 时，会把当前 tab **完整**滚进可视区，避开右侧 `+` 和渐隐遮罩（半截挡住也要滚到全部露出）。`prefers-reduced-motion` 时不做平滑滚动。
 
 `reuseKey`（与 `pluginId` 一起判重，命中则激活）：
