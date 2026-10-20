@@ -75,7 +75,7 @@ useExtensionStore.getState().setEmptyExtensionHandler(() => 'welcome')
 
 ## 壳层 UI（本期已定稿）
 
-- 欢迎页：居中列出 registry 插件（`文件` / `终端`）。
+- 欢迎页：上下左右居中的圆角卡片，列出 registry 插件（现在是 `文件` / `终端`）。单卡 `120×100`，标题 `--fg`，图标 `--fg-3`。悬停时底 `--surface`、边框 `white/12`（和底色分开），标题保持 `--fg`，图标提到 `--fg-2`。栏宽放得下就并排，放不下折成一列，折行后仍居中。
 - `+` 添加菜单：`Popover` `bottom-end`、宽 `220px`、内边距 `p-1`；搜索与列表间分割线用 `-mx-1` 左右贴边框（同 `Select` 下拉）。
 - 关最后一 tab 默认 `emptyHandler → 'collapse'`（收起右栏）；可改为 `'welcome'` 保持展开并回欢迎页。
 

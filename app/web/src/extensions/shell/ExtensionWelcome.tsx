@@ -1,32 +1,25 @@
-import { useShallow } from 'zustand/react/shallow'
-import { FileIcon } from '../../icons'
 import { useExtensionStore } from '../store'
 import { extensionPlugins } from '../registry'
 
-const welcomeLabels: Record<string, string> = {
-	files: '文件',
-	terminal: '终端',
-}
-
 export function ExtensionWelcome() {
-	const openPlugin = useExtensionStore(useShallow((s) => s.openPlugin))
+	const openPlugin = useExtensionStore((s) => s.openPlugin)
 
 	return (
 		<div className="flex h-full w-full items-center justify-center px-6">
-			<div className="flex w-full max-w-52 flex-col gap-0.5">
+			<div className="flex max-w-full flex-wrap items-center justify-center gap-3">
 				{extensionPlugins.map((plugin) => {
-					const Icon = plugin.icon ?? FileIcon
+					const Icon = plugin.icon
 					return (
 						<button
 							key={plugin.id}
 							type="button"
 							onClick={() => openPlugin(plugin.id)}
-							className="flex h-[30px] w-full cursor-pointer items-center gap-2.5 rounded-md px-2.5 text-sm text-fg-2 transition-colors duration-100 hover:bg-surface-hover hover:text-fg-bright"
+							className="group flex h-[100px] w-[120px] cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-border bg-transparent text-sm text-fg transition-colors duration-100 hover:border-white/12 hover:bg-surface"
 						>
-							<span className="text-fg-3">
+							<span className="text-fg-3 transition-colors duration-100 group-hover:text-fg-2 [&_svg]:h-[18px] [&_svg]:w-[18px]">
 								<Icon />
 							</span>
-							<span>{welcomeLabels[plugin.id] ?? plugin.title}</span>
+							<span>{plugin.title}</span>
 						</button>
 					)
 				})}
