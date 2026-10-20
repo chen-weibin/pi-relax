@@ -60,7 +60,7 @@ kebab-case + 后缀(如 `loading-dots-demo.html`、`theme-colors.html`)。
 
 playground 不走 Vite,各 demo 直接用与项目一致的色值:
 
-- 背景 `#151515`、侧栏 `#252525`、边框 `#313131`
+- 背景 `#151515`、侧栏 `#252525`、边框 `#2A2A2A`
 - 字体 `-apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif`
 
 ## 禁止

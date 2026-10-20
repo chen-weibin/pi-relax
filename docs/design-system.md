@@ -146,7 +146,7 @@ Disabled:
 
 默认：
 
-#313131
+#2A2A2A
 
 Hover：
 
@@ -1840,7 +1840,7 @@ COLOR
 --color-text-tertiary: #A1A1A1
 --color-text-disabled: #737373
 
---color-border: #313131
+--color-border: #2A2A2A
 --color-border-hover: #3F3F3F
 
 --color-primary: #00C487

@@ -82,7 +82,7 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
 | `--fg-2` | `text-fg-2` | `#C7C7C7` | 次文字 |
 | `--fg-3` | `text-fg-3` | `#A1A1A1` | 三级文字 |
 | `--fg-disabled` | `text-fg-disabled` | `#737373` | 禁用 |
-| `--border` | `border-border` | `#313131` | 默认边框 |
+| `--border` | `border-border` | `#2A2A2A` | 默认边框 |
 | `--border-hover` | `border-border-hover` | `#3F3F3F` | hover 边框 |
 | `--accent` | `bg-accent` / `text-accent` | `#00C487` | 主交互 / 成功 |
 | `--success` | `bg-success` | `#00C487` | 成功 |
