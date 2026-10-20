@@ -74,7 +74,7 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
 | `--app` | `bg-app` | `#151515` | 主背景(中 Conversation、右 Extension、Setting 覆盖层) |
 | `--sidebar` | `bg-sidebar` | `#252525` | 左 Sidebar,比主背景亮 16 个灰阶 |
 | `--panel` | `bg-panel` | `#1C1C1C` | 扩展区侧栏(文件树、终端会话列表),只比主背景亮 7 阶 |
-| `--surface` | `bg-surface` | `#2B2B2B` | 浮起表面(Composer、设置分组、输入框、滚动条) |
+| `--surface` | `bg-surface` | `#2B2B2B` | 浮起表面(设置分组、输入框、滚动条)。Composer 外壳不用它,见下文 |
 | `--surface-hover` | `bg-surface-hover` | `#303030` | hover |
 | `--surface-active` | `bg-surface-active` | `#353535` | active |
 | `--fg` | `text-fg` | `#E5E5E5` | 主文字 |
@@ -213,7 +213,7 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
 
   | 项 | 值 |
   |---|---|
-  | 外壳 | `bg-surface` + `rounded-pill` + `border-border-hover` |
+  | 外壳 | `color-mix(--app 45%, --surface)`(暗色约 `#212121`,比 `--surface` 深) + `rounded-pill` + `border-border-hover` |
   | 聚焦边框 | `color-mix(--border-hover, --fg 12%)`,只比默认亮一档 |
   | 发送 | 右下 28px 圆钮;可发送 `bg-fg text-app`,空内容 `bg-surface-active text-fg-disabled` |
   | 图标 | 复用 `SendIcon`(与侧栏「新对话」同一 glyph),视觉居中用 `-translate-x-[0.5px]` |

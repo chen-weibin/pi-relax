@@ -33,7 +33,7 @@ export function Composer({
 	return (
 		<div
 			className={classNames(
-				'flex flex-col gap-2 rounded-pill border border-border-hover bg-surface px-3.5 pt-3 pb-2',
+				'flex flex-col gap-2 rounded-pill border border-border-hover bg-[color-mix(in_srgb,var(--app)_45%,var(--surface))] px-3.5 pt-3 pb-2',
 				'focus-within:border-[color-mix(in_srgb,var(--border-hover),var(--fg)_12%)]',
 				className,
 			)}
