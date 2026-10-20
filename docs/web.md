@@ -241,7 +241,7 @@ streamdown 与插件的 Tailwind 类扫描写在 [`ui/MarkdownView/index.css`](.
 | 风格 | 根属性 | 适用 | 现有图标 |
 |---|---|---|---|
 | 实心单色 | `width=14 height=14 viewBox="<shape-bbox>" fill="currentColor"` | 来源是第三方/参考 SVG 的填充字形 | `PanelLeftIcon` / `PanelRightIcon` / `SendIcon` / `SearchIcon` / `BlocksIcon` / `SettingsIcon` / `ChevronRightIcon` / `FolderClosedIcon` / `FolderOpenIcon` / `FolderIcon` / `AddFolderIcon` / `FilterIcon` / `PlusIcon` / `FileIcon` / `TerminalIcon` / `CloseIcon` / `ListIcon` |
-| 彩色文件类型 | `width=14 height=14 viewBox="0 0 1024 1024"`,path 写死 `fill` hex | 扩展名图标,多色不能吃 `currentColor` | [`fileTypes.tsx`](../app/web/src/icons/fileTypes.tsx): `FileMarkdownIcon` / `FileTxtIcon` / `FileJsIcon` / `FileTsIcon` / `FileTsxIcon` / `FileCssIcon` / `FileHtmlIcon` / `FileJsonIcon` / `FilePackageJsonIcon` / `FileUnknownIcon` |
+| 彩色文件类型 | `width=14 height=14`,path 写死 `fill` hex | 扩展名图标,多色不能吃 `currentColor` | [`fileTypes.tsx`](../app/web/src/icons/fileTypes.tsx): `FileMarkdownIcon` / `FileReadmeIcon` / `FileChangelogIcon` / `FileLicenseIcon` / `FileAgentsIcon` / `FileTxtIcon` / `FileJsIcon` / `FileJsTestIcon` / `FileTsIcon` / `FileTsTestIcon` / `FileTsxIcon` / `FileTsxTestIcon` / `FileViteIcon` / `FileCssIcon` / `FileScssIcon` / `FileLessIcon` / `FileHtmlIcon` / `FileXmlIcon` / `FileVueIcon` / `FileSvelteIcon` / `FileJsonIcon` / `FilePackageJsonIcon` / `FileLockIcon` / `FileYamlIcon` / `FileTomlIcon` / `FileSvgIcon` / `FileImageIcon` / `FileShellIcon` / `FilePythonIcon` / `FileGoIcon` / `FileRustIcon` / `FilePhpIcon` / `FileJavaIcon` / `FileHIcon` / `FileCIcon` / `FileCppIcon` / `FileRubyIcon` / `FileSqlIcon` / `FileGraphqlIcon` / `FilePrismaIcon` / `FileWasmIcon` / `FilePdfIcon` / `FileZipIcon` / `FileFontIcon` / `FileVideoIcon` / `FileAudioIcon` / `FileGitIcon` / `FileEnvIcon` / `FileTsconfigIcon` / `FileEslintIcon` / `FileDockerIcon` / `FileUnknownIcon` |
 
 实心单色图标的关键:**`viewBox` 设成 path 实际可见形状的 bounding box**(不是固定的 `0 0 1024 1024`)。原因:不同来源 SVG 的 path 占据的 bbox 大小差异很大(如一个纸飞机可能只占 viewBox 的 70%,一个 Blocks 网格占 85%),直接用源 viewBox 会导致渲染出来大小不一致。按 bbox 裁切后每个图标都充满 14×14 渲染区,视觉大小一致。bbox 之外留约 3% 内边距(在 viewBox 内侧加 padding),避免图形贴边。
 
@@ -249,7 +249,7 @@ streamdown 与插件的 Tailwind 类扫描写在 [`ui/MarkdownView/index.css`](.
 
 新增文件类型彩色图标:写在 `fileTypes.tsx`,从 `index.tsx` re-export;保留源 SVG 的多 path `fill`。源图贴满 `1024` 画布、看起来比旁边图标大时,加大 viewBox 留白,图形仍居中(如 `FileJsonIcon` / `FilePackageJsonIcon`)。全部彩色文件图标留在这一个模块里静态引用,不按类型拆包,也不在目录树每一行里动态加载。
 
-文件图标匹配在 [`matchFileIcon.ts`](../app/web/src/icons/matchFileIcon.ts),不依赖具体组件,别处传入自己的关联表即可。顺序:带父目录的文件名、文件名、从长到短的扩展名(每一段先看带父目录的键)、语言 id,最后默认文件图标。目录名是另一条:带父目录的目录名、目录名、默认目录图标。键不区分大小写。文件插件的表在 [`fileKinds.ts`](../app/web/src/extensions/plugins/files/fileKinds.ts),把扩展名绑到图标和 Monaco 高亮语言;没有对应项时用 `FileUnknownIcon`。`.jsx` 与 `.tsx` 共用 `FileTsxIcon`,Monaco 分别用 `javascript` 和 `typescript`。补一种图标:组件加在 `fileTypes.tsx`,再在 `fileKinds` 加一条 `names` 或 `extensions`。哪些已经有、哪些还是兜底,见 [`file-icons.md`](file-icons.md)(按清单补图时查阅)。
+文件图标匹配在 [`matchFileIcon.ts`](../app/web/src/icons/matchFileIcon.ts),不依赖具体组件,别处传入自己的关联表即可。顺序:带父目录的文件名、文件名、从长到短的扩展名(每一段先看带父目录的键)、语言 id,最后默认文件图标。目录名是另一条:带父目录的目录名、目录名、默认目录图标。键不区分大小写。文件插件的表在 [`fileKinds.ts`](../app/web/src/extensions/plugins/files/fileKinds.ts),把扩展名绑到图标和 Monaco 高亮语言;没有对应项时用 `FileUnknownIcon`。`.jsx` 与 `.tsx` 共用 `FileTsxIcon`,Monaco 分别用 `javascript` 和 `typescript`。文件名是 `.env` 或以 `.env.` 开头时用 `FileEnvIcon`,不进扩展名表。补一种图标:组件加在 `fileTypes.tsx`,再在 `fileKinds` 加一条 `names` 或 `extensions`。哪些已经有、哪些还是兜底,见 [`file-icons.md`](file-icons.md)(按清单补图时查阅)。
 
 ## 布局
 
