@@ -89,9 +89,9 @@
 			}
 		</style>
 	</head>
-	<body class="h-screen bg-zinc-50 text-zinc-900 antialiased">
-		<div class="relative grid h-full grid-cols-[280px_minmax(0,1fr)]">
-			<aside class="z-10 flex flex-col border-r border-zinc-200/80 bg-white/80 backdrop-blur">
+	<body class="h-screen overflow-hidden bg-zinc-50 text-zinc-900 antialiased">
+		<div class="relative grid h-full min-h-0 grid-cols-[280px_minmax(0,1fr)] overflow-hidden">
+			<aside class="z-10 flex h-full min-h-0 flex-col overflow-hidden border-r border-zinc-200/80 bg-white/80 backdrop-blur">
 				<div class="px-3 pt-4 pb-2">
 						<label class="group flex items-center gap-2 rounded-md border border-zinc-200 bg-zinc-50/80 px-2.5 py-1.5 text-sm transition-colors focus-within:border-violet-300 focus-within:bg-white">
 							<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-zinc-400">
@@ -103,7 +103,7 @@
 						</label>
 					</div>
 
-					<div id="tree" class="flex-1 overflow-auto px-2 pb-3"></div>
+					<div id="tree" class="min-h-0 flex-1 overflow-y-auto px-2 pb-3"></div>
 
 					<div class="border-t border-zinc-200/80 p-3">
 						<label class="flex items-center gap-2 rounded-md border border-zinc-200 bg-white px-2.5 py-1.5 text-xs transition-colors focus-within:border-violet-300">
@@ -116,7 +116,7 @@
 					</div>
 				</aside>
 
-				<main class="z-10 flex min-w-0 flex-col overflow-auto">
+				<main class="z-10 flex h-full min-h-0 min-w-0 flex-col overflow-y-auto">
 					<div class="px-8 pt-7">
 						<div class="flex items-center gap-1.5 text-xs text-zinc-500">
 							<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-zinc-400">
@@ -204,7 +204,7 @@ type SessionRecord = {
 				const ERROR_BODY = `/** 失败时的 JSON。2xx 不返回这个形状。 */
 type ErrorBody = {
 	error: {
-		/** BAD_REQUEST | NOT_FOUND | BUSY | PAYLOAD_TOO_LARGE | RANGE_NOT_SATISFIABLE | INTERNAL */
+		/** BAD_REQUEST | NOT_FOUND | BUSY | ALREADY_EXISTS | PAYLOAD_TOO_LARGE | RANGE_NOT_SATISFIABLE | INTERNAL */
 		code: string
 		/** 给人看的说明 */
 		message: string
@@ -267,9 +267,14 @@ ${SESSION_RECORD}`,
 						name: "列会话",
 						method: "GET",
 						path: "/api/sessions",
-						summary: "默认全部工作区。带 cwd 时只列该工作区。",
+						summary: "默认全部工作区。带 cwd 时只列该工作区。可按修改时间和是否完成过滤，并用 offset 与 limit 截取。",
 						queryParams: [
 							{ name: "cwd", type: "string", required: false, description: "工作区目录", example: "/Users/chen" },
+							{ name: "modifiedFrom", type: "string", required: false, description: "修改时间不早于该 ISO 时刻", example: "2026-01-01T00:00:00.000Z" },
+							{ name: "modifiedTo", type: "string", required: false, description: "修改时间不晚于该 ISO 时刻", example: "2026-12-31T00:00:00.000Z" },
+							{ name: "completed", type: "string", required: false, description: "true 或 false。不传则不限", example: "false" },
+							{ name: "offset", type: "string", required: false, description: "与 limit 成对。从 0 起", example: "0" },
+							{ name: "limit", type: "string", required: false, description: "与 offset 成对。1 到 200", example: "20" },
 						],
 						bodyParams: [],
 						body: "",
@@ -277,13 +282,31 @@ ${SESSION_RECORD}`,
 type ListSessionsRequest = {
 	/** 工作区目录。有则只列该目录，没有则全部 */
 	cwd?: string
+	/** 修改时间不早于该时刻，ISO。两端都包含 */
+	modifiedFrom?: string
+	/** 修改时间不晚于该时刻，ISO */
+	modifiedTo?: string
+	/** true 或 false。不传则不限。没有完成标记的会话算未完成 */
+	completed?: "true" | "false"
+	/** 与 limit 成对。只传一个为 400 BAD_REQUEST */
+	offset?: number
+	/** 与 offset 成对。1 到 200 */
+	limit?: number
 }`,
 						responseType: `${SESSION_RECORD}
 
+/** 列表里的一条。completed 不在单条 GET 上。 */
+type ListedSession = SessionRecord & {
+	/** 用户标记。没有标记行为 false */
+	completed: boolean
+}
+
 /** HTTP 200。 */
 type ListSessionsResponse = {
-	/** 按 modified 倒序。同 id 的热会话覆盖磁盘记录 */
-	sessions: SessionRecord[]
+	/** 按 modified 倒序，相同再按 id 倒序。同 id 的热会话覆盖磁盘记录 */
+	sessions: ListedSession[]
+	/** 过滤之后、截取之前的条数 */
+	total: number
 }`,
 					},
 					{
@@ -744,7 +767,278 @@ type DeleteSessionRequest = {
 	/** 会话 id。内存和磁盘都没有时 404 NOT_FOUND */
 	id: string
 }`,
-						responseType: `/** HTTP 204，响应体为空。按 abortPolicy 停掉后再删 jsonl。 */
+						responseType: `/** HTTP 204，响应体为空。按 abortPolicy 停掉后再删 jsonl，并清掉完成标记。 */
+
+${ERROR_BODY}`,
+					},
+					{
+						group: "会话",
+						name: "完成标记",
+						method: "POST",
+						path: "/api/sessions/:id/completed",
+						summary: "把这条标成完成或改回未完成。文件不在则 404，并清掉标记。",
+						queryParams: [],
+						bodyParams: [
+							{ name: "completed", type: "boolean", required: true, description: "true 为已完成", example: "true" },
+						],
+						body: "{\n  \"completed\": true\n}",
+						requestType: `/** 路径参数加 JSON body。 */
+type CompleteSessionRequest = {
+	/** 会话 id。文件不在时 404 NOT_FOUND */
+	id: string
+	/** 必须是布尔。字符串为 400 BAD_REQUEST */
+	completed: boolean
+}`,
+						responseType: `/** HTTP 200。SessionRecord 加上 completed。 */
+
+${SESSION_RECORD}
+
+type CompleteSessionResponse = SessionRecord & {
+	completed: boolean
+}
+
+${ERROR_BODY}`,
+					},
+					{
+						group: "会话",
+						name: "会话目录占用",
+						method: "GET",
+						path: "/api/sessions/storage",
+						summary: "sessions 目录下 jsonl 的个数，以及该目录树全部文件的字节数。",
+						queryParams: [],
+						bodyParams: [],
+						body: "",
+						requestType: `/** 无 query、无 body。 */
+type SessionStorageRequest = Record<string, never>`,
+						responseType: `/** HTTP 200。 */
+type SessionStorageResponse = {
+	/** *.jsonl 的个数 */
+	files: number
+	/** 目录树里全部文件的字节数 */
+	bytes: number
+}`,
+					},
+					{
+						group: "项目",
+						name: "登记",
+						method: "POST",
+						path: "/api/projects",
+						summary: "登记一个已存在的目录。新的一行出现在列表第一行。同一路径已在列表里则 409。曾经软删除过则恢复。",
+						queryParams: [],
+						bodyParams: [
+							{ name: "cwd", type: "string", required: true, description: "已存在的绝对路径", example: "/Users/chen/src/pi" },
+							{ name: "name", type: "string", required: false, description: "显示名。不传则用目录名", example: "pi" },
+						],
+						body: "{\n  \"cwd\": \"/Users/chen/src/pi\"\n}",
+						requestType: `/** JSON body。 */
+type CreateProjectRequest = {
+	/** 已存在的绝对目录。相对路径或以 ~ 开头为 400 BAD_REQUEST */
+	cwd: string
+	/** 显示名。不传则用目录名 */
+	name?: string
+}`,
+						responseType: `/** HTTP 201。 */
+
+type ProjectRecord = {
+	id: string
+	/** realpath 之后的绝对路径 */
+	cwd: string
+	name: string
+	/** 未删除项目里的序号。列表按它倒序 */
+	position: number
+	/** 登记时间，ISO */
+	created: string
+	/** 最近一次改名、移动或恢复，ISO */
+	modified: string
+}
+
+${ERROR_BODY}`,
+					},
+					{
+						group: "项目",
+						name: "列表",
+						method: "GET",
+						path: "/api/projects",
+						summary: "未软删除的项目，按 position 倒序。可按登记时间过滤，并用 offset 与 limit 截取。",
+						queryParams: [
+							{ name: "createdFrom", type: "string", required: false, description: "登记时间不早于该 ISO 时刻", example: "2026-01-01T00:00:00.000Z" },
+							{ name: "createdTo", type: "string", required: false, description: "登记时间不晚于该 ISO 时刻", example: "2026-12-31T00:00:00.000Z" },
+							{ name: "offset", type: "string", required: false, description: "与 limit 成对", example: "0" },
+							{ name: "limit", type: "string", required: false, description: "与 offset 成对。1 到 200", example: "20" },
+						],
+						bodyParams: [],
+						body: "",
+						requestType: `/** Query。无 body。 */
+type ListProjectsRequest = {
+	createdFrom?: string
+	createdTo?: string
+	offset?: number
+	limit?: number
+}`,
+						responseType: `/** HTTP 200。 */
+type ListProjectsResponse = {
+	projects: ProjectRecord[]
+	/** 过滤之后、截取之前的条数 */
+	total: number
+}`,
+					},
+					{
+						group: "项目",
+						name: "数量",
+						method: "GET",
+						path: "/api/projects/count",
+						summary: "未软删除的项目数。时间过滤与列表相同。等于列表的 total。",
+						queryParams: [
+							{ name: "createdFrom", type: "string", required: false, description: "登记时间不早于该 ISO 时刻", example: "2026-01-01T00:00:00.000Z" },
+							{ name: "createdTo", type: "string", required: false, description: "登记时间不晚于该 ISO 时刻", example: "2026-12-31T00:00:00.000Z" },
+						],
+						bodyParams: [],
+						body: "",
+						requestType: `/** Query。无 body。 */
+type CountProjectsRequest = {
+	createdFrom?: string
+	createdTo?: string
+}`,
+						responseType: `/** HTTP 200。 */
+type CountProjectsResponse = {
+	count: number
+}`,
+					},
+					{
+						group: "项目",
+						name: "一条",
+						method: "GET",
+						path: "/api/projects/:id",
+						summary: "一条未软删除的项目。已软删除视为 404。",
+						queryParams: [],
+						bodyParams: [],
+						body: "",
+						requestType: `/** 路径参数。 */
+type GetProjectRequest = {
+	id: string
+}`,
+						responseType: `/** HTTP 200。ProjectRecord。已软删除为 404 NOT_FOUND。 */
+
+${ERROR_BODY}`,
+					},
+					{
+						group: "项目",
+						name: "改名",
+						method: "PATCH",
+						path: "/api/projects/:id",
+						summary: "改显示名。空字符串为 400。",
+						queryParams: [],
+						bodyParams: [
+							{ name: "name", type: "string", required: true, description: "新的显示名", example: "pi" },
+						],
+						body: "{\n  \"name\": \"pi\"\n}",
+						requestType: `/** 路径参数加 JSON body。 */
+type RenameProjectRequest = {
+	id: string
+	name: string
+}`,
+						responseType: `/** HTTP 200。ProjectRecord。 */
+
+${ERROR_BODY}`,
+					},
+					{
+						group: "项目",
+						name: "移动",
+						method: "POST",
+						path: "/api/projects/:id/move",
+						summary: "index 是未删除项目倒序后的下标，0 是第一行。越界为 400。",
+						queryParams: [],
+						bodyParams: [
+							{ name: "index", type: "number", required: true, description: "新的下标，0 是第一行", example: "0" },
+						],
+						body: "{\n  \"index\": 0\n}",
+						requestType: `/** 路径参数加 JSON body。 */
+type MoveProjectRequest = {
+	id: string
+	/** 未删除项目倒序后的下标 */
+	index: number
+}`,
+						responseType: `/** HTTP 200。ProjectRecord。 */
+
+${ERROR_BODY}`,
+					},
+					{
+						group: "项目",
+						name: "从列表拿掉",
+						method: "DELETE",
+						path: "/api/projects/:id",
+						summary: "软删除。不删用户目录，不删会话文件。返回 204。",
+						queryParams: [],
+						bodyParams: [],
+						body: "",
+						requestType: `/** 路径参数。无 body。 */
+type DeleteProjectRequest = {
+	id: string
+}`,
+						responseType: `/** HTTP 204，响应体为空。 */
+
+${ERROR_BODY}`,
+					},
+					{
+						group: "项目",
+						name: "清除项目和会话",
+						method: "POST",
+						path: "/api/projects/:id/purge",
+						summary: "删掉该工作区的会话文件和完成标记，再删掉项目行。不删用户目录。返回 204。",
+						queryParams: [],
+						bodyParams: [],
+						body: "",
+						requestType: `/** 路径参数。无 body。已软删除的 id 也可以清。行已经不在则 404。 */
+type PurgeProjectRequest = {
+	id: string
+}`,
+						responseType: `/** HTTP 204，响应体为空。 */
+
+${ERROR_BODY}`,
+					},
+					{
+						group: "项目",
+						name: "清除一部分会话",
+						method: "POST",
+						path: "/api/projects/:id/sessions/purge",
+						summary: "按修改时间早于某时刻，或已完成，删掉这个项目下的一部分会话。两个都给则同时满足才删。",
+						queryParams: [],
+						bodyParams: [
+							{ name: "modifiedBefore", type: "string", required: false, description: "JSONL 修改时间早于该 ISO 时刻", example: "2026-01-01T00:00:00.000Z" },
+							{ name: "completed", type: "boolean", required: false, description: "只删已完成。必须是 true", example: "true" },
+						],
+						body: "{\n  \"completed\": true\n}",
+						requestType: `/** 至少带一个条件。 */
+type PurgeProjectSessionsRequest = {
+	id: string
+	modifiedBefore?: string
+	completed?: true
+}`,
+						responseType: `/** HTTP 200。 */
+type PurgeProjectSessionsResponse = {
+	/** 删掉的条数 */
+	deleted: number
+}
+
+${ERROR_BODY}`,
+					},
+					{
+						group: "项目",
+						name: "会话数量",
+						method: "GET",
+						path: "/api/projects/:id/sessions/count",
+						summary: "该工作区当前会话条数，含还在内存里的。软删除后仍可查。行已经物理删掉则 404。",
+						queryParams: [],
+						bodyParams: [],
+						body: "",
+						requestType: `/** 路径参数。 */
+type CountProjectSessionsRequest = {
+	id: string
+}`,
+						responseType: `/** HTTP 200。 */
+type CountProjectSessionsResponse = {
+	count: number
+}
 
 ${ERROR_BODY}`,
 					},

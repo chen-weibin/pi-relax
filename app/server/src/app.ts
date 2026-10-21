@@ -8,6 +8,7 @@ import { modelsRouter } from './routes/models.js'
 import { sessionsRouter } from './routes/sessions.js'
 import { settingsRouter } from './routes/settings.js'
 import { fsRouter } from './routes/fs.js'
+import { projectsRouter } from './routes/projects.js'
 
 export function createApp(options: { agent?: Agent } = {}) {
 	const agent = options.agent ?? new Agent()
@@ -18,6 +19,7 @@ export function createApp(options: { agent?: Agent } = {}) {
 	app.use(modelsRouter())
 	app.use(settingsRouter(agent))
 	app.use(sessionsRouter(agent))
+	app.use(projectsRouter(agent))
 	app.use(fsRouter())
 	app.use(notFound)
 	app.use(errorHandler)

@@ -52,7 +52,7 @@ pi 没有会话索引。`list(cwd)` 扫该编码目录下的 `*.jsonl`，`listAl
 - 会话正文用 pi 的 JSONL，不另发明一套消息存档
 - 项目本体是用户选的文件夹，`.relax` 不复制项目
 
-添加项目等于登记一个已有文件夹。一个项目一个根目录。多根工作区不做。
+添加项目等于登记一个已有文件夹。一个项目一个根目录。多根工作区不做。登记、顺序、软删除和会话的完成标记在 `{home}/sqlite/relax.sqlite`，表结构见 [server-sqlite.md](server-sqlite.md)（查阅时机：改这几张表时）。会话正文仍是上面的 JSONL。
 
 ## SDK 入口
 
@@ -142,7 +142,14 @@ pi 暴露的加载点都要能指定到 `.relax` 或配置里的路径，不默�
 `BUSY` 为 409。`GET /api/sessions/events` 写在 `/:id` 之前。请求和返回的字段以调试页为准。
 
 - `POST /api/sessions` 第一次发送并创建，202。可选 `thinkingLevel`，不传则 `medium`。可选 `provider` 与 `model`，要一起给；不给则用全局默认
-- `GET /api/sessions` 列表，默认全部工作区
+- `GET /api/sessions` 列表，默认全部工作区。可按修改时间、`completed` 过滤，并按 `offset` 与 `limit` 截取。每条带 `completed`，响应带 `total`
+- `GET /api/sessions/storage` 统计 `sessions/` 下的 jsonl 个数和目录字节数
+- `POST /api/sessions/:id/completed` 把这条标成完成或未完成。文件不在则 404，并清掉标记
+- `GET /api/projects` 未软删除的项目，按 `position` 倒序。可按登记时间过滤，并按 `offset` 与 `limit` 截取
+- `POST /api/projects` 登记一个已存在的目录。同一路径再登记会恢复已软删除的行
+- `DELETE /api/projects/:id` 软删除，不删会话文件
+- `POST /api/projects/:id/purge` 删掉该工作区的会话文件和这一行
+- `POST /api/projects/:id/sessions/purge` 按修改时间早于某时刻，或已完成，删掉一部分会话文件
 - `GET /api/sessions/:id` 一条信息
 - `GET /api/sessions/:id/history` `buildSessionContext()`
 - `DELETE /api/sessions/:id` 中止并删除文件，204
@@ -281,12 +288,15 @@ app/server/src/
   utils/errors.ts       错误类型与 Express 错误中间件
   utils/text.ts         消息纯文本
   utils/request.ts      请求体 text / cwd
-  sessions/             列、打开、历史、删
+  db/connection.ts      打开 {home}/sqlite/relax.sqlite
+  projects/store.ts     项目登记
+  sessions/             列、打开、历史、删、完成标记
   agent/                智能体类、Runtime 工厂、模型白名单
   routes/health.ts      GET /health
   routes/models.ts      提供商、可用模型、默认模型、手动刷新、思考档位
   routes/settings.ts    GET / PATCH /api/settings
   routes/sessions.ts    会话路由与 SSE
+  routes/projects.ts    项目登记、计数、清除
   routes/fs.ts          文件列表、元信息、读写、建目录、删除
   fs/                   路径、读写、按根目录递归监听
   pty/                  一台 PTY 对应一条连接，宽限重连与滚动缓冲

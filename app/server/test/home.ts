@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { SessionManager } from '@earendil-works/pi-coding-agent'
 import { ensureRelaxHome } from '../src/config/home.js'
+import { closeRelaxDb } from '../src/db/connection.js'
 import { serverConfig } from '../src/config/server.js'
 import { createSessionManager } from '../src/sessions/index.js'
 
@@ -17,6 +18,7 @@ export function tempRelaxHome(): string {
 }
 
 export function removeHome(dir: string): void {
+	closeRelaxDb()
 	rmSync(dir, { recursive: true, force: true })
 	if (previousHome === undefined) return
 	serverConfig.home = previousHome

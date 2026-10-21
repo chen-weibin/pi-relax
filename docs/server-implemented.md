@@ -17,12 +17,27 @@
 2. 续发。同一条会话正在生成时，不带插队方式再发会返回 409 `BUSY`。
 3. 生成中可以继续发。`steer`：当前这次回复及其工具调用结束后、下一次模型调用前插入。`followUp`：这一轮全部结束后再发。两种都不打断正在吐的字。多条排队时怎么出队由全局 `~/.relax/agent/settings.json` 的 `steeringMode` / `followUpMode` 决定，各自为 `all`（到达出队点时一次注入全部）或 `one-at-a-time`（一次一条）。缺文件时都是 `one-at-a-time`。`PATCH /api/settings` 写入后，已经在内存里的会话会立刻改用新模式。新建会话仍由基座合并全局文件和该工作区 `.pi/settings.json`。
 4. 中止当前生成。没有在生成也成功。策略在同一份全局文件的 `relax.abortPolicy`：`clear-then-abort`（默认，先清空 steer / followUp 再停当前这一轮）或 `abort-only`（只停当前这一轮，队列留下，之后仍会发出去）。热会话中止时再读全局文件和该工作区 `.pi/settings.json`，项目层的 `relax.abortPolicy` 盖过全局。`clear-then-abort` 的响应在会话信息上多一个 `cleared`（`steering` 与 `followUp` 两条文本数组）；`abort-only` 时这两个数组为空。没有请求字段。
-5. 列会话，可按工作区过滤。单条信息。历史用 pi 的 `buildSessionContext()`，含消息、当前思考档位和模型。
-6. 删除：先按上面的中止策略停掉，再删会话文件。
+5. 列会话，可按工作区过滤，也可按修改时间（`modifiedFrom`、`modifiedTo`）和 `completed=true|false` 过滤，并用成对的 `offset`、`limit` 截取（`limit` 至多 200）。响应多一个 `total`，每条多一个 `completed`。单条信息。历史用 pi 的 `buildSessionContext()`，含消息、当前思考档位和模型。
+6. 删除：先按上面的中止策略停掉，再删会话文件，并清掉完成标记。`POST /api/projects/:id/sessions/purge` 按 `modifiedBefore`（修改时间早于该时刻）或 `completed: true` 删掉一个项目下的一部分，两个都给则同时满足才删。`POST /api/projects/:id/purge` 删掉该项目下全部会话文件，再删掉项目行。
+6.1. `POST /api/sessions/:id/completed` 把这条标成完成或改回去。没有标记就是未完成。文件不在则 404，并清掉标记。
+6.2. `GET /api/sessions/storage` 返回 `sessions/` 下 `*.jsonl` 的个数和该目录树的字节数。
 7. 手动设置标题。空字符串清空。列表同时给 `name` 和 `firstMessage`；没设过标题时 `name` 为空，界面用第一条用户消息兜底。不会在第一次发送时自动生成标题。
 8. 全局 SSE：`GET /api/sessions/events`。每条是 `{ sessionId, event }`，内层是 pi 的 `AgentSessionEvent`（正文增量、队列变化、标题变化、思考档位变化都在里面）。断线不补，用历史对齐。
 9. 多条会话可以同时打开或同时生成。有全局 SSE 订阅，或还在生成（含 `agent_end` 之后、`agent_settled` 之前）的会话留在内存里。没有任何订阅且已经 settled、文件已落盘的会话会卸掉，下次从文件打开。
 10. 上下文压缩沿用 pi 的自动行为，没有单独的压缩接口。
+
+## 项目
+
+表在 [server-sqlite.md](server-sqlite.md)。前端还没接。
+
+1. `POST /api/projects` 登记一个已存在的绝对路径。不传 `name` 时用目录名。新的一行序号最大，列表倒序后在最前。同一路径已在列表里则 409 `ALREADY_EXISTS`。曾经软删除过则恢复该行并放到最前。
+2. `GET /api/projects` 只返回未软删除的，按序号倒序。`createdFrom`、`createdTo` 按登记时间过滤，两端都包含。`offset` 与 `limit` 成对出现。响应是 `{ projects, total }`。
+3. `GET /api/projects/count` 与上面同一套时间过滤，返回 `{ count }`，等于列表的 `total`。
+4. `GET /api/projects/:id` 一条。已软删除视为 404。
+5. `PATCH /api/projects/:id` 改显示名。空字符串为 400。
+6. `POST /api/projects/:id/move`，body `{ index }`。`index` 是未删除项目倒序后的下标，0 是第一行。
+7. `DELETE /api/projects/:id` 软删除。不删用户目录，不删会话文件。会话计数和清除仍认这个 id。
+8. `GET /api/projects/:id/sessions/count` 该工作区当前会话条数，含还在内存里的。
 
 ## 运行配置
 

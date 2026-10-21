@@ -40,6 +40,19 @@
 						cwd 过滤
 						<input id="cwd-filter" class="mt-1 w-full rounded-md border border-zinc-200 px-2 py-1 text-xs text-zinc-800 outline-none" placeholder="空则全部" spellcheck="false" />
 					</label>
+					<div class="shrink-0 space-y-1 px-3 pb-2 text-[11px] text-zinc-400">
+						<input id="modified-from" class="w-full rounded-md border border-zinc-200 px-2 py-1 text-xs text-zinc-800 outline-none" placeholder="modifiedFrom" spellcheck="false" />
+						<input id="modified-to" class="w-full rounded-md border border-zinc-200 px-2 py-1 text-xs text-zinc-800 outline-none" placeholder="modifiedTo" spellcheck="false" />
+						<select id="completed-filter" class="w-full rounded-md border border-zinc-200 bg-white px-2 py-1 text-xs text-zinc-800 outline-none">
+							<option value="">完成不限</option>
+							<option value="true">已完成</option>
+							<option value="false">未完成</option>
+						</select>
+						<div class="flex gap-1">
+							<input id="list-offset" class="w-full rounded-md border border-zinc-200 px-2 py-1 text-xs text-zinc-800 outline-none" placeholder="offset" spellcheck="false" />
+							<input id="list-limit" class="w-full rounded-md border border-zinc-200 px-2 py-1 text-xs text-zinc-800 outline-none" placeholder="limit" spellcheck="false" />
+						</div>
+					</div>
 					<div id="list" class="min-h-0 flex-1 overflow-auto px-2 pb-2"></div>
 				</aside>
 
@@ -101,6 +114,8 @@
 							<button id="info" class="rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50" type="button">信息</button>
 							<button id="history" class="rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50" type="button">历史</button>
 							<button id="remove" class="rounded-md border border-red-200 bg-white px-3 py-1.5 text-sm text-red-600 hover:bg-red-50" type="button">删除</button>
+							<button id="mark-done" class="rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50" type="button">标为完成</button>
+							<button id="mark-open" class="rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50" type="button">标为未完成</button>
 							<button id="clear-current" class="rounded-md px-3 py-1.5 text-sm text-zinc-500 hover:text-zinc-800" type="button">取消选中</button>
 						</div>
 						<p id="http-meta" class="mt-2 text-[11px] text-zinc-400">未发 HTTP</p>
@@ -237,15 +252,27 @@
 					title.textContent = itemLabel(item).slice(0, 48)
 					const meta = document.createElement("div")
 					meta.className = "truncate text-[10px] text-zinc-400"
-					meta.textContent = item.status + " · " + item.id.slice(0, 8)
+					meta.textContent = item.status + (item.completed ? " · 完成" : "") + " · " + item.id.slice(0, 8)
 					btn.append(title, meta)
 					box.append(btn)
 				}
 			}
 
 			async function loadList() {
+				const params = new URLSearchParams()
 				const cwd = $("cwd-filter").value.trim()
-				const query = cwd ? "?cwd=" + encodeURIComponent(cwd) : ""
+				const modifiedFrom = $("modified-from").value.trim()
+				const modifiedTo = $("modified-to").value.trim()
+				const completed = $("completed-filter").value
+				const offset = $("list-offset").value.trim()
+				const limit = $("list-limit").value.trim()
+				if (cwd) params.set("cwd", cwd)
+				if (modifiedFrom) params.set("modifiedFrom", modifiedFrom)
+				if (modifiedTo) params.set("modifiedTo", modifiedTo)
+				if (completed) params.set("completed", completed)
+				if (offset) params.set("offset", offset)
+				if (limit) params.set("limit", limit)
+				const query = params.size ? "?" + params : ""
 				const data = await request("GET", "/api/sessions" + query)
 				lastSessions = data.sessions || []
 				paintList()
@@ -444,6 +471,17 @@
 					})
 					.catch((err) => showMain(err.message))
 			})
+			function markCompleted(completed) {
+				if (!currentId) return showMain("先在左侧点一条会话，或先发送新建。")
+				request("POST", "/api/sessions/" + encodeURIComponent(currentId) + "/completed", { completed })
+					.then((record) => {
+						showMain(record)
+						return loadList()
+					})
+					.catch((err) => showMain(err.message))
+			}
+			$("mark-done").addEventListener("click", () => markCompleted(true))
+			$("mark-open").addEventListener("click", () => markCompleted(false))
 			$("rename").addEventListener("click", () => {
 				if (!currentId) return showMain("先在左侧点一条会话，或先发送新建。")
 				request("POST", "/api/sessions/" + encodeURIComponent(currentId) + "/name", {

@@ -2,6 +2,9 @@ import { Router } from 'express'
 import type { Agent, StreamingBehavior } from '../agent/agent.js'
 import { serverConfig } from '../config/server.js'
 import { asyncHandler, HttpError } from '../utils/errors.js'
+import { deleteMark, setCompleted } from '../sessions/marks.js'
+import { querySessions, requireSession, sessionStorage } from '../sessions/query.js'
+import { completedQuery, optionalTime, pageWindow } from '../utils/query.js'
 import { bodyText, cwdOf, optionalString } from '../utils/request.js'
 
 function thinkingLevelOf(body: unknown): string | undefined {
@@ -61,17 +64,44 @@ export function sessionsRouter(agent: Agent): Router {
 	)
 
 	router.get(
+		'/api/sessions/storage',
+		asyncHandler(async (_req, res) => {
+			res.json(await sessionStorage())
+		}),
+	)
+
+	router.get(
 		'/api/sessions',
 		asyncHandler(async (req, res) => {
 			const cwd = typeof req.query.cwd === 'string' ? req.query.cwd : undefined
-			res.json({ sessions: await agent.list(cwd) })
+			res.json(
+				await querySessions(agent, {
+					cwd,
+					modifiedFrom: optionalTime(req.query.modifiedFrom, 'modifiedFrom'),
+					modifiedTo: optionalTime(req.query.modifiedTo, 'modifiedTo'),
+					completed: completedQuery(req.query.completed),
+					page: pageWindow(req.query),
+				}),
+			)
 		}),
 	)
 
 	router.get(
 		'/api/sessions/:id/history',
 		asyncHandler(async (req, res) => {
+			await requireSession(agent, req.params.id as string)
 			res.json(await agent.history(req.params.id as string))
+		}),
+	)
+
+	router.post(
+		'/api/sessions/:id/completed',
+		asyncHandler(async (req, res) => {
+			const completed = (req.body as { completed?: unknown } | undefined)?.completed
+			if (typeof completed !== 'boolean') throw new HttpError(400, 'BAD_REQUEST', 'completed must be a boolean')
+			const record = await requireSession(agent, req.params.id as string)
+			setCompleted(record.id, record.cwd, completed)
+			res.json({ ...record, completed })
 		}),
 	)
 
@@ -124,14 +154,16 @@ export function sessionsRouter(agent: Agent): Router {
 	router.get(
 		'/api/sessions/:id',
 		asyncHandler(async (req, res) => {
-			res.json(await agent.get(req.params.id as string))
+			res.json(await requireSession(agent, req.params.id as string))
 		}),
 	)
 
 	router.delete(
 		'/api/sessions/:id',
 		asyncHandler(async (req, res) => {
-			await agent.remove(req.params.id as string)
+			const id = req.params.id as string
+			await agent.remove(id)
+			deleteMark(id)
 			res.status(204).end()
 		}),
 	)

@@ -67,7 +67,7 @@ Store 继续按字段切片订阅。做法见 [web-zustand-store-design.md](supe
 
 侧栏用 `GET /api/sessions` 替换 `ProjectSection` 里的 mock。会话按 `cwd` 分桶。
 
-服务端还没有项目登记接口。用户钉住的文件夹是前端的薄登记：`cwd` 加显示名，先放 localStorage。以后服务端有登记接口，只换这个登记的存储，分桶键仍是 `cwd`。列表里出现、但没钉住的 `cwd` 仍然显示，避免把已有会话藏起来。未指定工作区时的桶是 `~/.relax/workspace`（随服务端 `home` 换走，见 [server.md](server.md)）。多根工作区不做。
+项目登记在服务端 `GET /api/projects`（见 [server-implemented.md](server-implemented.md)，查阅时机：接侧栏项目列表时）。前端尚未接入，侧栏仍是 mock。分桶键仍是 `cwd`。未指定工作区时的桶是 `~/.relax/workspace`（随服务端 `home` 换走，见 [server.md](server.md)）。多根工作区不做。
 
 新建对话只是空草稿。第一次发送才 `POST /api/sessions`。不先造空会话文件。
 
