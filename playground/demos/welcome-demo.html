@@ -1,0 +1,1234 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>relax — 欢迎页</title>
+  <style>
+    /* 色值与 app/web/src/index.css 暗色 token 一致 */
+    :root {
+      --app: #151515;
+      --panel: #1c1c1c;
+      --surface: #2b2b2b;
+      --surface-hover: #303030;
+      --surface-active: #353535;
+      --fg: #e5e5e5;
+      --fg-bright: #f5f5f5;
+      --fg-2: #c7c7c7;
+      --fg-3: #a1a1a1;
+      --fg-disabled: #737373;
+      --border: #2a2a2a;
+      --border-hover: #3f3f3f;
+      --accent: #00c487;
+      --radius-md: 8px;
+      --radius-lg: 10px;
+      --radius-xl: 12px;
+      --ease-soft: cubic-bezier(0.22, 1, 0.36, 1);
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif;
+      --word-w: 600px;
+      --word-h: 160px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      color: var(--fg);
+      font-family: var(--font-sans);
+      font-size: 14px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* 背景：主题底色 + 中心极淡光晕 + 底部一抹强调色 + 暗角 */
+    body {
+      background:
+        radial-gradient(ellipse 60% 45% at 50% 42%, rgba(255, 255, 255, 0.035), transparent 70%),
+        radial-gradient(ellipse 50% 30% at 50% 100%, rgba(0, 196, 135, 0.05), transparent 70%),
+        radial-gradient(ellipse 120% 90% at 50% 50%, transparent 55%, rgba(0, 0, 0, 0.45)),
+        var(--app);
+    }
+
+    /* 细噪点，压掉渐变色带 */
+    body::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.05;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      z-index: 3;
+    }
+
+    canvas#gl {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      z-index: 0;
+    }
+
+    /* ---------- 欢迎层 ---------- */
+    .stage {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      transition: opacity 900ms var(--ease-soft), transform 1200ms var(--ease-soft), filter 900ms var(--ease-soft);
+    }
+    .stage.leaving {
+      opacity: 0;
+      transform: scale(0.96);
+      filter: blur(6px);
+    }
+    .stage > * { pointer-events: auto; }
+
+    /* relax 只由粒子绘制，这里是占位盒，尺寸由 JS 按字形墨迹写入 */
+    .wordmark {
+      width: var(--word-w);
+      height: var(--word-h);
+      pointer-events: none !important;
+    }
+    .wordmark h1 {
+      position: absolute;
+      width: 1px; height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+    }
+
+    .tagline {
+      --ls: 0.32em;
+      position: relative;
+      width: var(--word-w);
+      margin-top: 22px;
+      text-align: right;
+      white-space: nowrap;
+      font-size: 16px;
+      font-weight: 500;
+      letter-spacing: var(--ls);
+      color: #d4d4d4;
+      user-select: none;
+    }
+    .tagline .ch {
+      display: inline-block;
+      opacity: 0;
+      transform: translateY(8px);
+      filter: blur(6px);
+      transition: opacity 1100ms var(--ease-soft), transform 1100ms var(--ease-soft), filter 1100ms var(--ease-soft);
+      transition-delay: calc(var(--i) * 85ms);
+    }
+    /* 抵掉末字的字距，让文字右缘贴齐字形右缘 */
+    .tagline .ch:nth-last-child(2) { margin-right: calc(-1 * var(--ls)); }
+    .tagline.show .ch {
+      opacity: 1;
+      transform: none;
+      filter: none;
+    }
+
+    /*
+     * 扫光（参照 React Bits ShinyText：angle 120°、shineWidth 40%、softness 0.8）。
+     * 同一行字的叠影，文字裁剪一条白色光带：中心 8% 实白，两侧 16% 按 smoothstep 渐隐。
+     * --shine 是光带中心位置，用 @property 注册后才能逐帧插值。
+     */
+    @property --shine {
+      syntax: '<percentage>';
+      inherits: true;
+      initial-value: -25%;
+    }
+    .tagline .sheen,
+    .tagline .sheen::after {
+      color: transparent;
+      background-image: linear-gradient(120deg,
+        rgba(255, 255, 255, 0)     calc(var(--shine) - 20%),
+        rgba(255, 255, 255, 0.104) calc(var(--shine) - 16.8%),
+        rgba(255, 255, 255, 0.352) calc(var(--shine) - 13.6%),
+        rgba(255, 255, 255, 0.648) calc(var(--shine) - 10.4%),
+        rgba(255, 255, 255, 1)     calc(var(--shine) - 4%),
+        rgba(255, 255, 255, 1)     calc(var(--shine) + 4%),
+        rgba(255, 255, 255, 0.648) calc(var(--shine) + 10.4%),
+        rgba(255, 255, 255, 0.352) calc(var(--shine) + 13.6%),
+        rgba(255, 255, 255, 0.104) calc(var(--shine) + 16.8%),
+        rgba(255, 255, 255, 0)     calc(var(--shine) + 20%));
+      background-repeat: no-repeat;
+      -webkit-background-clip: text;
+      background-clip: text;
+    }
+    .tagline .sheen {
+      position: absolute;
+      top: 0;
+      right: calc(-1 * var(--ls));
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 600ms ease;
+    }
+    /* 跟着光带走的柔光（ShinyText 的 glow） */
+    .tagline .sheen::after {
+      content: attr(data-text);
+      position: absolute;
+      inset: 0;
+      filter: blur(0.14em);
+      opacity: 0.6;
+    }
+    .tagline.shine .sheen {
+      opacity: 1;
+      /* 一次扫过 2s + 停顿 1.6s，正弦缓入缓出 */
+      animation: sheen 3.6s cubic-bezier(0.37, 0, 0.63, 1) infinite;
+    }
+    @keyframes sheen {
+      0%   { --shine: -25%; }
+      55%  { --shine: 125%; }
+      100% { --shine: 125%; }
+    }
+
+    /* ---------- 提供商选择 ---------- */
+    .picker {
+      position: relative;
+      width: 320px;
+      margin-top: 56px;
+      opacity: 0;
+      transform: translateY(14px);
+      transition: opacity 1000ms var(--ease-soft), transform 1000ms var(--ease-soft);
+      visibility: hidden;
+    }
+    .picker.show {
+      opacity: 1;
+      transform: none;
+      visibility: visible;
+    }
+
+    .picker-trigger {
+      width: 100%;
+      height: 46px;
+      padding: 0 14px 0 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border: 1px solid var(--border-hover);
+      border-radius: var(--radius-xl);
+      background: rgba(43, 43, 43, 0.55);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      color: var(--fg-2);
+      font: inherit;
+      font-size: 14px;
+      cursor: pointer;
+      transition: border-color 200ms ease, background-color 200ms ease, box-shadow 300ms ease;
+    }
+    .picker-trigger:hover {
+      border-color: #4a4a4a;
+      background: rgba(48, 48, 48, 0.7);
+    }
+    .picker-trigger:focus-visible,
+    .picker.open .picker-trigger {
+      outline: none;
+      border-color: rgba(0, 196, 135, 0.55);
+      box-shadow: 0 0 0 4px rgba(0, 196, 135, 0.08);
+    }
+    .picker-trigger .label { flex: 1; text-align: left; }
+    .picker-trigger .dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 10px rgba(0, 196, 135, 0.7);
+      animation: pulse 2.8s ease-in-out infinite;
+    }
+    .picker-trigger svg {
+      color: var(--fg-3);
+      transition: transform 300ms var(--ease-soft);
+    }
+    .picker.open .picker-trigger svg { transform: rotate(180deg); }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.45; transform: scale(0.85); }
+      50% { opacity: 1; transform: scale(1); }
+    }
+
+    .picker-list {
+      position: absolute;
+      left: 0; right: 0;
+      top: calc(100% + 8px);
+      max-height: 300px;
+      overflow-y: auto;
+      padding: 6px;
+      list-style: none;
+      border: 1px solid var(--border-hover);
+      border-radius: var(--radius-xl);
+      background: rgba(28, 28, 28, 0.92);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+      opacity: 0;
+      transform: translateY(-6px) scale(0.98);
+      transform-origin: top center;
+      pointer-events: none;
+      visibility: hidden;
+      transition: opacity 220ms ease, transform 280ms var(--ease-soft), visibility 0s linear 280ms;
+      outline: none;
+      scrollbar-width: thin;
+      scrollbar-color: #3a3a3a transparent;
+    }
+    .picker.up .picker-list {
+      top: auto;
+      bottom: calc(100% + 8px);
+      transform-origin: bottom center;
+    }
+    .picker.open .picker-list {
+      opacity: 1;
+      transform: none;
+      pointer-events: auto;
+      visibility: visible;
+      transition-delay: 0s;
+    }
+
+    .picker-list li {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 9px 10px;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      color: var(--fg-2);
+      transition: background-color 120ms ease, color 120ms ease;
+    }
+    .picker-list li.active {
+      background: var(--surface-hover);
+      color: var(--fg-bright);
+    }
+    .picker-list .badge {
+      width: 28px; height: 28px;
+      flex-shrink: 0;
+      display: grid;
+      place-items: center;
+      border-radius: 8px;
+      background: var(--surface);
+      border: 1px solid var(--border-hover);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--fg);
+    }
+    .picker-list li.active .badge {
+      border-color: rgba(0, 196, 135, 0.45);
+      color: var(--accent);
+    }
+    .picker-list .meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .picker-list .name { font-size: 13px; }
+    .picker-list .desc { font-size: 11px; color: var(--fg-disabled); }
+
+    /* ---------- 弹框（原生 dialog） ---------- */
+    dialog {
+      margin: auto;
+      width: min(400px, calc(100vw - 32px));
+      padding: 0;
+      border: 1px solid var(--border-hover);
+      border-radius: 14px;
+      background: rgba(28, 28, 28, 0.94);
+      color: var(--fg);
+      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
+      opacity: 0;
+      transform: translateY(10px) scale(0.97);
+      transition: opacity 260ms ease, transform 360ms var(--ease-soft);
+    }
+    dialog.in { opacity: 1; transform: none; }
+    dialog::backdrop {
+      background: rgba(10, 10, 10, 0.35);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+    }
+
+    .modal-form { padding: 24px; display: flex; flex-direction: column; gap: 18px; }
+    .modal-head { display: flex; align-items: center; gap: 12px; }
+    .modal-head .badge {
+      width: 36px; height: 36px;
+      display: grid; place-items: center;
+      border-radius: 10px;
+      background: var(--surface);
+      border: 1px solid rgba(0, 196, 135, 0.4);
+      color: var(--accent);
+      font-weight: 600;
+    }
+    .modal-head h2 { font-size: 16px; font-weight: 600; color: var(--fg-bright); }
+    .modal-head p { font-size: 12px; color: var(--fg-3); margin-top: 2px; }
+
+    .field { display: flex; flex-direction: column; gap: 8px; }
+    .field > label { font-size: 12px; color: var(--fg-3); }
+    .control {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    .control input,
+    .control select {
+      width: 100%;
+      height: 40px;
+      padding: 0 40px 0 12px;
+      border: 1px solid var(--border-hover);
+      border-radius: var(--radius-md);
+      background: var(--surface);
+      color: var(--fg);
+      font: inherit;
+      font-size: 13px;
+      outline: none;
+      appearance: none;
+      transition: border-color 160ms ease, box-shadow 200ms ease;
+    }
+    .control input { font-family: "SF Mono", Menlo, monospace; letter-spacing: 0.02em; }
+    .control input::placeholder { color: var(--fg-disabled); font-family: var(--font-sans); letter-spacing: 0; }
+    .control input:focus,
+    .control select:focus {
+      border-color: rgba(0, 196, 135, 0.55);
+      box-shadow: 0 0 0 3px rgba(0, 196, 135, 0.1);
+    }
+    .control select { cursor: pointer; }
+    .control .icon-btn,
+    .control .chev {
+      position: absolute;
+      right: 6px;
+      width: 28px; height: 28px;
+      display: grid; place-items: center;
+      color: var(--fg-3);
+    }
+    .control .chev { pointer-events: none; }
+    .icon-btn {
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      cursor: pointer;
+    }
+    .icon-btn:hover { background: var(--surface-hover); color: var(--fg); }
+
+    .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+    .btn {
+      height: 36px;
+      padding: 0 16px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-hover);
+      background: transparent;
+      color: var(--fg-2);
+      font: inherit;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background-color 150ms ease, color 150ms ease, opacity 150ms ease, box-shadow 250ms ease;
+    }
+    .btn:hover { background: var(--surface-hover); color: var(--fg); }
+    .btn.primary {
+      border-color: transparent;
+      background: var(--accent);
+      color: #0b1a14;
+      font-weight: 600;
+    }
+    .btn.primary:hover { box-shadow: 0 0 0 4px rgba(0, 196, 135, 0.15); background: #10d397; }
+    .btn.primary:disabled { opacity: 0.35; cursor: not-allowed; box-shadow: none; }
+    .btn:focus-visible { outline: 2px solid rgba(0, 196, 135, 0.6); outline-offset: 2px; }
+
+    .hint { font-size: 11px; color: var(--fg-disabled); }
+
+    /* ---------- 占位主页面 ---------- */
+    .home {
+      position: fixed;
+      inset: 0;
+      z-index: 2;
+      display: grid;
+      place-items: center;
+      opacity: 0;
+      transform: scale(1.02);
+      visibility: hidden;
+      transition: opacity 1000ms var(--ease-soft), transform 1200ms var(--ease-soft), visibility 0s linear 1000ms;
+    }
+    .home.show {
+      opacity: 1;
+      transform: none;
+      visibility: visible;
+      transition-delay: 0s;
+    }
+    .home-card {
+      width: min(440px, calc(100vw - 32px));
+      padding: 28px;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: rgba(28, 28, 28, 0.8);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .home-card h2 { font-size: 20px; font-weight: 600; color: var(--fg-bright); }
+    .home-card dl { display: grid; grid-template-columns: 72px 1fr; gap: 8px 12px; font-size: 13px; }
+    .home-card dt { color: var(--fg-3); }
+    .home-card dd { color: var(--fg); font-family: "SF Mono", Menlo, monospace; word-break: break-all; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .tagline .ch { transform: none; filter: none; transition: opacity 600ms ease; transition-delay: 0s; }
+      .picker, .stage, .home, dialog { transform: none !important; filter: none !important; }
+    }
+
+    @media (max-width: 520px) {
+      .tagline { font-size: 14px; --ls: 0.2em; }
+      .picker { width: calc(100vw - 48px); }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gl" aria-hidden="true"></canvas>
+
+  <main class="stage" id="stage">
+    <div class="wordmark" id="wordmark"><h1>relax</h1></div>
+    <p class="tagline" id="tagline" aria-label="从一个想法，到无限可能"></p>
+
+    <div class="picker" id="picker">
+      <button class="picker-trigger" id="pickerTrigger" type="button"
+              aria-haspopup="listbox" aria-expanded="false" aria-controls="pickerList">
+        <span class="dot" aria-hidden="true"></span>
+        <span class="label" id="pickerLabel">选择一个提供商开始</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+      <ul class="picker-list" id="pickerList" role="listbox" tabindex="-1" aria-label="提供商"></ul>
+    </div>
+  </main>
+
+  <dialog id="modal" aria-labelledby="modalTitle">
+    <form class="modal-form" id="modalForm" novalidate>
+      <div class="modal-head">
+        <div class="badge" id="modalBadge"></div>
+        <div>
+          <h2 id="modalTitle"></h2>
+          <p>填入 API Key，选择默认模型</p>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="apiKey">API Key</label>
+        <div class="control">
+          <input id="apiKey" type="password" autocomplete="off" spellcheck="false" placeholder="sk-...">
+          <button class="icon-btn" id="toggleKey" type="button" aria-label="显示 Key" aria-pressed="false">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="modelSelect">模型</label>
+        <div class="control">
+          <select id="modelSelect"></select>
+          <span class="chev" aria-hidden="true">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+          </span>
+        </div>
+      </div>
+
+      <p class="hint">Demo 使用 mock 数据，Key 不会离开本页。</p>
+
+      <div class="modal-actions">
+        <button class="btn" type="button" id="cancelBtn">取消</button>
+        <button class="btn primary" type="submit" id="confirmBtn" disabled>进入 relax</button>
+      </div>
+    </form>
+  </dialog>
+
+  <section class="home" id="home" aria-live="polite">
+    <div class="home-card">
+      <h2>已进入 relax</h2>
+      <dl>
+        <dt>提供商</dt><dd id="homeProvider"></dd>
+        <dt>模型</dt><dd id="homeModel"></dd>
+        <dt>Key</dt><dd id="homeKey"></dd>
+      </dl>
+      <div><button class="btn" type="button" id="backBtn">返回欢迎页</button></div>
+    </div>
+  </section>
+
+  <script type="importmap">
+    { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js" } }
+  </script>
+  <script type="module">
+    import * as THREE from 'three'
+
+    /* =========================================================
+     * 配置
+     * ========================================================= */
+    const CONF = {
+      word: 'relax',
+      font: '700 {size}px "Avenir Next", "Helvetica Neue", -apple-system, "PingFang SC", sans-serif',
+      dotStep: (fontSize) => Math.min(6.5, Math.max(3.2, fontSize / 48)), // 点阵间距（CSS px）
+      dotSize: 0.62,        // 点直径 = 间距 × dotSize，所有点同一大小
+      heatDecay: 4,         // 被挤压后高亮褪去的速度（越大越快）
+      stiffness: 42,        // 弹簧刚度：越大回聚越快
+      damping: 7.5,         // 阻尼：< 2√k 时略带回弹
+      repelRadius: 100,     // 鼠标排斥半径（CSS px）
+      repelForce: 3800,     // 排斥加速度
+      introDur: 1.7,        // 单粒子入场时长（秒）
+      introSpread: 0.9,     // 入场延迟分布（秒）
+      taglineAt: 2.1,       // 文案开始淡入
+      pickerAt: 3.4,        // 选择框出现
+      breathPeriod: 6,      // 呼吸周期（秒）
+      dustCount: 170,
+    }
+
+    const COLORS = {
+      dot: new THREE.Color('#f0f0f0'),
+      hot: new THREE.Color('#ffffff'),
+      fg3: new THREE.Color('#a1a1a1'),
+    }
+
+    /* mock：取 server KEY_PROVIDERS 里常用几家 */
+    const PROVIDERS = [
+      { id: 'anthropic',  name: 'Anthropic',   desc: 'Claude 系列', models: ['claude-opus-4-8', 'claude-sonnet-4-8'] },
+      { id: 'openai',     name: 'OpenAI',      desc: 'GPT 系列', models: ['gpt-5.5', 'gpt-5.5-mini'] },
+      { id: 'google',     name: 'Google',      desc: 'Gemini 系列', models: ['gemini-3.1-pro-preview', 'gemini-3.1-flash'] },
+      { id: 'deepseek',   name: 'DeepSeek',    desc: '深度求索', models: ['deepseek-v4-pro', 'deepseek-v4-flash'] },
+      { id: 'moonshotai', name: 'Moonshot AI', desc: 'Kimi 系列', models: ['kimi-k2.6'] },
+      { id: 'minimax',    name: 'MiniMax',     desc: 'MiniMax 系列', models: ['MiniMax-M2.7'] },
+      { id: 'zai',        name: 'Z.ai',        desc: 'GLM 系列', models: ['glm-5.3'] },
+      { id: 'openrouter', name: 'OpenRouter',  desc: '多模型聚合', models: ['moonshotai/kimi-k2.6', 'anthropic/claude-opus-4-8'] },
+    ]
+
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches
+    const $ = (id) => document.getElementById(id)
+
+    /* =========================================================
+     * Three.js 基础
+     * ========================================================= */
+    const canvas = $('gl')
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: true })
+    renderer.setClearColor(0x000000, 0)
+    const scene = new THREE.Scene()
+    // 正交相机，世界单位 = CSS 像素，原点在视口中心，y 向上
+    const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, -10, 10)
+
+    const VERT = /* glsl */`
+      attribute float aSize;
+      attribute float aSeed;
+      attribute float aHeat;
+      attribute vec3 aColor;
+      uniform float uTime;
+      uniform float uDpr;
+      uniform float uTwinkle;
+      uniform vec3 uHot;
+      varying vec3 vColor;
+      varying float vAlpha;
+      varying float vHeat;
+      void main() {
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        // 被鼠标挤压过的粒子（aHeat > 0）在原色上提亮，并放大点精灵给光晕留位置
+        float h = smoothstep(0.0, 0.8, aHeat);
+        vHeat = h;
+        vColor = mix(aColor, uHot, h);
+        vAlpha = 1.0 - uTwinkle * (0.5 + 0.5 * sin(uTime * 1.3 + aSeed * 40.0));
+        gl_PointSize = aSize * uDpr * (1.0 + h * 1.4);
+      }
+    `
+    const FRAG = /* glsl */`
+      uniform float uAlpha;
+      varying vec3 vColor;
+      varying float vAlpha;
+      varying float vHeat;
+      void main() {
+        float d = length(gl_PointCoord - 0.5);
+        // 实心圆点：点精灵放大后核心按比例收回，实心部分只略大一点
+        float r = 0.43 * (1.0 + vHeat * 0.25) / (1.0 + vHeat * 1.4);
+        float core = 1.0 - smoothstep(r - 0.07, r, d);
+        // 亮起时外圈一层柔光
+        float halo = vHeat * 0.45 * (1.0 - smoothstep(r, 0.5, d));
+        gl_FragColor = vec4(vColor, max(core, halo) * vAlpha * uAlpha);
+      }
+    `
+
+    function makeMaterial(alpha, twinkle) {
+      return new THREE.ShaderMaterial({
+        vertexShader: VERT,
+        fragmentShader: FRAG,
+        transparent: true,
+        depthWrite: false,
+        uniforms: {
+          uTime: { value: 0 },
+          uDpr: { value: 1 },
+          uTwinkle: { value: twinkle },
+          uHot: { value: COLORS.hot },
+          uAlpha: { value: alpha },
+        },
+      })
+    }
+
+    const WORD_ALPHA = 1
+    const wordMat = makeMaterial(WORD_ALPHA, 0)
+    const dustMat = makeMaterial(0.32, 0.5)
+
+    /* =========================================================
+     * 字形采样：离屏 canvas 绘制文字，按墨迹取点
+     * 返回相对墨迹中心的坐标（y 向上）、墨迹宽高
+     * ========================================================= */
+    function sampleText(fontSize) {
+      const font = CONF.font.replace('{size}', fontSize)
+      const c = document.createElement('canvas')
+      const ctx = c.getContext('2d', { willReadFrequently: true })
+      ctx.font = font
+      const pad = Math.ceil(fontSize * 0.2)
+      c.width = Math.ceil(ctx.measureText(CONF.word).width + pad * 2)
+      c.height = Math.ceil(fontSize * 1.5)
+      ctx.font = font
+      ctx.fillStyle = '#fff'
+      ctx.textBaseline = 'middle'
+      ctx.fillText(CONF.word, pad, c.height / 2)
+
+      const { data, width, height } = ctx.getImageData(0, 0, c.width, c.height)
+      // 近似规则点阵，只加一点抖动，点距和大小保持一致
+      const step = CONF.dotStep(fontSize)
+
+      const pts = []
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
+      for (let y = 0; y < height; y += step) {
+        for (let x = 0; x < width; x += step) {
+          const jx = x + (Math.random() - 0.5) * step * 0.25
+          const jy = y + (Math.random() - 0.5) * step * 0.25
+          const px = Math.min(width - 1, Math.max(0, Math.round(jx)))
+          const py = Math.min(height - 1, Math.max(0, Math.round(jy)))
+          if (data[(py * width + px) * 4 + 3] <= 128) continue
+          pts.push(jx, jy)
+          if (jx < minX) minX = jx
+          if (jx > maxX) maxX = jx
+          if (jy < minY) minY = jy
+          if (jy > maxY) maxY = jy
+        }
+      }
+      const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2
+      for (let i = 0; i < pts.length; i += 2) {
+        pts[i] -= cx
+        pts[i + 1] = cy - pts[i + 1]
+      }
+      return { pts, step, w: maxX - minX, h: maxY - minY }
+    }
+
+    /* =========================================================
+     * 粒子状态
+     * ========================================================= */
+    const P = {
+      n: 0,
+      pos: null, vel: null, home: null, start: null,
+      seed: null, delay: null,
+      center: { x: 0, y: 0 },
+      minX: 0, width: 1,
+      points: null,
+    }
+
+    const state = {
+      mode: 'intro',   // intro | idle | exit
+      introT: 0,       // 入场经过时间
+      exitT: 0,
+      time: 0,
+    }
+
+    const mouse = { x: 1e5, y: 1e5, rawX: 1e5, rawY: 1e5, speed: 0, active: false }
+
+    function viewSize() { return { w: innerWidth, h: innerHeight } }
+
+    function fontSizeFor() {
+      const { w, h } = viewSize()
+      return Math.round(Math.max(84, Math.min(w * 0.24, h * 0.34, 300)))
+    }
+
+    /* 布局：DOM 占位盒决定字形位置，粒子跟着 DOM 走 */
+    function layoutWord() {
+      const fontSize = fontSizeFor()
+      const s = sampleText(fontSize)
+      const root = document.documentElement.style
+      root.setProperty('--word-w', `${Math.ceil(s.w)}px`)
+      root.setProperty('--word-h', `${Math.ceil(s.h)}px`)
+      const r = $('wordmark').getBoundingClientRect()
+      const { w, h } = viewSize()
+      return {
+        pts: s.pts,
+        step: s.step,
+        cx: r.left + r.width / 2 - w / 2,
+        cy: h / 2 - (r.top + r.height / 2),
+      }
+    }
+
+    function scatterPoint(out, i) {
+      const { w, h } = viewSize()
+      // 均匀铺满整个视口（略超出边缘），中间不留空
+      out[i * 3] = (Math.random() - 0.5) * w * 1.15
+      out[i * 3 + 1] = (Math.random() - 0.5) * h * 1.15
+    }
+
+    function buildParticles(keepOld) {
+      const L = layoutWord()
+      const n = L.pts.length / 2
+      const old = keepOld && P.pos ? { pos: P.pos, n: P.n } : null
+
+      const pos = new Float32Array(n * 3)
+      const vel = new Float32Array(n * 3)
+      const home = new Float32Array(n * 3)
+      const start = new Float32Array(n * 3)
+      const seed = new Float32Array(n)
+      const delay = new Float32Array(n)
+      const size = new Float32Array(n)
+      const heat = new Float32Array(n)
+      const color = new Float32Array(n * 3)
+
+      let minX = Infinity, maxX = -Infinity
+      for (let i = 0; i < n; i++) {
+        const hx = L.pts[i * 2] + L.cx
+        const hy = L.pts[i * 2 + 1] + L.cy
+        home[i * 3] = hx
+        home[i * 3 + 1] = hy
+        if (hx < minX) minX = hx
+        if (hx > maxX) maxX = hx
+      }
+
+      const dot = L.step * CONF.dotSize
+      for (let i = 0; i < n; i++) {
+        seed[i] = Math.random()
+        size[i] = dot
+        color.set([COLORS.dot.r, COLORS.dot.g, COLORS.dot.b], i * 3)
+        // 从左到右的波次 + 随机，避免整齐划一
+        delay[i] = ((home[i * 3] - minX) / Math.max(1, maxX - minX)) * CONF.introSpread * 0.6 + Math.random() * CONF.introSpread * 0.4
+
+        scatterPoint(start, i)
+        if (old) {
+          // resize：沿用旧位置，平滑迁移到新字形
+          const j = i % old.n
+          pos[i * 3] = old.pos[j * 3]
+          pos[i * 3 + 1] = old.pos[j * 3 + 1]
+        } else if (reduced) {
+          pos[i * 3] = home[i * 3]
+          pos[i * 3 + 1] = home[i * 3 + 1]
+        } else {
+          pos[i * 3] = start[i * 3]
+          pos[i * 3 + 1] = start[i * 3 + 1]
+        }
+      }
+
+      Object.assign(P, { n, pos, vel, home, start, seed, delay, heat, minX, width: maxX - minX })
+      P.center.x = L.cx
+      P.center.y = L.cy
+
+      const geo = new THREE.BufferGeometry()
+      geo.setAttribute('position', new THREE.BufferAttribute(pos, 3).setUsage(THREE.DynamicDrawUsage))
+      geo.setAttribute('aSize', new THREE.BufferAttribute(size, 1))
+      geo.setAttribute('aSeed', new THREE.BufferAttribute(seed, 1))
+      geo.setAttribute('aHeat', new THREE.BufferAttribute(heat, 1).setUsage(THREE.DynamicDrawUsage))
+      geo.setAttribute('aColor', new THREE.BufferAttribute(color, 3))
+      if (P.points) {
+        P.points.geometry.dispose()
+        P.points.geometry = geo
+      } else {
+        P.points = new THREE.Points(geo, wordMat)
+        P.points.frustumCulled = false
+        scene.add(P.points)
+      }
+    }
+
+    /* 远景微尘：稀疏、暗、缓慢上浮 */
+    const D = { n: CONF.dustCount, pos: null, speed: null, points: null }
+    function buildDust() {
+      const { w, h } = viewSize()
+      const n = D.n
+      const pos = new Float32Array(n * 3)
+      const speed = new Float32Array(n)
+      const size = new Float32Array(n)
+      const seed = new Float32Array(n)
+      const color = new Float32Array(n * 3)
+      for (let i = 0; i < n; i++) {
+        pos[i * 3] = (Math.random() - 0.5) * w
+        pos[i * 3 + 1] = (Math.random() - 0.5) * h
+        speed[i] = 4 + Math.random() * 10
+        size[i] = 1 + Math.random() * 2.2
+        seed[i] = Math.random()
+        color.set([COLORS.fg3.r, COLORS.fg3.g, COLORS.fg3.b], i * 3)
+      }
+      const geo = new THREE.BufferGeometry()
+      geo.setAttribute('position', new THREE.BufferAttribute(pos, 3).setUsage(THREE.DynamicDrawUsage))
+      geo.setAttribute('aSize', new THREE.BufferAttribute(size, 1))
+      geo.setAttribute('aSeed', new THREE.BufferAttribute(seed, 1))
+      geo.setAttribute('aHeat', new THREE.BufferAttribute(new Float32Array(n), 1))
+      geo.setAttribute('aColor', new THREE.BufferAttribute(color, 3))
+      if (D.points) {
+        D.points.geometry.dispose()
+        D.points.geometry = geo
+      } else {
+        D.points = new THREE.Points(geo, dustMat)
+        D.points.frustumCulled = false
+        scene.add(D.points)
+      }
+      D.pos = pos
+      D.speed = speed
+    }
+
+    /* =========================================================
+     * 物理：弹簧-阻尼 + 鼠标径向排斥
+     * ========================================================= */
+    const easeInOutCubic = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2)
+
+    function stepWord(dt) {
+      const { pos: p, vel: v, home: hm, start: st, seed, delay, n } = P
+      const t = state.time
+
+      if (state.mode === 'exit') {
+        // 消散：无弹簧，轻微上浮 + 阻力
+        const drag = Math.exp(-0.9 * dt)
+        for (let i = 0; i < n; i++) {
+          const ix = i * 3, iy = ix + 1
+          v[ix] = v[ix] * drag + Math.sin(t * 1.7 + seed[i] * 20) * 18 * dt
+          v[iy] = v[iy] * drag + 34 * dt
+          p[ix] += v[ix] * dt
+          p[iy] += v[iy] * dt
+        }
+        return
+      }
+
+      const k = CONF.stiffness, c = CONF.damping
+      const breath = 1 + 0.012 * Math.sin((t * Math.PI * 2) / CONF.breathPeriod)
+      const cx = P.center.x, cy = P.center.y
+      const intro = state.mode === 'intro'
+      const repel = !reduced && mouse.active
+      const R = CONF.repelRadius, R2 = R * R
+      // 静止时只留轻微凹陷，移动时才明显推开，停下后自然回聚
+      const force = CONF.repelForce * (0.25 + Math.min(mouse.speed / 900, 1.2))
+      const mx = mouse.x, my = mouse.y
+      const heat = P.heat
+      const cool = Math.exp(-CONF.heatDecay * dt)
+      const heatGain = Math.min(1, force / CONF.repelForce) * 1.5
+
+      for (let i = 0; i < n; i++) {
+        const ix = i * 3, iy = ix + 1
+        const s = seed[i] * 6.2832
+        heat[i] *= cool
+        let tx = cx + (hm[ix] - cx) * breath + Math.sin(t * 0.7 + s) * 1.1
+        let ty = cy + (hm[iy] - cy) * breath + Math.cos(t * 0.6 + s * 1.3) * 1.1
+
+        if (intro) {
+          const e = easeInOutCubic(Math.min(1, Math.max(0, (state.introT - delay[i]) / CONF.introDur)))
+          tx = st[ix] + (tx - st[ix]) * e
+          ty = st[iy] + (ty - st[iy]) * e
+        }
+
+        let ax = k * (tx - p[ix]) - c * v[ix]
+        let ay = k * (ty - p[iy]) - c * v[iy]
+
+        if (repel) {
+          const dx = p[ix] - mx, dy = p[iy] - my
+          const d2 = dx * dx + dy * dy
+          if (d2 < R2 && d2 > 0.01) {
+            const d = Math.sqrt(d2)
+            const f = (1 - d / R) ** 2 * force
+            ax += (dx / d) * f
+            ay += (dy / d) * f
+            // 平方衰减，只有离鼠标较近的一小圈会明显亮起
+            heat[i] = Math.max(heat[i], Math.min(1, (1 - d / R) ** 2 * heatGain))
+          }
+        }
+
+        v[ix] += ax * dt
+        v[iy] += ay * dt
+        p[ix] += v[ix] * dt
+        p[iy] += v[iy] * dt
+      }
+
+      if (intro && state.introT > CONF.introSpread + CONF.introDur) state.mode = 'idle'
+    }
+
+    function stepDust(dt) {
+      const { w, h } = viewSize()
+      const p = D.pos
+      for (let i = 0; i < D.n; i++) {
+        const iy = i * 3 + 1
+        p[iy] += D.speed[i] * dt
+        p[i * 3] += Math.sin(state.time * 0.2 + i) * 3 * dt
+        if (p[iy] > h / 2 + 10) {
+          p[iy] = -h / 2 - 10
+          p[i * 3] = (Math.random() - 0.5) * w
+        }
+      }
+      D.points.geometry.attributes.position.needsUpdate = true
+    }
+
+    /* =========================================================
+     * 渲染循环
+     * ========================================================= */
+    const clock = new THREE.Clock()
+
+    function frame() {
+      const dt = Math.min(clock.getDelta(), 1 / 30)
+      state.time += dt
+      if (state.mode === 'intro') state.introT += dt
+
+      // 平滑鼠标，速度做低通，避免抖动
+      const a = Math.min(1, dt * 14)
+      const nx = mouse.x + (mouse.rawX - mouse.x) * a
+      const ny = mouse.y + (mouse.rawY - mouse.y) * a
+      const sp = Math.hypot(nx - mouse.x, ny - mouse.y) / Math.max(dt, 1e-4)
+      mouse.speed += (sp - mouse.speed) * Math.min(1, dt * 6)
+      mouse.x = nx
+      mouse.y = ny
+
+      stepWord(dt)
+      P.points.geometry.attributes.position.needsUpdate = true
+      P.points.geometry.attributes.aHeat.needsUpdate = true
+      stepDust(dt)
+
+      if (state.mode === 'exit') {
+        state.exitT += dt
+        wordMat.uniforms.uAlpha.value = WORD_ALPHA * Math.max(0, 1 - state.exitT / 1.4)
+      }
+
+      for (const m of [wordMat, dustMat]) m.uniforms.uTime.value = state.time
+
+      renderer.render(scene, camera)
+    }
+
+    function resize() {
+      const { w, h } = viewSize()
+      const dpr = Math.min(devicePixelRatio, 2)
+      renderer.setPixelRatio(dpr)
+      renderer.setSize(w, h, false)
+      camera.left = -w / 2
+      camera.right = w / 2
+      camera.top = h / 2
+      camera.bottom = -h / 2
+      camera.updateProjectionMatrix()
+      for (const m of [wordMat, dustMat]) m.uniforms.uDpr.value = dpr
+    }
+
+    let resizeTimer = 0
+    addEventListener('resize', () => {
+      resize()
+      clearTimeout(resizeTimer)
+      resizeTimer = setTimeout(() => {
+        buildParticles(true)
+        buildDust()
+        if (state.mode === 'intro') state.mode = 'idle'
+      }, 150)
+    })
+
+    // 页面隐藏时停止渲染
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) renderer.setAnimationLoop(null)
+      else { clock.getDelta(); renderer.setAnimationLoop(frame) }
+    })
+    addEventListener('pagehide', () => renderer.setAnimationLoop(null))
+
+    /* 鼠标：换算到世界坐标（原点在中心，y 向上） */
+    addEventListener('pointermove', (e) => {
+      const { w, h } = viewSize()
+      mouse.rawX = e.clientX - w / 2
+      mouse.rawY = h / 2 - e.clientY
+      if (!mouse.active) { mouse.x = mouse.rawX; mouse.y = mouse.rawY }
+      mouse.active = state.mode !== 'exit'
+    })
+    document.addEventListener('pointerleave', () => { mouse.active = false })
+    addEventListener('blur', () => { mouse.active = false })
+
+    /* =========================================================
+     * DOM 时序：文案 → 选择框
+     * ========================================================= */
+    const TAGLINE = '从一个想法，到无限可能'
+    const tagline = $('tagline')
+    // 逐字层负责浮现；扫光层是同一行字的叠影，逐字全部出现后才开始扫
+    tagline.innerHTML = [...TAGLINE]
+      .map((ch, i) => `<span class="ch" aria-hidden="true" style="--i:${i}">${ch}</span>`)
+      .join('') + `<span class="sheen" aria-hidden="true" data-text="${TAGLINE}">${TAGLINE}</span>`
+    const taglineRevealSec = TAGLINE.length * 0.085 + 1.1
+
+    const timers = []
+    function later(fn, sec) { timers.push(setTimeout(fn, reduced ? 0 : sec * 1000)) }
+
+    function playIntro() {
+      timers.splice(0).forEach(clearTimeout)
+      later(() => tagline.classList.add('show'), CONF.taglineAt)
+      if (!reduced) later(() => tagline.classList.add('shine'), CONF.taglineAt + taglineRevealSec)
+      later(() => $('picker').classList.add('show'), CONF.pickerAt)
+    }
+
+    /* =========================================================
+     * 提供商下拉（listbox，键盘可用）
+     * ========================================================= */
+    const picker = $('picker')
+    const trigger = $('pickerTrigger')
+    const list = $('pickerList')
+    let activeIdx = 0
+
+    list.innerHTML = PROVIDERS.map((p, i) => `
+      <li role="option" id="opt-${p.id}" data-i="${i}" aria-selected="false">
+        <span class="badge">${p.name[0]}</span>
+        <span class="meta"><span class="name">${p.name}</span><span class="desc">${p.desc} · ${p.models.length} 个模型</span></span>
+      </li>`).join('')
+    const options = [...list.children]
+
+    function setActive(i) {
+      activeIdx = (i + options.length) % options.length
+      options.forEach((o, j) => o.classList.toggle('active', j === activeIdx))
+      list.setAttribute('aria-activedescendant', options[activeIdx].id)
+      options[activeIdx].scrollIntoView({ block: 'nearest' })
+    }
+
+    function openList() {
+      // 下方放不下就向上展开
+      const r = trigger.getBoundingClientRect()
+      picker.classList.toggle('up', innerHeight - r.bottom < 320 && r.top > innerHeight - r.bottom)
+      picker.classList.add('open')
+      trigger.setAttribute('aria-expanded', 'true')
+      setActive(activeIdx)
+      list.focus()
+    }
+    function closeList(refocus = true) {
+      picker.classList.remove('open')
+      trigger.setAttribute('aria-expanded', 'false')
+      if (refocus) trigger.focus()
+    }
+
+    trigger.addEventListener('click', () => (picker.classList.contains('open') ? closeList() : openList()))
+    trigger.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); openList() }
+    })
+    list.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowDown') { e.preventDefault(); setActive(activeIdx + 1) }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); setActive(activeIdx - 1) }
+      else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choose(activeIdx) }
+      else if (e.key === 'Escape' || e.key === 'Tab') { e.preventDefault(); closeList() }
+    })
+    list.addEventListener('pointermove', (e) => {
+      const li = e.target.closest('li')
+      if (li && +li.dataset.i !== activeIdx) setActive(+li.dataset.i)
+    })
+    list.addEventListener('click', (e) => {
+      const li = e.target.closest('li')
+      if (li) choose(+li.dataset.i)
+    })
+    document.addEventListener('pointerdown', (e) => {
+      if (picker.classList.contains('open') && !picker.contains(e.target)) closeList(false)
+    })
+
+    /* =========================================================
+     * 弹框：API Key + 模型
+     * ========================================================= */
+    const modal = $('modal')
+    const keyInput = $('apiKey')
+    const modelSelect = $('modelSelect')
+    const confirmBtn = $('confirmBtn')
+    let chosen = null
+
+    function choose(i) {
+      chosen = PROVIDERS[i]
+      options.forEach((o, j) => o.setAttribute('aria-selected', String(j === i)))
+      $('pickerLabel').textContent = chosen.name
+      closeList(false)
+      openModal()
+    }
+
+    function openModal() {
+      $('modalBadge').textContent = chosen.name[0]
+      $('modalTitle').textContent = `连接 ${chosen.name}`
+      modelSelect.innerHTML = chosen.models.map((m) => `<option value="${m}">${m}</option>`).join('')
+      keyInput.value = ''
+      keyInput.type = 'password'
+      $('toggleKey').setAttribute('aria-pressed', 'false')
+      confirmBtn.disabled = true
+      modal.showModal()
+      requestAnimationFrame(() => modal.classList.add('in'))
+      keyInput.focus()
+    }
+
+    function closeModal(refocus = true) {
+      modal.classList.remove('in')
+      setTimeout(() => {
+        modal.close()
+        if (refocus) trigger.focus()
+      }, reduced ? 0 : 220)
+    }
+
+    keyInput.addEventListener('input', () => { confirmBtn.disabled = !keyInput.value.trim() })
+    $('toggleKey').addEventListener('click', () => {
+      const show = keyInput.type === 'password'
+      keyInput.type = show ? 'text' : 'password'
+      $('toggleKey').setAttribute('aria-pressed', String(show))
+      $('toggleKey').setAttribute('aria-label', show ? '隐藏 Key' : '显示 Key')
+    })
+    $('cancelBtn').addEventListener('click', () => closeModal())
+    // Esc：拦下原生立即关闭，走带动画的关闭
+    modal.addEventListener('cancel', (e) => { e.preventDefault(); closeModal() })
+    // 点遮罩关闭（点击目标是 dialog 本身即落在卡片外）
+    modal.addEventListener('click', (e) => { if (e.target === modal) closeModal() })
+
+    $('modalForm').addEventListener('submit', (e) => {
+      e.preventDefault()
+      const key = keyInput.value.trim()
+      if (!key) return
+      closeModal(false)
+      enter({ provider: chosen, model: modelSelect.value, key })
+    })
+
+    /* =========================================================
+     * 进入：粒子消散 + 欢迎层淡出 → 主页面
+     * ========================================================= */
+    function enter({ provider, model, key }) {
+      state.mode = 'exit'
+      state.exitT = 0
+      mouse.active = false
+      const { pos: p, vel: v, seed, n } = P
+      const cx = P.center.x, cy = P.center.y
+      for (let i = 0; i < n; i++) {
+        const dx = p[i * 3] - cx, dy = p[i * 3 + 1] - cy
+        const d = Math.hypot(dx, dy) || 1
+        const sp = 60 + seed[i] * 220
+        v[i * 3] = (dx / d) * sp + (Math.random() - 0.5) * 80
+        v[i * 3 + 1] = (dy / d) * sp * 0.6 + 40 + Math.random() * 90
+      }
+      $('stage').classList.add('leaving')
+      $('stage').inert = true
+
+      $('homeProvider').textContent = `${provider.name} (${provider.id})`
+      $('homeModel').textContent = model
+      $('homeKey').textContent = key.length > 8 ? `${key.slice(0, 4)}••••${key.slice(-4)}` : '••••'
+      setTimeout(() => {
+        $('home').classList.add('show')
+        $('backBtn').focus()
+      }, reduced ? 0 : 1100)
+    }
+
+    /* 返回欢迎页：重新播放整套入场，便于反复调试 */
+    $('backBtn').addEventListener('click', () => {
+      $('home').classList.remove('show')
+      const stage = $('stage')
+      stage.classList.remove('leaving')
+      stage.inert = false
+      tagline.classList.remove('show', 'shine')
+      picker.classList.remove('show')
+      $('pickerLabel').textContent = '选择一个提供商开始'
+
+      wordMat.uniforms.uAlpha.value = WORD_ALPHA
+      P.heat.fill(0)
+      const { pos, vel, start, n } = P
+      for (let i = 0; i < n; i++) {
+        scatterPoint(start, i)
+        if (reduced) continue
+        pos[i * 3] = start[i * 3]
+        pos[i * 3 + 1] = start[i * 3 + 1]
+        vel[i * 3] = vel[i * 3 + 1] = 0
+      }
+      state.mode = reduced ? 'idle' : 'intro'
+      state.introT = 0
+      playIntro()
+    })
+
+    /* =========================================================
+     * 启动
+     * ========================================================= */
+    resize()
+    buildParticles(false)
+    buildDust()
+    if (reduced) state.mode = 'idle'
+    renderer.setAnimationLoop(frame)
+    playIntro()
+
+    function selfCheck() {
+      console.assert(P.n > 0, 'relax 字形采样点数为 0')
+      console.assert(PROVIDERS.every((p) => p.models.length > 0), '存在没有模型的提供商')
+      console.assert(new Set(PROVIDERS.map((p) => p.id)).size === PROVIDERS.length, '提供商 id 重复')
+    }
+    selfCheck()
+  </script>
+</body>
+</html>

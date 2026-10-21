@@ -51,6 +51,23 @@
 - 体积感：主体减去一个向左上偏移的同形主体，剩下右下方一道纯色背光月牙（`fill-rule="evenodd"` 加主体裁剪）。
 - 伪 3D 倾斜：拖拽或方向键倾斜，滚轮缩放，双击复位。五官按正面深度做视差位移和压缩，背光月牙的宽度随倾斜角度变化。不是真实旋转，倾斜角度有上限；要看侧面请用 demo3。
 
+## 欢迎页 relax
+
+`demos/welcome-demo.html`（侧栏「欢迎页 relax」，`#welcome`）。Three.js 从 CDN importmap 加载。数据全是 mock，Key 不离开页面。查阅时机：调欢迎页动效、配色、节奏，或要把欢迎页搬进 `app/web` 时。
+
+流程：粒子从铺满全屏的散点聚成 "relax" → 文案「从一个想法，到无限可能」逐字淡入（右对齐到字形右缘），全部出现后循环扫光 → 提供商下拉上浮 → 选中后弹框填 Key、选模型 → 粒子向外上方消散、欢迎层缩放淡出 → 占位主页面（带「返回欢迎页」可重播）。
+
+单文件内分区：
+
+- `CONF`：所有可调参数。弹簧 `stiffness` / `damping`（阻尼小于 `2√stiffness` 时回聚略带回弹）、排斥 `repelRadius` / `repelForce`、入场 `introDur` / `introSpread`、文案和下拉出现时刻 `taglineAt` / `pickerAt`、呼吸周期、点阵间距 `dotStep` 和点径比例 `dotSize`、被挤压后绿色褪去速度 `heatDecay`。
+- `PROVIDERS`：mock 提供商和模型，取自 server `KEY_PROVIDERS` 里常用几家。接真接口时换成 `/providers` 和 `/providers/:id/models`。
+- 字形：`sampleText` 在离屏 canvas 画字，按字号定点距、近似规则点阵取点（只加少量抖动），返回相对墨迹中心的点。所有点同一大小。DOM 里 `.wordmark` 是一个按墨迹宽高撑开的空盒，粒子位置取它的中心，所以文案和下拉的排版完全由 DOM 决定。
+- 粒子：正交相机，世界单位等于 CSS 像素。CPU 端逐粒子弹簧-阻尼积分，鼠标半径内按 `(1 - d/R)²` 径向推开，鼠标越快推力略大。被推开的粒子记一个 `heat` 值（按离鼠标距离平方衰减，只有近处一小圈明显），shader 按它提亮成纯白、略放大并加一圈柔光，随后按 `heatDecay` 快速褪回。另有一层稀疏灰色微尘缓慢上浮。
+- 配色：底色和 token 与 `app/web` 暗色一致。字形粒子统一 `#f0f0f0`，不用强调色。
+- 文案扫光：参照 React Bits ShinyText（120°、光带宽 40%、softness 0.8、带 glow）。`.sheen` 是同一行字的绝对定位叠影，`background-clip: text` 裁出白色光带，光带位置是 `@property` 注册的 `--shine`，`::after` 是模糊后的同款光带当柔光。一次扫过 2 秒、停 1.6 秒，逐字浮现结束后加 `.shine` 开始循环。
+- `prefers-reduced-motion`：跳过散落入场和鼠标排斥，DOM 只做淡入。
+- 加载时 `selfCheck()` 用 `console.assert` 检查采样点数和 mock 数据。
+
 ## Demo 命名
 
 kebab-case + 后缀(如 `loading-dots-demo.html`、`theme-colors.html`)。
