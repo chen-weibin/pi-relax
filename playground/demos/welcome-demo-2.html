@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>relax — 欢迎页开场</title>
+  <style>
+    /* 色值与 app/web 暗色 token 一致。这页不引 gsap / three。 */
+    :root {
+      --app: #151515;
+      --surface: #2b2b2b;
+      --surface-active: #353535;
+      --fg: #e5e5e5;
+      --fg-3: #a1a1a1;
+      --fg-disabled: #737373;
+      --ease: cubic-bezier(0.22, 1, 0.36, 1);
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif;
+      --stage: 520px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      height: 100%;
+      background: var(--app);
+      color: var(--fg);
+      font-family: var(--font);
+      font-size: 14px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    #grid {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    .stage {
+      position: relative;
+      z-index: 1;
+      min-height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 24px 72px;
+      transform: translateY(-40px);
+    }
+
+    .col {
+      width: min(var(--stage), 100%);
+      margin-top: 4px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    #word {
+      width: min(680px, calc(100vw - 48px));
+      height: 186px;
+      display: block;
+    }
+
+    .line {
+      position: relative;
+      min-height: 44px;
+      margin-top: 2px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .stroke-svg {
+      display: block;
+      overflow: visible;
+    }
+
+    .stroke-svg text {
+      font-family: var(--font);
+      font-size: 28px;
+      font-weight: 500;
+    }
+
+    .stroke-char {
+      fill: none;
+      stroke: #ececec;
+      stroke-width: 1.15;
+      stroke-linejoin: round;
+      stroke-linecap: round;
+    }
+
+    .stroke-svg.run .stroke-char {
+      animation: draw 1.05s linear forwards;
+      animation-delay: calc(var(--i) * 72ms);
+    }
+
+    @keyframes draw {
+      to { stroke-dashoffset: 0; }
+    }
+
+    .stroke-char,
+    .fill-char {
+      transition: stroke 700ms var(--ease), fill 700ms var(--ease);
+    }
+
+    .fill-char { fill: #ececec; }
+
+    .line.tone .stroke-char { stroke: var(--fg-3); }
+    .line.tone .fill-char { fill: var(--fg-3); }
+
+    .copy {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      margin: 0;
+      color: var(--fg-3);
+      font-size: 28px;
+      font-weight: 500;
+      line-height: 1;
+      white-space: nowrap;
+      opacity: 0;
+      user-select: none;
+    }
+
+    .line.shine .stroke-svg,
+    .line.settled .stroke-svg {
+      opacity: 0;
+      transition: opacity 240ms ease;
+    }
+
+    .line.shine .copy,
+    .line.settled .copy {
+      opacity: 1;
+      transition: opacity 240ms ease;
+    }
+
+    /*
+     * 扫光。参照 ShinyText：120°、带宽 40%、softness 0.8、带一层柔光。
+     * 只在描边填色结束后给 .line 加上 .shine。
+     */
+    @property --shine {
+      syntax: '<percentage>';
+      inherits: true;
+      initial-value: -25%;
+    }
+
+    .copy .sheen,
+    .copy .sheen::after {
+      color: transparent;
+      background-image: linear-gradient(120deg,
+        rgba(255, 255, 255, 0)     calc(var(--shine) - 20%),
+        rgba(255, 255, 255, 0.104) calc(var(--shine) - 16.8%),
+        rgba(255, 255, 255, 0.352) calc(var(--shine) - 13.6%),
+        rgba(255, 255, 255, 0.648) calc(var(--shine) - 10.4%),
+        rgba(255, 255, 255, 1)     calc(var(--shine) - 4%),
+        rgba(255, 255, 255, 1)     calc(var(--shine) + 4%),
+        rgba(255, 255, 255, 0.648) calc(var(--shine) + 10.4%),
+        rgba(255, 255, 255, 0.352) calc(var(--shine) + 13.6%),
+        rgba(255, 255, 255, 0.104) calc(var(--shine) + 16.8%),
+        rgba(255, 255, 255, 0)     calc(var(--shine) + 20%));
+      background-repeat: no-repeat;
+      -webkit-background-clip: text;
+      background-clip: text;
+    }
+
+    .copy .sheen {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .copy .sheen::after {
+      content: attr(data-text);
+      position: absolute;
+      inset: 0;
+      filter: blur(0.14em);
+      opacity: 0.6;
+    }
+
+    .line.shine .sheen {
+      opacity: 1;
+      animation: sheen 3.6s cubic-bezier(0.37, 0, 0.63, 1) infinite;
+    }
+
+    @keyframes sheen {
+      0%   { --shine: -25%; }
+      55%  { --shine: 125%; }
+      100% { --shine: 125%; }
+    }
+
+    /* 输入框：胶囊外形靠近 Composer，边高光沿周长滑向指针。 */
+    .field {
+      --spot: 42deg;
+      --level: 0.35;
+      position: relative;
+      isolation: isolate;
+      width: 100%;
+      margin-top: 36px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 8px 8px 18px;
+      border: 0;
+      border-radius: 20px;
+      background: rgba(28, 28, 28, 0.78);
+      box-shadow: inset 0 0 0 1px rgba(82, 82, 82, 0.9);
+      -webkit-backdrop-filter: blur(10px);
+      backdrop-filter: blur(10px);
+      opacity: 0;
+      transform: translateY(8px);
+      pointer-events: none;
+      transition: opacity 700ms var(--ease), transform 700ms var(--ease);
+    }
+
+    .field.in {
+      opacity: 1;
+      transform: none;
+      pointer-events: auto;
+    }
+
+    .field::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      padding: 1.6px;
+      background: conic-gradient(
+        from calc(var(--spot) - 42deg),
+        transparent 0deg,
+        rgba(255, 255, 255, 0.45) 18deg,
+        #fff 42deg,
+        rgba(255, 255, 255, 0.45) 66deg,
+        transparent 88deg,
+        transparent 148deg,
+        rgba(255, 255, 255, 0.42) 180deg,
+        transparent 214deg,
+        transparent 360deg
+      );
+      -webkit-mask:
+        linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor;
+      mask:
+        linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
+      mask-composite: exclude;
+      opacity: var(--level);
+      pointer-events: none;
+    }
+
+    .field select {
+      flex: 1;
+      min-width: 0;
+      border: 0;
+      outline: none;
+      appearance: none;
+      background: transparent;
+      color: var(--fg);
+      font: inherit;
+      line-height: 1.4;
+      cursor: pointer;
+      color-scheme: dark;
+    }
+
+    .field select:invalid { color: var(--fg-disabled); }
+
+    .chev {
+      width: 28px;
+      height: 28px;
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      background: var(--surface-active);
+      color: var(--fg-3);
+      pointer-events: none;
+    }
+
+    .replay {
+      position: fixed;
+      z-index: 2;
+      left: 50%;
+      bottom: 22px;
+      transform: translateX(-50%);
+      border: 0;
+      background: transparent;
+      color: #555;
+      font: 12px/1 var(--font);
+      letter-spacing: 0.12em;
+      cursor: pointer;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 400ms ease, color 120ms ease;
+    }
+
+    .replay.show { opacity: 1; pointer-events: auto; }
+    .replay:hover { color: var(--fg-3); }
+
+    @media (prefers-reduced-motion: reduce) {
+      .stroke-char { animation: none; stroke-dashoffset: 0; }
+      .line.shine .sheen { animation: none; opacity: 0; }
+      .field, .copy, .stroke-svg, .replay { transition: none; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="grid" aria-hidden="true"></canvas>
+  <div class="stage">
+    <canvas id="word" role="img" aria-label="relax"></canvas>
+    <div class="col">
+      <div class="line" id="line" aria-label="从一个想法，到无限可能">
+        <svg id="stroke" class="stroke-svg" aria-hidden="true">
+          <defs>
+            <clipPath id="wipe" clipPathUnits="userSpaceOnUse">
+              <rect id="wipeRect" x="0" y="0" width="0" height="0"></rect>
+            </clipPath>
+          </defs>
+          <text class="strokes" x="0" y="0"></text>
+          <text class="fills" x="0" y="0" clip-path="url(#wipe)"></text>
+        </svg>
+        <p class="copy">
+          <span class="ink">从一个想法，到无限可能</span>
+          <span class="sheen" data-text="从一个想法，到无限可能" aria-hidden="true">从一个想法，到无限可能</span>
+        </p>
+      </div>
+      <form class="field" id="field">
+        <select id="prompt" required aria-label="选择模型">
+          <option value="" selected disabled>选择模型</option>
+          <option>MiniMax M2.7</option>
+          <option>Kimi K2.6</option>
+          <option>Claude Opus</option>
+          <option>DeepSeek V4</option>
+        </select>
+        <span class="chev" aria-hidden="true">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+            <path d="m6 9 6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </span>
+      </form>
+    </div>
+  </div>
+  <button class="replay" id="replay" type="button">重播</button>
+
+  <script>
+    const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif'
+    const TAGLINE = document.querySelector('.ink').textContent
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+    const clamp01 = (v) => Math.min(1, Math.max(0, v))
+    const approach = (current, target, dt, seconds) =>
+      current + (target - current) * (1 - Math.exp(-dt / seconds))
+    const smoothstep = (edge0, edge1, value) => {
+      const t = clamp01((value - edge0) / (edge1 - edge0))
+      return t * t * (3 - 2 * t)
+    }
+
+    /* ---------- 背景网格 ---------- */
+    const CELL = 56
+    const RADIUS = 140
+
+    function smoothFalloff(distance, radius) {
+      const t = clamp01(1 - distance / radius)
+      return t * t * (3 - 2 * t)
+    }
+
+    function edgeFade(x, y, w, h) {
+      const ex = Math.min(1, Math.min(x, w - x) / (w * 0.16))
+      const ey = Math.min(1, Math.min(y, h - y) / (h * 0.16))
+      const t = Math.min(ex, ey)
+      return t * t * (3 - 2 * t)
+    }
+
+    const grid = document.getElementById('grid')
+    const gctx = grid.getContext('2d')
+    const heat = new Map()
+    const cursor = { x: 0, y: 0, inside: false }
+    let gridW = 1
+    let gridH = 1
+    let gridDpr = 1
+    let gridRaf = 0
+    let gridLast = 0
+
+    function resizeGrid() {
+      gridW = Math.max(1, window.innerWidth)
+      gridH = Math.max(1, window.innerHeight)
+      gridDpr = Math.min(window.devicePixelRatio || 1, 2)
+      grid.width = Math.round(gridW * gridDpr)
+      grid.height = Math.round(gridH * gridDpr)
+      drawGrid()
+    }
+
+    function cellKey(ix, iy) { return ix + ',' + iy }
+
+    function bumpGrid() {
+      const x0 = Math.floor((cursor.x - RADIUS) / CELL)
+      const x1 = Math.floor((cursor.x + RADIUS) / CELL)
+      const y0 = Math.floor((cursor.y - RADIUS) / CELL)
+      const y1 = Math.floor((cursor.y + RADIUS) / CELL)
+      for (let iy = y0; iy <= y1; iy++) {
+        for (let ix = x0; ix <= x1; ix++) {
+          const cx = ix * CELL + CELL / 2
+          const cy = iy * CELL + CELL / 2
+          const fall = smoothFalloff(Math.hypot(cx - cursor.x, cy - cursor.y), RADIUS)
+          if (fall <= 0) continue
+          const key = cellKey(ix, iy)
+          heat.set(key, Math.max(heat.get(key) || 0, fall))
+        }
+      }
+    }
+
+    function drawGrid() {
+      gctx.setTransform(gridDpr, 0, 0, gridDpr, 0, 0)
+      gctx.clearRect(0, 0, gridW, gridH)
+      gctx.lineWidth = 1
+      const cols = Math.ceil(gridW / CELL) + 1
+      const rows = Math.ceil(gridH / CELL) + 1
+
+      for (let iy = 0; iy < rows; iy++) {
+        for (let ix = 0; ix < cols; ix++) {
+          const x = ix * CELL
+          const y = iy * CELL
+          const hot = heat.get(cellKey(ix, iy)) || 0
+          const fade = edgeFade(x + CELL / 2, y + CELL / 2, gridW, gridH)
+          if (hot > 0.02) {
+            gctx.fillStyle = `rgba(229, 229, 229, ${hot * 0.028 * fade})`
+            gctx.fillRect(x + 1, y + 1, CELL - 1, CELL - 1)
+          }
+        }
+      }
+
+      gctx.beginPath()
+      for (let iy = 0; iy <= rows; iy++) {
+        const y = Math.round(iy * CELL) + 0.5
+        for (let ix = 0; ix < cols; ix++) {
+          const hot = Math.max(heat.get(cellKey(ix, iy - 1)) || 0, heat.get(cellKey(ix, iy)) || 0)
+          const x = ix * CELL
+          const fade = edgeFade(x + CELL / 2, y, gridW, gridH)
+          gctx.strokeStyle = `rgba(229, 229, 229, ${(0.045 + hot * 0.22) * fade})`
+          gctx.moveTo(x, y)
+          gctx.lineTo(x + CELL, y)
+          gctx.stroke()
+          gctx.beginPath()
+        }
+      }
+      for (let ix = 0; ix <= cols; ix++) {
+        const x = Math.round(ix * CELL) + 0.5
+        for (let iy = 0; iy < rows; iy++) {
+          const hot = Math.max(heat.get(cellKey(ix - 1, iy)) || 0, heat.get(cellKey(ix, iy)) || 0)
+          const y = iy * CELL
+          const fade = edgeFade(x, y + CELL / 2, gridW, gridH)
+          gctx.strokeStyle = `rgba(229, 229, 229, ${(0.045 + hot * 0.22) * fade})`
+          gctx.moveTo(x, y)
+          gctx.lineTo(x, y + CELL)
+          gctx.stroke()
+          gctx.beginPath()
+        }
+      }
+    }
+
+    function tickGrid(now) {
+      gridRaf = 0
+      const dt = Math.min(0.05, gridLast ? (now - gridLast) / 1000 : 0.016)
+      gridLast = now
+      if (!reduce && cursor.inside) bumpGrid()
+      for (const [key, value] of heat) {
+        const next = value * Math.exp(-dt / 0.34)
+        if (next < 0.012) heat.delete(key)
+        else heat.set(key, next)
+      }
+      drawGrid()
+      if (!reduce && (cursor.inside || heat.size)) gridRaf = requestAnimationFrame(tickGrid)
+      else gridLast = 0
+    }
+
+    function wakeGrid() {
+      if (!gridRaf) gridRaf = requestAnimationFrame(tickGrid)
+    }
+
+    /* ---------- relax：逐字虚线选区，然后停成实字 ---------- */
+    const WORD = 'relax'
+    let wordSize = 160
+    const word = document.getElementById('word')
+    const wctx = word.getContext('2d')
+    let wordW = 1
+    let wordH = 1
+    let wordDpr = 1
+    let glyphs = []
+    let shown = []
+    let outlines = []
+    let phase = 'idle'
+    let wordClock = 0
+    let wordLast = 0
+    let wordRaf = 0
+    let wordDone = null
+    let wordFired = false
+    const wordPointer = { x: 0, y: 0, inside: false }
+    const frame = { x1: 0, y1: 0, x2: 0, y2: 0, alpha: 0, index: -1 }
+
+    function measureWord(size) {
+      wctx.font = `600 ${size}px ${FONT}`
+      const gap = 0
+      const widths = [...WORD].map((ch) => wctx.measureText(ch).width)
+      const total = widths.reduce((sum, w) => sum + w, 0) + gap * (WORD.length - 1)
+      const sample = wctx.measureText(WORD)
+      const ascent = sample.actualBoundingBoxAscent || size * 0.78
+      const descent = sample.actualBoundingBoxDescent || size * 0.2
+      return { widths, gap, total, ascent, descent }
+    }
+
+    function layoutWord() {
+      wctx.setTransform(wordDpr, 0, 0, wordDpr, 0, 0)
+      const labelRoom = 32
+      const probe = measureWord(100)
+      const availH = Math.max(40, wordH - labelRoom - 18)
+      wordSize = Math.max(48, Math.floor(availH / (probe.ascent + probe.descent) * 100))
+      const metrics = measureWord(wordSize)
+      let x = (wordW - metrics.total) / 2
+      const baseline = labelRoom + metrics.ascent + Math.max(0, (availH - metrics.ascent - metrics.descent) / 2)
+      glyphs = [...WORD].map((ch, i) => {
+        const letter = wctx.measureText(ch)
+        const box = {
+          x1: x,
+          y1: baseline - (letter.actualBoundingBoxAscent || metrics.ascent),
+          x2: x + metrics.widths[i],
+          y2: baseline + (letter.actualBoundingBoxDescent || metrics.descent),
+        }
+        const glyph = { ch, x, baseline, box }
+        x += metrics.widths[i] + metrics.gap
+        return glyph
+      })
+    }
+
+    function resizeWord() {
+      const rect = word.getBoundingClientRect()
+      wordW = Math.max(1, rect.width)
+      wordH = Math.max(1, rect.height)
+      wordDpr = Math.min(window.devicePixelRatio || 1, 2)
+      word.width = Math.round(wordW * wordDpr)
+      word.height = Math.round(wordH * wordDpr)
+      layoutWord()
+      drawWord(0.016)
+    }
+
+    function glyphAt(x, y) {
+      const slack = 4
+      for (let i = glyphs.length - 1; i >= 0; i--) {
+        const box = glyphs[i].box
+        if (x >= box.x1 - slack && x <= box.x2 + slack && y >= box.y1 - 6 && y <= box.y2 + 6) return i
+      }
+      return -1
+    }
+
+    function drawFrame(annotate) {
+      if (frame.alpha < 0.01 || frame.index < 0) return
+      const glyph = glyphs[frame.index]
+      if (!glyph) return
+      const x1 = Math.round(frame.x1) + 0.5
+      const y1 = Math.round(frame.y1) + 0.5
+      const x2 = Math.round(frame.x2) + 0.5
+      const y2 = Math.round(frame.y2) + 0.5
+      const a = frame.alpha
+      wctx.strokeStyle = '#f0f0f0'
+      wctx.fillStyle = '#f0f0f0'
+      wctx.lineWidth = 1
+      wctx.globalAlpha = 0.5 * a
+      wctx.strokeRect(x1, y1, x2 - x1, y2 - y1)
+      wctx.globalAlpha = 0.95 * a
+      for (const [cx, cy] of [[x1, y1], [x2, y1], [x2, y2], [x1, y2]]) {
+        wctx.fillRect(Math.round(cx) - 2, Math.round(cy) - 2, 5, 5)
+      }
+      if (!annotate) {
+        wctx.globalAlpha = 1
+        return
+      }
+      wctx.font = '500 11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace'
+      wctx.textAlign = 'left'
+      wctx.textBaseline = 'bottom'
+      const bw = Math.round(glyph.box.x2 - glyph.box.x1)
+      const bh = Math.round(glyph.box.y2 - glyph.box.y1)
+      const lx = Math.round(x1)
+      const ly = Math.round(y1) - 8
+      wctx.globalAlpha = 0.72 * a
+      wctx.fillText(glyph.ch, lx, ly)
+      const sq = 7
+      const sx = lx + wctx.measureText(glyph.ch).width + 6
+      wctx.globalAlpha = 0.88 * a
+      wctx.fillRect(sx, ly - sq - 1, sq, sq)
+      wctx.globalAlpha = 0.62 * a
+      wctx.fillText(`${bw} × ${bh}`, sx + sq + 6, ly)
+      wctx.lineWidth = 1
+      wctx.globalAlpha = 0.5 * a
+      wctx.strokeRect(x1 - 18, y1 + 16, 8, 8)
+      wctx.strokeRect(x1 - 18, y1 + 28, 8, 8)
+      wctx.globalAlpha = 0.7 * a
+      wctx.fillRect(x1 + 20, y2 + 12, 3, 3)
+      wctx.globalAlpha = 1
+    }
+
+    function drawWord(dt) {
+      const n = WORD.length
+      const delay = 0.16
+      const duration = 1.55
+      const started = phase === 'intro' && wordClock >= delay
+      const progress = started ? clamp01((wordClock - delay) / duration) : (phase === 'rest' ? 1 : 0)
+      const step = 0.86 / n
+      const cursorAt = Math.min(n - 1, Math.floor(progress / Math.max(step, 0.0001)))
+      const typing = phase === 'intro' && started && progress < 0.93 ? cursorAt : -1
+      const hover = phase === 'rest' && wordPointer.inside ? glyphAt(wordPointer.x, wordPointer.y) : -1
+
+      for (let i = 0; i < n; i++) {
+        let showTarget = phase === 'rest' ? 1 : 0
+        if (phase === 'intro' && started) {
+          if (i < cursorAt) showTarget = 1
+          else if (i === cursorAt) showTarget = smoothstep(0, step * 0.32, progress - i * step)
+        }
+        const outlineTarget = typing === i || hover === i ? 1 : 0
+        shown[i] = approach(shown[i] || 0, showTarget, dt, 0.07)
+        outlines[i] = approach(outlines[i] || 0, outlineTarget, dt, 0.09)
+      }
+
+      const frameIndex = typing >= 0 ? typing : hover
+      if (frameIndex >= 0) {
+        const box = glyphs[frameIndex].box
+        const pad = Math.max(10, wordSize * 0.055)
+        const target = { x1: box.x1 - pad, y1: box.y1 - pad, x2: box.x2 + pad, y2: box.y2 + pad }
+        if (frame.index !== frameIndex && frame.alpha < 0.08) {
+          frame.x1 = target.x1
+          frame.y1 = target.y1
+          frame.x2 = target.x2
+          frame.y2 = target.y2
+        }
+        frame.x1 = approach(frame.x1, target.x1, dt, 0.08)
+        frame.y1 = approach(frame.y1, target.y1, dt, 0.08)
+        frame.x2 = approach(frame.x2, target.x2, dt, 0.08)
+        frame.y2 = approach(frame.y2, target.y2, dt, 0.08)
+        frame.index = frameIndex
+      }
+      frame.alpha = approach(frame.alpha, frameIndex >= 0 ? 1 : 0, dt, 0.1)
+
+      wctx.setTransform(wordDpr, 0, 0, wordDpr, 0, 0)
+      wctx.clearRect(0, 0, wordW, wordH)
+      wctx.font = `600 ${wordSize}px ${FONT}`
+      wctx.textBaseline = 'alphabetic'
+      wctx.lineWidth = 1.5
+      wctx.lineJoin = 'round'
+      wctx.lineCap = 'round'
+      wctx.strokeStyle = '#f0f0f0'
+      wctx.fillStyle = '#f0f0f0'
+      const dash = Math.max(4, wordSize * 0.022)
+      const gap = Math.max(2.5, wordSize * 0.014)
+      glyphs.forEach((glyph, i) => {
+        const fillAlpha = (shown[i] || 0) * (1 - (outlines[i] || 0))
+        const dashAlpha = (shown[i] || 0) * (outlines[i] || 0)
+        if (fillAlpha > 0.01) {
+          wctx.globalAlpha = fillAlpha
+          wctx.fillText(glyph.ch, glyph.x, glyph.baseline)
+        }
+        if (dashAlpha > 0.01) {
+          wctx.globalAlpha = dashAlpha
+          wctx.setLineDash([dash, gap])
+          wctx.strokeText(glyph.ch, glyph.x, glyph.baseline)
+          wctx.setLineDash([])
+        }
+      })
+      wctx.globalAlpha = 1
+      drawFrame(phase === 'rest' && hover >= 0)
+
+      if (phase === 'intro' && progress >= 1 && !wordFired) {
+        wordFired = true
+        phase = 'rest'
+        wordDone?.()
+      }
+    }
+
+    function tickWord(now) {
+      wordRaf = 0
+      const dt = Math.min(0.05, wordLast ? (now - wordLast) / 1000 : 0.016)
+      wordLast = now
+      if (phase === 'intro') wordClock += dt
+      drawWord(dt)
+      const moving = phase === 'intro' || frame.alpha > 0.012 || wordPointer.inside
+      if (moving) wordRaf = requestAnimationFrame(tickWord)
+      else wordLast = 0
+    }
+
+    function wakeWord() {
+      if (!wordRaf) wordRaf = requestAnimationFrame(tickWord)
+    }
+
+    function playWord(done) {
+      wordDone = done
+      wordFired = false
+      wordClock = 0
+      phase = reduce ? 'rest' : 'intro'
+      shown = [...WORD].map(() => (reduce ? 1 : 0))
+      outlines = [...WORD].map(() => 0)
+      frame.alpha = 0
+      frame.index = -1
+      if (reduce) {
+        drawWord(1)
+        done()
+        return
+      }
+      wakeWord()
+    }
+
+    word.addEventListener('pointermove', (event) => {
+      const rect = word.getBoundingClientRect()
+      wordPointer.x = event.clientX - rect.left
+      wordPointer.y = event.clientY - rect.top
+      wordPointer.inside = true
+      wakeWord()
+    })
+    word.addEventListener('pointerleave', () => {
+      wordPointer.inside = false
+      wakeWord()
+    })
+
+    /* ---------- 副文案：描边，wipe，再扫光 ---------- */
+    const NS = 'http://www.w3.org/2000/svg'
+    const line = document.getElementById('line')
+    const svg = document.getElementById('stroke')
+    const strokeText = svg.querySelector('.strokes')
+    const fillText = svg.querySelector('.fills')
+    const wipeRect = document.getElementById('wipeRect')
+    let wipeWidth = 0
+    let wipeOwner = 0
+    let wiped = true
+    let wipeTimer = 0
+    let wipeRaf = 0
+
+    function strokeLength(ch) {
+      const size = 28
+      const c = document.createElement('canvas')
+      const ctx = c.getContext('2d', { willReadFrequently: true })
+      const font = `500 ${size}px ${FONT}`
+      ctx.font = font
+      const width = Math.ceil(ctx.measureText(ch).width) + 6
+      const height = Math.ceil(size * 1.35)
+      c.width = Math.max(1, width)
+      c.height = Math.max(1, height)
+      ctx.font = font
+      ctx.fillStyle = '#fff'
+      ctx.textBaseline = 'top'
+      ctx.fillText(ch, 3, 2)
+      const { data } = ctx.getImageData(0, 0, c.width, c.height)
+      const on = (x, y) => {
+        if (x < 0 || y < 0 || x >= c.width || y >= c.height) return false
+        return data[(y * c.width + x) * 4 + 3] > 128
+      }
+      let edges = 0
+      for (let y = 0; y < c.height; y++) {
+        for (let x = 0; x < c.width; x++) {
+          if (!on(x, y)) continue
+          if (!on(x - 1, y) || !on(x + 1, y) || !on(x, y - 1) || !on(x, y + 1)) edges++
+        }
+      }
+      return Math.max(120, Math.round(edges * 1.55))
+    }
+
+    function armStroke(span) {
+      const length = span.dataset.dash
+      span.style.strokeDasharray = length
+      span.style.strokeDashoffset = length
+    }
+
+    function buildTagline() {
+      strokeText.replaceChildren()
+      fillText.replaceChildren()
+      ;[...TAGLINE].forEach((ch, i) => {
+        const stroke = document.createElementNS(NS, 'tspan')
+        stroke.classList.add('stroke-char')
+        stroke.dataset.i = String(i)
+        stroke.dataset.dash = String(strokeLength(ch))
+        stroke.style.setProperty('--i', String(i))
+        stroke.textContent = ch
+        armStroke(stroke)
+        strokeText.appendChild(stroke)
+        const fill = document.createElementNS(NS, 'tspan')
+        fill.classList.add('fill-char')
+        fill.textContent = ch
+        fillText.appendChild(fill)
+      })
+      const box = strokeText.getBBox()
+      if (!box.width) return false
+      const pad = 8
+      svg.setAttribute('viewBox', `${box.x - pad} ${box.y - pad} ${box.width + pad * 2} ${box.height + pad * 2}`)
+      svg.style.width = `${box.width + pad * 2}px`
+      svg.style.height = `${box.height + pad * 2}px`
+      wipeRect.setAttribute('x', String(box.x - pad))
+      wipeRect.setAttribute('y', String(box.y - pad))
+      wipeRect.setAttribute('height', String(box.height + pad * 2))
+      wipeRect.setAttribute('width', '0')
+      wipeWidth = box.width + pad * 2
+      return true
+    }
+
+    function resetTagline() {
+      wipeOwner += 1
+      wiped = true
+      svg.dataset.arm = ''
+      window.clearTimeout(wipeTimer)
+      cancelAnimationFrame(wipeRaf)
+      line.classList.remove('shine', 'settled', 'tone')
+      line.style.transition = 'none'
+      line.style.transform = 'none'
+      svg.classList.remove('run')
+      svg.querySelectorAll('.stroke-char').forEach(armStroke)
+      wipeRect.setAttribute('width', '0')
+    }
+
+    const DRAW_MS = 1050
+    const DRAW_STAGGER = 72
+
+    function beginWipe(owner) {
+      if (owner !== wipeOwner || wiped) return
+      wiped = true
+      window.clearTimeout(wipeTimer)
+      const started = performance.now()
+      const duration = 680
+      const step = (now) => {
+        if (owner !== wipeOwner) return
+        const t = clamp01((now - started) / duration)
+        const eased = t < 0.5 ? 2 * t * t : 1 - ((-2 * t + 2) ** 2) / 2
+        wipeRect.setAttribute('width', String(wipeWidth * eased))
+        if (t < 1) {
+          wipeRaf = requestAnimationFrame(step)
+          return
+        }
+        window.setTimeout(() => slideTagline(owner), 160)
+      }
+      wipeRaf = requestAnimationFrame(step)
+    }
+
+    const SLIDE_MS = 700
+
+    function relaxRight() {
+      const rect = word.getBoundingClientRect()
+      const last = glyphs[glyphs.length - 1]
+      return last ? rect.left + last.box.x2 : rect.right
+    }
+
+    function taglineRight() {
+      const box = strokeText.getBoundingClientRect()
+      return box.width ? box.right : line.getBoundingClientRect().right
+    }
+
+    function slideTagline(owner) {
+      if (owner !== wipeOwner) return
+      line.style.transition = 'none'
+      line.style.transform = 'translateX(0px)'
+      const dx = relaxRight() - taglineRight()
+      void line.offsetWidth
+      line.style.transition = `transform ${SLIDE_MS}ms var(--ease)`
+      line.style.transform = `translateX(${dx}px)`
+      line.classList.add('tone')
+      window.setTimeout(() => {
+        if (owner !== wipeOwner) return
+        line.classList.add('shine')
+        field.classList.add('in')
+        replay.classList.add('show')
+      }, SLIDE_MS)
+    }
+
+    function playTagline() {
+      const owner = ++wipeOwner
+      wiped = false
+      svg.dataset.arm = String(owner)
+      svg.classList.remove('run')
+      svg.querySelectorAll('.stroke-char').forEach(armStroke)
+      void svg.getBoundingClientRect()
+      svg.classList.add('run')
+      window.clearTimeout(wipeTimer)
+      wipeTimer = window.setTimeout(() => beginWipe(owner), DRAW_MS + DRAW_STAGGER * (TAGLINE.length - 1) + 80)
+    }
+
+    svg.addEventListener('animationend', (event) => {
+      if (event.animationName !== 'draw') return
+      if (Number(event.target.dataset.i) !== TAGLINE.length - 1) return
+      beginWipe(Number(svg.dataset.arm))
+    })
+
+    /* ---------- 输入框边高光 ---------- */
+    const field = document.getElementById('field')
+    const prompt = document.getElementById('prompt')
+    const replay = document.getElementById('replay')
+    const IDLE_SPOT = 42
+    let spot = IDLE_SPOT
+    let spotTarget = IDLE_SPOT
+    let level = 0.35
+    let levelTarget = 0.35
+    let rimRaf = 0
+    let rimLast = 0
+
+    function distToField(x, y) {
+      const rect = field.getBoundingClientRect()
+      const dx = Math.max(rect.left - x, 0, x - rect.right)
+      const dy = Math.max(rect.top - y, 0, y - rect.bottom)
+      return Math.hypot(dx, dy)
+    }
+
+    function tickRim(now) {
+      rimRaf = 0
+      const dt = Math.min(0.05, rimLast ? (now - rimLast) / 1000 : 0.016)
+      rimLast = now
+      let diff = spotTarget - spot
+      diff = ((diff + 540) % 360) - 180
+      spot += diff * (1 - Math.exp(-dt / 0.12))
+      level += (levelTarget - level) * (1 - Math.exp(-dt / 0.14))
+      field.style.setProperty('--spot', `${spot}deg`)
+      field.style.setProperty('--level', level.toFixed(3))
+      if (Math.abs(diff) > 0.4 || Math.abs(levelTarget - level) > 0.01) {
+        rimRaf = requestAnimationFrame(tickRim)
+      } else {
+        rimLast = 0
+      }
+    }
+
+    function wakeRim() {
+      if (!reduce && !rimRaf) rimRaf = requestAnimationFrame(tickRim)
+    }
+
+    function trackPointer(event) {
+      cursor.x = event.clientX
+      cursor.y = event.clientY
+      cursor.inside = true
+      if (!reduce) wakeGrid()
+      const rect = field.getBoundingClientRect()
+      const near = smoothFalloff(distToField(event.clientX, event.clientY), 250)
+      levelTarget = 0.35 + 0.65 * near
+      if (near > 0.02) {
+        const dx = event.clientX - (rect.left + rect.width / 2)
+        const dy = event.clientY - (rect.top + rect.height / 2)
+        spotTarget = Math.atan2(dx, -dy) * 180 / Math.PI
+      } else {
+        spotTarget = IDLE_SPOT
+      }
+      wakeRim()
+    }
+
+    window.addEventListener('pointermove', trackPointer, { passive: true })
+    document.documentElement.addEventListener('pointerleave', () => {
+      cursor.inside = false
+      spotTarget = IDLE_SPOT
+      levelTarget = 0.35
+      wakeGrid()
+      wakeRim()
+    })
+
+    field.addEventListener('submit', (event) => {
+      event.preventDefault()
+    })
+
+    /* ---------- 开场 ---------- */
+    function settleNow() {
+      phase = 'rest'
+      shown = [...WORD].map(() => 1)
+      outlines = [...WORD].map(() => 0)
+      drawWord(1)
+      line.classList.add('settled', 'tone')
+      line.style.transform = `translateX(${relaxRight() - taglineRight()}px)`
+      field.classList.add('in')
+      replay.classList.add('show')
+    }
+
+    function playAll() {
+      field.classList.remove('in')
+      replay.classList.remove('show')
+      prompt.value = ''
+      resetTagline()
+      if (reduce) {
+        settleNow()
+        return
+      }
+      playWord(playTagline)
+    }
+
+    replay.addEventListener('click', playAll)
+
+    function selfCheck() {
+      console.assert(smoothFalloff(0, RADIUS) === 1, '网格中心应为 1')
+      console.assert(smoothFalloff(RADIUS, RADIUS) === 0, '网格半径处应为 0')
+      console.assert(smoothFalloff(RADIUS * 2, RADIUS) === 0, '网格半径外应为 0')
+      const mid = smoothFalloff(RADIUS / 2, RADIUS)
+      console.assert(mid > 0 && mid < 1, '网格中段应在 0 和 1 之间')
+      console.assert(edgeFade(0, 80, 200, 200) === 0, '网格贴边应淡出')
+      console.assert(edgeFade(100, 100, 200, 200) === 1, '网格中心不淡')
+      const ink = document.querySelector('.ink').textContent
+      const sheen = document.querySelector('.sheen').textContent
+      console.assert(ink.length === 11 && ink === sheen && ink === TAGLINE, '副文案字数')
+      console.assert(!line.classList.contains('shine'), '扫光要等描边结束')
+    }
+
+    selfCheck()
+    window.addEventListener('resize', () => {
+      resizeGrid()
+      resizeWord()
+    })
+    document.fonts.ready.then(() => {
+      resizeGrid()
+      resizeWord()
+      buildTagline()
+      playAll()
+    })
+  </script>
+</body>
+</html>
