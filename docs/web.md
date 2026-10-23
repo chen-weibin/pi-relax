@@ -323,7 +323,7 @@ src/
     └── UserBar.tsx               # 用户信息条(头像 + 用户名 + 设置入口),固定高 48px,可在 Sidebar / Setting 左下复用
 ├── mock/conversation/            # 临时: fixture + playMockStream + DevToolbar(不含 runtime)
 └── utils/
-    └── relativeTime.ts           # formatRelativeTime(ms) — "Nm" / "Nh" / "Nd" / "Nw"
+    └── relativeTime.ts           # formatRelativeTime(ms) — "Nm" / "Nh" / "Nd" / "Nw" / "Ny"
 ```
 
 ### 区段尺寸
