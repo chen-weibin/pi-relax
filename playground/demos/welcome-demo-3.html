@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#0e0e0f">
+  <title>relax — 从一个想法，到无限可能</title>
+  <style>
+    @property --hue { syntax: '<number>'; inherits: true; initial-value: 250; }
+
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #0e0e0f;
+      --fg: #f2f2f2;
+      --fg-2: #a1a1a1;
+      --fg-3: #6b6b6b;
+      --line: rgba(255, 255, 255, 0.08);
+      --line-2: rgba(255, 255, 255, 0.14);
+      --glass: rgba(255, 255, 255, 0.035);
+      --hue: 250;
+      --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+      --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+      transition: --hue 1.4s var(--ease);
+    }
+
+    html, body { height: 100%; }
+    body {
+      background: var(--bg);
+      color: var(--fg);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", sans-serif;
+      -webkit-font-smoothing: antialiased;
+      overflow: hidden;
+    }
+    button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+    :focus-visible { outline: 2px solid hsl(var(--hue) 80% 72%); outline-offset: 3px; border-radius: 999px; }
+
+    /* ============ 背景：随提供商变色的柔光 + 颗粒 + 光标聚光 ============ */
+    .aurora { position: fixed; inset: 0; overflow: hidden; pointer-events: none; }
+    .aurora i {
+      position: absolute; width: 60vmax; height: 60vmax; border-radius: 50%;
+      filter: blur(90px); opacity: 0.85; will-change: transform;
+      animation: drift 26s var(--ease) infinite alternate;
+    }
+    .aurora i:nth-child(1) { left: -14vmax; top: -24vmax; background: radial-gradient(circle, hsl(var(--hue) 70% 50% / 0.32), transparent 65%); }
+    .aurora i:nth-child(2) { right: -20vmax; top: 10vmax; background: radial-gradient(circle, hsl(calc(var(--hue) + 40) 60% 45% / 0.22), transparent 65%); animation-duration: 32s; animation-delay: -8s; }
+    .aurora i:nth-child(3) { left: 10vmax; bottom: -36vmax; background: radial-gradient(circle, hsl(calc(var(--hue) - 30) 55% 40% / 0.2), transparent 65%); animation-duration: 38s; animation-delay: -16s; }
+    @keyframes drift {
+      0% { transform: translate3d(0, 0, 0) scale(1); }
+      50% { transform: translate3d(6vmax, 4vmax, 0) scale(1.08); }
+      100% { transform: translate3d(-4vmax, 6vmax, 0) scale(0.95); }
+    }
+    .spot {
+      position: fixed; inset: 0; pointer-events: none;
+      background: radial-gradient(520px circle at var(--mx, 50%) var(--my, 40%), rgba(255, 255, 255, 0.045), transparent 60%);
+    }
+    .vignette { position: fixed; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 45%, transparent 40%, rgba(0, 0, 0, 0.55) 100%); }
+    body::after {
+      content: ""; position: fixed; inset: -50%; pointer-events: none; opacity: 0.07; mix-blend-mode: overlay;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    }
+
+    /* ============ 舞台 ============ */
+    .stage {
+      position: relative; min-height: 100svh; display: grid; place-items: center;
+      padding: 48px 20px calc(72px + env(safe-area-inset-bottom));
+    }
+    .hero { display: flex; flex-direction: column; align-items: center; text-align: center; }
+
+    /* ============ 小伙伴 ============ */
+    .buddy-wrap { position: relative; margin-bottom: clamp(8px, 2vh, 20px); }
+    .buddy {
+      display: block; width: clamp(72px, 10vw, 100px); height: auto; overflow: visible; cursor: pointer;
+      transform: scale(0); transition: transform 0.7s var(--spring);
+      -webkit-tap-highlight-color: transparent;
+    }
+    .buddy.in { transform: scale(1); }
+    .buddy.in:hover { transform: scale(1.06); }
+    .buddy.in:active { transform: scale(0.94); }
+    .buddy .body { fill: hsl(var(--hue) 28% 90%); }
+    .buddy .shade { fill: hsl(var(--hue) 22% 74%); }
+    .buddy .feat { fill: #161618; }
+    #b-mouth { stroke: #161618; }
+    .buddy .shadow { fill: rgba(0, 0, 0, 0.45); filter: blur(0.06px); }
+
+    .bubble {
+      position: absolute; left: calc(100% + 12px); top: 4px; white-space: nowrap;
+      padding: 7px 12px; border-radius: 14px 14px 14px 4px;
+      background: rgba(255, 255, 255, 0.06); border: 1px solid var(--line);
+      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      font-size: 13px; color: var(--fg-2);
+      opacity: 0; transform: translateY(6px) scale(0.96); transform-origin: left bottom;
+      transition: opacity 0.4s var(--ease), transform 0.5s var(--spring);
+      pointer-events: none;
+    }
+    .bubble.in { opacity: 1; transform: none; }
+    .bubble span { display: inline-block; transition: opacity 0.22s ease, transform 0.3s var(--ease), filter 0.22s ease; }
+    .bubble span.out { opacity: 0; transform: translateY(-5px); filter: blur(4px); }
+    .bubble span.pre { opacity: 0; transform: translateY(5px); filter: blur(4px); transition: none; }
+
+    /* ============ 字标：打字机 ============ */
+    .wordmark {
+      font-size: clamp(72px, 14vw, 172px); font-weight: 650; letter-spacing: -0.06em; line-height: 0.92;
+      display: flex; align-items: baseline; padding: 0 0.06em 0.08em; user-select: none;
+    }
+    .wordmark .ch {
+      display: inline-block;
+      background: linear-gradient(180deg, #fff 35%, #8d8d93 115%);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+      opacity: 0; transform: translateY(0.18em) scale(0.92); filter: blur(14px);
+      transition: opacity 0.5s var(--ease), transform 0.7s var(--spring), filter 0.5s var(--ease);
+    }
+    .wordmark .ch.on { opacity: 1; transform: none; filter: none; }
+    .wordmark .ch.on:hover { transform: translateY(-0.06em); transition-duration: 0.3s; }
+    .caret {
+      width: 0.055em; height: 0.72em; margin-left: 0.05em; align-self: center; border-radius: 0.02em;
+      background: hsl(var(--hue) 85% 76%); box-shadow: 0 0 24px hsl(var(--hue) 85% 66% / 0.6);
+      animation: caret 1.05s steps(1) infinite; transition: opacity 0.6s ease;
+    }
+    .caret.typing { animation: none; }
+    .caret.gone { opacity: 0 !important; animation: none; }
+    @keyframes caret { 50% { opacity: 0; } }
+
+    /* ============ 文案：字幕逐字 ============ */
+    .tagline {
+      margin-top: clamp(14px, 2.4vh, 22px);
+      font-size: clamp(16px, 2.1vw, 21px); font-weight: 400; letter-spacing: 0.06em; color: var(--fg-2);
+      min-height: 1.6em;
+    }
+    .tagline .t {
+      display: inline-block; opacity: 0; transform: translateY(0.4em); filter: blur(6px);
+      transition: opacity 0.6s var(--ease), transform 0.7s var(--ease), filter 0.6s var(--ease);
+    }
+    .tagline .t.hl { color: var(--fg); }
+    .tagline.on .t { opacity: 1; transform: none; filter: none; }
+    .tagline .emo { display: inline-block; margin: 0 0.15em; transform: scale(0); transition: transform 0.6s var(--spring); }
+    .tagline.on .emo { transform: scale(1); }
+    .tagline.on .emo.float { animation: float 3.2s ease-in-out infinite; }
+    @keyframes float { 50% { transform: translateY(-3px) rotate(-6deg); } }
+
+    /* ============ 操作区 ============ */
+    .actions {
+      display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: center;
+      margin-top: clamp(28px, 5vh, 44px);
+      opacity: 0; transform: translateY(12px); filter: blur(6px);
+      transition: opacity 0.7s var(--ease), transform 0.8s var(--ease), filter 0.7s var(--ease);
+    }
+    .actions.on { opacity: 1; transform: none; filter: none; }
+
+    .trigger {
+      height: 52px; display: flex; align-items: center; gap: 12px; padding: 0 14px 0 8px;
+      border-radius: 999px; border: 1px solid var(--line); background: var(--glass);
+      backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+      transition: border-color 0.25s ease, background 0.25s ease, transform 0.35s var(--spring), box-shadow 0.35s ease;
+      text-align: left;
+    }
+    .trigger:hover {
+      border-color: var(--line-2); background: rgba(255, 255, 255, 0.055); transform: translateY(-1px);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 10px 40px -12px hsl(var(--hue) 80% 55% / 0.45);
+    }
+    .trigger .meta { display: flex; flex-direction: column; min-width: 120px; }
+    .trigger .k { font-size: 11px; color: var(--fg-3); letter-spacing: 0.04em; }
+    .trigger .v { font-size: 14px; color: var(--fg); }
+    .trigger .v small { color: var(--fg-3); font-size: 12px; margin-left: 4px; }
+    .trigger .chev { color: var(--fg-3); transition: transform 0.3s var(--ease); }
+    .trigger:hover .chev { transform: translateY(2px); }
+
+    kbd {
+      font: 11px/1 "SF Mono", ui-monospace, Menlo, monospace; color: var(--fg-3);
+      padding: 4px 6px; border-radius: 6px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.03);
+    }
+
+    .badge {
+      width: 36px; height: 36px; flex: none; border-radius: 50%; display: grid; place-items: center;
+      font-size: 14px; font-weight: 600; color: #fff;
+      background: radial-gradient(circle at 30% 25%, hsl(var(--h, var(--hue)) 70% 62%), hsl(var(--h, var(--hue)) 55% 32%));
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.06);
+    }
+    .badge.empty { background: rgba(255, 255, 255, 0.06); color: var(--fg-3); box-shadow: inset 0 0 0 1px var(--line); }
+
+    .go {
+      height: 52px; padding: 0 22px; border-radius: 999px; display: flex; align-items: center; gap: 8px;
+      background: var(--fg); color: #0e0e0f; font-size: 14px; font-weight: 600;
+      transition: transform 0.35s var(--spring), opacity 0.3s ease, box-shadow 0.35s ease, background 0.3s ease;
+    }
+    .go:hover:not([aria-disabled="true"]) { transform: translateY(-1px); box-shadow: 0 10px 40px -10px hsl(var(--hue) 80% 70% / 0.6); }
+    .go[aria-disabled="true"] { opacity: 0.35; cursor: default; }
+    .go .arr { transition: transform 0.35s var(--spring); }
+    .go:hover:not([aria-disabled="true"]) .arr { transform: translateX(3px); }
+    .go .dots i { display: inline-block; width: 4px; height: 4px; margin: 0 1.5px; border-radius: 50%; background: currentColor; animation: dot 1s ease-in-out infinite; }
+    .go .dots i:nth-child(2) { animation-delay: 0.15s; }
+    .go .dots i:nth-child(3) { animation-delay: 0.3s; }
+    @keyframes dot { 40% { transform: translateY(-4px); opacity: 0.5; } }
+
+    /* ============ 命令面板 ============ */
+    .scrim {
+      position: fixed; inset: 0; z-index: 10; display: grid; place-items: start center; padding: 14vh 16px 16px;
+      background: rgba(5, 5, 6, 0.55); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+      opacity: 0; visibility: hidden; transition: opacity 0.3s ease, visibility 0s 0.3s;
+    }
+    .scrim.open { opacity: 1; visibility: visible; transition: opacity 0.3s ease; }
+    .palette {
+      width: min(680px, 100%); border-radius: 20px; overflow: hidden;
+      background: rgba(22, 22, 24, 0.86); border: 1px solid var(--line-2);
+      backdrop-filter: blur(28px) saturate(140%); -webkit-backdrop-filter: blur(28px) saturate(140%);
+      box-shadow: 0 40px 120px -20px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      transform: translateY(10px) scale(0.97); transition: transform 0.45s var(--spring);
+    }
+    .scrim.open .palette { transform: none; }
+
+    .search { display: flex; align-items: center; gap: 10px; padding: 0 18px; height: 56px; border-bottom: 1px solid var(--line); color: var(--fg-3); }
+    .search input { flex: 1; height: 100%; background: none; border: 0; outline: 0; color: var(--fg); font: inherit; font-size: 15px; }
+    .search input::placeholder { color: var(--fg-3); }
+
+    .pbody { display: grid; grid-template-columns: 260px 1fr; min-height: 320px; }
+    .plist { list-style: none; padding: 8px; border-right: 1px solid var(--line); max-height: 360px; overflow-y: auto; scrollbar-width: thin; outline: 0; }
+    .plist li {
+      display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 12px; cursor: pointer;
+      opacity: 0; transform: translateY(6px);
+      transition: background 0.18s ease, opacity 0.4s var(--ease), transform 0.5s var(--ease);
+    }
+    .scrim.open .plist li { opacity: 1; transform: none; transition-delay: 0s, calc(var(--i) * 28ms), calc(var(--i) * 28ms); }
+    .plist li .badge { width: 30px; height: 30px; font-size: 12px; }
+    .plist li .n { font-size: 14px; color: var(--fg); }
+    .plist li .d { font-size: 12px; color: var(--fg-3); }
+    .plist li.active { background: rgba(255, 255, 255, 0.06); }
+    .plist li .tick { margin-left: auto; color: hsl(var(--h) 80% 72%); opacity: 0; transition: opacity 0.2s; }
+    .plist li[aria-selected="true"] .tick { opacity: 1; }
+    .plist .none { padding: 24px 10px; color: var(--fg-3); font-size: 13px; text-align: center; cursor: default; opacity: 1; transform: none; }
+
+    .detail { padding: 22px 22px 20px; display: flex; flex-direction: column; gap: 14px; position: relative; overflow: hidden; }
+    .detail::before {
+      content: ""; position: absolute; width: 280px; height: 280px; right: -90px; top: -120px; border-radius: 50%;
+      background: radial-gradient(circle, hsl(var(--h, var(--hue)) 70% 55% / 0.22), transparent 65%);
+      transition: background 0.6s ease; pointer-events: none;
+    }
+    .detail .head { display: flex; align-items: center; gap: 12px; }
+    .detail .head .badge { width: 44px; height: 44px; font-size: 17px; }
+    .detail h3 { font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
+    .detail .sub { font-size: 13px; color: var(--fg-3); }
+    .detail .lbl { font-size: 11px; color: var(--fg-3); letter-spacing: 0.08em; margin-top: 6px; }
+    .models { display: flex; flex-wrap: wrap; gap: 8px; }
+    .models button {
+      height: 32px; padding: 0 12px; border-radius: 999px; font: 12.5px "SF Mono", ui-monospace, Menlo, monospace; color: var(--fg-2);
+      border: 1px solid var(--line); background: rgba(255, 255, 255, 0.02);
+      transition: all 0.2s ease;
+    }
+    .models button:hover { color: var(--fg); border-color: var(--line-2); }
+    .models button[aria-checked="true"] { color: var(--fg); border-color: hsl(var(--h) 70% 65% / 0.7); background: hsl(var(--h) 70% 55% / 0.14); }
+    .use {
+      margin-top: auto; align-self: flex-start; height: 38px; padding: 0 16px; border-radius: 999px;
+      background: var(--fg); color: #0e0e0f; font-size: 13px; font-weight: 600;
+      transition: transform 0.3s var(--spring);
+    }
+    .use:hover { transform: translateY(-1px); }
+    .detail.swap > * { animation: swap 0.35s var(--ease); }
+    @keyframes swap { from { opacity: 0; transform: translateX(8px); } }
+
+    .pfoot { display: flex; gap: 16px; padding: 10px 18px; border-top: 1px solid var(--line); font-size: 12px; color: var(--fg-3); }
+    .pfoot span { display: flex; align-items: center; gap: 6px; }
+
+    /* ============ 底栏 ============ */
+    .foot {
+      position: fixed; left: 0; right: 0; bottom: 0; display: flex; justify-content: space-between; align-items: center;
+      padding: 18px 24px calc(18px + env(safe-area-inset-bottom)); font-size: 12px; color: var(--fg-3);
+    }
+    .foot button { color: var(--fg-3); display: flex; align-items: center; gap: 6px; padding: 4px 8px; transition: color 0.2s; }
+    .foot button:hover { color: var(--fg); }
+    .foot .dot { width: 6px; height: 6px; border-radius: 50%; background: hsl(var(--hue) 80% 65%); box-shadow: 0 0 10px hsl(var(--hue) 80% 65%); display: inline-block; margin-right: 8px; }
+
+    @media (max-width: 640px) {
+      .bubble { left: 50%; top: auto; bottom: calc(100% + 8px); transform-origin: center bottom; translate: -50% 0; border-radius: 14px; }
+      .pbody { grid-template-columns: 1fr; }
+      .plist { border-right: 0; border-bottom: 1px solid var(--line); max-height: 36vh; }
+      .detail { padding: 16px; }
+      .scrim { padding-top: 8vh; }
+      .pfoot { display: none; }
+      .trigger kbd { display: none; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation: none !important; transition-duration: 0.01ms !important; transition-delay: 0s !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="aurora" aria-hidden="true"><i></i><i></i><i></i></div>
+  <div class="spot" aria-hidden="true"></div>
+  <div class="vignette" aria-hidden="true"></div>
+
+  <main class="stage">
+    <section class="hero">
+      <div class="buddy-wrap">
+        <svg class="buddy" id="buddy" viewBox="-1.2 -1.2 2.4 2.6" role="img" aria-label="relax 小伙伴，点我打个招呼" tabindex="0">
+          <defs><clipPath id="buddy-clip"><path id="b-clip"/></clipPath></defs>
+          <ellipse class="shadow" id="b-shadow" cx="0" cy="1.18" rx="0.62" ry="0.07"/>
+          <g id="b-root">
+            <path class="shade" id="b-shade"/>
+            <g clip-path="url(#buddy-clip)"><path class="body" id="b-light"/></g>
+            <g id="b-face">
+              <ellipse class="feat" id="b-el"/>
+              <ellipse class="feat" id="b-er"/>
+              <path class="feat" id="b-mouth" stroke-width="0.07" stroke-linecap="round" stroke-linejoin="round"/>
+            </g>
+          </g>
+        </svg>
+        <div class="bubble" id="bubble" aria-live="polite"><span></span></div>
+      </div>
+
+      <h1 class="wordmark" id="wordmark" aria-label="relax"></h1>
+      <p class="tagline" id="tagline"></p>
+
+      <div class="actions" id="actions">
+        <button class="trigger" id="trigger" aria-haspopup="dialog" aria-expanded="false">
+          <span class="badge empty" id="t-badge">?</span>
+          <span class="meta">
+            <span class="k">提供商</span>
+            <span class="v" id="t-name">选择一个提供商</span>
+          </span>
+          <kbd id="t-kbd">⌘K</kbd>
+          <svg class="chev" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 6l4 4 4-4"/></svg>
+        </button>
+        <button class="go" id="go" aria-disabled="true">开始 <span class="arr">→</span></button>
+      </div>
+    </section>
+  </main>
+
+  <div class="scrim" id="scrim">
+    <div class="palette" role="dialog" aria-modal="true" aria-label="选择提供商">
+      <label class="search">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="4.8"/><path d="M10.6 10.6L14 14"/></svg>
+        <input id="q" type="text" placeholder="搜索提供商或模型…" autocomplete="off" spellcheck="false" aria-controls="plist">
+        <kbd>esc</kbd>
+      </label>
+      <div class="pbody">
+        <ul class="plist" id="plist" role="listbox" aria-label="提供商"></ul>
+        <div class="detail" id="detail"></div>
+      </div>
+      <div class="pfoot">
+        <span><kbd>↑</kbd><kbd>↓</kbd> 浏览</span>
+        <span><kbd>←</kbd><kbd>→</kbd> 切模型</span>
+        <span><kbd>↵</kbd> 确认</span>
+      </div>
+    </div>
+  </div>
+
+  <footer class="foot">
+    <span><i class="dot"></i>relax · demo</span>
+    <button id="replay" aria-label="重播入场动画">
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M2.5 8a5.5 5.5 0 1 0 1.7-4"/><path d="M2.5 2.5v3h3"/></svg>
+      重播
+    </button>
+  </footer>
+
+  <script>
+    /* =========================================================
+     * 数据（mock）：取 server KEY_PROVIDERS 里常用几家；接真接口换 /providers
+     * hue 只决定背景柔光与徽章色相
+     * ========================================================= */
+    const PROVIDERS = [
+      { id: 'anthropic',  name: 'Anthropic',   desc: 'Claude 系列',  hue: 22,  models: ['claude-opus-4-8', 'claude-sonnet-4-8'] },
+      { id: 'openai',     name: 'OpenAI',      desc: 'GPT 系列',     hue: 162, models: ['gpt-5.5', 'gpt-5.5-mini'] },
+      { id: 'google',     name: 'Google',      desc: 'Gemini 系列',  hue: 214, models: ['gemini-3.1-pro-preview', 'gemini-3.1-flash'] },
+      { id: 'deepseek',   name: 'DeepSeek',    desc: '深度求索',     hue: 232, models: ['deepseek-v4-pro', 'deepseek-v4-flash'] },
+      { id: 'moonshotai', name: 'Moonshot AI', desc: 'Kimi 系列',    hue: 268, models: ['kimi-k2.6'] },
+      { id: 'minimax',    name: 'MiniMax',     desc: 'MiniMax 系列', hue: 336, models: ['MiniMax-M2.7'] },
+      { id: 'zai',        name: 'Z.ai',        desc: 'GLM 系列',     hue: 190, models: ['glm-5.3'] },
+      { id: 'openrouter', name: 'OpenRouter',  desc: '多模型聚合',   hue: 292, models: ['moonshotai/kimi-k2.6', 'anthropic/claude-opus-4-8'] },
+    ]
+
+    /* 节奏（ms），全部可调 */
+    const TIMING = { buddyAt: 250, typeAt: 750, typeGap: [150, 115, 175, 105, 140], taglineDelay: 320, charGap: 42, actionsDelay: 380, caretHold: 1800 }
+
+    const WORD = 'relax'
+    const TAGLINE = [{ s: '从一个想法' }, { emo: '💡' }, { s: '，到' }, { s: '无限可能', hl: true }, { emo: '✨', float: true }]
+
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches
+    const $ = (id) => document.getElementById(id)
+    const root = document.documentElement
+
+    /* =========================================================
+     * 光标聚光
+     * ========================================================= */
+    const pointer = { x: innerWidth / 2, y: innerHeight * 0.4 }
+    addEventListener('pointermove', (e) => {
+      pointer.x = e.clientX; pointer.y = e.clientY
+      root.style.setProperty('--mx', e.clientX + 'px')
+      root.style.setProperty('--my', e.clientY + 'px')
+    }, { passive: true })
+
+    /* =========================================================
+     * 小伙伴（SVG）：超椭圆身体 + 右下背光月牙 + 参数化五官
+     * ========================================================= */
+    const EXPR = {
+      neutral:  { eyeRx: 0.085, eyeRy: 0.12,  eyeY: -0.06, mouthW: 0.2,  bend: 0.04,  open: 0,    mouthY: 0.27 },
+      happy:    { eyeRx: 0.1,   eyeRy: 0.045, eyeY: -0.09, mouthW: 0.32, bend: 0.12,  open: 0,    mouthY: 0.24 },
+      thinking: { eyeRx: 0.075, eyeRy: 0.105, eyeY: -0.12, mouthW: 0.13, bend: -0.01, open: 0,    mouthY: 0.29 },
+      excited:  { eyeRx: 0.09,  eyeRy: 0.135, eyeY: -0.08, mouthW: 0.34, bend: 0.05,  open: 0.15, mouthY: 0.22 },
+    }
+    const LOOK = { thinking: { x: 0.6, y: -0.6 } }
+
+    function squircle(r = 0.94, n = 2.7, steps = 96) {
+      let d = ''
+      for (let i = 0; i < steps; i++) {
+        const a = (i / steps) * Math.PI * 2, c = Math.cos(a), s = Math.sin(a)
+        const k = r * Math.pow(Math.abs(c) ** n + Math.abs(s) ** n, -1 / n)
+        d += (i ? 'L' : 'M') + (k * c).toFixed(4) + ' ' + (k * s).toFixed(4)
+      }
+      return d + 'Z'
+    }
+    // 上沿是嘴线，下沿再往下鼓 open 就成了 D 形张嘴；open=0 时两条重合，只剩描边
+    function mouthPath({ mouthW: w, bend: b, open: o, mouthY: y }) {
+      const h = w / 2
+      return `M${-h} ${y}Q0 ${y + 2 * b} ${h} ${y}Q0 ${y + 2 * (b + o)} ${-h} ${y}Z`
+    }
+
+    const buddy = {
+      el: $('buddy'),
+      cur: { ...EXPR.neutral }, target: EXPR.neutral, name: 'neutral',
+      look: { x: 0, y: 0 }, hop: 0, wink: 0, blink: 0, nextBlink: 1.6, t: 0,
+      set(name) { this.name = name; this.target = EXPR[name] },
+      poke() { this.hop = 1; this.wink = 1 },
+    }
+    {
+      const body = squircle()
+      $('b-shade').setAttribute('d', body)
+      $('b-clip').setAttribute('d', body)
+      // 受光面是向左上偏移的同形主体，被主体裁剪后右下露出一道背光月牙
+      $('b-light').setAttribute('d', body)
+      $('b-light').setAttribute('transform', 'translate(-0.07 -0.07)')
+    }
+
+    const els = { root: $('b-root'), face: $('b-face'), el: $('b-el'), er: $('b-er'), mouth: $('b-mouth'), shadow: $('b-shadow') }
+    let last = performance.now(), raf = 0
+    function frame(now) {
+      raf = requestAnimationFrame(frame)
+      const dt = Math.min(0.05, (now - last) / 1000); last = now
+      const b = buddy; b.t += dt
+      const k = 1 - Math.exp(-dt * 10)
+      for (const key in b.cur) b.cur[key] += (b.target[key] - b.cur[key]) * k
+
+      // 视线：跟随指针；思考时看右上
+      const r = b.el.getBoundingClientRect()
+      const fixed = LOOK[b.name]
+      const gx = fixed ? fixed.x : Math.max(-1, Math.min(1, (pointer.x - (r.left + r.width / 2)) / 360))
+      const gy = fixed ? fixed.y : Math.max(-1, Math.min(1, (pointer.y - (r.top + r.height / 2)) / 360))
+      b.look.x += (gx - b.look.x) * (1 - Math.exp(-dt * 6))
+      b.look.y += (gy - b.look.y) * (1 - Math.exp(-dt * 6))
+
+      // 眨眼：随机间隔，偶尔连眨
+      if (b.t > b.nextBlink) { b.blink = 1; b.nextBlink = b.t + (Math.random() < 0.2 ? 0.28 : 2.2 + Math.random() * 3) }
+      b.blink = Math.max(0, b.blink - dt * 7)
+      b.wink = Math.max(0, b.wink - dt * 1.8)
+      b.hop = Math.max(0, b.hop - dt * 2.4)
+
+      const blinkK = 1 - 0.9 * Math.sin(Math.PI * b.blink)
+      const winkK = 1 - 0.85 * Math.min(1, b.wink * 3)
+      const breathe = Math.sin((b.t * Math.PI * 2) / 3.8)
+      const bounce = b.name === 'excited' ? Math.abs(Math.sin(b.t * 5.2)) * 0.08 : 0
+      const hopY = Math.sin(Math.PI * b.hop) * 0.22
+      const lift = -(breathe * 0.02 + bounce + hopY)
+      const sy = 1 + breathe * 0.015, sx = 1 - breathe * 0.008
+
+      els.root.setAttribute('transform', `translate(0 ${lift.toFixed(4)}) rotate(${(b.look.x * 6).toFixed(3)}) scale(${sx.toFixed(4)} ${sy.toFixed(4)})`)
+      // 五官视差：比身体多挪一点，看起来像转头
+      els.face.setAttribute('transform', `translate(${(b.look.x * 0.11).toFixed(4)} ${(b.look.y * 0.08).toFixed(4)})`)
+      const c = b.cur
+      for (const [eye, sign, extra] of [[els.el, -1, winkK], [els.er, 1, 1]]) {
+        eye.setAttribute('cx', (sign * 0.3).toFixed(4))
+        eye.setAttribute('cy', c.eyeY.toFixed(4))
+        eye.setAttribute('rx', c.eyeRx.toFixed(4))
+        eye.setAttribute('ry', Math.max(0.012, c.eyeRy * blinkK * extra).toFixed(4))
+      }
+      els.mouth.setAttribute('d', mouthPath(c))
+      const sh = 1 - Math.min(0.5, -lift * 2.2)
+      els.shadow.setAttribute('rx', (0.62 * sh).toFixed(4))
+      els.shadow.style.opacity = (0.9 * sh).toFixed(3)
+    }
+    const startLoop = () => { if (!raf) { last = performance.now(); raf = requestAnimationFrame(frame) } }
+    const stopLoop = () => { cancelAnimationFrame(raf); raf = 0 }
+    document.addEventListener('visibilitychange', () => (document.hidden ? stopLoop() : startLoop()))
+    startLoop()
+
+    /* =========================================================
+     * 对话气泡：字幕式替换
+     * ========================================================= */
+    const bubble = $('bubble'), bubbleText = bubble.firstElementChild
+    let sayTimer = 0
+    function say(text, { mood, hold } = {}) {
+      bubble.classList.add('in')
+      if (mood) buddy.set(mood)
+      clearTimeout(sayTimer)
+      bubbleText.classList.add('out')
+      sayTimer = setTimeout(() => {
+        bubbleText.textContent = text
+        bubbleText.classList.remove('out'); bubbleText.classList.add('pre')
+        void bubbleText.offsetWidth
+        bubbleText.classList.remove('pre')
+        if (hold) sayTimer = setTimeout(idle, hold)
+      }, bubbleText.textContent ? 200 : 0)
+    }
+    const state = { provider: null, model: null, ready: false }
+    function idle() {
+      if (state.ready) return say('出发吧 🚀', { mood: 'excited' })
+      if (state.provider) return say(`${state.provider.name} 已就位 ✨`, { mood: 'happy' })
+      say('先选个提供商吧 👇', { mood: 'neutral' })
+    }
+
+    const POKES = ['嘿嘿，被你发现了 😆', '别戳啦 🙈', '放轻松，一切都来得及 🌿', '有想法就说出来 💬']
+    let pokeI = 0
+    function poke() {
+      buddy.poke()
+      say(POKES[pokeI++ % POKES.length], { mood: 'happy', hold: 1800 })
+    }
+    buddy.el.addEventListener('click', poke)
+    buddy.el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); poke() } })
+
+    /* =========================================================
+     * 入场：小伙伴弹出 → 打字机 relax → 字幕文案 → 操作区
+     * ========================================================= */
+    const wordmark = $('wordmark'), tagline = $('tagline'), actions = $('actions')
+    let timers = []
+    const at = (ms, fn) => timers.push(setTimeout(fn, reduced ? 0 : ms))
+
+    function buildText() {
+      wordmark.innerHTML = [...WORD].map((c) => `<span class="ch" aria-hidden="true">${c}</span>`).join('') + '<span class="caret typing" aria-hidden="true"></span>'
+      let i = 0
+      tagline.innerHTML = TAGLINE.map((seg) => {
+        if (seg.emo) return `<span class="emo${seg.float ? ' float' : ''}" aria-hidden="true" style="transition-delay:${i++ * TIMING.charGap}ms">${seg.emo}</span>`
+        return [...seg.s].map((c) => `<span class="t${seg.hl ? ' hl' : ''}" style="transition-delay:${i++ * TIMING.charGap}ms">${c}</span>`).join('')
+      }).join('')
+      tagline.setAttribute('aria-label', TAGLINE.map((s) => s.s || '').join(''))
+      return i
+    }
+
+    function intro() {
+      timers.forEach(clearTimeout); timers = []
+      const total = buildText()
+      buddy.el.classList.remove('in'); bubble.classList.remove('in'); bubbleText.textContent = ''
+      tagline.classList.remove('on'); actions.classList.remove('on')
+      buddy.set('neutral')
+
+      at(TIMING.buddyAt, () => buddy.el.classList.add('in'))
+      at(TIMING.buddyAt + 500, () => say('嗨，我是 relax 👋'))
+
+      const chars = wordmark.querySelectorAll('.ch'), caret = wordmark.querySelector('.caret')
+      let t = TIMING.typeAt
+      chars.forEach((ch, i) => { t += TIMING.typeGap[i % TIMING.typeGap.length]; at(t, () => ch.classList.add('on')) })
+      at(t + 60, () => caret.classList.remove('typing'))
+      at(t + TIMING.taglineDelay, () => tagline.classList.add('on'))
+      const tagEnd = t + TIMING.taglineDelay + total * TIMING.charGap + 500
+      at(tagEnd + TIMING.actionsDelay, () => { actions.classList.add('on'); idle() })
+      at(tagEnd + TIMING.caretHold, () => caret.classList.add('gone'))
+    }
+    $('replay').addEventListener('click', intro)
+
+    /* =========================================================
+     * 提供商命令面板
+     * ========================================================= */
+    const scrim = $('scrim'), q = $('q'), plist = $('plist'), detail = $('detail'), trigger = $('trigger'), go = $('go')
+    let shown = PROVIDERS, active = 0, pickModel = {}
+
+    const badge = (p, cls = '') => `<span class="badge ${cls}" style="--h:${p.hue}">${p.name[0]}</span>`
+
+    function renderList() {
+      const s = q.value.trim().toLowerCase()
+      shown = PROVIDERS.filter((p) => !s || [p.name, p.desc, p.id, ...p.models].some((v) => v.toLowerCase().includes(s)))
+      active = Math.max(0, Math.min(active, shown.length - 1))
+      plist.innerHTML = shown.length
+        ? shown.map((p, i) => `
+          <li role="option" id="opt-${p.id}" data-i="${i}" style="--i:${i};--h:${p.hue}" aria-selected="${state.provider?.id === p.id}">
+            ${badge(p)}
+            <span><div class="n">${p.name}</div><div class="d">${p.desc} · ${p.models.length} 个模型</div></span>
+            <svg class="tick" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3L13 4.5"/></svg>
+          </li>`).join('')
+        : '<li class="none">没有匹配的提供商 🫥</li>'
+      setActive(active, true)
+    }
+
+    function setActive(i, force) {
+      if (!shown.length) { detail.innerHTML = ''; return }
+      i = (i + shown.length) % shown.length
+      if (i === active && !force) return
+      active = i
+      plist.querySelectorAll('li[role=option]').forEach((li, j) => li.classList.toggle('active', j === i))
+      const li = plist.children[i]
+      plist.setAttribute('aria-activedescendant', li.id)
+      li.scrollIntoView({ block: 'nearest' })
+      renderDetail()
+    }
+
+    function renderDetail() {
+      const p = shown[active]
+      const m = pickModel[p.id] ?? (state.provider?.id === p.id ? state.model : p.models[0])
+      pickModel[p.id] = m
+      detail.style.setProperty('--h', p.hue)
+      detail.innerHTML = `
+        <div class="head">${badge(p)}<div><h3>${p.name}</h3><div class="sub">${p.desc}</div></div></div>
+        <div class="lbl">模型</div>
+        <div class="models" role="radiogroup" aria-label="${p.name} 的模型">
+          ${p.models.map((x) => `<button role="radio" aria-checked="${x === m}" data-m="${x}">${x}</button>`).join('')}
+        </div>
+        <button class="use" id="use">使用 ${p.name}</button>`
+      detail.classList.remove('swap'); void detail.offsetWidth; detail.classList.add('swap')
+    }
+
+    function cycleModel(dir) {
+      const p = shown[active]; if (!p) return
+      const i = p.models.indexOf(pickModel[p.id])
+      pickModel[p.id] = p.models[(i + dir + p.models.length) % p.models.length]
+      renderDetail()
+    }
+
+    function openPalette() {
+      if (scrim.classList.contains('open')) return
+      q.value = ''
+      active = Math.max(0, PROVIDERS.findIndex((p) => p.id === state.provider?.id))
+      renderList()
+      scrim.classList.add('open'); trigger.setAttribute('aria-expanded', 'true')
+      setTimeout(() => q.focus(), 30)
+      say('挑一个顺手的 🤔', { mood: 'thinking' })
+    }
+    function closePalette() {
+      if (!scrim.classList.contains('open')) return
+      scrim.classList.remove('open'); trigger.setAttribute('aria-expanded', 'false')
+      trigger.focus()
+      idle()
+    }
+
+    function confirm() {
+      const p = shown[active]; if (!p) return
+      state.provider = p; state.model = pickModel[p.id]; state.ready = false
+      root.style.setProperty('--hue', p.hue)
+      const tb = $('t-badge')
+      tb.className = 'badge'; tb.style.setProperty('--h', p.hue); tb.textContent = p.name[0]
+      $('t-name').innerHTML = `${p.name}<small>${state.model}</small>`
+      go.setAttribute('aria-disabled', 'false'); go.innerHTML = '开始 <span class="arr">→</span>'
+      scrim.classList.remove('open'); trigger.setAttribute('aria-expanded', 'false'); trigger.focus()
+      buddy.poke()
+      say(`${p.name}，好眼光 ✨`, { mood: 'happy', hold: 2200 })
+    }
+
+    trigger.addEventListener('click', openPalette)
+    scrim.addEventListener('pointerdown', (e) => { if (e.target === scrim) closePalette() })
+    q.addEventListener('input', () => { active = 0; renderList() })
+    plist.addEventListener('pointermove', (e) => { const li = e.target.closest('li[role=option]'); if (li) setActive(+li.dataset.i) })
+    plist.addEventListener('click', (e) => { const li = e.target.closest('li[role=option]'); if (li) setActive(+li.dataset.i) })
+    plist.addEventListener('dblclick', (e) => { if (e.target.closest('li[role=option]')) confirm() })
+    detail.addEventListener('click', (e) => {
+      const m = e.target.closest('[data-m]')
+      if (m) { pickModel[shown[active].id] = m.dataset.m; renderDetail() }
+      if (e.target.closest('#use')) confirm()
+    })
+
+    scrim.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); closePalette() }
+      else if (e.key === 'ArrowDown') { e.preventDefault(); setActive(active + 1) }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); setActive(active - 1) }
+      else if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') && e.target === q && !q.value) { e.preventDefault(); cycleModel(e.key === 'ArrowRight' ? 1 : -1) }
+      else if (e.key === 'Enter' && (e.target === q || e.target === plist)) { e.preventDefault(); confirm() }
+      else if (e.key === 'Tab') {
+        // 焦点留在面板内
+        const f = [...scrim.querySelectorAll('input, button')]
+        const i = f.indexOf(document.activeElement)
+        e.preventDefault()
+        f[(i + (e.shiftKey ? -1 : 1) + f.length) % f.length].focus()
+      }
+    })
+
+    addEventListener('keydown', (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); scrim.classList.contains('open') ? closePalette() : openPalette() }
+    })
+    if (!/Mac|iPhone|iPad/.test(navigator.platform)) $('t-kbd').textContent = 'Ctrl K'
+
+    go.addEventListener('click', () => {
+      if (!state.provider) { openPalette(); return }
+      if (state.ready || go.dataset.busy) return
+      go.dataset.busy = '1'
+      go.innerHTML = '准备中 <span class="dots"><i></i><i></i><i></i></span>'
+      say('正在热身… 🏃', { mood: 'thinking' })
+      setTimeout(() => {
+        delete go.dataset.busy
+        state.ready = true
+        go.innerHTML = '已就绪 <span class="arr">✓</span>'
+        buddy.poke(); idle()
+      }, 1100)
+    })
+
+    /* =========================================================
+     * 自检：控制台无报错即通过
+     * ========================================================= */
+    ;(function selfCheck() {
+      console.assert(new Set(PROVIDERS.map((p) => p.id)).size === PROVIDERS.length, 'provider id 重复')
+      console.assert(PROVIDERS.every((p) => p.models.length && Number.isFinite(p.hue)), 'provider 缺模型或 hue')
+      const keys = Object.keys(EXPR.neutral)
+      console.assert(Object.values(EXPR).every((e) => keys.every((k) => Number.isFinite(e[k]))), '表情参数不全')
+      console.assert(!/NaN/.test(mouthPath(EXPR.excited)) && mouthPath(EXPR.excited).endsWith('Z'), 'mouthPath 异常')
+      console.assert(TAGLINE.map((s) => s.s || '').join('') === '从一个想法，到无限可能', '核心文案被改动')
+    })()
+
+    intro()
+  </script>
+</body>
+</html>

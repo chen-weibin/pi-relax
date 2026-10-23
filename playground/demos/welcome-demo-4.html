@@ -1,0 +1,1492 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>relax — 欢迎页小剧场</title>
+  <style>
+    /* 在「欢迎页 开场」基础上加小家伙。色值与 app/web 暗色 token 一致，不引任何库。 */
+    :root {
+      --app: #151515;
+      --surface-active: #353535;
+      --fg: #e5e5e5;
+      --fg-3: #a1a1a1;
+      --fg-disabled: #737373;
+      --ease: cubic-bezier(0.22, 1, 0.36, 1);
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif;
+      --stage: 520px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      height: 100%;
+      background: var(--app);
+      color: var(--fg);
+      font-family: var(--font);
+      font-size: 14px;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    #grid { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+
+    .stage {
+      position: relative;
+      z-index: 1;
+      min-height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px 96px;
+    }
+
+    /* ---------- 场景：字母画在 canvas，小家伙是叠在上面的 SVG，坐标同为场景 CSS 像素 ---------- */
+    .scene { position: relative; touch-action: none; user-select: none; -webkit-user-select: none; }
+    .scene canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+    .buddy {
+      position: absolute;
+      left: 0;
+      top: 0;
+      overflow: visible;
+      cursor: grab;
+      touch-action: none;
+      opacity: 0;
+      will-change: transform;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .buddy.on { opacity: 1; }
+    .buddy.drag { cursor: grabbing; }
+    .buddy:focus-visible { outline: none; }
+    .buddy:focus-visible .b-shade { stroke: #fff; stroke-width: 0.04; }
+    .b-body { fill: #ececec; }
+    .b-shade { fill: #b8b8b8; }
+    .b-feat { fill: #151515; }
+    #b-mouth { stroke: #151515; stroke-width: 0.07; stroke-linecap: round; stroke-linejoin: round; }
+    .b-blush { fill: #ff8a9b; }
+    .b-drop { fill: #8ccfff; }
+
+    .emote { position: absolute; left: 0; top: 0; pointer-events: none; }
+    .emote span {
+      position: absolute;
+      left: 0;
+      bottom: 0;
+      font-size: 22px;
+      line-height: 1;
+      white-space: nowrap;
+      opacity: 0;
+      transform: translate(-50%, 0) scale(0.4);
+      transform-origin: 50% 100%;
+    }
+    .emote span.pop { animation: pop 1.2s var(--ease) forwards; }
+    @keyframes pop {
+      0%   { opacity: 0; transform: translate(-50%, 6px) scale(0.4); }
+      16%  { opacity: 1; transform: translate(-50%, -2px) scale(1.12); }
+      28%  { transform: translate(-50%, 0) scale(1); }
+      78%  { opacity: 1; transform: translate(-50%, -4px) scale(1); }
+      100% { opacity: 0; transform: translate(-50%, -12px) scale(0.96); }
+    }
+
+    .col {
+      width: min(var(--stage), 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* ---------- 副文案（同欢迎页 开场） ---------- */
+    .line { position: relative; min-height: 44px; margin-top: 6px; display: flex; justify-content: center; }
+    .stroke-svg { display: block; overflow: visible; }
+    .stroke-svg text { font-family: var(--font); font-size: 28px; font-weight: 500; }
+    .stroke-char { fill: none; stroke: #ececec; stroke-width: 1.15; stroke-linejoin: round; stroke-linecap: round; }
+    .stroke-svg.run .stroke-char { animation: draw 1.05s linear forwards; animation-delay: calc(var(--i) * 72ms); }
+    @keyframes draw { to { stroke-dashoffset: 0; } }
+    .stroke-char, .fill-char { transition: stroke 700ms var(--ease), fill 700ms var(--ease); }
+    .fill-char { fill: #ececec; }
+    .line.tone .stroke-char { stroke: var(--fg-3); }
+    .line.tone .fill-char { fill: var(--fg-3); }
+    .copy {
+      position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+      color: var(--fg-3); font-size: 28px; font-weight: 500; line-height: 1; white-space: nowrap;
+      opacity: 0; user-select: none;
+    }
+    .line.shine .stroke-svg, .line.settled .stroke-svg { opacity: 0; transition: opacity 240ms ease; }
+    .line.shine .copy, .line.settled .copy { opacity: 1; transition: opacity 240ms ease; }
+
+    @property --shine { syntax: '<percentage>'; inherits: true; initial-value: -25%; }
+    .copy .sheen, .copy .sheen::after {
+      color: transparent;
+      background-image: linear-gradient(120deg,
+        rgba(255, 255, 255, 0)     calc(var(--shine) - 20%),
+        rgba(255, 255, 255, 0.104) calc(var(--shine) - 16.8%),
+        rgba(255, 255, 255, 0.352) calc(var(--shine) - 13.6%),
+        rgba(255, 255, 255, 0.648) calc(var(--shine) - 10.4%),
+        rgba(255, 255, 255, 1)     calc(var(--shine) - 4%),
+        rgba(255, 255, 255, 1)     calc(var(--shine) + 4%),
+        rgba(255, 255, 255, 0.648) calc(var(--shine) + 10.4%),
+        rgba(255, 255, 255, 0.352) calc(var(--shine) + 13.6%),
+        rgba(255, 255, 255, 0.104) calc(var(--shine) + 16.8%),
+        rgba(255, 255, 255, 0)     calc(var(--shine) + 20%));
+      background-repeat: no-repeat;
+      -webkit-background-clip: text;
+      background-clip: text;
+    }
+    .copy .sheen { position: absolute; inset: 0; opacity: 0; pointer-events: none; }
+    .copy .sheen::after { content: attr(data-text); position: absolute; inset: 0; filter: blur(0.14em); opacity: 0.6; }
+    .line.shine .sheen { opacity: 1; animation: sheen 3.6s cubic-bezier(0.37, 0, 0.63, 1) infinite; }
+    @keyframes sheen { 0% { --shine: -25%; } 55% { --shine: 125%; } 100% { --shine: 125%; } }
+
+    /* ---------- 选择框（同欢迎页 开场） ---------- */
+    .field {
+      --spot: 42deg;
+      --level: 0.35;
+      position: relative;
+      isolation: isolate;
+      width: 100%;
+      margin-top: 36px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 8px 8px 18px;
+      border-radius: 20px;
+      background: rgba(28, 28, 28, 0.78);
+      box-shadow: inset 0 0 0 1px rgba(82, 82, 82, 0.9);
+      -webkit-backdrop-filter: blur(10px);
+      backdrop-filter: blur(10px);
+      opacity: 0;
+      transform: translateY(8px);
+      pointer-events: none;
+      transition: opacity 700ms var(--ease), transform 700ms var(--ease);
+    }
+    .field.in { opacity: 1; transform: none; pointer-events: auto; }
+    .field::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      padding: 1.6px;
+      background: conic-gradient(from calc(var(--spot) - 42deg),
+        transparent 0deg, rgba(255, 255, 255, 0.45) 18deg, #fff 42deg, rgba(255, 255, 255, 0.45) 66deg,
+        transparent 88deg, transparent 148deg, rgba(255, 255, 255, 0.42) 180deg, transparent 214deg, transparent 360deg);
+      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor;
+      mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      mask-composite: exclude;
+      opacity: var(--level);
+      pointer-events: none;
+    }
+    .field select {
+      flex: 1; min-width: 0; border: 0; outline: none; appearance: none; background: transparent;
+      color: var(--fg); font: inherit; line-height: 1.4; cursor: pointer; color-scheme: dark;
+    }
+    .field select:invalid { color: var(--fg-disabled); }
+    .chev {
+      width: 28px; height: 28px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
+      border-radius: 999px; background: var(--surface-active); color: var(--fg-3); pointer-events: none;
+    }
+
+    .hint {
+      margin-top: 14px;
+      font-size: 12px;
+      color: #5c5c5c;
+      letter-spacing: 0.04em;
+      text-align: center;
+      opacity: 0;
+      transition: opacity 700ms var(--ease) 200ms;
+    }
+    .hint.in { opacity: 1; }
+    .hint kbd { font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; color: #777; }
+
+    .foot-btn {
+      position: fixed; z-index: 2; left: 50%; bottom: 22px; transform: translateX(-50%);
+      border: 0; background: transparent; color: #555; font: 12px/1 var(--font); letter-spacing: 0.12em;
+      cursor: pointer; opacity: 0; pointer-events: none; transition: opacity 400ms ease, color 120ms ease;
+    }
+    .foot-btn.show { opacity: 1; pointer-events: auto; }
+    .foot-btn:hover { color: var(--fg-3); }
+
+    @media (prefers-reduced-motion: reduce) {
+      .stroke-char { animation: none; stroke-dashoffset: 0; }
+      .line.shine .sheen { animation: none; opacity: 0; }
+      .field, .copy, .stroke-svg, .foot-btn, .hint { transition: none; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="grid" aria-hidden="true"></canvas>
+  <div class="stage">
+    <div class="scene" id="scene">
+      <canvas id="word" role="img" aria-label="relax"></canvas>
+      <svg class="buddy" id="buddy" viewBox="-1 -1 2 2" tabindex="0" role="button" aria-label="小家伙，按回车戳它一下">
+        <defs><clipPath id="b-clip"><path id="b-clip-path" /></clipPath></defs>
+        <g id="b-root">
+          <path class="b-shade" id="b-shade" />
+          <g clip-path="url(#b-clip)"><path class="b-body" id="b-light" transform="translate(-0.07 -0.07)" /></g>
+          <g id="b-face">
+            <ellipse class="b-blush" id="b-bl" />
+            <ellipse class="b-blush" id="b-br" />
+            <ellipse class="b-feat" id="b-el" />
+            <ellipse class="b-feat" id="b-er" />
+            <path class="b-feat" id="b-mouth" />
+            <path class="b-drop" id="b-t1" />
+            <path class="b-drop" id="b-t2" />
+          </g>
+          <path class="b-drop" id="b-sweat" />
+        </g>
+      </svg>
+      <div class="emote" id="emote" aria-hidden="true"><span></span></div>
+    </div>
+    <div class="col">
+      <div class="line" id="line" aria-label="从一个想法，到无限可能">
+        <svg id="stroke" class="stroke-svg" aria-hidden="true">
+          <defs>
+            <clipPath id="wipe" clipPathUnits="userSpaceOnUse"><rect id="wipeRect" x="0" y="0" width="0" height="0"></rect></clipPath>
+          </defs>
+          <text class="strokes" x="0" y="0"></text>
+          <text class="fills" x="0" y="0" clip-path="url(#wipe)"></text>
+        </svg>
+        <p class="copy">
+          <span class="ink">从一个想法，到无限可能</span>
+          <span class="sheen" data-text="从一个想法，到无限可能" aria-hidden="true">从一个想法，到无限可能</span>
+        </p>
+      </div>
+      <form class="field" id="field">
+        <select id="prompt" required aria-label="选择提供商">
+          <option value="" selected disabled>选择提供商</option>
+          <option>Anthropic</option>
+          <option>OpenAI</option>
+          <option>Google</option>
+          <option>DeepSeek</option>
+          <option>Moonshot AI</option>
+          <option>MiniMax</option>
+          <option>Z.ai</option>
+          <option>OpenRouter</option>
+        </select>
+        <span class="chev" aria-hidden="true">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="m6 9 6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+        </span>
+      </form>
+      <p class="hint" id="hint">拖动字母 · 拎起小家伙 · 双击字母让它爬上去 · 键盘敲 <kbd>r e l a x</kbd></p>
+    </div>
+  </div>
+  <button class="foot-btn" id="skip" type="button">跳过</button>
+  <button class="foot-btn" id="replay" type="button">重播</button>
+
+  <script>
+    const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif'
+    const TAGLINE = document.querySelector('.ink').textContent
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const $ = (id) => document.getElementById(id)
+
+    const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v))
+    const clamp01 = (v) => clamp(v, 0, 1)
+    const approach = (current, target, dt, seconds) => current + (target - current) * (1 - Math.exp(-dt / seconds))
+    const EASE = {
+      linear: (t) => t,
+      inOut: (t) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2),
+      out: (t) => 1 - (1 - t) ** 3,
+    }
+    const pick = (list) => list[Math.floor(Math.random() * list.length)]
+
+    /* =========================================================
+     * 背景网格（同欢迎页 开场）
+     * ========================================================= */
+    const CELL = 56
+    const RADIUS = 140
+    function smoothFalloff(distance, radius) {
+      const t = clamp01(1 - distance / radius)
+      return t * t * (3 - 2 * t)
+    }
+    function edgeFade(x, y, w, h) {
+      const ex = Math.min(1, Math.min(x, w - x) / (w * 0.16))
+      const ey = Math.min(1, Math.min(y, h - y) / (h * 0.16))
+      const t = Math.min(ex, ey)
+      return t * t * (3 - 2 * t)
+    }
+    const grid = $('grid')
+    const gctx = grid.getContext('2d')
+    const heat = new Map()
+    const cursor = { x: 0, y: 0, inside: false }
+    let gridW = 1, gridH = 1, gridDpr = 1, gridRaf = 0, gridLast = 0
+
+    function resizeGrid() {
+      gridW = Math.max(1, innerWidth)
+      gridH = Math.max(1, innerHeight)
+      gridDpr = Math.min(devicePixelRatio || 1, 2)
+      grid.width = Math.round(gridW * gridDpr)
+      grid.height = Math.round(gridH * gridDpr)
+      drawGrid()
+    }
+    const cellKey = (ix, iy) => ix + ',' + iy
+    function bumpGrid() {
+      const x0 = Math.floor((cursor.x - RADIUS) / CELL), x1 = Math.floor((cursor.x + RADIUS) / CELL)
+      const y0 = Math.floor((cursor.y - RADIUS) / CELL), y1 = Math.floor((cursor.y + RADIUS) / CELL)
+      for (let iy = y0; iy <= y1; iy++) {
+        for (let ix = x0; ix <= x1; ix++) {
+          const fall = smoothFalloff(Math.hypot(ix * CELL + CELL / 2 - cursor.x, iy * CELL + CELL / 2 - cursor.y), RADIUS)
+          if (fall <= 0) continue
+          const key = cellKey(ix, iy)
+          heat.set(key, Math.max(heat.get(key) || 0, fall))
+        }
+      }
+    }
+    function drawGrid() {
+      gctx.setTransform(gridDpr, 0, 0, gridDpr, 0, 0)
+      gctx.clearRect(0, 0, gridW, gridH)
+      gctx.lineWidth = 1
+      const cols = Math.ceil(gridW / CELL) + 1
+      const rows = Math.ceil(gridH / CELL) + 1
+      for (let iy = 0; iy < rows; iy++) {
+        for (let ix = 0; ix < cols; ix++) {
+          const hot = heat.get(cellKey(ix, iy)) || 0
+          if (hot > 0.02) {
+            gctx.fillStyle = `rgba(229, 229, 229, ${hot * 0.028 * edgeFade(ix * CELL + CELL / 2, iy * CELL + CELL / 2, gridW, gridH)})`
+            gctx.fillRect(ix * CELL + 1, iy * CELL + 1, CELL - 1, CELL - 1)
+          }
+        }
+      }
+      for (let iy = 0; iy <= rows; iy++) {
+        const y = Math.round(iy * CELL) + 0.5
+        for (let ix = 0; ix < cols; ix++) {
+          const hot = Math.max(heat.get(cellKey(ix, iy - 1)) || 0, heat.get(cellKey(ix, iy)) || 0)
+          const x = ix * CELL
+          gctx.strokeStyle = `rgba(229, 229, 229, ${(0.045 + hot * 0.22) * edgeFade(x + CELL / 2, y, gridW, gridH)})`
+          gctx.beginPath(); gctx.moveTo(x, y); gctx.lineTo(x + CELL, y); gctx.stroke()
+        }
+      }
+      for (let ix = 0; ix <= cols; ix++) {
+        const x = Math.round(ix * CELL) + 0.5
+        for (let iy = 0; iy < rows; iy++) {
+          const hot = Math.max(heat.get(cellKey(ix - 1, iy)) || 0, heat.get(cellKey(ix, iy)) || 0)
+          const y = iy * CELL
+          gctx.strokeStyle = `rgba(229, 229, 229, ${(0.045 + hot * 0.22) * edgeFade(x, y + CELL / 2, gridW, gridH)})`
+          gctx.beginPath(); gctx.moveTo(x, y); gctx.lineTo(x, y + CELL); gctx.stroke()
+        }
+      }
+    }
+    function tickGrid(now) {
+      gridRaf = 0
+      const dt = Math.min(0.05, gridLast ? (now - gridLast) / 1000 : 0.016)
+      gridLast = now
+      if (!reduce && cursor.inside) bumpGrid()
+      for (const [key, value] of heat) {
+        const next = value * Math.exp(-dt / 0.34)
+        if (next < 0.012) heat.delete(key)
+        else heat.set(key, next)
+      }
+      drawGrid()
+      if (!reduce && (cursor.inside || heat.size)) gridRaf = requestAnimationFrame(tickGrid)
+      else gridLast = 0
+    }
+    const wakeGrid = () => { if (!gridRaf) gridRaf = requestAnimationFrame(tickGrid) }
+
+    /* =========================================================
+     * 场景布局：字母几何 + 字母动态状态分开存，resize 只重算几何
+     * ========================================================= */
+    const WORD = 'relax'
+    const HOME = 4 // 小家伙最后停在 x 顶上
+    const scene = $('scene')
+    const word = $('word')
+    const wctx = word.getContext('2d')
+    let sceneW = 1, sceneH = 1, dpr = 1, wordSize = 140, S = 60, floorY = 0, lightY = 0, gapX = 0
+    let glyphs = []
+    let lights = new Float32Array(0)
+    const LIGHT_STEP = 14
+    const freshLetter = () => ({ ox: 0, oy: 0, rot: 0, vx: 0, vy: 0, vr: 0, tx: 0, ty: 0, tr: 0, hold: false, shown: 0, showT: 0, outline: 0, outlineT: 0, glow: 0 })
+    let gs = [...WORD].map(freshLetter)
+
+    function layout() {
+      sceneW = Math.max(300, Math.min(820, innerWidth - 32))
+      wctx.font = `600 100px ${FONT}`
+      const w100 = [...WORD].reduce((s, c) => s + wctx.measureText(c).width, 0)
+      wordSize = Math.round(clamp((sceneW * 0.56) / w100 * 100, 56, 150))
+      S = Math.round(wordSize * 0.42)
+      wctx.font = `600 ${wordSize}px ${FONT}`
+      const widths = [...WORD].map((c) => wctx.measureText(c).width)
+      const total = widths.reduce((a, b) => a + b, 0)
+      const asc = wctx.measureText('l').actualBoundingBoxAscent || wordSize * 0.74
+      const baseline = Math.round(S * 2.2 + asc)
+      floorY = baseline
+      lightY = baseline + 14
+      sceneH = lightY + 16
+
+      dpr = Math.min(devicePixelRatio || 1, 2)
+      scene.style.width = sceneW + 'px'
+      scene.style.height = sceneH + 'px'
+      // 改 canvas 尺寸会重置 context 状态，字体要重新设
+      word.width = Math.round(sceneW * dpr)
+      word.height = Math.round(sceneH * dpr)
+      wctx.font = `600 ${wordSize}px ${FONT}`
+
+      let x = (sceneW - total) / 2
+      glyphs = [...WORD].map((ch, i) => {
+        const m = wctx.measureText(ch)
+        const g = { ch, x, w: widths[i], baseline, top: baseline - (m.actualBoundingBoxAscent || asc) }
+        x += widths[i]
+        return g
+      })
+      gapX = clamp(sceneW - glyphs[4].x - glyphs[4].w - S * 1.6, S * 0.9, S * 3)
+
+      const n = Math.floor((sceneW - 24) / LIGHT_STEP) + 1
+      if (lights.length !== n) lights = new Float32Array(n)
+      $('buddy').style.width = $('buddy').style.height = S + 'px'
+    }
+
+    const R = () => S * 0.47 // 身体半径（像素）
+    const gx = (i) => glyphs[i].x + glyphs[i].w / 2 + gs[i].ox
+    const gtop = (i) => glyphs[i].top + gs[i].oy
+    const gleft = (i) => glyphs[i].x + gs[i].ox
+    const gright = (i) => glyphs[i].x + glyphs[i].w + gs[i].ox
+    const gbox = (i) => ({ x1: gleft(i), y1: gtop(i), x2: gright(i), y2: glyphs[i].baseline + gs[i].oy })
+
+    function glyphAt(x, y) {
+      for (let i = glyphs.length - 1; i >= 0; i--) {
+        const b = gbox(i)
+        if (x >= b.x1 - 4 && x <= b.x2 + 4 && y >= b.y1 - 6 && y <= b.y2 + 6) return i
+      }
+      return -1
+    }
+
+    // 小家伙正下方能站的面：字母顶或地面
+    function surfaceBelow(x, y) {
+      let best = { y: floorY, on: -1 }
+      glyphs.forEach((g, i) => {
+        const t = gtop(i)
+        if (Math.abs(x - gx(i)) <= g.w / 2 + R() * 0.2 && t >= y - 2 && t < best.y) best = { y: t, on: i }
+      })
+      return best
+    }
+
+    /* =========================================================
+     * 小家伙：数据层（表情参数），简化自卡通头像
+     * ========================================================= */
+    const EXPR = {
+      neutral:   { eyeRx: 0.085, eyeRy: 0.12,  eyeY: -0.06, tilt: 0,     mouthW: 0.2,  bend: 0.04,  open: 0,    mouthY: 0.27, blush: 0 },
+      happy:     { eyeRx: 0.1,   eyeRy: 0.045, eyeY: -0.09, tilt: 0,     mouthW: 0.32, bend: 0.12,  open: 0,    mouthY: 0.24, blush: 0.55 },
+      excited:   { eyeRx: 0.09,  eyeRy: 0.135, eyeY: -0.08, tilt: 0,     mouthW: 0.34, bend: 0.05,  open: 0.15, mouthY: 0.22, blush: 0.7 },
+      surprised: { eyeRx: 0.1,   eyeRy: 0.15,  eyeY: -0.1,  tilt: 0,     mouthW: 0.12, bend: -0.05, open: 0.1,  mouthY: 0.28, blush: 0 },
+      thinking:  { eyeRx: 0.075, eyeRy: 0.105, eyeY: -0.12, tilt: 0,     mouthW: 0.13, bend: -0.01, open: 0,    mouthY: 0.29, blush: 0 },
+      effort:    { eyeRx: 0.11,  eyeRy: 0.03,  eyeY: -0.06, tilt: 0.45,  mouthW: 0.26, bend: 0,     open: 0.03, mouthY: 0.27, blush: 0.35 },
+      cry:       { eyeRx: 0.1,   eyeRy: 0.03,  eyeY: -0.04, tilt: -0.38, mouthW: 0.26, bend: -0.07, open: 0.13, mouthY: 0.31, blush: 0.4 },
+      sad:       { eyeRx: 0.08,  eyeRy: 0.09,  eyeY: -0.03, tilt: -0.22, mouthW: 0.18, bend: -0.05, open: 0,    mouthY: 0.3,  blush: 0.15 },
+      dizzy:     { eyeRx: 0.06,  eyeRy: 0.06,  eyeY: -0.06, tilt: 0,     mouthW: 0.16, bend: -0.02, open: 0.04, mouthY: 0.28, blush: 0 },
+    }
+    const SQUIRCLE_N = 2.7
+    const squircleR = (a) => 0.94 * Math.pow(Math.abs(Math.cos(a)) ** SQUIRCLE_N + Math.abs(Math.sin(a)) ** SQUIRCLE_N, -1 / SQUIRCLE_N)
+    function squirclePath(steps = 96) {
+      let d = ''
+      for (let i = 0; i < steps; i++) {
+        const a = (i / steps) * Math.PI * 2, k = squircleR(a)
+        d += (i ? 'L' : 'M') + (k * Math.cos(a)).toFixed(4) + ' ' + (k * Math.sin(a)).toFixed(4)
+      }
+      return d + 'Z'
+    }
+    // 上沿是嘴线，下沿再往下鼓 open 就是 D 形张嘴；bend 为负、open 为正时是 O 形或哇哇大哭
+    function mouthPath({ mouthW: w, bend: b, open: o, mouthY: y }) {
+      const h = w / 2
+      return `M${-h} ${y}Q0 ${y + 2 * b} ${h} ${y}Q0 ${y + 2 * (b + o)} ${-h} ${y}Z`
+    }
+    // 过 (0,y0)、(1,y1) 且最高点为 top 的抛物线（y 向下）
+    function parab(y0, top, y1, t) {
+      const a = Math.sqrt(Math.max(0, y0 - top)), b = Math.sqrt(Math.max(0, y1 - top))
+      if (a + b === 0) return y0
+      return (a + b) ** 2 * (t - a / (a + b)) ** 2 + top
+    }
+    const DROP = 'M0 -0.12C0.07 -0.03 0.075 0.06 0 0.06C-0.075 0.06 -0.07 -0.03 0 -0.12Z'
+
+    const B = {
+      x: 0, y: 0, on: -1, relX: 0, lift: 0, rot: 0,
+      sq: 0, sqV: 0, sqT: 0,
+      face: 'neutral', cur: { ...EXPR.neutral },
+      gaze: null, look: { x: 0, y: 0 },
+      tears: 0, tearsT: 0, sweat: 0, sweatT: 0,
+      visible: false, drag: false, t: 0, blink: 0, nextBlink: 2,
+    }
+
+    const bel = {
+      svg: $('buddy'), root: $('b-root'), face: $('b-face'), el: $('b-el'), er: $('b-er'), mouth: $('b-mouth'),
+      bl: $('b-bl'), br: $('b-br'), t1: $('b-t1'), t2: $('b-t2'), sweat: $('b-sweat'), emote: $('emote'),
+    }
+    {
+      const body = squirclePath()
+      $('b-shade').setAttribute('d', body)
+      $('b-clip-path').setAttribute('d', body)
+      $('b-light').setAttribute('d', body)
+      for (const el of [bel.t1, bel.t2, bel.sweat]) el.setAttribute('d', DROP)
+    }
+
+    function emote(text) {
+      const sp = bel.emote.firstElementChild
+      sp.textContent = text
+      sp.classList.remove('pop')
+      void sp.offsetWidth
+      sp.classList.add('pop')
+    }
+
+    /* =========================================================
+     * 动作原语：都是可取消的 async。新动作 token++，旧动作在下一帧抛 CANCEL 退出
+     * ========================================================= */
+    let token = 0
+    let acting = false
+    const CANCEL = Symbol('cancel')
+    const nextFrame = () => new Promise(requestAnimationFrame)
+    async function anim(ms, fn, ease = EASE.linear) {
+      const my = token
+      const t0 = performance.now()
+      for (;;) {
+        const now = await nextFrame()
+        if (my !== token) throw CANCEL
+        const t = ms <= 0 ? 1 : Math.min(1, (now - t0) / ms)
+        fn(ease(t), t)
+        if (t >= 1) return
+      }
+    }
+    const wait = (ms) => anim(ms, () => {})
+    async function until(promise) {
+      const my = token
+      await promise
+      if (my !== token) throw CANCEL
+    }
+    function perform(fn) {
+      const my = ++token
+      acting = true
+      fn().catch((e) => { if (e !== CANCEL) console.error(e) }).finally(() => { if (my === token) acting = false })
+    }
+
+    function land(x, y, on, impact = 1) {
+      B.x = x; B.y = y; B.on = on
+      B.relX = on >= 0 ? x - gx(on) : 0
+      B.rot = 0; B.lift = 0
+      B.sqV += 9 * impact
+      if (on >= 0) { gs[on].glow = 1; gs[on].vy += S * 2.2 * impact }
+    }
+
+    async function walkTo(x, speed = S * 2.6) {
+      B.on = -1
+      const x0 = B.x, d = x - x0
+      if (Math.abs(d) < 1) return
+      const steps = Math.max(1, Math.round(Math.abs(d) / (S * 0.42)))
+      B.gaze = { x: Math.sign(d), y: 0.15 }
+      await anim((Math.abs(d) / speed) * 1000, (e, t) => {
+        B.x = x0 + d * t
+        const ph = t * steps * Math.PI
+        B.lift = Math.abs(Math.sin(ph)) * S * 0.08
+        B.rot = Math.sin(ph) * 4
+      })
+      B.lift = 0; B.rot = 0
+    }
+
+    // 滚动距离取整圈，停下时脸正好朝前；方块的角让中心随滚动一起一伏
+    async function rollIn(target) {
+      const C = 2 * Math.PI * R()
+      const off = scene.getBoundingClientRect().left
+      const n = Math.max(1, Math.ceil((target + off + S) / C))
+      const x0 = target - n * C
+      Object.assign(B, { x: x0, on: -1, rot: 0, visible: true })
+      await anim(clamp((n * C) / (S * 4) * 1000, 900, 2400), (e) => {
+        const ang = n * 2 * Math.PI * e
+        B.x = x0 + n * C * e
+        B.rot = (ang * 180) / Math.PI
+        B.lift = (squircleR(Math.PI / 2 - ang) - 0.94) * (S / 2)
+      }, EASE.out)
+      B.rot = 0; B.lift = 0
+    }
+
+    async function jumpTo(x1, y1, on, { h = S * 0.7, ms } = {}) {
+      B.sqT = 0.45
+      await wait(110)
+      B.sqT = 0
+      B.sqV -= 7
+      B.on = null
+      const x0 = B.x, y0 = B.y, top = Math.min(y0, y1) - h
+      const dir = Math.sign(x1 - x0)
+      if (dir) B.gaze = { x: dir, y: 0.3 }
+      await anim(ms ?? 360 + (Math.hypot(x1 - x0, y1 - y0) / S) * 70, (e, t) => {
+        B.x = x0 + (x1 - x0) * t
+        B.y = parab(y0, top, y1, t)
+        B.rot = Math.sin(t * Math.PI) * dir * 10
+      })
+      land(x1, y1, on)
+    }
+    const hop = (h = S * 0.35) => jumpTo(B.x, B.y, B.on, { h, ms: 340 })
+
+    // 自由落体到 on（-1 地面，否则字母顶）。spin 取 ±360 的整数倍，落地时正面朝前。返回下落高度
+    async function fallTo(x1, on, { vy0 = 0, spin = 0 } = {}) {
+      B.on = null
+      const x0 = B.x, y0 = B.y, rot0 = B.rot
+      const y1 = on >= 0 ? gtop(on) : floorY
+      const g = S * 24
+      const dist = y1 - y0
+      const T = (-vy0 + Math.sqrt(Math.max(0, vy0 * vy0 + 2 * g * dist))) / g
+      const peak = y0 - (vy0 < 0 ? (vy0 * vy0) / (2 * g) : 0)
+      await anim(Math.max(60, T * 1000), (e, t) => {
+        const tt = t * T
+        B.x = x0 + (x1 - x0) * t
+        B.y = y0 + vy0 * tt + 0.5 * g * tt * tt
+        B.rot = rot0 + spin * t
+      })
+      const height = y1 - peak
+      land(x1, on >= 0 ? gtop(on) : floorY, on, clamp(height / (S * 2), 0.5, 1.6))
+      return height
+    }
+
+    async function pushLetter(i) {
+      const g = gs[i]
+      g.hold = true
+      B.face = 'effort'
+      B.gaze = { x: -1, y: 0 }
+      B.sweatT = 1
+      const start = g.ox, tilt0 = g.rot
+      const stops = [0.64, 0.3, 0]
+      let from = start
+      for (let k = 0; k < stops.length; k++) {
+        const to = start * stops[k]
+        const r0 = g.rot, r1 = tilt0 * stops[k]
+        if (k === 1) emote('💦')
+        B.sqT = 0.15
+        await anim(560, (e, t) => {
+          g.ox = from + (to - from) * e
+          g.rot = r0 + (r1 - r0) * e - Math.sin(t * Math.PI) * 0.04
+          B.x = gright(i) + R() * 0.82
+          B.rot = -14 * Math.sin(Math.min(1, t * 3) * Math.PI / 2)
+          B.lift = Math.abs(Math.sin(t * Math.PI * 3)) * S * 0.03
+        }, EASE.inOut)
+        from = to
+        B.sqT = 0
+        if (k < stops.length - 1) await anim(320, (e) => { B.rot = -14 + 10 * e; B.lift = 0 })
+      }
+      // 最后一下由弹簧接手，字母咔哒归位略带回弹
+      Object.assign(g, { hold: false, tx: 0, tr: 0, vx: -S * 3, vr: -0.6 })
+      B.sweatT = 0
+      const xb = B.x
+      await anim(380, (e, t) => { B.rot = -14 * (1 - e); B.x = xb - Math.sin(t * Math.PI) * S * 0.12 })
+    }
+
+    function glowWave() {
+      gs.forEach((g, k) => setTimeout(() => { g.glow = 1; g.vy -= S * 1.6 }, k * 70))
+    }
+
+    async function cry(ms) {
+      B.face = 'cry'
+      B.tearsT = 1
+      emote('😭')
+      // 旁边两个字母歪过来安慰
+      const left = glyphs.reduce((acc, _, i) => (gx(i) < B.x - 4 ? i : acc), -1)
+      const right = glyphs.findIndex((_, i) => gx(i) > B.x + 4)
+      if (left >= 0) gs[left].tr = 0.12
+      if (right >= 0) gs[right].tr = -0.12
+      await anim(ms, (e, t) => { B.sqT = 0.1 + 0.1 * Math.sin(t * (ms / 1000) * Math.PI * 2 * 2.6) })
+      B.sqT = 0
+      B.tearsT = 0
+      if (left >= 0) gs[left].tr = 0
+      if (right >= 0) gs[right].tr = 0
+      B.face = 'sad'
+      await wait(420)
+    }
+
+    async function recover() {
+      B.face = 'neutral'
+      await anim(520, (e, t) => { B.rot = Math.sin(t * Math.PI * 6) * 9 * (1 - t) })
+      B.rot = 0
+      B.face = 'happy'
+      emote('💪')
+      await hop()
+    }
+
+    // 空中就先落下来，姿态归正；所有自由动作从这里开始
+    async function ground() {
+      B.drag = false
+      B.lift = 0
+      B.sweatT = 0
+      B.tearsT = 0
+      if (B.on === null) {
+        const s = surfaceBelow(B.x, B.y)
+        await fallTo(B.x, s.on)
+      }
+      if (Math.abs(B.rot) > 0.5) {
+        const r0 = B.rot
+        await anim(200, (e) => { B.rot = r0 * (1 - e) })
+      }
+    }
+
+    async function goToLetter(i) {
+      await ground()
+      if (B.on === i) { B.face = 'happy'; return hop() }
+      if (B.on === -1) {
+        const side = B.x < gx(i) ? -1 : 1
+        await walkTo(gx(i) + side * (glyphs[i].w / 2 + R() * 1.1))
+      }
+      B.face = 'excited'
+      await jumpTo(gx(i), gtop(i), i, { h: S * 0.6 })
+      B.face = 'happy'
+    }
+
+    async function goFloor(x) {
+      await ground()
+      if (B.on >= 0) {
+        const side = x < B.x ? -1 : 1
+        await jumpTo(side < 0 ? gleft(B.on) - R() * 1.1 : gright(B.on) + R() * 1.1, floorY, -1, { h: S * 0.4 })
+      }
+      await walkTo(x)
+    }
+
+    /* =========================================================
+     * 开场剧情
+     * ========================================================= */
+    async function story() {
+      gs[4].ox = gs[4].tx = gapX
+      gs[4].rot = gs[4].tr = 0.14
+      await wait(300)
+
+      // 1. relax 逐字打出来，x 却落在了老远
+      for (let i = 0; i < WORD.length; i++) {
+        frameIdx = i
+        gs[i].showT = 1
+        gs[i].outlineT = 1
+        await wait(i === 4 ? 280 : 190)
+        gs[i].outlineT = 0
+      }
+      await wait(160)
+      frameIdx = -1
+
+      // 2. 小家伙从左边滚进来，晕一下
+      B.face = 'surprised'
+      await rollIn(gleft(0) - R() * 1.6)
+      B.face = 'dizzy'
+      emote('💫')
+      await anim(700, (e, t) => { B.rot = Math.sin(t * Math.PI * 4) * 10 * (1 - t) })
+      B.face = 'neutral'
+      B.gaze = { x: 0.8, y: -0.6 }
+      emote('👀')
+      await wait(600)
+
+      // 3. 沿着底部走，灯一颗颗亮；走到缺口发现 x 不在位置上
+      await walkTo((gright(3) + gleft(4)) / 2)
+      B.face = 'thinking'
+      B.gaze = { x: 1, y: -0.2 }
+      emote('❓')
+      await wait(750)
+
+      // 4. 翻过 x，绕到右边把它推回来
+      B.face = 'neutral'
+      await jumpTo(gx(4), gtop(4), 4)
+      await wait(120)
+      await jumpTo(gright(4) + R() * 1.1, floorY, -1, { h: S * 0.4 })
+      B.gaze = { x: -1, y: 0 }
+      await wait(260)
+      await pushLetter(4)
+      B.face = 'happy'
+      emote('✨')
+      glowWave()
+      await hop()
+      await wait(300)
+
+      // 5. 一路爬到 l 顶上庆祝，脚下一滑摔下来
+      B.face = 'excited'
+      await jumpTo(gx(4), gtop(4), 4)
+      await jumpTo(gx(3), gtop(3), 3, { h: S * 0.4 })
+      await jumpTo(gx(2), gtop(2), 2, { h: S * 0.9 })
+      emote('🎉')
+      await hop(S * 0.3)
+      await hop(S * 0.3)
+      B.face = 'surprised'
+      emote('❗')
+      gs[2].hold = true
+      await anim(900, (e, t) => {
+        const w = Math.sin(t * Math.PI * 7)
+        B.rot = w * (4 + 18 * t)
+        gs[2].rot = w * 0.05 * t
+      })
+      gs[2].hold = false
+      gs[2].vr += 2.5
+      B.face = 'surprised'
+      await fallTo(gx(1), -1, { vy0: -S * 4, spin: -360 })
+
+      // 6. 哭一会儿，旁边字母歪过来安慰；同时副文案开始描边
+      const tag = playTaglineP()
+      await cry(1900)
+      await recover()
+      B.gaze = { x: 0.2, y: 1 }
+      await until(tag)
+      B.gaze = null
+
+      // 7. 爬回 x 顶上停好，选择框这时才出现
+      B.face = 'excited'
+      await jumpTo(gx(3), gtop(3), 3, { h: S * 0.6 })
+      await jumpTo(gx(HOME), gtop(HOME), HOME, { h: S * 0.4 })
+      B.face = 'happy'
+      emote('👋')
+      await wait(350)
+      enterFree()
+    }
+
+    /* =========================================================
+     * 自由交互
+     * ========================================================= */
+    let mode = 'story'
+    let idleAt = 0
+    const bumpIdle = () => { idleAt = Math.max(idleAt, performance.now() + 9000) }
+
+    const IDLES = [
+      async function patrol() {
+        await ground()
+        const far = B.x > sceneW / 2 ? R() * 1.4 : sceneW - R() * 1.4
+        emote('🎵')
+        await goFloor(far)
+        B.gaze = { x: 0, y: -0.6 }
+        await wait(500)
+        await goToLetter(HOME)
+      },
+      async function lookAround() {
+        await ground()
+        B.face = 'thinking'
+        B.gaze = { x: -1, y: -0.3 }
+        await wait(700)
+        B.gaze = { x: 1, y: -0.3 }
+        await wait(700)
+        B.gaze = null
+        B.face = 'happy'
+        await hop(S * 0.25)
+        B.face = 'neutral'
+      },
+      async function visit() {
+        const others = [0, 1, 2, 3].filter((i) => i !== B.on)
+        await goToLetter(pick(others))
+        emote(pick(['🌿', '🎵', '☕']))
+        await wait(900)
+        await goToLetter(HOME)
+      },
+    ]
+
+    function enterFree() {
+      mode = 'free'
+      idleAt = performance.now() + 9000
+      field.classList.add('in')
+      $('hint').classList.add('in')
+      skipBtn.classList.remove('show')
+      replay.classList.add('show')
+    }
+
+    // 戳一下
+    const POKES = ['😆', '🙈', '✨', '💬', '🫶']
+    function poke() {
+      perform(async () => {
+        await ground()
+        B.face = 'happy'
+        emote(pick(POKES))
+        await hop()
+        await wait(600)
+        B.face = 'neutral'
+      })
+    }
+
+    // 拎起来：跟着指针晃，松手掉到正下方的面上，摔得高会哭
+    const bdrag = { id: null, sx: 0, sy: 0, lx: 0, active: false }
+    const scenePoint = (e) => {
+      const r = scene.getBoundingClientRect()
+      return { x: e.clientX - r.left, y: e.clientY - r.top }
+    }
+    bel.svg.addEventListener('pointerdown', (e) => {
+      if (mode !== 'free') return
+      e.preventDefault()
+      try { bel.svg.setPointerCapture(e.pointerId) } catch {}
+      Object.assign(bdrag, { id: e.pointerId, sx: e.clientX, sy: e.clientY, lx: e.clientX, active: false })
+      bumpIdle()
+    })
+    bel.svg.addEventListener('pointermove', (e) => {
+      if (bdrag.id !== e.pointerId) return
+      if (!bdrag.active && Math.hypot(e.clientX - bdrag.sx, e.clientY - bdrag.sy) > 5) {
+        bdrag.active = true
+        token++
+        acting = false
+        Object.assign(B, { drag: true, on: null, lift: 0, face: 'surprised', tearsT: 0, sweatT: 0, gaze: null })
+        bel.svg.classList.add('drag')
+        emote('😳')
+      }
+      if (!bdrag.active) return
+      const p = scenePoint(e)
+      const vx = e.clientX - bdrag.lx
+      bdrag.lx = e.clientX
+      B.x = clamp(p.x, -S, sceneW + S)
+      B.y = Math.min(floorY, p.y + R())
+      B.rot = approach(B.rot, clamp(-vx * 2.2, -28, 28), 0.016, 0.06)
+    })
+    function endBuddyDrag(e) {
+      if (bdrag.id !== e.pointerId) return
+      bdrag.id = null
+      bel.svg.classList.remove('drag')
+      if (!bdrag.active) return poke()
+      perform(async () => {
+        B.drag = false
+        const s = surfaceBelow(B.x, B.y)
+        const h = await fallTo(B.x, s.on)
+        if (h > S * 1.8) { await cry(1300); await recover() }
+        else { B.face = 'happy'; emote('😌'); await wait(600); B.face = 'neutral' }
+      })
+    }
+    bel.svg.addEventListener('pointerup', endBuddyDrag)
+    bel.svg.addEventListener('pointercancel', endBuddyDrag)
+    bel.svg.addEventListener('keydown', (e) => {
+      if (mode === 'free' && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); poke() }
+    })
+
+    // 拖字母：松手弹回；小家伙站在上面会被带着走，甩得远会被甩飞
+    const ldrag = { id: null, i: -1, px: 0, py: 0, ox: 0, oy: 0, vx: 0, lx: 0, lt: 0, far: 0 }
+    const wordPointer = { x: 0, y: 0, inside: false }
+    word.addEventListener('pointerdown', (e) => {
+      if (mode !== 'free') return
+      const p = scenePoint(e)
+      const i = glyphAt(p.x, p.y)
+      if (i < 0) return
+      try { word.setPointerCapture(e.pointerId) } catch {}
+      Object.assign(ldrag, { id: e.pointerId, i, px: p.x, py: p.y, ox: gs[i].ox, oy: gs[i].oy, vx: 0, lx: p.x, lt: performance.now(), far: 0 })
+      gs[i].hold = true
+      if (B.on === i && !acting) { B.face = 'surprised'; emote('😮') }
+      bumpIdle()
+    })
+    word.addEventListener('pointermove', (e) => {
+      const p = scenePoint(e)
+      wordPointer.x = p.x
+      wordPointer.y = p.y
+      wordPointer.inside = true
+      if (ldrag.id !== e.pointerId) return
+      const g = gs[ldrag.i]
+      const now = performance.now()
+      ldrag.vx = ((p.x - ldrag.lx) / Math.max(1, now - ldrag.lt)) * 1000
+      ldrag.lx = p.x
+      ldrag.lt = now
+      g.ox = ldrag.ox + p.x - ldrag.px
+      g.oy = Math.min(S * 0.3, ldrag.oy + p.y - ldrag.py)
+      g.rot = clamp(ldrag.vx * 0.0003, -0.3, 0.3)
+      ldrag.far = Math.max(ldrag.far, Math.hypot(g.ox, g.oy))
+    })
+    function endLetterDrag(e) {
+      if (ldrag.id !== e.pointerId) return
+      ldrag.id = null
+      const i = ldrag.i
+      const g = gs[i]
+      Object.assign(g, { hold: false, vx: ldrag.vx * 0.4, vy: 0, vr: ldrag.vx * 0.002 })
+      ldrag.i = -1
+      if (B.on !== i) return
+      if (ldrag.far > S * 1.6) {
+        const dir = Math.sign(g.ox) || 1
+        perform(async () => {
+          B.face = 'surprised'
+          emote('😵')
+          await fallTo(clamp(B.x + dir * S, R(), sceneW - R()), -1, { vy0: -S * 7, spin: dir * 360 })
+          await cry(1200)
+          await recover()
+        })
+      } else if (!acting) {
+        B.face = 'happy'
+      }
+    }
+    word.addEventListener('pointerup', endLetterDrag)
+    word.addEventListener('pointercancel', endLetterDrag)
+    word.addEventListener('pointerleave', () => { wordPointer.inside = false })
+    word.addEventListener('dblclick', (e) => {
+      if (mode !== 'free') return
+      const p = scenePoint(e)
+      const i = glyphAt(p.x, p.y)
+      if (i >= 0) perform(async () => { emote('🧗'); await goToLetter(i); emote('✌️') })
+    })
+
+    addEventListener('keydown', (e) => {
+      if (mode !== 'free' || e.metaKey || e.ctrlKey || e.altKey || e.target instanceof HTMLSelectElement) return
+      const i = WORD.indexOf(e.key.toLowerCase())
+      if (i < 0) return
+      bumpIdle()
+      gs[i].vy -= S * 9
+      gs[i].glow = 1
+      if (B.on === i) emote('😮')
+    })
+
+    /* =========================================================
+     * 每帧：字母弹簧 → 小家伙姿态 → 画
+     * ========================================================= */
+    let frameIdx = -1
+    const frame = { x1: 0, y1: 0, x2: 0, y2: 0, alpha: 0, index: -1 }
+
+    function stepLetters(dt) {
+      const h = dt / 2
+      for (const g of gs) {
+        g.shown = approach(g.shown, g.showT, dt, 0.07)
+        g.outline = approach(g.outline, g.outlineT, dt, 0.09)
+        g.glow *= Math.exp(-dt / 0.55)
+        if (g.hold) { g.vx = g.vy = g.vr = 0; continue }
+        for (let k = 0; k < 2; k++) {
+          g.vx += (-(g.ox - g.tx) * 170 - g.vx * 13) * h
+          g.vy += (-(g.oy - g.ty) * 170 - g.vy * 13) * h
+          g.vr += (-(g.rot - g.tr) * 140 - g.vr * 9) * h
+          g.ox += g.vx * h
+          g.oy += g.vy * h
+          g.rot += g.vr * h
+        }
+      }
+    }
+
+    function stepBuddy(dt) {
+      const b = B
+      b.t += dt
+      if (!b.drag) {
+        if (b.on >= 0) { b.x = gx(b.on) + b.relX; b.y = gtop(b.on) }
+        else if (b.on === -1) b.y = floorY
+      }
+      b.sqV += ((b.sqT - b.sq) * 260 - b.sqV * 15) * dt
+      b.sq = clamp(b.sq + b.sqV * dt, -0.5, 0.6)
+      const k = 1 - Math.exp(-dt * 10)
+      const target = EXPR[b.face]
+      for (const key in b.cur) b.cur[key] += (target[key] - b.cur[key]) * k
+      b.tears = approach(b.tears, b.tearsT, dt, 0.2)
+      b.sweat = approach(b.sweat, b.sweatT, dt, 0.2)
+
+      const r = scene.getBoundingClientRect()
+      const gaze = b.gaze || {
+        x: clamp((pointer.x - r.left - b.x) / 300, -1, 1),
+        y: clamp((pointer.y - r.top - (b.y - R())) / 300, -1, 1),
+      }
+      b.look.x = approach(b.look.x, gaze.x, dt, 0.16)
+      b.look.y = approach(b.look.y, gaze.y, dt, 0.16)
+
+      if (b.t > b.nextBlink) { b.blink = 1; b.nextBlink = b.t + (Math.random() < 0.2 ? 0.28 : 2.2 + Math.random() * 3) }
+      b.blink = Math.max(0, b.blink - dt * 7)
+
+      // 走过的地面灯点亮
+      if (b.visible && b.on === -1 && b.lift < S * 0.15) {
+        lights.forEach((_, j) => { if (Math.abs(12 + j * LIGHT_STEP - b.x) < R() * 0.9) lights[j] = 1 })
+      }
+      for (let j = 0; j < lights.length; j++) lights[j] *= Math.exp(-dt / 0.9)
+
+      renderBuddy()
+    }
+
+    function renderBuddy() {
+      const b = B, c = b.cur, half = S / 2
+      bel.svg.classList.toggle('on', b.visible)
+      bel.svg.style.transform = `translate(${(b.x - half).toFixed(2)}px, ${(b.y - R() - half).toFixed(2)}px)`
+      const breathe = b.on !== null && !b.drag ? Math.sin((b.t * Math.PI * 2) / 3.6) * 0.012 : 0
+      const sx = 1 + 0.22 * b.sq - breathe * 0.5, sy = 1 - 0.22 * b.sq + breathe
+      bel.root.setAttribute('transform',
+        `translate(0 ${(-b.lift / half).toFixed(4)}) rotate(${b.rot.toFixed(2)}) translate(0 0.94) scale(${sx.toFixed(4)} ${sy.toFixed(4)}) translate(0 -0.94)`)
+      bel.face.setAttribute('transform', `translate(${(b.look.x * 0.11).toFixed(4)} ${(b.look.y * 0.08).toFixed(4)})`)
+
+      const blinkK = c.eyeRy > 0.06 ? 1 - 0.9 * Math.sin(Math.PI * b.blink) : 1
+      for (const [eye, s] of [[bel.el, -1], [bel.er, 1]]) {
+        const cx = s * 0.3
+        eye.setAttribute('cx', cx.toFixed(4))
+        eye.setAttribute('cy', c.eyeY.toFixed(4))
+        eye.setAttribute('rx', c.eyeRx.toFixed(4))
+        eye.setAttribute('ry', Math.max(0.014, c.eyeRy * blinkK).toFixed(4))
+        eye.setAttribute('transform', `rotate(${((-s * c.tilt * 180) / Math.PI).toFixed(2)} ${cx} ${c.eyeY.toFixed(4)})`)
+      }
+      for (const [el, s] of [[bel.bl, -1], [bel.br, 1]]) {
+        el.setAttribute('cx', s * 0.52); el.setAttribute('cy', 0.14); el.setAttribute('rx', 0.13); el.setAttribute('ry', 0.065)
+        el.style.opacity = (c.blush * 0.6).toFixed(3)
+      }
+      bel.mouth.setAttribute('d', mouthPath(c))
+
+      // 眼泪：两侧交替往下滴
+      ;[bel.t1, bel.t2].forEach((el, k) => {
+        const p = (b.t * 1.5 + k * 0.5) % 1
+        const s = k ? 1 : -1
+        el.setAttribute('transform', `translate(${(s * (0.3 + p * 0.1)).toFixed(4)} ${(c.eyeY + 0.12 + p * 0.55).toFixed(4)}) scale(0.95)`)
+        el.style.opacity = (b.tears * (p < 0.12 ? p / 0.12 : 1 - p)).toFixed(3)
+      })
+      bel.sweat.setAttribute('transform', `translate(0.68 ${(-0.62 + Math.sin(b.t * 5) * 0.03).toFixed(4)}) rotate(18) scale(${(0.6 + b.sweat * 0.5).toFixed(3)})`)
+      bel.sweat.style.opacity = b.sweat.toFixed(3)
+
+      bel.emote.style.transform = `translate(${b.x.toFixed(1)}px, ${(b.y - R() * 2 - b.lift - 8).toFixed(1)}px)`
+    }
+
+    function updateFrame(dt) {
+      const hover = mode === 'free' && wordPointer.inside && ldrag.i < 0 ? glyphAt(wordPointer.x, wordPointer.y) : -1
+      const idx = mode === 'story' ? frameIdx : (ldrag.i >= 0 ? ldrag.i : hover)
+      if (mode === 'free') gs.forEach((g, i) => { g.outlineT = i === hover ? 1 : 0 })
+      if (idx >= 0) {
+        const box = gbox(idx)
+        const pad = Math.max(10, wordSize * 0.055)
+        const t = { x1: box.x1 - pad, y1: box.y1 - pad, x2: box.x2 + pad, y2: box.y2 + pad }
+        if (frame.index !== idx && frame.alpha < 0.08) Object.assign(frame, t)
+        for (const key of ['x1', 'y1', 'x2', 'y2']) frame[key] = approach(frame[key], t[key], dt, 0.06)
+        frame.index = idx
+      }
+      frame.alpha = approach(frame.alpha, idx >= 0 ? 1 : 0, dt, 0.1)
+      frame.annotate = mode === 'free' && idx >= 0
+    }
+
+    function drawFrame() {
+      if (frame.alpha < 0.01 || frame.index < 0) return
+      const x1 = Math.round(frame.x1) + 0.5, y1 = Math.round(frame.y1) + 0.5
+      const x2 = Math.round(frame.x2) + 0.5, y2 = Math.round(frame.y2) + 0.5
+      const a = frame.alpha
+      wctx.strokeStyle = wctx.fillStyle = '#f0f0f0'
+      wctx.lineWidth = 1
+      wctx.globalAlpha = 0.5 * a
+      wctx.strokeRect(x1, y1, x2 - x1, y2 - y1)
+      wctx.globalAlpha = 0.95 * a
+      for (const [cx, cy] of [[x1, y1], [x2, y1], [x2, y2], [x1, y2]]) wctx.fillRect(Math.round(cx) - 2, Math.round(cy) - 2, 5, 5)
+      if (frame.annotate) {
+        const b = gbox(frame.index)
+        wctx.font = '500 11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace'
+        wctx.textAlign = 'left'
+        wctx.textBaseline = 'bottom'
+        const lx = Math.round(x1), ly = Math.round(y1) - 8
+        wctx.globalAlpha = 0.72 * a
+        wctx.fillText(WORD[frame.index], lx, ly)
+        const sx = lx + wctx.measureText(WORD[frame.index]).width + 6
+        wctx.globalAlpha = 0.88 * a
+        wctx.fillRect(sx, ly - 8, 7, 7)
+        wctx.globalAlpha = 0.62 * a
+        wctx.fillText(`${Math.round(b.x2 - b.x1)} × ${Math.round(b.y2 - b.y1)}`, sx + 13, ly)
+      }
+      wctx.globalAlpha = 1
+    }
+
+    function drawScene() {
+      wctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+      wctx.clearRect(0, 0, sceneW, sceneH)
+
+      // 地面灯带
+      wctx.fillStyle = '#f0f0f0'
+      wctx.shadowColor = 'rgba(255, 255, 255, 0.9)'
+      for (let j = 0; j < lights.length; j++) {
+        const v = lights[j]
+        const x = 12 + j * LIGHT_STEP
+        wctx.globalAlpha = (0.1 + 0.9 * v) * edgeFade(x, 50, sceneW, 100)
+        wctx.shadowBlur = 10 * v
+        wctx.beginPath()
+        wctx.arc(x, lightY, 1.2 + 1.3 * v, 0, Math.PI * 2)
+        wctx.fill()
+      }
+
+      // 字母：以底边中点为轴，弹簧位移 + 旋转，踩上去会亮
+      wctx.font = `600 ${wordSize}px ${FONT}`
+      wctx.textAlign = 'left'
+      wctx.textBaseline = 'alphabetic'
+      wctx.lineWidth = 1.5
+      wctx.lineJoin = wctx.lineCap = 'round'
+      wctx.strokeStyle = '#f0f0f0'
+      const dash = Math.max(4, wordSize * 0.022), gap = Math.max(2.5, wordSize * 0.014)
+      glyphs.forEach((g, i) => {
+        const s = gs[i]
+        if (s.shown < 0.01) return
+        wctx.save()
+        wctx.translate(g.x + g.w / 2 + s.ox, g.baseline + s.oy)
+        wctx.rotate(s.rot)
+        wctx.shadowColor = `rgba(255, 255, 255, ${(0.75 * s.glow).toFixed(3)})`
+        wctx.shadowBlur = wordSize * 0.28 * s.glow
+        const fillA = s.shown * (1 - s.outline), dashA = s.shown * s.outline
+        if (fillA > 0.01) { wctx.globalAlpha = fillA; wctx.fillText(g.ch, -g.w / 2, 0) }
+        if (dashA > 0.01) {
+          wctx.globalAlpha = dashA
+          wctx.setLineDash([dash, gap])
+          wctx.strokeText(g.ch, -g.w / 2, 0)
+          wctx.setLineDash([])
+        }
+        wctx.restore()
+      })
+      wctx.shadowBlur = 0
+      wctx.globalAlpha = 1
+      drawFrame()
+
+      // 小家伙的影子落在正下方的面上，离得越高越小越淡
+      if (B.visible) {
+        const surf = B.on !== null && !B.drag ? { y: B.y } : surfaceBelow(B.x, B.y)
+        const k = clamp(1 - (surf.y - (B.y - B.lift)) / (S * 3), 0.25, 1)
+        wctx.globalAlpha = 0.5 * k
+        wctx.fillStyle = '#000'
+        wctx.beginPath()
+        wctx.ellipse(B.x, surf.y + 1, R() * 0.85 * k, S * 0.05, 0, 0, Math.PI * 2)
+        wctx.fill()
+        wctx.globalAlpha = 1
+      }
+    }
+
+    let last = 0
+    let looping = 0
+    function tick(now) {
+      looping = requestAnimationFrame(tick)
+      const dt = Math.min(0.05, last ? (now - last) / 1000 : 0.016)
+      last = now
+      stepLetters(dt)
+      stepBuddy(dt)
+      updateFrame(dt)
+      drawScene()
+      if (mode === 'free' && !reduce && !acting && !B.drag && ldrag.i < 0 && now > idleAt) {
+        idleAt = now + 11000 + Math.random() * 6000
+        perform(pick(IDLES))
+      }
+    }
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) { cancelAnimationFrame(looping); looping = 0 }
+      else if (!looping) { last = 0; looping = requestAnimationFrame(tick) }
+    })
+
+    /* =========================================================
+     * 副文案：描边 → 填色 → 右移对齐 relax → 扫光（同欢迎页 开场，结束时 resolve）
+     * ========================================================= */
+    const NS = 'http://www.w3.org/2000/svg'
+    const line = $('line')
+    const svg = $('stroke')
+    const strokeText = svg.querySelector('.strokes')
+    const fillText = svg.querySelector('.fills')
+    const wipeRect = $('wipeRect')
+    let wipeWidth = 0, wipeOwner = 0, wiped = true, wipeTimer = 0, wipeRaf = 0
+    let taglineDone = null
+
+    function strokeLength(ch) {
+      const size = 28
+      const c = document.createElement('canvas')
+      const ctx = c.getContext('2d', { willReadFrequently: true })
+      const font = `500 ${size}px ${FONT}`
+      ctx.font = font
+      c.width = Math.max(1, Math.ceil(ctx.measureText(ch).width) + 6)
+      c.height = Math.ceil(size * 1.35)
+      ctx.font = font
+      ctx.fillStyle = '#fff'
+      ctx.textBaseline = 'top'
+      ctx.fillText(ch, 3, 2)
+      const { data } = ctx.getImageData(0, 0, c.width, c.height)
+      const on = (x, y) => x >= 0 && y >= 0 && x < c.width && y < c.height && data[(y * c.width + x) * 4 + 3] > 128
+      let edges = 0
+      for (let y = 0; y < c.height; y++) {
+        for (let x = 0; x < c.width; x++) {
+          if (on(x, y) && (!on(x - 1, y) || !on(x + 1, y) || !on(x, y - 1) || !on(x, y + 1))) edges++
+        }
+      }
+      return Math.max(120, Math.round(edges * 1.55))
+    }
+    function armStroke(span) {
+      span.style.strokeDasharray = span.dataset.dash
+      span.style.strokeDashoffset = span.dataset.dash
+    }
+    function buildTagline() {
+      strokeText.replaceChildren()
+      fillText.replaceChildren()
+      ;[...TAGLINE].forEach((ch, i) => {
+        const stroke = document.createElementNS(NS, 'tspan')
+        stroke.classList.add('stroke-char')
+        stroke.dataset.i = String(i)
+        stroke.dataset.dash = String(strokeLength(ch))
+        stroke.style.setProperty('--i', String(i))
+        stroke.textContent = ch
+        armStroke(stroke)
+        strokeText.appendChild(stroke)
+        const fill = document.createElementNS(NS, 'tspan')
+        fill.classList.add('fill-char')
+        fill.textContent = ch
+        fillText.appendChild(fill)
+      })
+      const box = strokeText.getBBox()
+      const pad = 8
+      svg.setAttribute('viewBox', `${box.x - pad} ${box.y - pad} ${box.width + pad * 2} ${box.height + pad * 2}`)
+      svg.style.width = `${box.width + pad * 2}px`
+      svg.style.height = `${box.height + pad * 2}px`
+      wipeRect.setAttribute('x', String(box.x - pad))
+      wipeRect.setAttribute('y', String(box.y - pad))
+      wipeRect.setAttribute('height', String(box.height + pad * 2))
+      wipeRect.setAttribute('width', '0')
+      wipeWidth = box.width + pad * 2
+    }
+    function resetTagline() {
+      wipeOwner += 1
+      wiped = true
+      svg.dataset.arm = ''
+      clearTimeout(wipeTimer)
+      cancelAnimationFrame(wipeRaf)
+      line.classList.remove('shine', 'settled', 'tone')
+      line.style.transition = 'none'
+      line.style.transform = 'none'
+      svg.classList.remove('run')
+      svg.querySelectorAll('.stroke-char').forEach(armStroke)
+      wipeRect.setAttribute('width', '0')
+    }
+    const DRAW_MS = 1050, DRAW_STAGGER = 72, SLIDE_MS = 700
+    function beginWipe(owner) {
+      if (owner !== wipeOwner || wiped) return
+      wiped = true
+      clearTimeout(wipeTimer)
+      const started = performance.now()
+      const step = (now) => {
+        if (owner !== wipeOwner) return
+        const t = clamp01((now - started) / 680)
+        wipeRect.setAttribute('width', String(wipeWidth * EASE.inOut(t)))
+        if (t < 1) { wipeRaf = requestAnimationFrame(step); return }
+        setTimeout(() => slideTagline(owner), 160)
+      }
+      wipeRaf = requestAnimationFrame(step)
+    }
+    const relaxRight = () => scene.getBoundingClientRect().left + glyphs[glyphs.length - 1].x + glyphs[glyphs.length - 1].w
+    function taglineRight() {
+      const box = strokeText.getBoundingClientRect()
+      return box.width ? box.right : line.getBoundingClientRect().right
+    }
+    function slideTagline(owner) {
+      if (owner !== wipeOwner) return
+      line.style.transition = 'none'
+      line.style.transform = 'translateX(0px)'
+      const dx = relaxRight() - taglineRight()
+      void line.offsetWidth
+      line.style.transition = `transform ${SLIDE_MS}ms var(--ease)`
+      line.style.transform = `translateX(${dx}px)`
+      line.classList.add('tone')
+      setTimeout(() => {
+        if (owner !== wipeOwner) return
+        line.classList.add('shine')
+        taglineDone?.()
+      }, SLIDE_MS)
+    }
+    function playTaglineP() {
+      return new Promise((resolve) => {
+        taglineDone = resolve
+        const owner = ++wipeOwner
+        wiped = false
+        svg.dataset.arm = String(owner)
+        svg.classList.remove('run')
+        svg.querySelectorAll('.stroke-char').forEach(armStroke)
+        void svg.getBoundingClientRect()
+        svg.classList.add('run')
+        clearTimeout(wipeTimer)
+        wipeTimer = setTimeout(() => beginWipe(owner), DRAW_MS + DRAW_STAGGER * (TAGLINE.length - 1) + 80)
+      })
+    }
+    svg.addEventListener('animationend', (event) => {
+      if (event.animationName !== 'draw' || Number(event.target.dataset.i) !== TAGLINE.length - 1) return
+      beginWipe(Number(svg.dataset.arm))
+    })
+    function settleTagline() {
+      resetTagline()
+      line.classList.add('settled', 'tone')
+      line.style.transform = `translateX(${relaxRight() - taglineRight()}px)`
+    }
+
+    /* =========================================================
+     * 选择框边高光（同欢迎页 开场）
+     * ========================================================= */
+    const field = $('field')
+    const prompt = $('prompt')
+    const replay = $('replay')
+    const skipBtn = $('skip')
+    const pointer = { x: innerWidth / 2, y: innerHeight / 2 }
+    const IDLE_SPOT = 42
+    let spot = IDLE_SPOT, spotTarget = IDLE_SPOT, level = 0.35, levelTarget = 0.35, rimRaf = 0, rimLast = 0
+    function distToField(x, y) {
+      const r = field.getBoundingClientRect()
+      return Math.hypot(Math.max(r.left - x, 0, x - r.right), Math.max(r.top - y, 0, y - r.bottom))
+    }
+    function tickRim(now) {
+      rimRaf = 0
+      const dt = Math.min(0.05, rimLast ? (now - rimLast) / 1000 : 0.016)
+      rimLast = now
+      let diff = spotTarget - spot
+      diff = ((diff + 540) % 360) - 180
+      spot += diff * (1 - Math.exp(-dt / 0.12))
+      level += (levelTarget - level) * (1 - Math.exp(-dt / 0.14))
+      field.style.setProperty('--spot', `${spot}deg`)
+      field.style.setProperty('--level', level.toFixed(3))
+      if (Math.abs(diff) > 0.4 || Math.abs(levelTarget - level) > 0.01) rimRaf = requestAnimationFrame(tickRim)
+      else rimLast = 0
+    }
+    const wakeRim = () => { if (!reduce && !rimRaf) rimRaf = requestAnimationFrame(tickRim) }
+    addEventListener('pointermove', (e) => {
+      pointer.x = cursor.x = e.clientX
+      pointer.y = cursor.y = e.clientY
+      cursor.inside = true
+      if (!reduce) wakeGrid()
+      const r = field.getBoundingClientRect()
+      const near = smoothFalloff(distToField(e.clientX, e.clientY), 250)
+      levelTarget = 0.35 + 0.65 * near
+      spotTarget = near > 0.02 ? (Math.atan2(e.clientX - (r.left + r.width / 2), -(e.clientY - (r.top + r.height / 2))) * 180) / Math.PI : IDLE_SPOT
+      wakeRim()
+    }, { passive: true })
+    document.documentElement.addEventListener('pointerleave', () => {
+      cursor.inside = false
+      spotTarget = IDLE_SPOT
+      levelTarget = 0.35
+      wakeGrid()
+      wakeRim()
+    })
+    field.addEventListener('submit', (e) => e.preventDefault())
+    prompt.addEventListener('change', () => {
+      bumpIdle()
+      perform(async () => {
+        await ground()
+        B.face = 'excited'
+        emote('✨')
+        await hop(S * 0.5)
+        await hop(S * 0.3)
+        B.face = 'happy'
+      })
+    })
+
+    /* =========================================================
+     * 开场 / 跳过 / 重播
+     * ========================================================= */
+    function resetAll() {
+      token++
+      acting = false
+      gs = [...WORD].map(freshLetter)
+      lights.fill(0)
+      frameIdx = -1
+      frame.alpha = 0
+      frame.index = -1
+      Object.assign(B, { visible: false, on: -1, x: -S * 2, lift: 0, rot: 0, sq: 0, sqV: 0, sqT: 0, face: 'neutral', gaze: null, tearsT: 0, tears: 0, sweatT: 0, sweat: 0, drag: false })
+      resetTagline()
+      field.classList.remove('in')
+      $('hint').classList.remove('in')
+      replay.classList.remove('show')
+      prompt.value = ''
+    }
+
+    function settleAll() {
+      token++
+      acting = false
+      gs.forEach((g) => Object.assign(g, freshLetter(), { shown: 1, showT: 1 }))
+      frameIdx = -1
+      Object.assign(B, { visible: true, on: HOME, relX: 0, lift: 0, rot: 0, sqT: 0, face: 'happy', gaze: null, tearsT: 0, sweatT: 0, drag: false })
+      settleTagline()
+      enterFree()
+    }
+
+    function playAll() {
+      resetAll()
+      if (reduce) return settleAll()
+      mode = 'story'
+      skipBtn.classList.add('show')
+      perform(story)
+    }
+    replay.addEventListener('click', playAll)
+    skipBtn.addEventListener('click', settleAll)
+
+    /* =========================================================
+     * 自检：控制台无报错即通过
+     * ========================================================= */
+    ;(function selfCheck() {
+      console.assert(smoothFalloff(0, RADIUS) === 1 && smoothFalloff(RADIUS, RADIUS) === 0, '网格衰减')
+      console.assert(TAGLINE === '从一个想法，到无限可能', '副文案')
+      const keys = Object.keys(EXPR.neutral)
+      console.assert(Object.values(EXPR).every((e) => keys.every((k) => Number.isFinite(e[k]))), '表情参数不全')
+      console.assert(Object.values(EXPR).every((e) => !/NaN/.test(mouthPath(e))), '嘴型路径')
+      console.assert(Math.abs(parab(100, 20, 60, 0) - 100) < 1e-9 && Math.abs(parab(100, 20, 60, 1) - 60) < 1e-9, '抛物线端点')
+      const ys = Array.from({ length: 101 }, (_, i) => parab(100, 20, 60, i / 100))
+      console.assert(Math.abs(Math.min(...ys) - 20) < 0.5, '抛物线最高点')
+      console.assert(Math.abs(squircleR(0) - 0.94) < 1e-9 && squircleR(Math.PI / 4) > 0.94, '超椭圆半径')
+    })()
+
+    addEventListener('resize', () => {
+      resizeGrid()
+      layout()
+      if (mode === 'free') line.style.transform = `translateX(${relaxRight() - taglineRight()}px)`
+    })
+    document.fonts.ready.then(() => {
+      resizeGrid()
+      layout()
+      buildTagline()
+      looping = requestAnimationFrame(tick)
+      playAll()
+    })
+  </script>
+</body>
+</html>
