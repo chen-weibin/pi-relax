@@ -2,7 +2,7 @@ import { Router } from 'express'
 import type { Agent, StreamingBehavior } from '../agent/agent.js'
 import { serverConfig } from '../config/server.js'
 import { asyncHandler, HttpError } from '../utils/errors.js'
-import { deleteMark, setCompleted } from '../sessions/marks.js'
+import { setSessionCompleted } from '../sessions/rows.js'
 import { querySessions, requireSession, sessionStorage } from '../sessions/query.js'
 import { completedQuery, optionalTime, pageWindow } from '../utils/query.js'
 import { bodyText, cwdOf, optionalString } from '../utils/request.js'
@@ -100,7 +100,7 @@ export function sessionsRouter(agent: Agent): Router {
 			const completed = (req.body as { completed?: unknown } | undefined)?.completed
 			if (typeof completed !== 'boolean') throw new HttpError(400, 'BAD_REQUEST', 'completed must be a boolean')
 			const record = await requireSession(agent, req.params.id as string)
-			setCompleted(record.id, record.cwd, completed)
+			setSessionCompleted(record.id, completed)
 			res.json({ ...record, completed })
 		}),
 	)
@@ -161,9 +161,7 @@ export function sessionsRouter(agent: Agent): Router {
 	router.delete(
 		'/api/sessions/:id',
 		asyncHandler(async (req, res) => {
-			const id = req.params.id as string
-			await agent.remove(id)
-			deleteMark(id)
+			await agent.remove(req.params.id as string)
 			res.status(204).end()
 		}),
 	)

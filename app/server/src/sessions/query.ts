@@ -4,10 +4,9 @@ import type { Agent } from '../agent/agent.js'
 import { getRelaxAgentDir } from '../config/home.js'
 import { HttpError, SessionNotFoundError } from '../utils/errors.js'
 import { timeInRange, type PageWindow } from '../utils/query.js'
-import { completedIds, deleteMark, dropMissingMarks, isCompleted } from './marks.js'
 import type { SessionRecord } from './types.js'
 
-export type ListedSession = SessionRecord & { completed: boolean }
+export type ListedSession = SessionRecord
 
 export type SessionQuery = {
 	cwd?: string
@@ -21,48 +20,24 @@ function byRecent(records: SessionRecord[]): SessionRecord[] {
 	return [...records].sort((a, b) => b.modified.localeCompare(a.modified) || b.id.localeCompare(a.id))
 }
 
-function reconcile(records: SessionRecord[], cwd?: string): void {
-	const ids = records.map((record) => record.id)
-	if (!cwd) {
-		dropMissingMarks(ids)
-		return
-	}
-	const cwds = new Set<string>([cwd])
-	for (const record of records) cwds.add(record.cwd)
-	for (const item of cwds) dropMissingMarks(ids, item)
-}
-
-/**
- * 先让基座读完该目录的 JSONL，再在内存里过滤和截取。
- * ponytail: 会话很多时每次列表仍是全量读文件。要按 offset 而不读全文件，再在 relax.sqlite 加索引，不改 JSONL。
- */
+/** 读 sessions 表，再在内存里过滤和截取。不扫 JSONL 重算 modified。 */
 export async function querySessions(agent: Agent, input: SessionQuery): Promise<{ sessions: ListedSession[]; total: number }> {
 	const records = byRecent(await agent.list(input.cwd))
-	reconcile(records, input.cwd)
-	const done = completedIds(records.map((record) => record.id))
 	const filtered = records.filter((record) => {
 		if (!timeInRange(record.modified, input.modifiedFrom, input.modifiedTo)) return false
 		if (input.completed === undefined) return true
-		return done.has(record.id) === input.completed
+		return record.completed === input.completed
 	})
 	const page = input.page
 	const slice = page ? filtered.slice(page.offset, page.offset + page.limit) : filtered
-	return {
-		total: filtered.length,
-		sessions: slice.map((record) => ({ ...record, completed: done.has(record.id) })),
-	}
+	return { total: filtered.length, sessions: slice }
 }
 
 export async function requireSession(agent: Agent, id: string): Promise<SessionRecord> {
-	try {
-		return await agent.get(id)
-	} catch (error) {
-		if (error instanceof SessionNotFoundError) deleteMark(id)
-		throw error
-	}
+	return agent.get(id)
 }
 
-/** 停掉内存里的会话，删掉 JSONL 和完成标记。文件已经不在则只清标记。 */
+/** 停掉内存里的会话，只写 deleted_at。JSONL 留在磁盘上。 */
 export async function purgeSessions(agent: Agent, records: SessionRecord[]): Promise<number> {
 	for (const record of records) {
 		try {
@@ -70,7 +45,6 @@ export async function purgeSessions(agent: Agent, records: SessionRecord[]): Pro
 		} catch (error) {
 			if (!(error instanceof SessionNotFoundError)) throw error
 		}
-		deleteMark(record.id)
 	}
 	return records.length
 }
@@ -84,7 +58,7 @@ export function matchesPurge(
 	input: { modifiedBefore?: string; completed?: true },
 ): boolean {
 	const before = input.modifiedBefore ? Date.parse(record.modified) < Date.parse(input.modifiedBefore) : true
-	const done = input.completed ? isCompleted(record.id) : true
+	const done = input.completed ? record.completed : true
 	if (input.modifiedBefore && input.completed) return before && done
 	if (input.modifiedBefore) return before
 	return done

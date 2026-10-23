@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdirSync, unlinkSync } from 'node:fs'
+import { existsSync, mkdirSync, unlinkSync } from 'node:fs'
 import type { Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { after, before, describe, it } from 'node:test'
@@ -170,7 +170,7 @@ describe('projects and session catalog', () => {
 		assert.equal(unmarked.total, 1)
 	})
 
-	it('drops the mark after the jsonl is deleted', async () => {
+	it('soft-deletes the row after the jsonl is deleted', async () => {
 		const sessions = await read(await fetch(`${base}/api/sessions?cwd=${encodeURIComponent(betaCwd)}`))
 		const id = sessions.sessions[0].id
 		await fetch(`${base}/api/sessions/${id}/completed`, {
@@ -183,8 +183,8 @@ describe('projects and session catalog', () => {
 		unlinkSync(info.path)
 		const listed = await read(await fetch(`${base}/api/sessions?cwd=${encodeURIComponent(betaCwd)}`))
 		assert.equal(listed.total, 0)
-		const marks = relaxDb().prepare(`SELECT id FROM session_marks WHERE id = ?`).all(id)
-		assert.equal(marks.length, 0)
+		const row = relaxDb().prepare(`SELECT deleted_at FROM sessions WHERE id = ?`).get(id) as { deleted_at: string | null }
+		assert.ok(row.deleted_at)
 	})
 
 	it('purges completed sessions and sessions modified before a time', async () => {
@@ -234,9 +234,11 @@ describe('projects and session catalog', () => {
 		assert.notEqual(again.body.id, alphaId)
 	})
 
-	it('deletes a single session and its mark', async () => {
+	it('soft-deletes a single session and leaves the file', async () => {
 		const manager = persistChat(betaCwd, 'solo', 'bye')
 		const id = manager.getSessionId()
+		const file = manager.getSessionFile()
+		assert.ok(file)
 		await fetch(`${base}/api/sessions/${id}/completed`, {
 			method: 'POST',
 			headers: { 'content-type': 'application/json' },
@@ -245,7 +247,8 @@ describe('projects and session catalog', () => {
 		const removed = await fetch(`${base}/api/sessions/${id}`, { method: 'DELETE' })
 		assert.equal(removed.status, 204)
 		assert.equal((await fetch(`${base}/api/sessions/${id}`)).status, 404)
-		const marks = relaxDb().prepare(`SELECT id FROM session_marks WHERE id = ?`).all(id)
-		assert.equal(marks.length, 0)
+		assert.equal(existsSync(file), true)
+		const row = relaxDb().prepare(`SELECT deleted_at FROM sessions WHERE id = ?`).get(id) as { deleted_at: string | null }
+		assert.ok(row.deleted_at)
 	})
 })

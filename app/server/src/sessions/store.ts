@@ -1,38 +1,18 @@
 import { unlinkSync } from 'node:fs'
 import { SessionManager, type SessionInfo } from '@earendil-works/pi-coding-agent'
 import { ensureRelaxHome, getDefaultWorkspace } from '../config/home.js'
-import { messageText } from '../utils/text.js'
 import type { SessionHistory, SessionRecord, SessionStatus } from './types.js'
 
+/** 磁盘扫描用。列表接口不走这里，modified 也不再在这里现算。 */
 function toRecord(info: SessionInfo, status: SessionStatus): SessionRecord {
-	const { path: _path, allMessagesText: _all, created, modified, ...rest } = info
 	return {
-		...rest,
-		created: created.toISOString(),
-		modified: modified.toISOString(),
+		id: info.id,
+		cwd: info.cwd,
+		name: info.name ?? '',
+		created: info.created.toISOString(),
+		modified: info.modified.toISOString(),
 		status,
-	}
-}
-
-/** 把尚未落盘的会话拼成列表项。 */
-export function recordFromManager(manager: SessionManager, status: SessionStatus): SessionRecord {
-	const header = manager.getHeader()
-	const context = manager.buildSessionContext()
-	const firstUser = context.messages.find((message) => message.role === 'user')
-	const created = header?.timestamp ? new Date(header.timestamp) : new Date()
-	const messageCount = context.messages.filter(
-		(message) => message.role === 'user' || message.role === 'assistant',
-	).length
-	return {
-		id: manager.getSessionId(),
-		cwd: manager.getCwd(),
-		name: manager.getSessionName(),
-		parentSessionPath: header?.parentSession,
-		created: created.toISOString(),
-		modified: new Date().toISOString(),
-		messageCount,
-		firstMessage: firstUser ? messageText(firstUser) || '(no messages)' : '(no messages)',
-		status,
+		completed: false,
 	}
 }
 

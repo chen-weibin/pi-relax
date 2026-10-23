@@ -3,18 +3,17 @@ import type { AgentSession, AgentSessionEvent, SessionManager } from '@earendil-
 import {
 	createSessionManager,
 	defaultCwd,
-	deleteSessionFile,
-	findSessionInfo,
 	historyById,
 	historyFrom,
-	listSessions,
 	openSession,
-	recordFromInfo,
-	recordFromManager,
 	type SessionHistory,
 	type SessionRecord,
 	type SessionStatus,
 } from '../sessions/index.js'
+import { ensureSessionRow, fillUnsetSessionName, fillUnsetSessionNames } from '../sessions/index-row.js'
+import { listSessionRows, noteUserMessage, renameSession, sessionRow, softDeleteSession, toSessionRecord } from '../sessions/rows.js'
+import { backfillSessions, dropMissingSessionFiles } from '../sessions/sync.js'
+import { messageText } from '../utils/text.js'
 import { abortPolicyFor, type SettingsPatch } from '../config/settings.js'
 import { BusyError, HttpError, SessionNotFoundError } from '../utils/errors.js'
 import { getSupportedThinkingLevels } from '@earendil-works/pi-ai'
@@ -60,30 +59,29 @@ export class Agent {
 		return 'idle'
 	}
 
-	hotRecords(): SessionRecord[] {
-		return [...this.slots.values()].map((slot) =>
-			recordFromManager(slot.session.sessionManager, this.statusOf(slot.session.sessionManager.getSessionId())!),
-		)
-	}
-
 	async list(cwd?: string): Promise<SessionRecord[]> {
-		const disk = await listSessions(cwd)
-		const byId = new Map(disk.map((item) => [item.id, item]))
-		for (const hot of this.hotRecords()) {
-			if (cwd && hot.cwd !== cwd) continue
-			byId.set(hot.id, { ...byId.get(hot.id), ...hot })
-		}
-		return [...byId.values()].sort((a, b) => b.modified.localeCompare(a.modified))
+		backfillSessions(cwd)
+		dropMissingSessionFiles(cwd, (id) => this.awaitingFile(id))
+		fillUnsetSessionNames(cwd)
+		return listSessionRows(cwd).map((row) => toSessionRecord(row, this.statusOf(row.id) ?? 'idle'))
 	}
 
 	async get(id: string): Promise<SessionRecord> {
-		const slot = this.slots.get(id)
-		if (slot) {
-			return recordFromManager(slot.session.sessionManager, this.statusOf(id)!)
+		let row = sessionRow(id)
+		if (!row) {
+			backfillSessions()
+			row = sessionRow(id)
 		}
-		const info = await findSessionInfo(id)
-		if (!info) throw new SessionNotFoundError(id)
-		return recordFromInfo(info, 'idle')
+		if (!row || row.deletedAt) throw new SessionNotFoundError(id)
+		if (!existsSync(row.path) && !this.awaitingFile(id)) {
+			softDeleteSession(id)
+			throw new SessionNotFoundError(id)
+		}
+		if (row.name === null) {
+			fillUnsetSessionName(row)
+			row = sessionRow(id) ?? row
+		}
+		return toSessionRecord(row, this.statusOf(id) ?? 'idle')
 	}
 
 	async history(id: string): Promise<SessionHistory> {
@@ -120,19 +118,20 @@ export class Agent {
 			void slot.session.prompt(text, { streamingBehavior: input.streamingBehavior }).catch(() => {
 				slot.running = false
 			})
-			return recordFromManager(slot.session.sessionManager, 'running')
+			return this.record(slot.session.sessionManager.getSessionId(), 'running')
 		}
 		slot.running = true
 		void slot.session.prompt(text).catch(() => {
 			slot.running = false
 		})
-		return recordFromManager(slot.session.sessionManager, 'running')
+		return this.record(slot.session.sessionManager.getSessionId(), 'running')
 	}
 
 	async rename(id: string, name: string): Promise<SessionRecord> {
 		const slot = await this.open(id)
 		slot.session.setSessionName(name)
-		return recordFromManager(slot.session.sessionManager, this.statusOf(id)!)
+		renameSession(id, name)
+		return this.record(id, this.statusOf(id) ?? 'idle')
 	}
 
 	/** 把刚写入全局 settings 的出队模式套到还在内存里的会话。 */
@@ -150,11 +149,13 @@ export class Agent {
 			return { ...record, status: 'idle', cleared: { steering: [], followUp: [] } }
 		}
 		const cleared = await this.stop(slot)
-		return { ...recordFromManager(slot.session.sessionManager, 'idle'), cleared }
+		return { ...this.record(id, 'idle'), cleared }
 	}
 
 	async remove(id: string): Promise<void> {
 		const slot = this.slots.get(id)
+		const row = sessionRow(id)
+		if (!slot && (!row || row.deletedAt)) throw new SessionNotFoundError(id)
 		if (slot) {
 			await this.stop(slot)
 			const current = this.slots.get(id)
@@ -164,8 +165,25 @@ export class Agent {
 				this.slots.delete(id)
 			}
 		}
-		const deleted = await deleteSessionFile(id)
-		if (!deleted && !slot) throw new SessionNotFoundError(id)
+		if (row && !row.deletedAt) softDeleteSession(id)
+	}
+
+	private record(id: string, status: SessionStatus): SessionRecord {
+		const row = sessionRow(id)
+		if (!row || row.deletedAt) throw new SessionNotFoundError(id)
+		return toSessionRecord(row, status)
+	}
+
+	/** 路径已记下、文件还没写出、也还没有用户或助手消息。列表不能把这种行删掉。 */
+	private awaitingFile(id: string): boolean {
+		const slot = this.slots.get(id)
+		if (!slot) return false
+		const manager = slot.session.sessionManager
+		const file = manager.getSessionFile()
+		if (!file || existsSync(file)) return false
+		return !manager
+			.buildSessionContext()
+			.messages.some((message) => message.role === 'user' || message.role === 'assistant')
 	}
 
 	private emit(sessionId: string, event: AgentSessionEvent): void {
@@ -173,6 +191,12 @@ export class Agent {
 		if (!slot) return
 		if (event.type === 'agent_start') slot.running = true
 		if (event.type === 'agent_settled') slot.running = false
+		if (event.type === 'entry_appended' && event.entry.type === 'message' && event.entry.message.role === 'user') {
+			rememberUserMessage(sessionId, event.entry.message)
+		}
+		if (event.type === 'message_end' && event.message.role === 'user') {
+			rememberUserMessage(sessionId, event.message)
+		}
 		for (const listener of this.listeners) {
 			try {
 				listener(sessionId, event)
@@ -216,9 +240,14 @@ export class Agent {
 	private async open(id: string): Promise<Slot> {
 		const existing = this.slots.get(id)
 		if (existing) return existing
-		const info = await findSessionInfo(id)
-		if (!info) throw new SessionNotFoundError(id)
-		return this.attach(openSession(info.path))
+		let row = sessionRow(id)
+		if (row?.deletedAt) throw new SessionNotFoundError(id)
+		if (!row) {
+			backfillSessions()
+			row = sessionRow(id)
+		}
+		if (!row || row.deletedAt || !existsSync(row.path)) throw new SessionNotFoundError(id)
+		return this.attach(openSession(row.path))
 	}
 
 	private async attach(manager: SessionManager, model?: Awaited<ReturnType<typeof modelForNewSession>>): Promise<Slot> {
@@ -228,6 +257,7 @@ export class Agent {
 			model,
 		})
 		const id = session.sessionManager.getSessionId()
+		ensureSessionRow(session.sessionManager)
 		const unsubscribe = session.subscribe((event) => this.emit(id, event))
 		const slot: Slot = { session, running: false, unsubscribe }
 		this.slots.set(id, slot)
@@ -257,6 +287,14 @@ export class Agent {
 			slot.session.dispose()
 			this.slots.delete(id)
 		}
+	}
+}
+
+function rememberUserMessage(sessionId: string, message: { timestamp: number; content?: unknown }): void {
+	try {
+		noteUserMessage(sessionId, new Date(message.timestamp).toISOString(), messageText(message))
+	} catch (error) {
+		console.error(error)
 	}
 }
 

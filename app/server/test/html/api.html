@@ -179,26 +179,22 @@
 
 			<script src="cdn/axios.min.js"></script>
 			<script>
-				const SESSION_RECORD = `/** 一条会话。pi 的 SessionInfo 去掉 path、allMessagesText，时间改为 ISO 字符串，并加上内存 status。 */
+				const SESSION_RECORD = `/** 一条会话。摘要来自 sessions 表，status 来自内存。 */
 type SessionRecord = {
 	/** 会话 id */
 	id: string
-	/** 创建时的工作区绝对路径。旧会话可能是空字符串 */
+	/** 创建时的工作区绝对路径 */
 	cwd: string
-	/** 显示名，来自 session_info。没有时界面用 firstMessage */
-	name?: string
-	/** 父会话文件路径。只有 fork 出来的会话才有 */
-	parentSessionPath?: string
-	/** 创建时间，ISO 8601 */
+	/** 列表标题。还没写过或已清空时是空字符串 */
+	name: string
+	/** 创建时间，ISO 8601。等于文件头上的时间 */
 	created: string
-	/** 最近修改时间，ISO 8601。列表按此倒序 */
+	/** 最近一条用户消息的时间，ISO 8601。还没有用户消息时等于 created */
 	modified: string
-	/** 消息条数 */
-	messageCount: number
-	/** 第一条用户消息的纯文本。没有用户消息时为 "(no messages)" */
-	firstMessage: string
 	/** idle：未在生成。running：正在生成，自动重试等待也算 */
 	status: "idle" | "running"
+	/** 完成标记。未完成是 false */
+	completed: boolean
 }`;
 
 				const ERROR_BODY = `/** 失败时的 JSON。2xx 不返回这个形状。 */
@@ -286,7 +282,7 @@ type ListSessionsRequest = {
 	modifiedFrom?: string
 	/** 修改时间不晚于该时刻，ISO */
 	modifiedTo?: string
-	/** true 或 false。不传则不限。没有完成标记的会话算未完成 */
+	/** true 或 false。不传则不限。completed 为 0 算未完成 */
 	completed?: "true" | "false"
 	/** 与 limit 成对。只传一个为 400 BAD_REQUEST */
 	offset?: number
@@ -295,16 +291,10 @@ type ListSessionsRequest = {
 }`,
 						responseType: `${SESSION_RECORD}
 
-/** 列表里的一条。completed 不在单条 GET 上。 */
-type ListedSession = SessionRecord & {
-	/** 用户标记。没有标记行为 false */
-	completed: boolean
-}
-
 /** HTTP 200。 */
 type ListSessionsResponse = {
-	/** 按 modified 倒序，相同再按 id 倒序。同 id 的热会话覆盖磁盘记录 */
-	sessions: ListedSession[]
+	/** 按 modified 倒序，相同再按 id 倒序 */
+	sessions: SessionRecord[]
 	/** 过滤之后、截取之前的条数 */
 	total: number
 }`,
@@ -401,7 +391,7 @@ ${ERROR_BODY}`,
 						name: "设置标题",
 						method: "POST",
 						path: "/api/sessions/:id/name",
-						summary: "手动写入 name。空字符串清空。不会自动生成标题。",
+						summary: "只改 name，不改 modified。空字符串清空，不再退回第一句话。",
 						queryParams: [],
 						bodyParams: [
 							{ name: "name", type: "string", required: true, description: "显示名。空字符串清空", example: "修登录" },
@@ -414,7 +404,7 @@ type RenameSessionRequest = {
 	/** 显示名。必填，可以是空字符串，表示清空 name。换行会被收成空格 */
 	name: string
 }`,
-						responseType: `/** HTTP 200。name 为写入后的显示名；清空后该字段省略。 */
+						responseType: `/** HTTP 200。name 为写入后的显示名；清空后是空字符串。 */
 
 ${SESSION_RECORD}
 
@@ -758,7 +748,7 @@ ${ERROR_BODY}`,
 						name: "删除",
 						method: "DELETE",
 						path: "/api/sessions/:id",
-						summary: "按 abortPolicy 停掉，再删除 jsonl。返回 204。",
+						summary: "按 abortPolicy 停掉，再逻辑删。jsonl 留在磁盘上。返回 204。",
 						queryParams: [],
 						bodyParams: [],
 						body: "",
@@ -767,7 +757,7 @@ type DeleteSessionRequest = {
 	/** 会话 id。内存和磁盘都没有时 404 NOT_FOUND */
 	id: string
 }`,
-						responseType: `/** HTTP 204，响应体为空。按 abortPolicy 停掉后再删 jsonl，并清掉完成标记。 */
+						responseType: `/** HTTP 204，响应体为空。按 abortPolicy 停掉后写 deleted_at。不删 jsonl。 */
 
 ${ERROR_BODY}`,
 					},
@@ -776,7 +766,7 @@ ${ERROR_BODY}`,
 						name: "完成标记",
 						method: "POST",
 						path: "/api/sessions/:id/completed",
-						summary: "把这条标成完成或改回未完成。文件不在则 404，并清掉标记。",
+						summary: "改 sessions.completed。文件不在则 404，并把这行逻辑删。",
 						queryParams: [],
 						bodyParams: [
 							{ name: "completed", type: "boolean", required: true, description: "true 为已完成", example: "true" },
@@ -789,7 +779,7 @@ type CompleteSessionRequest = {
 	/** 必须是布尔。字符串为 400 BAD_REQUEST */
 	completed: boolean
 }`,
-						responseType: `/** HTTP 200。SessionRecord 加上 completed。 */
+						responseType: `/** HTTP 200。completed 已写入这条会话。 */
 
 ${SESSION_RECORD}
 
@@ -1004,7 +994,7 @@ ${ERROR_BODY}`,
 						summary: "按修改时间早于某时刻，或已完成，删掉这个项目下的一部分会话。两个都给则同时满足才删。",
 						queryParams: [],
 						bodyParams: [
-							{ name: "modifiedBefore", type: "string", required: false, description: "JSONL 修改时间早于该 ISO 时刻", example: "2026-01-01T00:00:00.000Z" },
+							{ name: "modifiedBefore", type: "string", required: false, description: "sessions.modified 早于该 ISO 时刻", example: "2026-01-01T00:00:00.000Z" },
 							{ name: "completed", type: "boolean", required: false, description: "只删已完成。必须是 true", example: "true" },
 						],
 						body: "{\n  \"completed\": true\n}",

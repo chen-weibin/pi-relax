@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict'
-import { existsSync } from 'node:fs'
+import { existsSync, mkdirSync } from 'node:fs'
+import { DatabaseSync } from 'node:sqlite'
 import { after, before, describe, it } from 'node:test'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
+import { closeRelaxDb, relaxDb } from '../src/db/connection.js'
 import { defaultCwd, historyFrom, listSessions } from '../src/sessions/index.js'
 import { persistChat, removeHome, tempRelaxHome } from './home.js'
 
@@ -49,5 +51,44 @@ describe('sessions files', () => {
 		const roles = history.messages.map((message) => (message as { role: string }).role)
 		assert.ok(roles.includes('user'))
 		assert.ok(roles.includes('assistant'))
+	})
+})
+
+describe('sessions name column', () => {
+	let home: string
+
+	before(() => {
+		home = tempRelaxHome()
+	})
+
+	after(() => {
+		removeHome(home)
+	})
+
+	it('allows a null name when an older table required one', () => {
+		closeRelaxDb()
+		mkdirSync(join(home, 'sqlite'), { recursive: true })
+		const created = new DatabaseSync(join(home, 'sqlite', 'relax.sqlite'))
+		created.exec(`
+			CREATE TABLE sessions (
+				id TEXT PRIMARY KEY,
+				cwd TEXT NOT NULL,
+				path TEXT NOT NULL,
+				name TEXT NOT NULL DEFAULT '',
+				created TEXT NOT NULL,
+				modified TEXT NOT NULL,
+				completed INTEGER NOT NULL DEFAULT 0,
+				deleted_at TEXT
+			);
+		`)
+		created.close()
+		const opened = relaxDb()
+		opened
+			.prepare(
+				`INSERT INTO sessions (id, cwd, path, name, created, modified) VALUES ('a', '/c', '/c/a.jsonl', NULL, 't', 't')`,
+			)
+			.run()
+		const row = opened.prepare(`SELECT name FROM sessions WHERE id = 'a'`).get() as { name: string | null }
+		assert.equal(row.name, null)
 	})
 })

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readFileSync, unlinkSync } from 'node:fs'
 import type { Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { after, before, describe, it } from 'node:test'
@@ -9,6 +9,8 @@ import type { AgentSession, AgentSessionEvent } from '@earendil-works/pi-coding-
 import { Agent } from '../src/agent/agent.js'
 import type { RuntimeFactory } from '../src/agent/factory.js'
 import { createApp } from '../src/app.js'
+import { relaxDb } from '../src/db/connection.js'
+import { createSessionManager } from '../src/sessions/index.js'
 import { persistChat, removeHome, tempRelaxHome } from './home.js'
 import { saveApiKey, writeDefault } from '../src/agent/models.js'
 
@@ -22,7 +24,16 @@ function fakeFactory(seen: { model?: string; persist?: boolean; switches: number
 			get isStreaming() {
 				return false
 			},
-			async prompt() {
+			async prompt(text?: string) {
+				if (text) {
+					const message = {
+						role: 'user' as const,
+						content: [{ type: 'text' as const, text }],
+						timestamp: Date.now(),
+					}
+					sessionManager.appendMessage(message)
+					for (const listener of listeners) listener({ type: 'message_end', message })
+				}
 				for (const listener of listeners) listener({ type: 'agent_start' })
 			},
 			getAvailableThinkingLevels() {
@@ -171,7 +182,75 @@ describe('sessions http', () => {
 		})
 		assert.equal(cleared.status, 200)
 		const clearedBody = (await cleared.json()) as { name?: string }
-		assert.equal(clearedBody.name, undefined)
+		assert.equal(clearedBody.name, '')
+	})
+
+	it('keeps modified at the latest user message and drops a missing file', async () => {
+		const cwd = join(home, 'workspace')
+		const manager = createSessionManager(cwd)
+		const userAt = Date.parse('2020-01-01T00:00:00.000Z')
+		manager.appendMessage({
+			role: 'user',
+			content: [{ type: 'text', text: '你好' }],
+			timestamp: userAt,
+		})
+		manager.appendMessage({
+			role: 'assistant',
+			content: [{ type: 'text', text: '好' }],
+			timestamp: Date.parse('2020-01-02T00:00:00.000Z'),
+			provider: 'minimax',
+			model: 'MiniMax-M3',
+			stopReason: 'stop',
+			api: 'anthropic-messages',
+			usage: {
+				input: 1,
+				output: 1,
+				cacheRead: 0,
+				cacheWrite: 0,
+				totalTokens: 2,
+				cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+			},
+		} as never)
+		const id = manager.getSessionId()
+		const readRow = async () => {
+			const listed = (await (await fetch(`${base}/api/sessions?cwd=${encodeURIComponent(cwd)}`)).json()) as {
+				sessions: { id: string; name: string; modified: string; firstMessage?: string }[]
+			}
+			const row = listed.sessions.find((item) => item.id === id)
+			assert.ok(row)
+			return row
+		}
+		const first = await readRow()
+		assert.equal(first.name, '你好')
+		assert.equal(first.modified, new Date(userAt).toISOString())
+		assert.equal(first.firstMessage, undefined)
+		assert.equal((await readRow()).modified, first.modified)
+		manager.appendMessage({
+			role: 'user',
+			content: [{ type: 'text', text: '第二条' }],
+			timestamp: Date.parse('2020-03-01T00:00:00.000Z'),
+		})
+		const scanned = await readRow()
+		assert.equal(scanned.name, '你好')
+		assert.equal(scanned.modified, first.modified)
+		const sent = await fetch(`${base}/api/sessions/${id}/prompt`, {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ text: '第三条' }),
+		})
+		assert.equal(sent.status, 202)
+		const body = (await sent.json()) as { name: string; modified: string }
+		assert.equal(body.name, '你好')
+		assert.notEqual(body.modified, first.modified)
+		const file = manager.getSessionFile()
+		assert.ok(file)
+		unlinkSync(file)
+		const gone = (await (await fetch(`${base}/api/sessions?cwd=${encodeURIComponent(cwd)}`)).json()) as {
+			sessions: { id: string }[]
+		}
+		assert.equal(gone.sessions.some((item) => item.id === id), false)
+		const stored = relaxDb().prepare(`SELECT deleted_at FROM sessions WHERE id = ?`).get(id) as { deleted_at: string | null }
+		assert.ok(stored.deleted_at)
 	})
 
 	it('lists thinking levels for a registered model', async () => {

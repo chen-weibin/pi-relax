@@ -34,7 +34,7 @@ pi 的家目录是 `~/.pi`（`configDir`）。coding-agent 的数据根是 `~/.p
 
 编码：去掉路径开头的 `/`，把 `/`、`\`、`:` 换成 `-`，两侧加 `--`。cwd 是工作区目录，写在 JSONL 头里。项目靠这一层子目录分桶，文件名只区分同一工作区里的某一条会话。一条会话一个 jsonl，继续聊是追加。JSONL 头 `version` 为 3。`SessionManager.create` / `newSession` 只分配 id 和路径，此时还没有文件。第一条 **user** 消息发出时写出文件（pi 0.99 起；此前等第一条 assistant）。没有「空会话文件」。SessionManager 是后续请求上下文的权威来源，不要改 `session.agent.state.messages` 当历史。
 
-pi 没有会话索引。`list(cwd)` 扫该编码目录下的 `*.jsonl`，`listAll()` 扫 `sessions/` 下每个子目录。两次都是当场全量读文件。同时读的并发是 10，不是条数上限。文件会一直增加，列表会越来越慢。当前照扫，不加索引；以后加索引不改 JSONL 布局。
+pi 没有会话索引。`list(cwd)` 扫该编码目录下的 `*.jsonl`，`listAll()` 扫 `sessions/` 下每个子目录。两次都是当场全量读文件。同时读的并发是 10，不是条数上限。文件会一直增加，这样列会越来越慢。列表不走这两次扫描，摘要在 `relax.sqlite` 的 `sessions` 表，见 [server-sqlite.md](server-sqlite.md)。JSONL 布局不改。
 
 ### 我们的根
 
@@ -52,7 +52,7 @@ pi 没有会话索引。`list(cwd)` 扫该编码目录下的 `*.jsonl`，`listAl
 - 会话正文用 pi 的 JSONL，不另发明一套消息存档
 - 项目本体是用户选的文件夹，`.relax` 不复制项目
 
-添加项目等于登记一个已有文件夹。一个项目一个根目录。多根工作区不做。登记、顺序、软删除和会话的完成标记在 `{home}/sqlite/relax.sqlite`，表结构见 [server-sqlite.md](server-sqlite.md)（查阅时机：改这几张表时）。会话正文仍是上面的 JSONL。
+添加项目等于登记一个已有文件夹。一个项目一个根目录。多根工作区不做。登记、顺序、软删除和会话索引在 `{home}/sqlite/relax.sqlite`，表结构见 [server-sqlite.md](server-sqlite.md)（查阅时机：改这几张表时）。会话正文仍是上面的 JSONL。
 
 ## SDK 入口
 
@@ -121,7 +121,7 @@ pi 暴露的加载点都要能指定到 `.relax` 或配置里的路径，不默�
 
 前端现在的 `BlockFeedEvent`（只有用户文本、思考、正文）是 UI 先画出来的形状，不是长期协议。前端用薄适配器译成现有块，适配器放在 web 侧，见 [web-conversation.md](web-conversation.md)。后续界面往 pi 的消息格式靠，包括工具调用和压缩。
 
-对话那一块：第一次发送即建会话（`create` 时不写空文件，第一条 user 消息写出）、列表、单条信息、历史（`buildSessionContext`）、删除、续发、中止、全局 SSE。列表 `status` 只有 `idle` / `running`（对齐 pi 的 `isStreaming`；自动重试仍算 running）。失败写在 messages 和 SSE 里，不另做会话态。标题用 pi 的 `name`，没有则 `firstMessage`。
+对话那一块：第一次发送即建会话（`create` 时不写空文件，第一条 user 消息写出）、列表、单条信息、历史（`buildSessionContext`）、删除、续发、中止、全局 SSE。列表 `status` 只有 `idle` / `running`（对齐 pi 的 `isStreaming`；自动重试仍算 running）。失败写在 messages 和 SSE 里，不另做会话态。标题只看 `sessions.name`。
 
 工具调用、压缩、队列是 pi 事件里已有的。哪一块还没开，就在能力剖面里关掉对应能力，不把事件协议裁窄。开了之后原样转发。
 
@@ -152,7 +152,7 @@ pi 暴露的加载点都要能指定到 `.relax` 或配置里的路径，不默�
 - `POST /api/projects/:id/sessions/purge` 按修改时间早于某时刻，或已完成，删掉一部分会话文件
 - `GET /api/sessions/:id` 一条信息
 - `GET /api/sessions/:id/history` `buildSessionContext()`
-- `DELETE /api/sessions/:id` 中止并删除文件，204
+- `DELETE /api/sessions/:id` 中止并逻辑删，JSONL 留在磁盘上，204
 - `POST /api/sessions/:id/prompt` 续发，202。可选 `streamingBehavior`（`steer` | `followUp`）、`thinkingLevel`，以及一起出现的 `provider` 与 `model`。带了模型且与该会话上次不同时才写入会话
 - `POST /api/sessions/:id/model` 只把所选模型写成全局默认，不改这条会话的上次模型
 - `POST /api/sessions/:id/name` 手动设置 `name`，空字符串清空
@@ -172,9 +172,9 @@ pi 暴露的加载点都要能指定到 `.relax` 或配置里的路径，不默�
 
 SSE 断线不补，客户端用历史对齐。发送和中止走 HTTP。本轮不接 `app/web`。
 
-`name` 只来自手动设置，pi 不会在第一次发送时写成第一句话。列表仍同时返回 `name` 和 `firstMessage`，没有 `name` 时界面用 `firstMessage`。
+`name` 在第一条用户消息写入时，若还没标题，就用这句文本。之后不覆盖。列表只返回 `name`。空字符串是清空。
 
-往后放：第一次对话后用模型生成短标题写入 `name`，未生成前列表继续用 `firstMessage` 兜底。图片附件、模型选择器、编辑或重试某一条、分支树、checkpoint 回滚、命令审批。出队模式与中止策略已由 `GET` / `PATCH /api/settings` 配置，见上文。没有按单次请求覆盖的字段。
+往后放：第一次对话后用模型生成短标题写入 `name`。图片附件、模型选择器、编辑或重试某一条、分支树、checkpoint 回滚、命令审批。出队模式与中止策略已由 `GET` / `PATCH /api/settings` 配置，见上文。没有按单次请求覆盖的字段。
 
 ## 能力剖面
 
@@ -194,7 +194,7 @@ SSE 断线不补，客户端用历史对齐。发送和中止走 HTTP。本轮�
 单进程里，未捕获异常、同步读大文件、无限热会话或 watcher，会波及所有会话。下面的数字是初始天花板，做到那一块时再标定。超限返回错误，不在内存里排队。
 
 - **启动**。只监听端口并确保 `.relax` 根存在。不扫全部会话，不建模型客户端，不 watch 磁盘。
-- **列表**。本轮全量扫描 JSONL（与 pi 相同）。不创建 runtime。文件多了会慢，先记下，不加索引。
+- **列表**。读 `sessions` 表。不创建 runtime，也不为了算 `modified` 去读每份 JSONL。目录里还没有行的文件会补一次。
 - **热会话**。有全局 SSE 订阅，或正在生成才驻留。`agent_end` 还不算出空闲，要到 `agent_settled`。本轮不限制同时打开或同时生成的条数（pi 也没有这两条限制）。没有任何订阅且已经 settled、文件已落盘的会话 `dispose`，下次从 JSONL 打开。
 - **单会话单飞**。同一条会话已有生成时，不带 `streamingBehavior` 拒绝第二条（`BUSY`）。`steer` / `followUp` 只排队，不另开一条生成。
 - **流式**。服务端不另存一份完整正文。pi 追加 JSONL，我们转发事件。客户端读得慢就背压，缓冲有上限，满了断开这一条连接。
