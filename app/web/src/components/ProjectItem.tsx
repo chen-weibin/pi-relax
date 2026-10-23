@@ -21,6 +21,8 @@ export interface ProjectItemProps {
 	active?: boolean
 	onToggle: () => void
 	onAddSession: () => void
+	sessionNote?: string | null
+	onLoadMoreSessions?: () => void
 }
 
 export function ProjectItem({
@@ -30,6 +32,8 @@ export function ProjectItem({
 	active = false,
 	onToggle,
 	onAddSession,
+	sessionNote,
+	onLoadMoreSessions,
 }: ProjectItemProps) {
 	return (
 		<div className="group/project flex flex-col select-none">
@@ -76,8 +80,8 @@ export function ProjectItem({
 					</IconButton>
 				</div>
 			</div>
-<Expandable open={expanded} duration={200}>
-				{sessions.length > 0 && (
+			<Expandable open={expanded} duration={200}>
+				{sessions.length > 0 || sessionNote || onLoadMoreSessions ? (
 					<div className="mt-0.5 flex flex-col gap-0.5">
 						{sessions.map((s) => (
 							<SessionItem
@@ -89,8 +93,18 @@ export function ProjectItem({
 								{...(s.onClick ? { onClick: s.onClick } : {})}
 							/>
 						))}
+						{sessionNote ? <p className="px-3 py-1 text-xs text-fg-3">{sessionNote}</p> : null}
+						{onLoadMoreSessions ? (
+							<button
+								type="button"
+								className="px-3 py-1 text-left text-xs text-fg-3 hover:text-fg-2"
+								onClick={onLoadMoreSessions}
+							>
+								更多
+							</button>
+						) : null}
 					</div>
-				)}
+				) : null}
 			</Expandable>
 		</div>
 	)

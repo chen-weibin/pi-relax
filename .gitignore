@@ -2,6 +2,10 @@ tmp/
 .env
 .env.*
 !.env.example
+!app/web/.env
+!app/web/.env.development
+!app/web/.env.test
+!app/web/.env.production
 dist/
 .DS_Store
 

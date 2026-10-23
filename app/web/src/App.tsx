@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Sidebar } from './components/Sidebar'
 import { MainContainer } from './components/MainContainer'
 import { Extension } from './components/Extension'
@@ -7,6 +8,7 @@ import { ResizablePanel } from './ui/ResizablePanel'
 import { ResizableHandle } from './ui/ResizableHandle'
 import { usePersistedPanelLayout } from './hooks/usePersistedPanelLayout'
 import { useShallow } from 'zustand/react/shallow'
+import { startSessionTransport } from './session'
 import { useCommonStore } from './store'
 import type { MainView } from './store'
 
@@ -34,6 +36,8 @@ export function App() {
 		groupId: INNER_ID,
 		panelIds: INNER_PANELS,
 	})
+
+	useEffect(() => startSessionTransport(), [])
 
 	return (
 		<div className="flex h-screen w-screen bg-app text-fg">

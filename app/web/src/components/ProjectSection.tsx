@@ -1,120 +1,49 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useState, useSyncExternalStore } from 'react'
+import { useShallow } from 'zustand/react/shallow'
+import { projectRows, sessionModifiedAt, sessionTitle } from '../session/groupCatalog'
+import { getTransportSnapshot, loadMoreProjects, loadProjectSessions, selectOpenSession, subscribeTransport } from '../session'
+import { useCatalogStore, type SessionPage } from '../store'
 import { Expandable } from '../ui/Expandable'
-import { ProjectItem, type ProjectItemSession } from './ProjectItem'
+import { ProjectItem } from './ProjectItem'
 import { ProjectSectionHeader } from './ProjectSectionHeader'
-
-export interface Project {
-	id: string
-	name: string
-	sessions: ProjectItemSession[]
-}
 
 export interface ProjectSectionProps {
 	className?: string
 }
 
-const HOUR = 60 * 60 * 1000
-const DAY = 24 * HOUR
-
-function buildMockProjects(): Project[] {
-	const now = Date.now()
-	return [
-		{
-			id: 'p-vscode-ext',
-			name: 'cloudlab/vscode-extension/vscode-paper',
-			sessions: [
-				{
-					id: 's1',
-					title: '(1) 111UI implementation ...',
-					createdAt: now - 20 * HOUR,
-					status: 'loading',
-				},
-			],
-		},
-		{
-			id: 'p-web-oper',
-			name: 'cloudlab/web-oper-position',
-			sessions: [
-				{ id: 's2', title: '数据调整', createdAt: now - 1 * DAY },
-				{ id: 's3', title: '111UI implementation gui...', createdAt: now - 6 * DAY },
-			],
-		},
-		{
-			id: 'p-web-os',
-			name: 'cloudlab/web-os-platform',
-			sessions: [
-				{
-					id: 's4',
-					title: 'https://s.apifox.cn/45cd9...',
-					createdAt: now - 18 * HOUR,
-					status: 'success',
-				},
-				{
-					id: 's5',
-					title: 'Course detail sharing issue',
-					createdAt: now - 1 * DAY,
-					status: 'failure',
-				},
-				{
-					id: 's6',
-					title: 'Course detail sharing issue',
-					createdAt: now - 1 * DAY,
-					status: 'success',
-				},
-				{
-					id: 's7',
-					title: 'Card style optimization',
-					createdAt: now - 7 * DAY,
-					status: 'normal',
-				},
-				{
-					id: 's8',
-					title: 'Activity task display styles',
-					createdAt: now - 8 * DAY,
-					status: 'normal',
-				},
-				{
-					id: 's9',
-					title: 'Course detail page logic',
-					createdAt: now - 8 * DAY,
-					status: 'normal',
-				},
-			],
-		},
-		{
-			id: 'p-web-workspace',
-			name: 'cloudlab/web-workspace',
-			sessions: [
-				{ id: 's10', title: 'Course export link addition', createdAt: now - 18 * HOUR },
-				{ id: 's11', title: '(2) Course directory link f...', createdAt: now - 8 * DAY },
-				{ id: 's12', title: 'More', createdAt: now - 8 * DAY },
-			],
-		},
-		{
-			id: 'p-vscode-plugin',
-			name: 'vscode-extension',
-			sessions: [
-				{ id: 's13', title: 'Vscode-paper plugin loa...', createdAt: now - 13 * DAY },
-			],
-		},
-	]
+function sessionNote(page: SessionPage | undefined): string | null {
+	if (!page || page.loading) return '加载中'
+	if (page.error) return page.error
+	if (page.sessions.length === 0) return '没有会话'
+	return null
 }
 
 export function ProjectSection({ className }: ProjectSectionProps) {
-	const [projects] = useState<Project[]>(buildMockProjects)
-	const [expandedIds, setExpandedIds] = useState<Set<string>>(
-		() => new Set(projects.map((p) => p.id)),
+	const { projects, projectsTotal, projectsLoading, projectsError, defaultCwd, listsReady, sessionPages } = useCatalogStore(
+		useShallow((state) => ({
+			projects: state.projects,
+			projectsTotal: state.projectsTotal,
+			projectsLoading: state.projectsLoading,
+			projectsError: state.projectsError,
+			defaultCwd: state.defaultCwd,
+			listsReady: state.listsReady,
+			sessionPages: state.sessionPages,
+		})),
 	)
+	const openSessionId = useSyncExternalStore(subscribeTransport, () => getTransportSnapshot().openSessionId)
+	const rows = projectRows(projects, defaultCwd)
+	const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set())
 	const [sectionExpanded, setSectionExpanded] = useState(true)
 
-	const toggleProject = useCallback((id: string) => {
+	const toggleProject = useCallback((id: string, cwd: string) => {
 		setExpandedIds((prev) => {
 			const next = new Set(prev)
 			if (next.has(id)) next.delete(id)
 			else next.add(id)
 			return next
 		})
-	}, [])
+		if (!expandedIds.has(id)) loadProjectSessions(cwd)
+	}, [expandedIds])
 
 	const handleFilter = () => {
 		// TODO: filter behavior
@@ -128,29 +57,63 @@ export function ProjectSection({ className }: ProjectSectionProps) {
 		// TODO: add session behavior
 	}
 
+	const moreProjects = listsReady && projects.length < projectsTotal
+
 	return (
 		<section className={className}>
 			<div className="sticky top-0 z-10 bg-sidebar">
 				<ProjectSectionHeader
 					expanded={sectionExpanded}
-					onToggleExpand={() => setSectionExpanded((v) => !v)}
+					onToggleExpand={() => setSectionExpanded((value) => !value)}
 					onFilter={handleFilter}
 					onAddProject={handleAddProject}
 				/>
 			</div>
 			<Expandable open={sectionExpanded} duration={200}>
-				<div className="flex flex-col gap-0.5 pl-1.5 pb-1.5">
-					{projects.map((p) => (
-						<ProjectItem
-							key={p.id}
-							name={p.name}
-							sessions={p.sessions}
-							expanded={expandedIds.has(p.id)}
-							onToggle={() => toggleProject(p.id)}
-							onAddSession={() => handleAddSession(p.id)}
-						/>
-					))}
-				</div>
+				{projectsError && rows.length === 0 ? (
+					<p className="px-3 py-2 text-xs text-fg-3">{projectsError}</p>
+				) : !listsReady ? (
+					<p className="px-3 py-2 text-xs text-fg-3">加载中</p>
+				) : rows.length === 0 ? (
+					<p className="px-3 py-2 text-center text-xs text-fg-3">没有更多了</p>
+				) : (
+					<div className="flex flex-col gap-0.5 pl-1.5 pb-1.5">
+						{projectsError ? <p className="px-3 py-2 text-xs text-fg-3">{projectsError}</p> : null}
+						{rows.map((row) => {
+							const page = sessionPages[row.cwd]
+							const hasMore = Boolean(page?.loaded && page.sessions.length < page.total && !page.loading)
+							return (
+								<ProjectItem
+									key={row.id}
+									name={row.name}
+									sessions={(page?.sessions ?? []).map((session) => ({
+										id: session.id,
+										title: sessionTitle(session),
+										createdAt: sessionModifiedAt(session),
+										active: session.id === openSessionId,
+										onClick: () => selectOpenSession(session.id),
+										...(session.status === 'running' ? { status: 'loading' as const } : {}),
+									}))}
+									expanded={expandedIds.has(row.id)}
+									onToggle={() => toggleProject(row.id, row.cwd)}
+									onAddSession={() => handleAddSession(row.id)}
+									sessionNote={expandedIds.has(row.id) ? sessionNote(page) : null}
+									{...(hasMore ? { onLoadMoreSessions: () => loadProjectSessions(row.cwd, true) } : {})}
+								/>
+							)
+						})}
+						{moreProjects ? (
+							<button
+								type="button"
+								className="px-3 py-1 text-left text-xs text-fg-3 hover:text-fg-2 disabled:opacity-50"
+								disabled={projectsLoading}
+								onClick={() => loadMoreProjects()}
+							>
+								{projectsLoading ? '加载中' : '更多'}
+							</button>
+						) : null}
+					</div>
+				)}
 			</Expandable>
 		</section>
 	)

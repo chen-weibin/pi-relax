@@ -65,9 +65,9 @@ Store 继续按字段切片订阅。做法见 [web-zustand-store-design.md](supe
 
 ## 目录与项目登记
 
-侧栏用 `GET /api/sessions` 替换 `ProjectSection` 里的 mock。会话按 `cwd` 分桶。
+侧栏先拉 `GET /api/projects?offset=0&limit=20`，并另请求 `GET /api/workspace` 拿到默认工作区。这个路径不在项目表里，前端把它固定在第一行，名字用这条路径；已登记的同一 `cwd` 不重复。展开一行再拉 `GET /api/sessions?cwd=`，同样每次 20 条。项目列表底部、以及每个项目的会话底部，在还没拿完 `total` 时各有一个「更多」。收起不重新请求。未登记、又不是默认工作区的会话不出现。
 
-项目登记在服务端 `GET /api/projects`（见 [server-implemented.md](server-implemented.md)，查阅时机：接侧栏项目列表时）。前端尚未接入，侧栏仍是 mock。分桶键仍是 `cwd`。未指定工作区时的桶是 `~/.relax/workspace`（随服务端 `home` 换走，见 [server.md](server.md)）。多根工作区不做。
+项目登记在服务端 `GET /api/projects`（见 [server-implemented.md](server-implemented.md)，查阅时机：接侧栏项目列表时）。未指定工作区时的目录是 `~/.relax/workspace`（随服务端 `home` 换走，见 [server.md](server.md)）。多根工作区不做。
 
 新建对话只是空草稿。第一次发送才 `POST /api/sessions`。不先造空会话文件。
 
@@ -111,15 +111,17 @@ Store 继续按字段切片订阅。做法见 [web-zustand-store-design.md](supe
 
 依赖：服务端已有的 `/api` 与全局 SSE。
 
-验收：页面能拉列表、能保持一条 SSE，断线重连后目录状态与一条打开中的会话能靠历史对上。尚无侧栏替换、尚无发送。
+验收：页面能拉列表、能保持一条 SSE，断线重连后目录状态与一条打开中的会话能靠历史对上。侧栏项目列表来自真实接口。尚无发送。
 
-此块不做：改 `ProjectSection`、改 runtime、解析 Markdown。
+此块不做：改 runtime、解析 Markdown、删除、改名、新建项目、新对话草稿。对话 mock、文件和终端 mock 仍留着。
+
+当前实现：接口根在 `app/web` 的 `.env.development`、`.env.test`、`.env.production`（都先是 `http://localhost:3001`），只由 `src/config/index.ts` 读出。JSON 走 axios，超时 5 分钟写在 config 里。SSE 用 `@microsoft/fetch-event-source`，不套这个超时。`src/api/sessions`、`src/api/projects`、`src/api/sse` 各自有 `index.ts`（请求）和 `types.ts`（线上形状）。有字段变换时另放 `service.ts`：SSE 信封解析在 `api/sse/service.ts`，列表行收成目录在 `src/session/service.ts`。目录在 `src/store/catalog.ts`，项目和每个目录的会话都按 20 条分页。打开的会话、历史阶段和 `SessionContext` 在 `src/session/connect.ts`，不进目录 store。事件类型用 `import type` 引用 `@earendil-works/pi-coding-agent`。实时目录更新（生成中把侧栏改成 `running` / `idle`）留给模块 5。帧合并、Markdown 节流和历史 Worker 留给模块 3、模块 4。
 
 ### 2. 目录
 
-依赖：模块 1。
+依赖：模块 1。项目分页、固定的默认工作区，以及展开后按目录分页的会话，已经在模块 1。
 
-验收：侧栏来自真实列表，按 `cwd` 分桶；可以钉住文件夹、选择会话、删除、改名。点「新对话」得到空草稿，刷新前不出现新的会话文件。
+验收：可以钉住文件夹、删除、改名。点「新对话」得到空草稿，刷新前不出现新的会话文件。点选一行已经在模块 1，只高亮并拉历史，不画正文。
 
 此块不做：打开历史后的正文、发送。
 
