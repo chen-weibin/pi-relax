@@ -846,6 +846,23 @@ ${ERROR_BODY}`,
 					},
 					{
 						group: "项目",
+						name: "默认工作区",
+						method: "GET",
+						path: "/api/workspace",
+						summary: "未指定工作区时使用的目录。不写入项目表。",
+						queryParams: [],
+						bodyParams: [],
+						body: "",
+						requestType: `/** 无 query、无 body。 */
+type DefaultWorkspaceRequest = Record<string, never>`,
+						responseType: `/** HTTP 200。 */
+type DefaultWorkspaceResponse = {
+	/** {home}/workspace 的绝对路径 */
+	cwd: string
+}`,
+					},
+					{
+						group: "项目",
 						name: "列表",
 						method: "GET",
 						path: "/api/projects",

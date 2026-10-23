@@ -146,6 +146,7 @@ pi 暴露的加载点都要能指定到 `.relax` 或配置里的路径，不默�
 - `GET /api/sessions/storage` 统计 `sessions/` 下的 jsonl 个数和目录字节数
 - `POST /api/sessions/:id/completed` 把这条标成完成或未完成。文件不在则 404，并清掉标记
 - `GET /api/projects` 未软删除的项目，按 `position` 倒序。可按登记时间过滤，并按 `offset` 与 `limit` 截取
+- `GET /api/workspace` 未指定工作区时的目录，`{ cwd }`。不写入项目表
 - `POST /api/projects` 登记一个已存在的目录。同一路径再登记会恢复已软删除的行
 - `DELETE /api/projects/:id` 软删除，不删会话文件
 - `POST /api/projects/:id/purge` 删掉该工作区的会话文件和这一行
