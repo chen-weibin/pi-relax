@@ -1,0 +1,1692 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>relax — 欢迎页打球</title>
+  <style>
+    /* 在「欢迎页 小剧场」基础上：小家伙长出手脚，改成「先出文案、再撞场、最后打球」。
+       色值与 app/web 暗色 token 一致，不引任何库。 */
+    :root {
+      --app: #151515;
+      --surface-active: #353535;
+      --fg: #e5e5e5;
+      --fg-3: #a1a1a1;
+      --fg-disabled: #737373;
+      --ease: cubic-bezier(0.22, 1, 0.36, 1);
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif;
+      --round: "Yuanti SC", "YuanTi SC", "Hiragino Maru Gothic ProN", "PingFang SC", -apple-system, sans-serif;
+      --stage: 520px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      height: 100%;
+      background: var(--app);
+      color: var(--fg);
+      font-family: var(--font);
+      font-size: 14px;
+      -webkit-font-smoothing: antialiased;
+      overflow: hidden;
+    }
+
+    #grid { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+
+    .stage { position: relative; height: 100%; }
+
+    /* ---------- 场景：一整屏 canvas，字母在台面上，小家伙和球在最底部的地面 ---------- */
+    #scene { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+    .col {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      width: min(var(--stage), calc(100% - 32px));
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* ---------- 小家伙：方块身体 + 线条手脚 ---------- */
+    .buddy {
+      position: absolute;
+      left: 0;
+      top: 0;
+      overflow: visible;
+      cursor: grab;
+      touch-action: none;
+      opacity: 0;
+      will-change: transform;
+      -webkit-tap-highlight-color: transparent;
+      z-index: 2;
+    }
+    .buddy.on { opacity: 1; }
+    .buddy.drag { cursor: grabbing; }
+    .b-body { fill: #ececec; }
+    .b-shade { fill: #b8b8b8; }
+    .b-feat { fill: #151515; }
+    #b-mouth { stroke: #151515; stroke-width: 0.07; stroke-linecap: round; stroke-linejoin: round; }
+    .b-blush { fill: #ff8a9b; }
+    .b-drop { fill: #8ccfff; }
+    .b-limb {
+      fill: none;
+      stroke: #dcdcd7;
+      stroke-width: 0.085;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    /* ---------- 想法气泡：圆角白底 + 小尾巴 ---------- */
+    .say {
+      position: absolute;
+      left: 0;
+      top: 0;
+      z-index: 3;
+      pointer-events: none;
+      visibility: hidden;
+    }
+    .say.on { visibility: visible; }
+    .say .tail {
+      position: absolute;
+      left: 50%;
+      bottom: -5px;
+      width: 11px;
+      height: 11px;
+      margin-left: -5.5px;
+      border-radius: 2px;
+      background: #f2f2f2;
+      transform: rotate(45deg);
+    }
+    .say .bubble {
+      position: relative;
+      padding: 7px 12px 8px;
+      border-radius: 15px;
+      background: #f2f2f2;
+      color: #17171a;
+      font-family: var(--round);
+      font-size: 15px;
+      font-weight: 600;
+      line-height: 1;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
+      transform: translate(-50%, 0) rotate(-2deg);
+      transform-origin: 50% 100%;
+    }
+    .say.on .bubble { animation: saypop 1.9s var(--ease) forwards; }
+    @keyframes saypop {
+      0%   { opacity: 0; transform: translate(-50%, 8px) scale(0.5) rotate(-8deg); }
+      13%  { opacity: 1; transform: translate(-50%, -2px) scale(1.14) rotate(3deg); }
+      24%  { transform: translate(-50%, 0) scale(1) rotate(-2deg); }
+      82%  { opacity: 1; transform: translate(-50%, -4px) scale(1) rotate(-2deg); }
+      100% { opacity: 0; transform: translate(-50%, -16px) scale(0.94) rotate(-2deg); }
+    }
+
+    /* ---------- 副文案（同欢迎页 开场） ---------- */
+    .line { position: relative; min-height: 44px; margin-top: 6px; display: flex; justify-content: center; }
+    .stroke-svg { display: block; overflow: visible; }
+    .stroke-svg text { font-family: var(--font); font-size: 28px; font-weight: 500; }
+    .stroke-char { fill: none; stroke: #ececec; stroke-width: 1.15; stroke-linejoin: round; stroke-linecap: round; }
+    .stroke-svg.run .stroke-char { animation: draw 1.05s linear forwards; animation-delay: calc(var(--i) * 72ms); }
+    @keyframes draw { to { stroke-dashoffset: 0; } }
+    .stroke-char, .fill-char { transition: stroke 700ms var(--ease), fill 700ms var(--ease); }
+    .fill-char { fill: #ececec; }
+    .line.tone .stroke-char { stroke: var(--fg-3); }
+    .line.tone .fill-char { fill: var(--fg-3); }
+    .copy {
+      position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+      color: var(--fg-3); font-size: 28px; font-weight: 500; line-height: 1; white-space: nowrap;
+      opacity: 0; user-select: none;
+    }
+    .line.shine .stroke-svg, .line.settled .stroke-svg { opacity: 0; transition: opacity 240ms ease; }
+    .line.shine .copy, .line.settled .copy { opacity: 1; transition: opacity 240ms ease; }
+
+    @property --shine { syntax: '<percentage>'; inherits: true; initial-value: -25%; }
+    .copy .sheen, .copy .sheen::after {
+      color: transparent;
+      background-image: linear-gradient(120deg,
+        rgba(255, 255, 255, 0)     calc(var(--shine) - 20%),
+        rgba(255, 255, 255, 0.104) calc(var(--shine) - 16.8%),
+        rgba(255, 255, 255, 0.352) calc(var(--shine) - 13.6%),
+        rgba(255, 255, 255, 0.648) calc(var(--shine) - 10.4%),
+        rgba(255, 255, 255, 1)     calc(var(--shine) - 4%),
+        rgba(255, 255, 255, 1)     calc(var(--shine) + 4%),
+        rgba(255, 255, 255, 0.648) calc(var(--shine) + 10.4%),
+        rgba(255, 255, 255, 0.352) calc(var(--shine) + 13.6%),
+        rgba(255, 255, 255, 0.104) calc(var(--shine) + 16.8%),
+        rgba(255, 255, 255, 0)     calc(var(--shine) + 20%));
+      background-repeat: no-repeat;
+      -webkit-background-clip: text;
+      background-clip: text;
+    }
+    .copy .sheen { position: absolute; inset: 0; opacity: 0; pointer-events: none; }
+    .copy .sheen::after { content: attr(data-text); position: absolute; inset: 0; filter: blur(0.14em); opacity: 0.6; }
+    .line.shine .sheen { opacity: 1; animation: sheen 3.6s cubic-bezier(0.37, 0, 0.63, 1) infinite; }
+    @keyframes sheen { 0% { --shine: -25%; } 55% { --shine: 125%; } 100% { --shine: 125%; } }
+
+    /* ---------- 选择框（同欢迎页 开场） ---------- */
+    .field {
+      --spot: 42deg;
+      --level: 0.35;
+      position: relative;
+      isolation: isolate;
+      width: 100%;
+      margin-top: 36px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 8px 8px 18px;
+      border-radius: 20px;
+      background: rgba(28, 28, 28, 0.78);
+      box-shadow: inset 0 0 0 1px rgba(82, 82, 82, 0.9);
+      -webkit-backdrop-filter: blur(10px);
+      backdrop-filter: blur(10px);
+      opacity: 0;
+      transform: translateY(8px);
+      pointer-events: none;
+      transition: opacity 700ms var(--ease), transform 700ms var(--ease);
+    }
+    .field.in { opacity: 1; transform: none; pointer-events: auto; }
+    .field::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      padding: 1.6px;
+      background: conic-gradient(from calc(var(--spot) - 42deg),
+        transparent 0deg, rgba(255, 255, 255, 0.45) 18deg, #fff 42deg, rgba(255, 255, 255, 0.45) 66deg,
+        transparent 88deg, transparent 148deg, rgba(255, 255, 255, 0.42) 180deg, transparent 214deg, transparent 360deg);
+      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor;
+      mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      mask-composite: exclude;
+      opacity: var(--level);
+      pointer-events: none;
+    }
+    .field select {
+      flex: 1; min-width: 0; border: 0; outline: none; appearance: none; background: transparent;
+      color: var(--fg); font: inherit; line-height: 1.4; cursor: pointer; color-scheme: dark;
+    }
+    .field select:invalid { color: var(--fg-disabled); }
+    .chev {
+      width: 28px; height: 28px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
+      border-radius: 999px; background: var(--surface-active); color: var(--fg-3); pointer-events: none;
+    }
+
+    .hint {
+      margin-top: 14px;
+      font-size: 12px;
+      color: #5c5c5c;
+      letter-spacing: 0.04em;
+      text-align: center;
+      opacity: 0;
+      transition: opacity 700ms var(--ease) 200ms;
+    }
+    .hint.in { opacity: 1; }
+
+    .foot-btn {
+      position: fixed; z-index: 4; top: 18px; right: 20px;
+      border: 0; background: transparent; color: #555; font: 12px/1 var(--font); letter-spacing: 0.12em;
+      cursor: pointer; opacity: 0; pointer-events: none; transition: opacity 400ms ease, color 120ms ease;
+      margin-left: 16px;
+    }
+    .foot-btn.show { opacity: 1; pointer-events: auto; }
+    .foot-btn:hover { color: var(--fg-3); }
+
+    @media (prefers-reduced-motion: reduce) {
+      .stroke-char { animation: none; stroke-dashoffset: 0; }
+      .line.shine .sheen { animation: none; opacity: 0; }
+      .say.on .bubble { animation: none; opacity: 1; }
+      .field, .copy, .stroke-svg, .foot-btn, .hint { transition: none; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="grid" aria-hidden="true"></canvas>
+  <main class="stage" id="stage">
+    <canvas id="scene" role="img" aria-label="relax 场景：小家伙撞歪字母后推回来，再到底部玩球"></canvas>
+    <div class="col" id="col">
+      <div class="line" id="line" aria-label="从一个想法，到无限可能">
+        <svg id="stroke" class="stroke-svg" aria-hidden="true">
+          <defs>
+            <clipPath id="wipe" clipPathUnits="userSpaceOnUse"><rect id="wipeRect" x="0" y="0" width="0" height="0"></rect></clipPath>
+          </defs>
+          <text class="strokes" x="0" y="0"></text>
+          <text class="fills" x="0" y="0" clip-path="url(#wipe)"></text>
+        </svg>
+        <p class="copy">
+          <span class="ink">从一个想法，到无限可能</span>
+          <span class="sheen" data-text="从一个想法，到无限可能" aria-hidden="true">从一个想法，到无限可能</span>
+        </p>
+      </div>
+      <form class="field" id="field">
+        <select id="prompt" required aria-label="选择提供商">
+          <option value="" selected disabled>选择提供商</option>
+          <option>Anthropic</option>
+          <option>OpenAI</option>
+          <option>Google</option>
+          <option>DeepSeek</option>
+          <option>Moonshot AI</option>
+          <option>MiniMax</option>
+          <option>Z.ai</option>
+          <option>OpenRouter</option>
+        </select>
+        <span class="chev" aria-hidden="true">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="m6 9 6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+        </span>
+      </form>
+      <p class="hint" id="hint">点一下掉个球 · 拖动小家伙 · 敲它一下</p>
+    </div>
+  </main>
+
+  <svg class="buddy" id="buddy" viewBox="-1 -1 2 2" tabindex="0" role="button" aria-label="小家伙，按回车戳它一下">
+    <defs><clipPath id="b-clip"><path id="b-clip-path" /></clipPath></defs>
+    <g id="b-root">
+      <g id="b-legs">
+        <path class="b-limb" id="b-legL" />
+        <path class="b-limb" id="b-legR" />
+      </g>
+      <path class="b-shade" id="b-shade" />
+      <g clip-path="url(#b-clip)"><path class="b-body" id="b-light" transform="translate(-0.07 -0.07)" /></g>
+      <g id="b-face">
+        <ellipse class="b-blush" id="b-bl" />
+        <ellipse class="b-blush" id="b-br" />
+        <ellipse class="b-feat" id="b-el" />
+        <ellipse class="b-feat" id="b-er" />
+        <path class="b-feat" id="b-mouth" />
+        <path class="b-drop" id="b-t1" />
+        <path class="b-drop" id="b-t2" />
+      </g>
+      <path class="b-drop" id="b-sweat" />
+      <g id="b-arms">
+        <path class="b-limb" id="b-armL" />
+        <path class="b-limb" id="b-armR" />
+      </g>
+    </g>
+  </svg>
+
+  <div class="say" id="say" aria-hidden="true">
+    <div class="tail"></div>
+    <div class="bubble"></div>
+  </div>
+
+  <button class="foot-btn" id="skip" type="button">跳过</button>
+  <button class="foot-btn" id="replay" type="button">重播</button>
+
+  <script>
+    const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif'
+    const TAGLINE = document.querySelector('.ink').textContent
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const $ = (id) => document.getElementById(id)
+
+    const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v))
+    const clamp01 = (v) => clamp(v, 0, 1)
+    const approach = (current, target, dt, seconds) => current + (target - current) * (1 - Math.exp(-dt / seconds))
+    const EASE = {
+      linear: (t) => t,
+      inOut: (t) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2),
+      out: (t) => 1 - (1 - t) ** 3,
+    }
+    const pick = (list) => list[Math.floor(Math.random() * list.length)]
+
+    /* =========================================================
+     * 背景网格（同欢迎页 开场）
+     * ========================================================= */
+    const CELL = 56
+    const RADIUS = 140
+    function smoothFalloff(distance, radius) {
+      const t = clamp01(1 - distance / radius)
+      return t * t * (3 - 2 * t)
+    }
+    function edgeFade(x, y, w, h) {
+      const ex = Math.min(1, Math.min(x, w - x) / (w * 0.16))
+      const ey = Math.min(1, Math.min(y, h - y) / (h * 0.16))
+      const t = Math.min(ex, ey)
+      return t * t * (3 - 2 * t)
+    }
+    const grid = $('grid')
+    const gctx = grid.getContext('2d')
+    const heat = new Map()
+    const cursor = { x: 0, y: 0, inside: false }
+    let gridW = 0, gridH = 0, gridLast = 0, gridRaf = 0, gridDpr = 1
+
+    function resizeGrid() {
+      gridDpr = Math.min(devicePixelRatio || 1, 2)
+      gridW = innerWidth
+      gridH = innerHeight
+      grid.width = Math.round(gridW * gridDpr)
+      grid.height = Math.round(gridH * gridDpr)
+      gctx.setTransform(gridDpr, 0, 0, gridDpr, 0, 0)
+      heat.clear()
+      drawGrid()
+    }
+    const cellKey = (ix, iy) => ix + ',' + iy
+    function bumpGrid() {
+      const x0 = Math.floor((cursor.x - RADIUS) / CELL), x1 = Math.floor((cursor.x + RADIUS) / CELL)
+      const y0 = Math.floor((cursor.y - RADIUS) / CELL), y1 = Math.floor((cursor.y + RADIUS) / CELL)
+      for (let iy = y0; iy <= y1; iy++) {
+        for (let ix = x0; ix <= x1; ix++) {
+          const fall = smoothFalloff(Math.hypot(ix * CELL + CELL / 2 - cursor.x, iy * CELL + CELL / 2 - cursor.y), RADIUS)
+          if (fall <= 0.01) continue
+          const key = cellKey(ix, iy)
+          heat.set(key, Math.min(1, (heat.get(key) || 0) + fall * 0.5))
+        }
+      }
+    }
+    // 网格线：整屏铺一层很淡的底纹，指针靠近的格子才亮起来
+    function drawGrid() {
+      gctx.setTransform(gridDpr, 0, 0, gridDpr, 0, 0)
+      gctx.clearRect(0, 0, gridW, gridH)
+      gctx.lineWidth = 1
+      const cols = Math.ceil(gridW / CELL) + 1
+      const rows = Math.ceil(gridH / CELL) + 1
+
+      for (let iy = 0; iy < rows; iy++) {
+        for (let ix = 0; ix < cols; ix++) {
+          const hot = heat.get(cellKey(ix, iy)) || 0
+          if (hot <= 0.02) continue
+          const x = ix * CELL, y = iy * CELL
+          const fade = edgeFade(x + CELL / 2, y + CELL / 2, gridW, gridH)
+          gctx.fillStyle = `rgba(229,229,229,${(hot * 0.028 * fade).toFixed(4)})`
+          gctx.fillRect(x + 1, y + 1, CELL - 1, CELL - 1)
+        }
+      }
+
+      for (let iy = 0; iy <= rows; iy++) {
+        const y = Math.round(iy * CELL) + 0.5
+        for (let ix = 0; ix < cols; ix++) {
+          const hot = Math.max(heat.get(cellKey(ix, iy - 1)) || 0, heat.get(cellKey(ix, iy)) || 0)
+          const x = ix * CELL
+          const fade = edgeFade(x + CELL / 2, y, gridW, gridH)
+          gctx.strokeStyle = `rgba(229,229,229,${((0.045 + hot * 0.22) * fade).toFixed(4)})`
+          gctx.beginPath()
+          gctx.moveTo(x, y)
+          gctx.lineTo(x + CELL, y)
+          gctx.stroke()
+        }
+      }
+      for (let ix = 0; ix <= cols; ix++) {
+        const x = Math.round(ix * CELL) + 0.5
+        for (let iy = 0; iy < rows; iy++) {
+          const hot = Math.max(heat.get(cellKey(ix - 1, iy)) || 0, heat.get(cellKey(ix, iy)) || 0)
+          const y = iy * CELL
+          const fade = edgeFade(x, y + CELL / 2, gridW, gridH)
+          gctx.strokeStyle = `rgba(229,229,229,${((0.045 + hot * 0.22) * fade).toFixed(4)})`
+          gctx.beginPath()
+          gctx.moveTo(x, y)
+          gctx.lineTo(x, y + CELL)
+          gctx.stroke()
+        }
+      }
+    }
+    function tickGrid(now) {
+      const dt = Math.min(0.05, gridLast ? (now - gridLast) / 1000 : 0.016)
+      gridLast = now
+      if (!reduce && cursor.inside) bumpGrid()
+      for (const [key, value] of heat) {
+        const next = value * Math.exp(-dt / 0.34)
+        if (next < 0.01) heat.delete(key)
+        else heat.set(key, next)
+      }
+      drawGrid()
+      if (!reduce && (cursor.inside || heat.size)) gridRaf = requestAnimationFrame(tickGrid)
+      else gridLast = 0
+    }
+    const wakeGrid = () => { if (!gridRaf) gridRaf = requestAnimationFrame(tickGrid) }
+
+    /* =========================================================
+     * 场景：整屏 canvas。字母站在台面上（shelfY），地面在最底部（groundY）
+     * ========================================================= */
+    const WORD = 'relax'
+    const scene = $('scene')
+    const sctx = scene.getContext('2d')
+    const measure = document.createElement('canvas').getContext('2d')
+    let W = 1, H = 1, dpr = 1, wordSize = 140, S = 60, shelfY = 0, groundY = 0
+    let glyphs = []
+    const LIGHT_STEP = 14
+    let lights = new Float32Array(0)
+    const freshLetter = () => ({ ox: 0, oy: 0, rot: 0, vx: 0, vy: 0, vr: 0, tx: 0, ty: 0, tr: 0, hold: false, shown: 0, showT: 0, outline: 0, outlineT: 0, glow: 0 })
+    let gs = [...WORD].map(freshLetter)
+
+    function layout() {
+      W = innerWidth
+      H = innerHeight
+      dpr = Math.min(devicePixelRatio || 1, 2)
+      scene.width = Math.round(W * dpr)
+      scene.height = Math.round(H * dpr)
+
+      const w100 = [...WORD].reduce((s, c) => s + meas(c, 100), 0)
+      wordSize = Math.round(clamp((Math.min(W, 780) * 0.58) / w100 * 100, 44, 150))
+      S = Math.round(wordSize * 0.58)
+      shelfY = Math.round(H * 0.4)
+      groundY = H - 46
+
+      const widths = [...WORD].map((c) => meas(c, wordSize))
+      const total = widths.reduce((a, b) => a + b, 0)
+      const asc = measure.measureText('l').actualBoundingBoxAscent || wordSize * 0.74
+      let x = (W - total) / 2
+      glyphs = [...WORD].map((ch, i) => {
+        const m = meas(ch, wordSize)
+        const g = { ch, x, w: widths[i], baseline: shelfY, top: shelfY - (m.actualBoundingBoxAscent || asc) }
+        x += widths[i]
+        return g
+      })
+
+      const n = Math.floor((W - 24) / LIGHT_STEP) + 1
+      if (lights.length !== n) lights = new Float32Array(n)
+      $('buddy').style.width = $('buddy').style.height = S + 'px'
+      $('col').style.top = shelfY + 44 + 'px'
+    }
+    function meas(ch, size) {
+      measure.font = `600 ${size}px ${FONT}`
+      return measure.measureText(ch).width
+    }
+
+    const R = () => S * 0.47
+    // B.on 为 null 表示腾空，>= 0 才是站在某个字母上（null >= 0 为真，得单独挡掉）
+    const onLetter = (i) => i !== null && i !== undefined && i >= 0
+    const gx = (i) => glyphs[i].x + glyphs[i].w / 2 + gs[i].ox
+    const gtop = (i) => glyphs[i].top + gs[i].oy
+    const gleft = (i) => glyphs[i].x + gs[i].ox
+    const gright = (i) => glyphs[i].x + glyphs[i].w + gs[i].ox
+
+    /* =========================================================
+     * 小家伙：表情参数 + 身体 + 手脚
+     * ========================================================= */
+    const EXPR = {
+      neutral:   { eyeRx: 0.085, eyeRy: 0.12,  eyeY: -0.06, tilt: 0,     mouthW: 0.2,  bend: 0.04,  open: 0,    mouthY: 0.27, blush: 0 },
+      happy:     { eyeRx: 0.1,   eyeRy: 0.045, eyeY: -0.09, tilt: 0,     mouthW: 0.32, bend: 0.12,  open: 0,    mouthY: 0.24, blush: 0.55 },
+      excited:   { eyeRx: 0.09,  eyeRy: 0.135, eyeY: -0.08, tilt: 0,     mouthW: 0.34, bend: 0.05,  open: 0.15, mouthY: 0.22, blush: 0.7 },
+      surprised: { eyeRx: 0.1,   eyeRy: 0.15,  eyeY: -0.1,  tilt: 0,     mouthW: 0.12, bend: -0.05, open: 0.1,  mouthY: 0.28, blush: 0 },
+      thinking:  { eyeRx: 0.075, eyeRy: 0.105, eyeY: -0.12, tilt: 0,     mouthW: 0.13, bend: -0.01, open: 0,    mouthY: 0.29, blush: 0 },
+      effort:    { eyeRx: 0.11,  eyeRy: 0.03,  eyeY: -0.06, tilt: 0.45,  mouthW: 0.26, bend: 0,     open: 0.03, mouthY: 0.27, blush: 0.35 },
+      cry:       { eyeRx: 0.1,   eyeRy: 0.03,  eyeY: -0.04, tilt: -0.38, mouthW: 0.26, bend: -0.07, open: 0.13, mouthY: 0.31, blush: 0.4 },
+      sad:       { eyeRx: 0.08,  eyeRy: 0.09,  eyeY: -0.03, tilt: -0.22, mouthW: 0.18, bend: -0.05, open: 0,    mouthY: 0.3,  blush: 0.15 },
+      dizzy:     { eyeRx: 0.06,  eyeRy: 0.06,  eyeY: -0.06, tilt: 0,     mouthW: 0.16, bend: -0.02, open: 0.04, mouthY: 0.28, blush: 0 },
+    }
+    const SQUIRCLE_N = 2.7
+    const squircleR = (a) => 0.94 * Math.pow(Math.abs(Math.cos(a)) ** SQUIRCLE_N + Math.abs(Math.sin(a)) ** SQUIRCLE_N, -1 / SQUIRCLE_N)
+    function squirclePath(steps = 96) {
+      let d = ''
+      for (let i = 0; i < steps; i++) {
+        const a = (i / steps) * Math.PI * 2, k = squircleR(a)
+        d += (i ? 'L' : 'M') + (k * Math.cos(a)).toFixed(4) + ' ' + (k * Math.sin(a)).toFixed(4)
+      }
+      return d + 'Z'
+    }
+    function mouthPath({ mouthW: w, bend: b, open: o, mouthY: y }) {
+      const h = w / 2
+      return `M${-h} ${y}Q0 ${y + 2 * b} ${h} ${y}Q0 ${y + 2 * (b + o)} ${-h} ${y}Z`
+    }
+    // 过 (0,y0)、(1,y1) 且最高点为 top 的抛物线（y 向下）
+    function parab(y0, top, y1, t) {
+      const a = Math.sqrt(Math.max(0, y0 - top)), b = Math.sqrt(Math.max(0, y1 - top))
+      if (a + b === 0) return y0
+      return (a + b) ** 2 * (t - a / (a + b)) ** 2 + top
+    }
+    const DROP = 'M0 -0.12C0.07 -0.03 0.075 0.06 0 0.06C-0.075 0.06 -0.07 -0.03 0 -0.12Z'
+
+    /* 手脚尺寸（局部单位，身体半径 0.94，脚落在局部 y = 1.16 的地面线上） */
+    const LIMB = {
+      stride: 1.62,   // 一个完整步态周期身体前进的距离
+      stance: 0.62,   // 支撑相占比
+      lift: 0.34,     // 抬脚高度
+      hipX: 0.26, hipY: 0.56,
+      shX: 0.88, shY: 0.05,
+      thigh: 0.52, shin: 0.52,
+      armSwing: 0.34,
+      bob: 0.13,      // 身体起伏高度（局部单位），一步两跳
+    }
+    const GROUND_LOCAL = 1.4
+
+    // 两骨 IK：末端够不到时截断，bend=+1 肘/膝向后，-1 向前
+    function ik(ax, ay, fx, fy, l1, l2, bend) {
+      let dx = fx - ax, dy = fy - ay
+      let d = Math.hypot(dx, dy) || 1e-6
+      const maxd = l1 + l2 - 0.001
+      if (d > maxd) { const k = maxd / d; dx *= k; dy *= k; d = maxd }
+      const a = (l1 * l1 - l2 * l2 + d * d) / (2 * d)
+      const h = Math.sqrt(Math.max(0, l1 * l1 - a * a))
+      const ux = dx / d, uy = dy / d
+      const mx = ax + ux * a, my = ay + uy * a
+      return { x: mx - uy * h * bend, y: my + ux * h * bend }
+    }
+
+    const B = {
+      x: 0, y: 0, dir: 1, on: -1, floor: 'shelf', relX: 0, lift: 0, rot: 0,
+      sq: 0, sqV: 0, sqT: 0,
+      face: 'neutral', cur: { ...EXPR.neutral },
+      gaze: null, look: { x: 0, y: 0 },
+      tears: 0, tearsT: 0, sweat: 0, sweatT: 0,
+      visible: false, drag: false, t: 0, blink: 0, nextBlink: 2,
+      lastX: 0, gaitW: 0, bob: 0,
+      legs: [
+        { side: -1, p: 0, footX: 0, from: 0, x: 0, y: 0, worldY: 0 },
+        { side: 1, p: 0.5, footX: 0, from: 0, x: 0, y: 0, worldY: 0 },
+      ],
+    }
+
+    const bel = {
+      svg: $('buddy'), root: $('b-root'), face: $('b-face'), el: $('b-el'), er: $('b-er'), mouth: $('b-mouth'),
+      bl: $('b-bl'), br: $('b-br'), t1: $('b-t1'), t2: $('b-t2'), sweat: $('b-sweat'),
+      legL: $('b-legL'), legR: $('b-legR'), armL: $('b-armL'), armR: $('b-armR'),
+    }
+    {
+      const body = squirclePath()
+      $('b-shade').setAttribute('d', body)
+      $('b-clip-path').setAttribute('d', body)
+      $('b-light').setAttribute('d', body)
+      for (const el of [bel.t1, bel.t2, bel.sweat]) el.setAttribute('d', DROP)
+    }
+
+    const sayEl = $('say')
+    const sayBubble = sayEl.querySelector('.bubble')
+    function say(text) {
+      sayBubble.textContent = text
+      sayEl.classList.remove('on')
+      void sayEl.offsetWidth
+      sayEl.classList.add('on')
+    }
+
+    /* =========================================================
+     * 动作原语：都是可取消的 async。新动作 token++，旧动作在下一帧抛 CANCEL 退出
+     * ========================================================= */
+    let token = 0
+    let acting = false
+    const CANCEL = Symbol('cancel')
+    const nextFrame = () => new Promise(requestAnimationFrame)
+    async function anim(ms, fn, ease = EASE.linear) {
+      const my = token
+      const t0 = performance.now()
+      for (;;) {
+        const now = await nextFrame()
+        if (my !== token) throw CANCEL
+        const t = ms <= 0 ? 1 : Math.min(1, (now - t0) / ms)
+        fn(ease(t), t)
+        if (t >= 1) return
+      }
+    }
+    const wait = (ms) => anim(ms, () => {})
+    async function until(promise) {
+      const my = token
+      await promise
+      if (my !== token) throw CANCEL
+    }
+    async function untilFn(fn, timeout = 4000) {
+      const my = token
+      const t0 = performance.now()
+      for (;;) {
+        if (my !== token) throw CANCEL
+        if (fn()) return true
+        if (performance.now() - t0 > timeout) return false
+        await nextFrame()
+      }
+    }
+    function perform(fn) {
+      const my = ++token
+      acting = true
+      fn().catch((e) => { if (e !== CANCEL) console.error(e) }).finally(() => { if (my === token) acting = false })
+    }
+
+    function surfY() {
+      if (onLetter(B.on)) return gtop(B.on)
+      return B.floor === 'ground' ? groundY : shelfY
+    }
+
+    function land(x, y, on, impact = 1) {
+      B.x = x; B.y = y; B.on = on
+      B.relX = on >= 0 ? x - gx(on) : 0
+      B.rot = 0; B.lift = 0
+      B.sqV += 9 * impact
+      if (on >= 0) { gs[on].glow = 1; gs[on].vy += S * 2.2 * impact }
+      B.lastX = x
+      B.legs.forEach((leg, k) => {
+        leg.footX = x + (k ? 1 : -1) * R() * 0.35
+        leg.from = leg.footX
+        leg.x = leg.footX
+        leg.y = 0
+      })
+    }
+
+    /* 速度曲线：先加速再刹车。accel/brake 是各占总时长的比例，刹车越晚撞得越狠 */
+    function runProfile(t, accel, brake) {
+      const A = accel, B = brake
+      const vmax = 1 / (1 - (A + B) / 2)
+      if (t < A) { const u = t / A; return (vmax * A * u * u) / 2 }
+      if (t < 1 - B) return (vmax * A) / 2 + vmax * (t - A)
+      const u = (t - (1 - B)) / B
+      return (vmax * A) / 2 + vmax * (1 - B - A) + (vmax * B * (u - (u * u) / 2))
+    }
+
+    // 走 / 跑到 x。步态由距离驱动，脚不打滑；刹车时身体前倾压过支撑脚。
+    async function moveTo(x, { speed = S * 1.8, accel = 0.25, brake = 0.3 } = {}) {
+      const x0 = B.x, d = x - x0
+      if (Math.abs(d) < 1) return
+      B.dir = Math.sign(d)
+      const dist = Math.abs(d)
+      const ms = Math.max(160, (dist / speed) * 1000 * 1.35)
+      await anim(ms, (e, t) => {
+        B.x = x0 + d * runProfile(t, accel, brake)
+      })
+    }
+    const walkTo = (x, opts) => moveTo(x, { speed: S * 1.5, accel: 0.3, brake: 0.35, ...opts })
+
+    async function jumpTo(x1, y1, on, { h = S * 0.7, ms } = {}) {
+      B.sqT = 0.45
+      await wait(110)
+      B.sqT = 0
+      B.sqV -= 7
+      B.on = null
+      const x0 = B.x, y0 = B.y, top = Math.min(y0, y1) - h
+      const dir = Math.sign(x1 - x0)
+      if (dir) B.dir = dir
+      await anim(ms ?? 360 + (Math.hypot(x1 - x0, y1 - y0) / S) * 70, (e, t) => {
+        B.x = x0 + (x1 - x0) * t
+        B.y = parab(y0, top, y1, t)
+        B.rot = Math.sin(t * Math.PI) * dir * 10
+      })
+      land(x1, y1, on)
+    }
+    const hop = (h = S * 0.35) => jumpTo(B.x, B.y, B.on, { h, ms: 340 })
+
+    // 自由落体到 on（-1 地面，否则字母顶）。spin 取 ±360 的整数倍，落地时正面朝前。
+    async function fallTo(x1, on, { vy0 = 0, spin = 0, floor = 'ground' } = {}) {
+      B.on = null
+      B.floor = floor
+      const x0 = B.x, y0 = B.y, rot0 = B.rot
+      const y1 = onLetter(on) ? gtop(on) : surfY()
+      const g = S * 24
+      const dist = y1 - y0
+      const T = (-vy0 + Math.sqrt(Math.max(0, vy0 * vy0 + 2 * g * dist))) / g
+      const peak = y0 - (vy0 < 0 ? (vy0 * vy0) / (2 * g) : 0)
+      await anim(Math.max(60, T * 1000), (e, t) => {
+        const tt = t * T
+        B.x = x0 + (x1 - x0) * t
+        B.y = y0 + vy0 * tt + 0.5 * g * tt * tt
+        B.rot = rot0 + spin * t
+      })
+      const height = y1 - peak
+      land(x1, onLetter(on) ? gtop(on) : y1, on, clamp(height / (S * 2), 0.5, 1.6))
+      return height
+    }
+
+    // 把撞飞的字母推回原位：一下一下往回推，最后一下松手让弹簧收尾
+    // side 是字母被撞偏的方向，人家伙站在那一侧往回顶
+    async function pushLetter(i) {
+      const g = gs[i]
+      const side = Math.sign(g.ox) || 1
+      g.hold = true
+      B.face = 'effort'
+      B.dir = -side
+      B.gaze = { x: B.dir, y: 0 }
+      B.sweatT = 1
+      const start = g.ox
+      const stops = [0.66, 0.32, 0]
+      let from = start
+      for (let k = 0; k < stops.length; k++) {
+        const to = start * stops[k]
+        const r0 = g.rot
+        B.sqT = 0.15
+        await anim(280, (e, t) => {
+          g.ox = from + (to - from) * e
+          g.rot = r0 * (1 - e)
+          g.oy *= 1 - e * 0.6
+          B.x = gx(i) + side * (glyphs[i].w / 2 + R() * 0.8)
+          B.rot = -13 * side * Math.sin(Math.min(1, t * 3) * Math.PI / 2)
+          B.lift = Math.abs(Math.sin(t * Math.PI * 3)) * S * 0.03
+        }, EASE.inOut)
+        from = to
+        B.sqT = 0
+        if (k < stops.length - 1) await anim(170, (e) => { B.rot = -13 * side + 9 * side * e; B.lift = 0 })
+      }
+      Object.assign(g, { hold: false, tx: 0, ty: 0, tr: 0, vx: -side * S * 3, vr: -side * 0.6 })
+      B.sweatT = 0
+      const xb = B.x
+      await anim(240, (e, t) => { B.rot = -13 * (1 - e) * side; B.x = xb - Math.sin(t * Math.PI) * S * 0.12 })
+      B.rot = 0
+    }
+
+    function glowWave() {
+      gs.forEach((g, k) => setTimeout(() => { g.glow = 1; g.vy -= S * 1.6 }, k * 70))
+    }
+
+    async function cry(ms) {
+      B.face = 'cry'
+      B.tearsT = 1
+      say('呜…别骂我…')
+      await anim(ms, (e, t) => { B.sqT = 0.1 + 0.1 * Math.sin(t * (ms / 1000) * Math.PI * 2 * 2.6) })
+      B.sqT = 0
+      B.tearsT = 0
+      B.face = 'sad'
+      await wait(420)
+    }
+
+    async function recover() {
+      B.face = 'neutral'
+      await anim(520, (e, t) => { B.rot = Math.sin(t * Math.PI * 6) * 9 * (1 - t) })
+      B.rot = 0
+      B.face = 'happy'
+      await hop()
+    }
+
+    // 空中就先落下来，姿态归正；所有自由动作从这里开始
+    async function ground() {
+      B.drag = false
+      B.lift = 0
+      B.sweatT = 0
+      B.tearsT = 0
+      if (B.on === null) {
+        await fallTo(B.x, -1, { floor: B.floor })
+      }
+      if (Math.abs(B.rot) > 0.5) {
+        const r0 = B.rot
+        await anim(200, (e) => { B.rot = r0 * (1 - e) })
+      }
+    }
+
+    /* =========================================================
+     * 球：全局最多两个，掉了会被捡起来玩，玩几轮后啵地消失
+     * ========================================================= */
+    const MAX_BALLS = 2
+    const balls = []
+    const puffs = []
+
+    function dropBall(x) {
+      if (balls.length >= MAX_BALLS) popBall(balls[0])
+      const b = { x: clamp(x, 24, W - 24), y: -60, vx: 0, vy: 0, r: S * 0.17, held: false, dead: false, squash: 0 }
+      balls.push(b)
+      return b
+    }
+    function popBall(b) {
+      const i = balls.indexOf(b)
+      if (i >= 0) balls.splice(i, 1)
+      puffs.push({ x: b.x, y: b.y, r: b.r, t: 0 })
+    }
+    const ballOnGround = (b) => b.y + b.r >= groundY - 0.5
+
+    function stepBalls(dt) {
+      const g = S * 26
+      for (const b of balls) {
+        if (b.held) {
+          // 抱着：跟着身子走
+          b.x = B.x + B.dir * R() * 0.85
+          b.y = B.y - R() * 1.15
+          b.vx = 0
+          b.vy = 0
+          continue
+        }
+        b.vy += g * dt
+        b.x += b.vx * dt
+        b.y += b.vy * dt
+        if (b.x < b.r) { b.x = b.r; b.vx = Math.abs(b.vx) * 0.5 }
+        if (b.x > W - b.r) { b.x = W - b.r; b.vx = -Math.abs(b.vx) * 0.5 }
+        if (b.y + b.r > groundY) {
+          b.y = groundY - b.r
+          if (Math.abs(b.vy) > 40) { b.vy = -b.vy * 0.52; b.vx *= 0.86; b.squash = 1 }
+          else { b.vy = 0; b.vx *= Math.exp(-dt * 1.6) }
+        }
+        b.squash = Math.max(0, b.squash - dt * 4)
+      }
+      for (let i = puffs.length - 1; i >= 0; i--) {
+        puffs[i].t += dt
+        if (puffs[i].t > 0.4) puffs.splice(i, 1)
+      }
+    }
+
+    // 捡球 → 抛接几轮 → 球啵地消失
+    async function playWithBall(ball) {
+      try {
+        await ground()
+        if (ball.dead) return
+        const side = B.x < ball.x ? 1 : -1
+        await walkTo(ball.x - side * R() * 0.9)
+        B.face = 'happy'
+        say('球球！')
+        await wait(260)
+        ball.held = true
+        await wait(320)
+        for (let i = 0; i < 3; i++) {
+          if (ball.dead) return
+          ball.held = false
+          ball.vy = -S * (4.6 + i * 0.5)
+          ball.vx = B.dir * S * 0.7
+          B.face = 'excited'
+          await untilFn(() => ballOnGround(ball))
+          B.face = 'happy'
+          await wait(180)
+        }
+        ball.vy = -S * 3.4
+        await untilFn(() => ballOnGround(ball))
+        popBall(ball)
+        B.face = 'happy'
+        say('嘿嘿～')
+        await wait(500)
+      } finally {
+        // 动作被打断时把球放开，别让它粘在身上
+        ball.held = false
+      }
+    }
+
+    /* =========================================================
+     * 开场剧情
+     * ========================================================= */
+    function knockLetters(from, power) {
+      for (let i = from; i < WORD.length; i++) {
+        const k = 1 + (i - from) * 0.22
+        const g = gs[i]
+        g.hold = false
+        g.tx = S * 0.6 * k
+        g.ty = 0
+        g.tr = (0.1 + i * 0.03) * (i % 2 ? 1 : -1)
+        g.vx = S * 5 * k * power
+        g.vy = -S * 2 * k * power
+        g.vr = (0.8 + Math.random() * 0.6) * k * (i % 2 ? -1 : 1)
+        g.glow = 1
+      }
+    }
+
+    async function story() {
+      // 1. 空场：relax 逐字打出，选择框上浮，人物还没出现
+      for (let i = 0; i < WORD.length; i++) {
+        frameIdx = i
+        gs[i].showT = 1
+        gs[i].outlineT = 1
+        await wait(i === WORD.length - 1 ? 280 : 190)
+        gs[i].outlineT = 0
+      }
+      frameIdx = -1
+      await wait(220)
+      field.classList.add('in')
+      await wait(760)
+
+      // 2. 小家伙从左边跑进来，刹不住，撞上 relax
+      B.visible = true
+      B.dir = 1
+      B.face = 'happy'
+      B.x = -S * 2.4
+      B.y = shelfY
+      B.lastX = B.x
+      B.legs.forEach((leg, k) => { leg.p = k * 0.5; leg.footX = B.x; leg.x = B.x; leg.y = 0; leg.from = B.x })
+      say('嘿咻——')
+      const hitX = gleft(0) - R() * 0.1
+      await moveTo(hitX, { speed: S * 3.4, accel: 0.22, brake: 0.14 })
+
+      // 3. 右边字母被撞飞，人物自己也被弹翻
+      knockLetters(1, 1)
+      B.face = 'surprised'
+      say('糟糕！')
+      B.rot = 0
+      await anim(260, (e, t) => { B.x = hitX - t * S * 0.5; B.rot = -t * 26 })
+      await fallTo(B.x - S * 0.4, -1, { vy0: -S * 2.2, spin: -220, floor: 'shelf' })
+      B.face = 'dizzy'
+      say('呜哇——')
+      await anim(700, (e, t) => { B.rot = Math.sin(t * Math.PI * 5) * 11 * (1 - t) })
+      B.rot = 0
+
+      // 4. 慌张爬起来，去把撞飞的字母一个个推回来
+      B.face = 'surprised'
+      say('完了完了…')
+      await wait(420)
+      B.face = 'thinking'
+      say('糟糕，又闯祸了…')
+      await wait(520)
+      for (let i = 1; i < WORD.length; i++) {
+        if (Math.abs(gs[i].ox) < 4) continue
+        const side = Math.sign(gs[i].ox) || 1
+        await walkTo(gx(i) + side * (glyphs[i].w / 2 + R() * 1.2))
+        say('嘿咻——')
+        await pushLetter(i)
+      }
+      B.face = 'happy'
+      say('推回来了！')
+      glowWave()
+      await hop(S * 0.3)
+      await wait(280)
+
+      // 5. 副文案这时才描边 + 扫光
+      const tag = playTaglineP()
+      B.gaze = { x: 0.2, y: -0.6 }
+      await until(tag)
+      B.gaze = null
+
+      // 6. 跳下台面，落到画面最底部的地面
+      B.face = 'excited'
+      const dropX = clamp(gright(WORD.length - 1) + S * 0.8, R() * 1.4, W - R() * 1.4)
+      await walkTo(dropX)
+      say('跳！')
+      const x0 = B.x, y0 = B.y
+      B.on = null
+      B.floor = 'ground'
+      await anim(620, (e, t) => {
+        B.x = x0
+        B.y = parab(y0, y0 - S * 0.45, groundY, t)
+        B.rot = Math.sin(t * Math.PI) * 8
+      })
+      land(B.x, groundY, -1, 1.2)
+      B.rot = 0
+
+      // 7. 底部出现一颗球，捡起来玩
+      const ball = dropBall(clamp(B.x + S * 1.2, 40, W - 40))
+      B.face = 'excited'
+      say('球球！')
+      await playWithBall(ball)
+
+      enterFree()
+    }
+
+    /* =========================================================
+     * 自由交互：点画面掉球、拖拽、戳一下
+     * ========================================================= */
+    let mode = 'story'
+    const field = $('field')
+    const prompt = $('prompt')
+    const replay = $('replay')
+    const skipBtn = $('skip')
+    const pointer = { x: innerWidth / 2, y: innerHeight / 2 }
+
+    function enterFree() {
+      mode = 'free'
+      field.classList.add('in')
+      $('hint').classList.add('in')
+      skipBtn.classList.remove('show')
+      replay.classList.add('show')
+    }
+
+    const POKES = ['嘿嘿', '别戳啦', '痒！', '在玩球呢', '嗯？']
+    function poke() {
+      perform(async () => {
+        await ground()
+        B.face = 'happy'
+        say(pick(POKES))
+        await hop()
+        await wait(600)
+        B.face = 'neutral'
+      })
+    }
+
+    // 拎起来：跟着指针晃，松手掉到正下方的面上，摔得高会哭
+    const bdrag = { id: null, sx: 0, sy: 0, lx: 0, active: false }
+    bel.svg.addEventListener('pointerdown', (e) => {
+      if (mode !== 'free') return
+      e.preventDefault()
+      try { bel.svg.setPointerCapture(e.pointerId) } catch {}
+      Object.assign(bdrag, { id: e.pointerId, sx: e.clientX, sy: e.clientY, lx: e.clientX, active: false })
+    })
+    bel.svg.addEventListener('pointermove', (e) => {
+      if (bdrag.id !== e.pointerId) return
+      if (!bdrag.active && Math.hypot(e.clientX - bdrag.sx, e.clientY - bdrag.sy) > 5) {
+        bdrag.active = true
+        token++
+        acting = false
+        Object.assign(B, { drag: true, on: null, lift: 0, face: 'surprised', tearsT: 0, sweatT: 0, gaze: null })
+        bel.svg.classList.add('drag')
+        say('哇——')
+      }
+      if (!bdrag.active) return
+      const vx = e.clientX - bdrag.lx
+      bdrag.lx = e.clientX
+      B.x = clamp(e.clientX, -S, W + S)
+      B.y = Math.min(surfY(), e.clientY + R())
+      B.rot = approach(B.rot, clamp(-vx * 2.2, -28, 28), 0.016, 0.06)
+    })
+    function endBuddyDrag(e) {
+      if (bdrag.id !== e.pointerId) return
+      bdrag.id = null
+      bel.svg.classList.remove('drag')
+      if (!bdrag.active) return poke()
+      perform(async () => {
+        B.drag = false
+        const h = await fallTo(B.x, -1, { floor: B.floor })
+        if (h > S * 1.8) { await cry(1300); await recover() }
+        else { B.face = 'happy'; say('哎哟'); await wait(600); B.face = 'neutral' }
+      })
+    }
+    bel.svg.addEventListener('pointerup', endBuddyDrag)
+    bel.svg.addEventListener('pointercancel', endBuddyDrag)
+    bel.svg.addEventListener('keydown', (e) => {
+      if (mode === 'free' && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); poke() }
+    })
+
+    // 点场景掉球。已有两个球时最老的先消失，保证全局最多两个。
+    scene.addEventListener('pointerdown', (e) => {
+      if (mode !== 'free') return
+      const ball = dropBall(e.clientX)
+      perform(async () => { await playWithBall(ball) })
+    })
+
+    /* =========================================================
+     * 每帧：字母弹簧 → 步态 → 球 → 画
+     * ========================================================= */
+    let frameIdx = -1
+    const frame = { x1: 0, y1: 0, x2: 0, y2: 0, alpha: 0, index: -1 }
+
+    function stepLetters(dt) {
+      const h = dt / 2
+      for (const g of gs) {
+        g.shown = approach(g.shown, g.showT, dt, 0.07)
+        g.outline = approach(g.outline, g.outlineT, dt, 0.09)
+        g.glow *= Math.exp(-dt / 0.55)
+        if (g.hold) { g.vx = g.vy = g.vr = 0; continue }
+        for (let k = 0; k < 2; k++) {
+          g.vx += (-(g.ox - g.tx) * 170 - g.vx * 13) * h
+          g.vy += (-(g.oy - g.ty) * 170 - g.vy * 13) * h
+          g.vr += (-(g.rot - g.tr) * 140 - g.vr * 9) * h
+          g.ox += g.vx * h
+          g.oy += g.vy * h
+          g.rot += g.vr * h
+        }
+        // 收干净，别留一堆非规格化小数
+        if (Math.abs(g.ox - g.tx) < 0.01 && Math.abs(g.vx) < 0.05) { g.ox = g.tx; g.vx = 0 }
+        if (Math.abs(g.oy - g.ty) < 0.01 && Math.abs(g.vy) < 0.05) { g.oy = g.ty; g.vy = 0 }
+        if (Math.abs(g.rot - g.tr) < 0.001 && Math.abs(g.vr) < 0.005) { g.rot = g.tr; g.vr = 0 }
+      }
+    }
+
+    // 步态：相位由走过的距离推进，脚在支撑相钉在地面，摆动相划弧线
+    function stepGait(dt) {
+      const stridePx = LIMB.stride * (S / 2)
+      const halfPx = (LIMB.stance * LIMB.stride) / 2 * (S / 2)
+      const moved = Math.abs(B.x - B.lastX)
+      B.lastX = B.x
+      const v = dt > 0 ? moved / dt : 0
+      const w = clamp(v / (S * 1.1), 0, 1)
+      B.gaitW = approach(B.gaitW, w, dt, 0.12)
+      if (B.gaitW < 0.01 && moved < 0.001) return
+
+      const adv = moved / stridePx
+      const surf = surfY()
+      for (const leg of B.legs) {
+        leg.p += adv
+        while (leg.p >= 1) { leg.p -= 1; leg.from = leg.footX }
+        if (leg.p < LIMB.stance) {
+          leg.tx = leg.footX
+          leg.ty = 0
+        } else {
+          const u = (leg.p - LIMB.stance) / (1 - LIMB.stance)
+          // 落脚点是这条腿的胯往前半步，不是身体中线，两条腿才不会交叉
+          const hipX = B.x + leg.side * LIMB.hipX * (S / 2) * B.dir
+          const target = hipX + B.dir * halfPx
+          leg.tx = leg.from + (target - leg.from) * u
+          // 抬脚要早一点高一点，不然两条腿并在一起像在蹭地
+          leg.ty = -LIMB.lift * Math.pow(Math.sin(Math.PI * u), 0.62)
+          leg.footX = leg.tx
+        }
+        leg.x = approach(leg.x, leg.tx, dt, 0.035)
+        leg.y = approach(leg.y, leg.ty, dt, 0.05)
+        leg.worldY = surf + leg.y * (S / 2)
+      }
+      // 身体跟着步子起伏，一步两跳；脚还钉在地面上，腿自己伸缩
+      const bob = LIMB.bob * (1 - Math.cos(4 * Math.PI * B.legs[0].p)) / 2
+      B.bob = approach(B.bob, bob * (S / 2), dt, 0.04)
+    }
+
+    function stepBuddy(dt) {
+      const b = B
+      b.t += dt
+      if (!b.drag) {
+        if (onLetter(b.on)) { b.x = gx(b.on) + b.relX; b.y = gtop(b.on) }
+        else if (b.on === -1) b.y = b.floor === 'ground' ? groundY : shelfY
+      }
+      b.sqV += ((b.sqT - b.sq) * 260 - b.sqV * 15) * dt
+      b.sq = clamp(b.sq + b.sqV * dt, -0.5, 0.6)
+      const k = 1 - Math.exp(-dt * 10)
+      const target = EXPR[b.face]
+      for (const key in b.cur) b.cur[key] += (target[key] - b.cur[key]) * k
+      b.tears = approach(b.tears, b.tearsT, dt, 0.2)
+      b.sweat = approach(b.sweat, b.sweatT, dt, 0.2)
+
+      const gaze = b.gaze || {
+        x: clamp((pointer.x - b.x) / 300, -1, 1),
+        y: clamp((pointer.y - (b.y - R() * 1.6)) / 300, -1, 1),
+      }
+      b.look.x = approach(b.look.x, gaze.x, dt, 0.16)
+      b.look.y = approach(b.look.y, gaze.y, dt, 0.16)
+
+      if (b.t > b.nextBlink) { b.blink = 1; b.nextBlink = b.t + (Math.random() < 0.2 ? 0.28 : 2.2 + Math.random() * 3) }
+      b.blink = Math.max(0, b.blink - dt * 7)
+
+      // 走过的台面灯点亮
+      if (b.visible && b.on === -1 && b.lift < S * 0.15 && b.floor === 'shelf') {
+        lights.forEach((_, j) => { if (Math.abs(12 + j * LIGHT_STEP - b.x) < R() * 0.9) lights[j] = 1 })
+      }
+      for (let j = 0; j < lights.length; j++) lights[j] *= Math.exp(-dt / 0.9)
+
+      stepGait(dt)
+      renderBuddy()
+    }
+
+    function renderBuddy() {
+      const b = B, c = b.cur, half = S / 2
+      bel.svg.classList.toggle('on', b.visible)
+      bel.svg.style.transform = `translate(${(b.x - half).toFixed(2)}px, ${(b.y - GROUND_LOCAL * half - half).toFixed(2)}px)`
+      const breathe = b.on !== null && !b.drag ? Math.sin((b.t * Math.PI * 2) / 3.6) * 0.012 : 0
+      const sx = 1 + 0.22 * b.sq - breathe * 0.5, sy = 1 - 0.22 * b.sq + breathe
+      const lean = b.dir * 7 * b.gaitW
+      bel.root.setAttribute('transform',
+        `translate(0 ${((b.bob - b.lift) / half).toFixed(4)}) rotate(${(b.rot + lean).toFixed(2)}) scale(${b.dir} 1) translate(0 0.94) scale(${sx.toFixed(4)} ${sy.toFixed(4)}) translate(0 -0.94)`)
+      bel.face.setAttribute('transform', `translate(${(b.look.x * 0.11 * b.dir).toFixed(4)} ${(b.look.y * 0.08).toFixed(4)})`)
+
+      const blinkK = c.eyeRy > 0.06 ? 1 - 0.9 * Math.sin(Math.PI * b.blink) : 1
+      for (const [eye, s] of [[bel.el, -1], [bel.er, 1]]) {
+        const cx = s * 0.3
+        eye.setAttribute('cx', cx.toFixed(4))
+        eye.setAttribute('cy', c.eyeY.toFixed(4))
+        eye.setAttribute('rx', c.eyeRx.toFixed(4))
+        eye.setAttribute('ry', Math.max(0.014, c.eyeRy * blinkK).toFixed(4))
+        eye.setAttribute('transform', `rotate(${((-s * c.tilt * 180) / Math.PI).toFixed(2)} ${cx} ${c.eyeY.toFixed(4)})`)
+      }
+      for (const [el, s] of [[bel.bl, -1], [bel.br, 1]]) {
+        el.setAttribute('cx', s * 0.52); el.setAttribute('cy', 0.14); el.setAttribute('rx', 0.13); el.setAttribute('ry', 0.065)
+        el.style.opacity = (c.blush * 0.6).toFixed(3)
+      }
+      bel.mouth.setAttribute('d', mouthPath(c))
+
+      // 眼泪：两侧交替往下滴
+      ;[bel.t1, bel.t2].forEach((el, k) => {
+        const p = (b.t * 1.5 + k * 0.5) % 1
+        const s = k ? 1 : -1
+        el.setAttribute('transform', `translate(${(s * (0.3 + p * 0.1)).toFixed(4)} ${(c.eyeY + 0.12 + p * 0.55).toFixed(4)}) scale(0.95)`)
+        el.style.opacity = (b.tears * (p < 0.12 ? p / 0.12 : 1 - p)).toFixed(3)
+      })
+      bel.sweat.setAttribute('transform', `translate(0.68 ${(-0.62 + Math.sin(b.t * 5) * 0.03).toFixed(4)}) rotate(18) scale(${(0.6 + b.sweat * 0.5).toFixed(3)})`)
+      bel.sweat.style.opacity = b.sweat.toFixed(3)
+
+      renderLimbs()
+
+      // 气泡跟着脑袋走
+      sayEl.style.transform = `translate(${b.x.toFixed(1)}px, ${(b.y - GROUND_LOCAL * half * 2 - 10).toFixed(1)}px)`
+    }
+
+    // 手脚：局部坐标里画，IK 算膝盖，手臂反相摆动
+    function renderLimbs() {
+      const b = B, half = S / 2
+      const bodyCY = b.y - GROUND_LOCAL * half
+      const toLocal = (wx, wy) => ({ x: ((wx - b.x) * b.dir * 2) / S, y: ((wy - bodyCY) * 2) / S })
+      const w = b.gaitW
+
+      for (let i = 0; i < 2; i++) {
+        const leg = b.legs[i]
+        const hipX = leg.side * LIMB.hipX
+        const hipY = LIMB.hipY
+        let foot
+        if (b.drag || b.on === null) {
+          // 被拎着或腾空：腿垂下来轻轻晃
+          const sway = Math.sin(b.t * 3 + i * 1.7) * 0.05
+          foot = { x: hipX * 0.5 + sway, y: hipY + 0.52 }
+        } else {
+          const wy = leg.worldY ?? surfY()
+          foot = toLocal(leg.x, wy)
+        }
+        const knee = ik(hipX, hipY, foot.x, foot.y, LIMB.thigh, LIMB.shin, -1)
+        const toe = foot.x + 0.1
+        const d = `M${hipX.toFixed(4)} ${hipY.toFixed(4)}Q${knee.x.toFixed(4)} ${knee.y.toFixed(4)} ${foot.x.toFixed(4)} ${foot.y.toFixed(4)}L${toe.toFixed(4)} ${foot.y.toFixed(4)}`
+        ;(leg.side < 0 ? bel.legL : bel.legR).setAttribute('d', d)
+      }
+
+      // 手臂：相位与同侧腿相反，摆幅随速度
+      for (let i = 0; i < 2; i++) {
+        const leg = b.legs[i]
+        const side = leg.side
+        const shX = side * LIMB.shX, shY = LIMB.shY
+        const swing = Math.sin(2 * Math.PI * (leg.p + 0.5))
+        // 手垂在身体外侧，不然和身子一个颜色就看不见了
+        let handX = shX + side * 0.3
+        let handY = shY + 0.5
+        if (b.drag || b.on === null) {
+          // 腾空：手抬起来
+          handX = shX + side * 0.26
+          handY = shY - 0.16 + Math.sin(b.t * 6 + i) * 0.03
+        } else {
+          handX += side * LIMB.armSwing * swing * w
+          handY += 0.06 * Math.abs(swing) * w - 0.04 * w
+        }
+        const elbow = { x: (shX + handX) / 2 - 0.1, y: (shY + handY) / 2 + 0.05 }
+        const d = `M${shX.toFixed(4)} ${shY.toFixed(4)}Q${elbow.x.toFixed(4)} ${elbow.y.toFixed(4)} ${handX.toFixed(4)} ${handY.toFixed(4)}`
+        ;(side < 0 ? bel.armL : bel.armR).setAttribute('d', d)
+      }
+    }
+
+    function updateFrame(dt) {
+      const idx = mode === 'story' ? frameIdx : -1
+      if (idx >= 0) {
+        const g = glyphs[idx]
+        const pad = Math.max(10, wordSize * 0.055)
+        const t = { x1: g.x - pad, y1: g.top - pad, x2: g.x + g.w + pad, y2: g.baseline + pad }
+        if (frame.index !== idx && frame.alpha < 0.08) Object.assign(frame, t)
+        for (const key of ['x1', 'y1', 'x2', 'y2']) frame[key] = approach(frame[key], t[key], dt, 0.06)
+        frame.index = idx
+      }
+      frame.alpha = approach(frame.alpha, idx >= 0 ? 1 : 0, dt, 0.1)
+    }
+
+    function drawScene() {
+      sctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+      sctx.clearRect(0, 0, W, H)
+
+      // 台面灯带
+      sctx.fillStyle = '#f0f0f0'
+      sctx.shadowColor = 'rgba(255, 255, 255, 0.9)'
+      for (let j = 0; j < lights.length; j++) {
+        const v = lights[j]
+        const x = 12 + j * LIGHT_STEP
+        sctx.globalAlpha = (0.1 + 0.9 * v) * edgeFade(x, 50, W, 100)
+        sctx.shadowBlur = 10 * v
+        sctx.beginPath()
+        sctx.arc(x, shelfY + 12, 1.2 + 1.3 * v, 0, Math.PI * 2)
+        sctx.fill()
+      }
+      sctx.shadowBlur = 0
+
+      // 字母：以底边中点为轴，弹簧位移 + 旋转，踩上去会亮
+      sctx.font = `600 ${wordSize}px ${FONT}`
+      sctx.textAlign = 'left'
+      sctx.textBaseline = 'alphabetic'
+      sctx.lineWidth = 1.5
+      sctx.lineJoin = sctx.lineCap = 'round'
+      sctx.strokeStyle = '#f0f0f0'
+      const dash = Math.max(4, wordSize * 0.022), gap = Math.max(2.5, wordSize * 0.014)
+      glyphs.forEach((g, i) => {
+        const s = gs[i]
+        if (s.shown < 0.01) return
+        sctx.save()
+        sctx.translate(g.x + g.w / 2 + s.ox, g.baseline + s.oy)
+        sctx.rotate(s.rot)
+        sctx.shadowColor = `rgba(255, 255, 255, ${(0.75 * s.glow).toFixed(3)})`
+        sctx.shadowBlur = wordSize * 0.28 * s.glow
+        const fillA = s.shown * (1 - s.outline), dashA = s.shown * s.outline
+        if (fillA > 0.01) { sctx.globalAlpha = fillA; sctx.fillText(g.ch, -g.w / 2, 0) }
+        if (dashA > 0.01) {
+          sctx.globalAlpha = dashA
+          sctx.setLineDash([dash, gap])
+          sctx.strokeText(g.ch, -g.w / 2, 0)
+          sctx.setLineDash([])
+        }
+        sctx.restore()
+      })
+      sctx.shadowBlur = 0
+      sctx.globalAlpha = 1
+      drawFrame()
+
+      // 地面：底部一条线 + 往上的一层薄雾
+      const fg = sctx.createLinearGradient(0, groundY - 60, 0, groundY)
+      fg.addColorStop(0, 'rgba(255,255,255,0)')
+      fg.addColorStop(1, 'rgba(255,255,255,0.05)')
+      sctx.fillStyle = fg
+      sctx.fillRect(0, groundY - 60, W, 60)
+      sctx.strokeStyle = 'rgba(255,255,255,0.18)'
+      sctx.lineWidth = 1
+      sctx.beginPath()
+      sctx.moveTo(0, groundY + 0.5)
+      sctx.lineTo(W, groundY + 0.5)
+      sctx.stroke()
+
+      // 小家伙的影子落在正下方的面上，离得越高越小越淡
+      if (B.visible) {
+        const surf = onLetter(B.on) && !B.drag ? { y: B.y } : { y: surfY() }
+        const k = clamp(1 - (surf.y - (B.y - B.lift)) / (S * 3), 0.25, 1)
+        sctx.globalAlpha = 0.5 * k
+        sctx.fillStyle = '#000'
+        sctx.beginPath()
+        sctx.ellipse(B.x, surf.y + 1, R() * 0.85 * k, S * 0.05, 0, 0, Math.PI * 2)
+        sctx.fill()
+        sctx.globalAlpha = 1
+      }
+
+      drawBalls()
+    }
+
+    function drawBalls() {
+      for (const b of balls) {
+        // 影子
+        const k = clamp(1 - (groundY - b.y) / (S * 6), 0.15, 1)
+        sctx.globalAlpha = 0.45 * k
+        sctx.fillStyle = '#000'
+        sctx.beginPath()
+        sctx.ellipse(b.x, groundY + 1, b.r * 0.9 * k, b.r * 0.22, 0, 0, Math.PI * 2)
+        sctx.fill()
+        sctx.globalAlpha = 1
+        // 球体：落地瞬间压扁
+        const sq = b.squash
+        sctx.save()
+        sctx.translate(b.x, b.y)
+        sctx.scale(1 + sq * 0.28, 1 - sq * 0.34)
+        sctx.fillStyle = '#f4f4f1'
+        sctx.beginPath()
+        sctx.arc(0, 0, b.r, 0, Math.PI * 2)
+        sctx.fill()
+        sctx.fillStyle = 'rgba(21,21,21,0.18)'
+        sctx.beginPath()
+        sctx.arc(-b.r * 0.28, -b.r * 0.3, b.r * 0.34, 0, Math.PI * 2)
+        sctx.fill()
+        sctx.restore()
+      }
+      for (const p of puffs) {
+        const k = p.t / 0.4
+        sctx.globalAlpha = (1 - k) * 0.8
+        sctx.strokeStyle = '#f0f0f0'
+        sctx.lineWidth = 1.5
+        sctx.beginPath()
+        sctx.arc(p.x, p.y, p.r * (1 + k * 1.6), 0, Math.PI * 2)
+        sctx.stroke()
+      }
+      sctx.globalAlpha = 1
+    }
+
+    function drawFrame() {
+      if (frame.alpha < 0.01 || frame.index < 0) return
+      const x1 = Math.round(frame.x1) + 0.5, y1 = Math.round(frame.y1) + 0.5
+      const x2 = Math.round(frame.x2) + 0.5, y2 = Math.round(frame.y2) + 0.5
+      const a = frame.alpha
+      sctx.strokeStyle = sctx.fillStyle = '#f0f0f0'
+      sctx.lineWidth = 1
+      sctx.globalAlpha = 0.5 * a
+      sctx.strokeRect(x1, y1, x2 - x1, y2 - y1)
+      sctx.globalAlpha = 0.95 * a
+      for (const [cx, cy] of [[x1, y1], [x2, y1], [x2, y2], [x1, y2]]) sctx.fillRect(Math.round(cx) - 2, Math.round(cy) - 2, 5, 5)
+      sctx.globalAlpha = 1
+    }
+
+    let last = 0
+    let looping = 0
+    function tick(now) {
+      looping = requestAnimationFrame(tick)
+      const dt = Math.min(0.05, last ? (now - last) / 1000 : 0.016)
+      last = now
+      stepLetters(dt)
+      stepBalls(dt)
+      stepBuddy(dt)
+      updateFrame(dt)
+      drawScene()
+    }
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) { cancelAnimationFrame(looping); looping = 0 }
+      else if (!looping) { last = 0; looping = requestAnimationFrame(tick) }
+    })
+
+    /* =========================================================
+     * 副文案：描边 → 填色 → 右移对齐 relax → 扫光（同欢迎页 开场，结束时 resolve）
+     * ========================================================= */
+    const NS = 'http://www.w3.org/2000/svg'
+    const line = $('line')
+    const svg = $('stroke')
+    const strokeText = svg.querySelector('.strokes')
+    const fillText = svg.querySelector('.fills')
+    const wipeRect = $('wipeRect')
+    let wipeWidth = 0, wipeOwner = 0, wiped = true, wipeTimer = 0, wipeRaf = 0
+    let taglineDone = null
+
+    function strokeLength(ch) {
+      const size = 28
+      const c = document.createElement('canvas')
+      const ctx = c.getContext('2d', { willReadFrequently: true })
+      ctx.font = `500 ${size}px ${FONT}`
+      c.width = Math.max(1, Math.ceil(ctx.measureText(ch).width) + 6)
+      c.height = Math.ceil(size * 1.35)
+      ctx.font = `500 ${size}px ${FONT}`
+      ctx.fillStyle = '#fff'
+      ctx.textBaseline = 'top'
+      ctx.fillText(ch, 3, 2)
+      const { data } = ctx.getImageData(0, 0, c.width, c.height)
+      const on = (x, y) => x >= 0 && y >= 0 && x < c.width && y < c.height && data[(y * c.width + x) * 4 + 3] > 128
+      let edges = 0
+      for (let y = 0; y < c.height; y++) {
+        for (let x = 0; x < c.width; x++) {
+          if (on(x, y) && (!on(x - 1, y) || !on(x + 1, y) || !on(x, y - 1) || !on(x, y + 1))) edges++
+        }
+      }
+      return Math.max(120, Math.round(edges * 1.55))
+    }
+    function armStroke(span) {
+      span.style.strokeDasharray = span.dataset.dash
+      span.style.strokeDashoffset = span.dataset.dash
+    }
+    function buildTagline() {
+      strokeText.replaceChildren()
+      fillText.replaceChildren()
+      ;[...TAGLINE].forEach((ch, i) => {
+        const stroke = document.createElementNS(NS, 'tspan')
+        stroke.classList.add('stroke-char')
+        stroke.dataset.i = String(i)
+        stroke.dataset.dash = String(strokeLength(ch))
+        stroke.style.setProperty('--i', String(i))
+        stroke.textContent = ch
+        armStroke(stroke)
+        strokeText.appendChild(stroke)
+        const fill = document.createElementNS(NS, 'tspan')
+        fill.classList.add('fill-char')
+        fill.textContent = ch
+        fillText.appendChild(fill)
+      })
+      const box = strokeText.getBBox()
+      const pad = 8
+      svg.setAttribute('viewBox', `${box.x - pad} ${box.y - pad} ${box.width + pad * 2} ${box.height + pad * 2}`)
+      svg.style.width = `${box.width + pad * 2}px`
+      svg.style.height = `${box.height + pad * 2}px`
+      wipeRect.setAttribute('x', String(box.x - pad))
+      wipeRect.setAttribute('y', String(box.y - pad))
+      wipeRect.setAttribute('height', String(box.height + pad * 2))
+      wipeRect.setAttribute('width', '0')
+      wipeWidth = box.width + pad * 2
+    }
+    function resetTagline() {
+      wipeOwner += 1
+      wiped = true
+      svg.dataset.arm = ''
+      clearTimeout(wipeTimer)
+      cancelAnimationFrame(wipeRaf)
+      line.classList.remove('shine', 'settled', 'tone')
+      line.style.transition = 'none'
+      line.style.transform = 'none'
+      svg.classList.remove('run')
+      svg.querySelectorAll('.stroke-char').forEach(armStroke)
+      wipeRect.setAttribute('width', '0')
+    }
+    const DRAW_MS = 1050, DRAW_STAGGER = 72, SLIDE_MS = 700
+    function beginWipe(owner) {
+      if (owner !== wipeOwner || wiped) return
+      wiped = true
+      clearTimeout(wipeTimer)
+      const started = performance.now()
+      const step = (now) => {
+        if (owner !== wipeOwner) return
+        const t = clamp01((now - started) / 680)
+        wipeRect.setAttribute('width', String(wipeWidth * EASE.inOut(t)))
+        if (t < 1) { wipeRaf = requestAnimationFrame(step); return }
+        setTimeout(() => slideTagline(owner), 160)
+      }
+      wipeRaf = requestAnimationFrame(step)
+    }
+    const relaxRight = () => glyphs[glyphs.length - 1].x + glyphs[glyphs.length - 1].w
+    function taglineRight() {
+      const box = strokeText.getBoundingClientRect()
+      return box.width ? box.right : line.getBoundingClientRect().right
+    }
+    function slideTagline(owner) {
+      if (owner !== wipeOwner) return
+      line.style.transition = 'none'
+      line.style.transform = 'translateX(0px)'
+      const dx = relaxRight() - taglineRight()
+      void line.offsetWidth
+      line.style.transition = `transform ${SLIDE_MS}ms var(--ease)`
+      line.style.transform = `translateX(${dx}px)`
+      line.classList.add('tone')
+      setTimeout(() => {
+        if (owner !== wipeOwner) return
+        line.classList.add('shine')
+        taglineDone?.()
+      }, SLIDE_MS)
+    }
+    function playTaglineP() {
+      return new Promise((resolve) => {
+        taglineDone = resolve
+        const owner = ++wipeOwner
+        wiped = false
+        svg.dataset.arm = String(owner)
+        svg.classList.remove('run')
+        svg.querySelectorAll('.stroke-char').forEach(armStroke)
+        void svg.getBoundingClientRect()
+        svg.classList.add('run')
+        clearTimeout(wipeTimer)
+        wipeTimer = setTimeout(() => beginWipe(owner), DRAW_MS + DRAW_STAGGER * (TAGLINE.length - 1) + 80)
+      })
+    }
+    svg.addEventListener('animationend', (event) => {
+      if (event.animationName !== 'draw' || Number(event.target.dataset.i) !== TAGLINE.length - 1) return
+      beginWipe(Number(svg.dataset.arm))
+    })
+    function settleTagline() {
+      resetTagline()
+      line.classList.add('settled', 'tone')
+      line.style.transform = `translateX(${relaxRight() - taglineRight()}px)`
+    }
+
+    /* =========================================================
+     * 选择框边高光（同欢迎页 开场）
+     * ========================================================= */
+    const IDLE_SPOT = 42
+    let spot = IDLE_SPOT, spotTarget = IDLE_SPOT, level = 0.35, levelTarget = 0.35, rimRaf = 0, rimLast = 0
+    function distToField(x, y) {
+      const r = field.getBoundingClientRect()
+      return Math.hypot(Math.max(r.left - x, 0, x - r.right), Math.max(r.top - y, 0, y - r.bottom))
+    }
+    function tickRim(now) {
+      rimRaf = 0
+      const dt = Math.min(0.05, rimLast ? (now - rimLast) / 1000 : 0.016)
+      rimLast = now
+      let diff = spotTarget - spot
+      diff = ((diff + 540) % 360) - 180
+      spot += diff * (1 - Math.exp(-dt / 0.12))
+      level += (levelTarget - level) * (1 - Math.exp(-dt / 0.14))
+      field.style.setProperty('--spot', `${spot}deg`)
+      field.style.setProperty('--level', level.toFixed(3))
+      if (Math.abs(diff) > 0.4 || Math.abs(levelTarget - level) > 0.01) rimRaf = requestAnimationFrame(tickRim)
+      else rimLast = 0
+    }
+    const wakeRim = () => { if (!reduce && !rimRaf) rimRaf = requestAnimationFrame(tickRim) }
+    addEventListener('pointermove', (e) => {
+      pointer.x = cursor.x = e.clientX
+      pointer.y = cursor.y = e.clientY
+      cursor.inside = true
+      if (!reduce) wakeGrid()
+      const r = field.getBoundingClientRect()
+      const near = smoothFalloff(distToField(e.clientX, e.clientY), 250)
+      levelTarget = 0.35 + 0.65 * near
+      spotTarget = near > 0.02 ? (Math.atan2(e.clientX - (r.left + r.width / 2), -(e.clientY - (r.top + r.height / 2))) * 180) / Math.PI : IDLE_SPOT
+      wakeRim()
+    }, { passive: true })
+    document.documentElement.addEventListener('pointerleave', () => {
+      cursor.inside = false
+      spotTarget = IDLE_SPOT
+      levelTarget = 0.35
+      wakeGrid()
+      wakeRim()
+    })
+    field.addEventListener('submit', (e) => e.preventDefault())
+    prompt.addEventListener('change', () => {
+      perform(async () => {
+        await ground()
+        B.face = 'excited'
+        say('选好了！')
+        await hop(S * 0.5)
+        await hop(S * 0.3)
+        B.face = 'happy'
+      })
+    })
+
+    /* =========================================================
+     * 开场 / 跳过 / 重播
+     * ========================================================= */
+    function resetAll() {
+      token++
+      acting = false
+      gs = [...WORD].map(freshLetter)
+      lights.fill(0)
+      frameIdx = -1
+      frame.alpha = 0
+      frame.index = -1
+      balls.length = 0
+      puffs.length = 0
+      Object.assign(B, {
+        visible: false, on: -1, floor: 'shelf', x: -S * 2.4, y: shelfY, lift: 0, rot: 0,
+        sq: 0, sqV: 0, sqT: 0, face: 'neutral', gaze: null, tearsT: 0, tears: 0, sweatT: 0, sweat: 0,
+        drag: false, dir: 1, gaitW: 0, bob: 0,
+      })
+      B.lastX = B.x
+      B.legs.forEach((leg, k) => { leg.p = k * 0.5; leg.footX = B.x; leg.from = B.x; leg.x = B.x; leg.y = 0 })
+      resetTagline()
+      field.classList.remove('in')
+      $('hint').classList.remove('in')
+      replay.classList.remove('show')
+      prompt.value = ''
+      sayEl.classList.remove('on')
+    }
+
+    function settleAll() {
+      token++
+      acting = false
+      gs.forEach((g) => Object.assign(g, freshLetter(), { shown: 1, showT: 1 }))
+      frameIdx = -1
+      Object.assign(B, {
+        visible: true, on: -1, floor: 'ground', x: W * 0.5, y: groundY, lift: 0, rot: 0,
+        sqT: 0, face: 'happy', gaze: null, drag: false,
+      })
+      B.lastX = B.x
+      B.legs.forEach((leg, k) => { leg.p = k * 0.5; leg.footX = B.x + (k ? 1 : -1) * R() * 0.4; leg.from = leg.footX; leg.x = leg.footX; leg.y = 0 })
+      settleTagline()
+      enterFree()
+      const ball = dropBall(B.x + S * 1.4)
+      perform(async () => { await playWithBall(ball) })
+    }
+
+    function playAll() {
+      resetAll()
+      if (reduce) return settleAll()
+      mode = 'story'
+      skipBtn.classList.add('show')
+      perform(story)
+    }
+    replay.addEventListener('click', playAll)
+    skipBtn.addEventListener('click', settleAll)
+
+    /* =========================================================
+     * 自检：控制台无报错即通过
+     * ========================================================= */
+    ;(function selfCheck() {
+      console.assert(smoothFalloff(0, RADIUS) === 1 && smoothFalloff(RADIUS, RADIUS) === 0, '网格衰减')
+      console.assert(TAGLINE === '从一个想法，到无限可能', '副文案')
+      const keys = Object.keys(EXPR.neutral)
+      console.assert(Object.values(EXPR).every((e) => keys.every((k) => Number.isFinite(e[k]))), '表情参数不全')
+      console.assert(Object.values(EXPR).every((e) => !/NaN/.test(mouthPath(e))), '嘴型路径')
+      console.assert(Math.abs(parab(100, 20, 60, 0) - 100) < 1e-9 && Math.abs(parab(100, 20, 60, 1) - 60) < 1e-9, '抛物线端点')
+      const ys = Array.from({ length: 101 }, (_, i) => parab(100, 20, 60, i / 100))
+      console.assert(Math.abs(Math.min(...ys) - 20) < 0.5, '抛物线最高点')
+      console.assert(Math.abs(squircleR(0) - 0.94) < 1e-9 && squircleR(Math.PI / 4) > 0.94, '超椭圆半径')
+      console.assert(Math.abs(runProfile(0, 0.25, 0.3)) < 1e-9 && Math.abs(runProfile(1, 0.25, 0.3) - 1) < 1e-9, '跑动曲线首尾')
+      console.assert(runProfile(0.5, 0.25, 0.3) > 0 && runProfile(0.5, 0.25, 0.3) < 1, '跑动曲线中段')
+      const knee = ik(0, 0, 0.3, 0.6, 0.4, 0.4, -1)
+      console.assert(Number.isFinite(knee.x) && Number.isFinite(knee.y), 'IK 求解')
+      console.assert(Math.abs(Math.hypot(knee.x, knee.y) - 0.4) < 1e-6, 'IK 胯到膝的距离')
+      const far = ik(0, 0, 3, 0, 0.4, 0.4, -1)
+      console.assert(far.x < 0.799 && Math.abs(Math.hypot(far.x, far.y) - 0.4) < 1e-6, 'IK 够不到时截断')
+      console.assert(LIMB.hipY + LIMB.thigh + LIMB.shin > GROUND_LOCAL, '腿够得到地面')
+      console.assert(MAX_BALLS === 2, '球上限')
+      console.assert(WORD === 'relax', '字标')
+    })()
+
+    addEventListener('resize', () => {
+      resizeGrid()
+      layout()
+      if (mode === 'free') line.style.transform = `translateX(${relaxRight() - taglineRight()}px)`
+    })
+    document.fonts.ready.then(() => {
+      resizeGrid()
+      drawGrid()
+      layout()
+      buildTagline()
+      looping = requestAnimationFrame(tick)
+      playAll()
+    })
+  </script>
+</body>
+</html>
