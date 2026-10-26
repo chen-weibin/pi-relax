@@ -57,8 +57,9 @@ const rows = projectRows(
 		{ id: 'p2', cwd: '/other', name: 'Other', position: 1, created: '', modified: '' },
 	],
 	'/default',
+	'workspace',
 )
-assert(rows[0]?.id === 'default' && rows[0].name === '/default', 'default workspace stays first')
+assert(rows[0]?.id === 'default' && rows[0].name === 'workspace', 'default workspace stays first')
 assert(rows.length === 2 && rows[1]?.id === 'p2', 'registered default cwd is not repeated')
 
 const catalog = toCatalogSession({

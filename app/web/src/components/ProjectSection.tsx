@@ -19,19 +19,20 @@ function sessionNote(page: SessionPage | undefined): string | null {
 }
 
 export function ProjectSection({ className }: ProjectSectionProps) {
-	const { projects, projectsTotal, projectsLoading, projectsError, defaultCwd, listsReady, sessionPages } = useCatalogStore(
+	const { projects, projectsTotal, projectsLoading, projectsError, defaultCwd, defaultName, listsReady, sessionPages } = useCatalogStore(
 		useShallow((state) => ({
 			projects: state.projects,
 			projectsTotal: state.projectsTotal,
 			projectsLoading: state.projectsLoading,
 			projectsError: state.projectsError,
 			defaultCwd: state.defaultCwd,
+			defaultName: state.defaultName,
 			listsReady: state.listsReady,
 			sessionPages: state.sessionPages,
 		})),
 	)
 	const openSessionId = useSyncExternalStore(subscribeTransport, () => getTransportSnapshot().openSessionId)
-	const rows = projectRows(projects, defaultCwd)
+	const rows = projectRows(projects, defaultCwd, defaultName)
 	const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set())
 	const [sectionExpanded, setSectionExpanded] = useState(true)
 

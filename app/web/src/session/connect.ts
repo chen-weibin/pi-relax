@@ -77,7 +77,7 @@ async function loadDefaultWorkspace(generation: number) {
 	try {
 		const workspace = await getDefaultWorkspace()
 		if (generation !== projectGeneration) return
-		useCatalogStore.getState().setDefaultCwd(workspace.cwd)
+		useCatalogStore.getState().setDefaultWorkspace(workspace.cwd, workspace.name)
 	} catch {
 		// 项目列表的错误单独显示。这里失败就保持上一次拿到的路径。
 	}

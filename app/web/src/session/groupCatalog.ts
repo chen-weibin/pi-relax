@@ -17,10 +17,10 @@ export type ProjectRow = {
 	cwd: string
 }
 
-/** 默认工作区固定第一行。已登记的同一 cwd 不再重复。 */
-export function projectRows(projects: CatalogProject[], defaultCwd: string | null): ProjectRow[] {
+/** 默认工作区固定第一行，名字用接口给的目录名。已登记的同一 cwd 不再重复。 */
+export function projectRows(projects: CatalogProject[], defaultCwd: string | null, defaultName: string | null): ProjectRow[] {
 	const rows: ProjectRow[] = []
-	if (defaultCwd) rows.push({ id: 'default', name: defaultCwd, cwd: defaultCwd })
+	if (defaultCwd) rows.push({ id: 'default', name: defaultName || defaultCwd, cwd: defaultCwd })
 	for (const project of projects) {
 		if (project.cwd === defaultCwd) continue
 		rows.push({ id: project.id, name: project.name, cwd: project.cwd })

@@ -18,12 +18,13 @@ interface CatalogState {
 	projectsLoading: boolean
 	projectsError: string | null
 	defaultCwd: string | null
+	defaultName: string | null
 	listsReady: boolean
 	sessionPages: Record<string, SessionPage>
 	sseStatus: SseStatus
 	setProjectsLoading: (loading: boolean) => void
 	replaceProjectPage: (projects: CatalogProject[], total: number, append: boolean) => void
-	setDefaultCwd: (cwd: string) => void
+	setDefaultWorkspace: (cwd: string, name: string) => void
 	setProjectsError: (message: string) => void
 	beginSessionPage: (cwd: string) => void
 	applySessionPage: (cwd: string, sessions: CatalogSession[], total: number, append: boolean) => void
@@ -42,6 +43,7 @@ export const useCatalogStore = create<CatalogState>()(
 		projectsLoading: false,
 		projectsError: null,
 		defaultCwd: null,
+		defaultName: null,
 		listsReady: false,
 		sessionPages: {},
 		sseStatus: 'connecting',
@@ -66,9 +68,10 @@ export const useCatalogStore = create<CatalogState>()(
 					seen.add(project.id)
 				}
 			}),
-		setDefaultCwd: (cwd) =>
+		setDefaultWorkspace: (cwd, name) =>
 			set((state) => {
 				state.defaultCwd = cwd
+				state.defaultName = name
 			}),
 		setProjectsError: (message) =>
 			set((state) => {
