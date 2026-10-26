@@ -17,6 +17,7 @@ import { messageText } from '../utils/text.js'
 import { abortPolicyFor, type SettingsPatch } from '../config/settings.js'
 import { BusyError, HttpError, SessionNotFoundError } from '../utils/errors.js'
 import { getSupportedThinkingLevels } from '@earendil-works/pi-ai'
+import { ensureProject } from '../projects/store.js'
 import { createPiRuntime, type RuntimeFactory } from './factory.js'
 import { modelForNewSession, modelForSwitch, writeDefault } from './models.js'
 
@@ -234,6 +235,7 @@ export class Agent {
 
 	private async create(cwd: string, model: Awaited<ReturnType<typeof modelForNewSession>>): Promise<Slot> {
 		const manager = createSessionManager(cwd)
+		ensureProject(manager.getCwd())
 		return this.attach(manager, model)
 	}
 

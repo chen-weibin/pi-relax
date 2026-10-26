@@ -70,6 +70,7 @@ describe('projects and session catalog', () => {
 		assert.equal('defaultCwd' in page, false)
 		const workspace = await read(await fetch(`${base}/api/workspace`))
 		assert.equal(workspace.cwd, join(home, 'workspace'))
+		assert.equal(workspace.name, 'workspace')
 		const again = await postProject(beta)
 		assert.equal(again.status, 409)
 		assert.equal(again.body.error.code, 'ALREADY_EXISTS')

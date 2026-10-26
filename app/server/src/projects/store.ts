@@ -110,6 +110,18 @@ export function listProjects(filter: ProjectTimeFilter, page?: PageWindow): { pr
 	return { projects, total: matched.length }
 }
 
+function insertProject(cwd: string, name: string): ProjectRecord {
+	const now = new Date().toISOString()
+	const id = randomUUID()
+	relaxDb()
+		.prepare(
+			`INSERT INTO projects (id, cwd, name, position, created, modified, deleted_at)
+			 VALUES (?, ?, ?, ?, ?, ?, NULL)`,
+		)
+		.run(id, cwd, name, nextPosition(), now, now)
+	return getProject(id)!
+}
+
 export function createProject(cwd: string, name?: string): ProjectRecord {
 	const display = name?.trim() ? name.trim() : basename(cwd)
 	if (!display) throw new HttpError(400, 'BAD_REQUEST', 'name must not be empty')
@@ -119,19 +131,21 @@ export function createProject(cwd: string, name?: string): ProjectRecord {
 	if (existing && !existing.deleted_at) {
 		throw new HttpError(409, 'ALREADY_EXISTS', 'project already registered')
 	}
-	const position = nextPosition()
 	if (existing) {
 		db.prepare(
 			`UPDATE projects SET name = ?, position = ?, modified = ?, deleted_at = NULL WHERE id = ?`,
-		).run(name?.trim() ? name.trim() : existing.name, position, now, existing.id)
+		).run(name?.trim() ? name.trim() : existing.name, nextPosition(), now, existing.id)
 		return getProject(existing.id)!
 	}
-	const id = randomUUID()
-	db.prepare(
-		`INSERT INTO projects (id, cwd, name, position, created, modified, deleted_at)
-		 VALUES (?, ?, ?, ?, ?, ?, NULL)`,
-	).run(id, cwd, display, position, now, now)
-	return getProject(id)!
+	return insertProject(cwd, display)
+}
+
+/** 新建会话时补登记。已有行（含已软删除）不改。 */
+export function ensureProject(cwd: string): void {
+	if (findByCwd(cwd)) return
+	const name = basename(cwd)
+	if (!name) return
+	insertProject(cwd, name)
 }
 
 export function renameProject(id: string, name: string): ProjectRecord {

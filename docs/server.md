@@ -52,7 +52,7 @@ pi 没有会话索引。`list(cwd)` 扫该编码目录下的 `*.jsonl`，`listAl
 - 会话正文用 pi 的 JSONL，不另发明一套消息存档
 - 项目本体是用户选的文件夹，`.relax` 不复制项目
 
-添加项目等于登记一个已有文件夹。一个项目一个根目录。多根工作区不做。登记、顺序、软删除和会话索引在 `{home}/sqlite/relax.sqlite`，表结构见 [server-sqlite.md](server-sqlite.md)（查阅时机：改这几张表时）。会话正文仍是上面的 JSONL。
+添加项目等于登记一个已有文件夹。一个项目一个根目录。多根工作区不做。新建会话时，这个目录还没有项目行也会补登记；已软删除的不因此恢复。登记、顺序、软删除和会话索引在 `{home}/sqlite/relax.sqlite`，表结构见 [server-sqlite.md](server-sqlite.md)（查阅时机：改这几张表时）。会话正文仍是上面的 JSONL。
 
 ## SDK 入口
 
@@ -131,7 +131,7 @@ pi 暴露的加载点都要能指定到 `.relax` 或配置里的路径，不默�
 
 剖面本轮：`tools` 为八个内置工具、`codemode` 和四个联网工具。loader 不传 `noSkills`，技能走基座默认发现。`noExtensions` / `noContextFiles` / `noPromptTemplates` / `noThemes` 仍关。`noExtensions` 只停磁盘扫描；`additionalExtensionPaths` 指向 Langfuse 和 `pi-web-access`；`extensionFactories` 来自 `app/server/src/extensions/`，含 `createCodemodeExtension()`。模型用白名单里的内置提供商，`agentDir` 指向 `~/.relax/agent`。
 
-新对话：`SessionManager.create(cwd)` 后立刻 `prompt`。文件等第一条 user 消息。思考档位默认 `medium`。正在回复时，不带 `streamingBehavior` 再 `prompt` 得 `BUSY`；`steer` 在当前回复及其工具结束后、下一次模型调用前插入，`followUp` 在本轮结束后再发。两者都不打断正在吐的字。多条排队的出队读全局 `~/.relax/agent/settings.json` 的 `steeringMode` / `followUpMode`（各自 `all` 或 `one-at-a-time`，缺省 `one-at-a-time`）。新建会话由基座 `SettingsManager` 合并该文件与工作区 `.pi/settings.json`，工厂里不调用 setter。`PATCH /api/settings` 之后，内存里的会话用 `setSteeringMode` / `setFollowUpMode` 立刻换模式。
+新对话：`SessionManager.create(cwd)` 后，用这条会话的 cwd 补项目行（没有行才插入），再立刻 `prompt`。文件等第一条 user 消息。思考档位默认 `medium`。正在回复时，不带 `streamingBehavior` 再 `prompt` 得 `BUSY`；`steer` 在当前回复及其工具结束后、下一次模型调用前插入，`followUp` 在本轮结束后再发。两者都不打断正在吐的字。多条排队的出队读全局 `~/.relax/agent/settings.json` 的 `steeringMode` / `followUpMode`（各自 `all` 或 `one-at-a-time`，缺省 `one-at-a-time`）。新建会话由基座 `SettingsManager` 合并该文件与工作区 `.pi/settings.json`，工厂里不调用 setter。`PATCH /api/settings` 之后，内存里的会话用 `setSteeringMode` / `setFollowUpMode` 立刻换模式。
 
 历史：热会话用该 `sessionManager.buildSessionContext()`，否则 `SessionManager.open` 再同样调用。返回 `{ messages, thinkingLevel, model }`，不手读 JSONL。
 
@@ -141,12 +141,12 @@ pi 暴露的加载点都要能指定到 `.relax` 或配置里的路径，不默�
 
 `BUSY` 为 409。`GET /api/sessions/events` 写在 `/:id` 之前。请求和返回的字段以调试页为准。
 
-- `POST /api/sessions` 第一次发送并创建，202。可选 `thinkingLevel`，不传则 `medium`。可选 `provider` 与 `model`，要一起给；不给则用全局默认
+- `POST /api/sessions` 第一次发送并创建，202。可选 `thinkingLevel`，不传则 `medium`。可选 `provider` 与 `model`，要一起给；不给则用全局默认。这个 cwd 还没有项目行时用目录名补登记，排到项目列表最前。已有行不改，已软删除的不恢复
 - `GET /api/sessions` 列表，默认全部工作区。可按修改时间、`completed` 过滤，并按 `offset` 与 `limit` 截取。每条带 `completed`，响应带 `total`
 - `GET /api/sessions/storage` 统计 `sessions/` 下的 jsonl 个数和目录字节数
 - `POST /api/sessions/:id/completed` 把这条标成完成或未完成。文件不在则 404，并清掉标记
 - `GET /api/projects` 未软删除的项目，按 `position` 倒序。可按登记时间过滤，并按 `offset` 与 `limit` 截取
-- `GET /api/workspace` 未指定工作区时的目录，`{ cwd }`。不写入项目表
+- `GET /api/workspace` 未指定工作区时的目录，`{ cwd, name }`。`name` 是目录名。这个接口不写项目表。第一次在该目录新建会话时会写入
 - `POST /api/projects` 登记一个已存在的目录。同一路径再登记会恢复已软删除的行
 - `DELETE /api/projects/:id` 软删除，不删会话文件
 - `POST /api/projects/:id/purge` 删掉该工作区的会话文件和这一行

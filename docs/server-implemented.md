@@ -28,11 +28,12 @@
 
 ## 项目
 
-表在 [server-sqlite.md](server-sqlite.md)。默认工作区走 `GET /api/workspace`，不写入这张表。
+表在 [server-sqlite.md](server-sqlite.md)。默认工作区走 `GET /api/workspace`。第一次在该目录新建会话时写入这张表；在此之前表里没有它。
 
 1. `POST /api/projects` 登记一个已存在的绝对路径。不传 `name` 时用目录名。新的一行序号最大，列表倒序后在最前。同一路径已在列表里则 409 `ALREADY_EXISTS`。曾经软删除过则恢复该行并放到最前。
+1.1. 新建会话（`POST /api/sessions` 且还没有会话 id）若这个 cwd 还没有项目行，用目录名补一行，同样排到最前。已在列表里不改。已软删除的不恢复。打开旧会话和回填不补登记。
 2. `GET /api/projects` 只返回未软删除的，按序号倒序。`createdFrom`、`createdTo` 按登记时间过滤，两端都包含。`offset` 与 `limit` 成对出现。响应是 `{ projects, total }`。
-2.1. `GET /api/workspace` 返回 `{ cwd }`，即未指定工作区时的目录（`{home}/workspace`）。不写入项目表。
+2.1. `GET /api/workspace` 返回 `{ cwd, name }`。`cwd` 是未指定工作区时的目录（`{home}/workspace`），`name` 是这个目录的名字。不写入项目表。
 3. `GET /api/projects/count` 与上面同一套时间过滤，返回 `{ count }`，等于列表的 `total`。
 4. `GET /api/projects/:id` 一条。已软删除视为 404。
 5. `PATCH /api/projects/:id` 改显示名。空字符串为 400。

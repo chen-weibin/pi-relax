@@ -25,7 +25,7 @@ CREATE UNIQUE INDEX projects_position_active ON projects(position) WHERE deleted
 | 字段 | 含义 |
 |---|---|
 | `id` | `crypto.randomUUID()` |
-| `cwd` | `realpath` 之后的绝对路径。同一路径只有一行 |
+| `cwd` | 绝对路径，同一字符串只有一行。登记接口写入前做 `realpath`。新建会话补的一行用会话上的 cwd（`resolve` 之后），与 `sessions.cwd` 相同 |
 | `name` | 显示名。登记时不传则用目录名 |
 | `position` | 未删除时的序号。软删除置空 |
 | `created` | 登记时间，ISO |
