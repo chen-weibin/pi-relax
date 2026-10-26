@@ -1,8 +1,8 @@
-import { useCallback, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { projectRows, sessionModifiedAt, sessionTitle } from '../session/groupCatalog'
 import { getTransportSnapshot, loadMoreProjects, loadProjectSessions, selectOpenSession, subscribeTransport } from '../session'
-import { useCatalogStore, type SessionPage } from '../store'
+import { useCatalogStore, useLocalStore, type SessionPage } from '../store'
 import { Expandable } from '../ui/Expandable'
 import { ProjectItem } from './ProjectItem'
 import { ProjectSectionHeader } from './ProjectSectionHeader'
@@ -32,19 +32,23 @@ export function ProjectSection({ className }: ProjectSectionProps) {
 		})),
 	)
 	const openSessionId = useSyncExternalStore(subscribeTransport, () => getTransportSnapshot().openSessionId)
+	const projectsCollapsed = useLocalStore((state) => state.projectsCollapsed)
+	const setProjectCollapsed = useLocalStore((state) => state.setProjectCollapsed)
 	const rows = projectRows(projects, defaultCwd, defaultName)
-	const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set())
 	const [sectionExpanded, setSectionExpanded] = useState(true)
 
+	useEffect(() => {
+		if (!listsReady) return
+		for (const row of projectRows(projects, defaultCwd, defaultName)) {
+			if (!projectsCollapsed.includes(row.id)) loadProjectSessions(row.cwd)
+		}
+	}, [listsReady, projects, defaultCwd, defaultName, projectsCollapsed])
+
 	const toggleProject = useCallback((id: string, cwd: string) => {
-		setExpandedIds((prev) => {
-			const next = new Set(prev)
-			if (next.has(id)) next.delete(id)
-			else next.add(id)
-			return next
-		})
-		if (!expandedIds.has(id)) loadProjectSessions(cwd)
-	}, [expandedIds])
+		const collapsed = useLocalStore.getState().projectsCollapsed.includes(id)
+		setProjectCollapsed(id, !collapsed)
+		if (collapsed) loadProjectSessions(cwd)
+	}, [setProjectCollapsed])
 
 	const handleFilter = () => {
 		// TODO: filter behavior
@@ -95,10 +99,10 @@ export function ProjectSection({ className }: ProjectSectionProps) {
 										onClick: () => selectOpenSession(session.id),
 										...(session.status === 'running' ? { status: 'loading' as const } : {}),
 									}))}
-									expanded={expandedIds.has(row.id)}
+									expanded={!projectsCollapsed.includes(row.id)}
 									onToggle={() => toggleProject(row.id, row.cwd)}
 									onAddSession={() => handleAddSession(row.id)}
-									sessionNote={expandedIds.has(row.id) ? sessionNote(page) : null}
+									sessionNote={projectsCollapsed.includes(row.id) ? null : sessionNote(page)}
 									{...(hasMore ? { onLoadMoreSessions: () => loadProjectSessions(row.cwd, true) } : {})}
 								/>
 							)

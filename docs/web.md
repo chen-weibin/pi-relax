@@ -280,10 +280,11 @@ src/
 ├── App.tsx                       # 嵌套两层 Group;shell 状态从 common store 切片读取
 ├── conversation/                 # 会话数据层:类型 + createBlockRuntime(详见 docs/web-conversation.md)
 ├── hooks/
-│   └── usePersistedPanelLayout.ts # 每个 groupId 一份 layout 宽度持久化
+│   └── usePersistedPanelLayout.ts # 面板宽度读写 store/local.ts，不直接碰 localStorage
 ├── store/                        # 全局状态(详见下文 "状态管理 (store/)" 小节)
 │   ├── index.ts                 #   统一 re-export
-│   └── common.ts                #   common store:shell 状态(toggles + mainView)
+│   ├── common.ts                #   common store:shell 状态(toggles + mainView)
+│   └── local.ts                 #   local store:面板宽度、项目收起;key `relax`
 ├── ui/                           # 业务无关的可复用 UI 组件(详见上文 "UI 组件库" 小节)
 │   ├── ResizablePanelGroup.tsx
 │   ├── ResizablePanel.tsx
@@ -369,15 +370,24 @@ src/
 
 ### 持久化
 
-`usePersistedPanelLayout({ groupId, panelIds })` 是库的 `useDefaultLayout` 的薄包装:
+界面状态进 `store/local.ts` 的 `useLocalStore`。只有这个文件调用 `localStorage`，key 是 `relax`。模块加载时同步读入，作为 store 初值；action 改完后写回整份文档。不用 zustand `persist`（注水是异步的，首帧会先用默认值）。
 
-- layout 存到 `app-shell:layout:<groupId>`
-- 内层 Group(`groupId='main-area'`)独立持久化自己的 `[content, extension]`
-- 外层 Group(`groupId='app-shell'`)持久化 `[sidebar, main]`
+```ts
+{
+  version: 1,
+  layout: Record<string, unknown>, // groupId → 该组的 layout 对象
+  projectsCollapsed: string[]       // 收起的项目 id；不在表里 = 展开
+}
+```
 
-reload 后两层各自还原。
+- 没有 key、JSON 坏了、`version` 不是 1、或 `localStorage` 不可用：空 layout、空收起名单。写失败（配额、隐私模式）忽略，内存里的状态继续用。
+- 旧 key `app-shell:layout:app-shell` 和 `app-shell:layout:main-area` 已废弃。不读、不搬、不删。
+- `usePersistedPanelLayout` 只通过 store 读写宽度。外层 group `app-shell` 是 `[sidebar, main]`，内层 `main-area` 是 `[content, extension]`。
+- 侧栏每个项目的收起写在 `projectsCollapsed`。没有记录默认展开，并且只有展开的项目才拉该项目的会话。`ProjectSection` 订阅这份名单。
 
-**注意:折叠状态(`sidebarOpen` / `extensionOpen`)、`mainView`、`settingOpen` 都不持久化。** 每次启动 sidebar 展开、extension 收起、`mainView='conversation'`、`settingOpen=false`。这些状态由 common store 持有,详见下文 "状态管理 (store/)"。如需持久化,在 common store 上加 zustand `persist` middleware —— 不要往 `usePersistedPanelLayout` 加,hook 只管 layout 宽度,职责单一。
+以后要记住的界面状态加到这个 store 的字段里，不要再直接写 `localStorage`。
+
+**壳层开关不进这份文档。** `sidebarOpen` / `extensionOpen` / `mainView` / `settingOpen` 仍由 common store 持有，每次启动 sidebar 展开、extension 收起、`mainView='conversation'`、`settingOpen=false`。「项目」标题那一行的整块折叠也只活在组件里。
 
 Setting 由 `settingOpen` 控制显隐(`{settingOpen && <Setting />}`),在 `App.tsx` 内挂载。Setting `z-50`,在四区上方全屏渲染。
 
@@ -420,7 +430,7 @@ ProjectSection
 
 - **section 整体折叠**:点 header 中的「项目 + chevron」整块(hover 时 chevron 显形),`sectionExpanded` 切换;折叠走外层 `<Expandable duration={200}>` 高度过渡(`grid-template-rows: 0fr ↔ 1fr`,200ms `ease-out`),项目列表常驻以保证动画可播。
 - **header 右侧 IconButton**(filter / add-folder):用 `IconButton` 默认 size(等同 `UserBar` 设置按钮),点击各自 handler;不影响 header toggle。
-- **项目展开/收起**:点项目行 toggle,`expandedIds: Set<string>` 记录状态;展开/收起走 `<Expandable duration={200}>` 高度过渡(`grid-template-rows: 0fr ↔ 1fr`,200ms `ease-out`),`SessionItem` 列表常驻以保证动画可播。
+- **项目展开/收起**:点项目行 toggle。没有收起记录默认展开;收起的 id 记在 `useLocalStore` 的 `projectsCollapsed` 并写入 `relax`。展开/收起走 `<Expandable duration={200}>` 高度过渡(`grid-template-rows: 0fr ↔ 1fr`,200ms `ease-out`),`SessionItem` 列表常驻以保证动画可播。只有展开的项目才拉会话。
 - **项目 icon 切换**:默认显示 folder(展开=open,收起=closed),hover 时切到 chevron(展开=rotate-90 朝下,收起=朝右)。folder 在 14×14 槽内,chevron 缩到 10×10 居中,通过 `group` + `group-hover/row:hidden` / `group-hover/row:flex` 切换,两种 icon 绝对定位重叠占同 14×14 槽,布局不抖。
 - **项目 + 按钮**:`opacity-0 group-hover/row:opacity-100`,加 `pointer-events-none` → `group-hover/row:pointer-events-auto` 让 hover 区域可点击,不在 hover 时穿透。`absolute right-2.5 top-1/2 -translate-y-1/2` 居中,IconButton box 右边缘与 session 时间文字右边缘对齐。
 - **项目行 hover pr 展开**:`group-hover/row:pr-8`(32px),给 + 按钮腾位;非 hover 时 `pr-2.5`(10px),文字贴近右边。
@@ -429,7 +439,7 @@ ProjectSection
 
 **状态**:
 
-`ProjectSection` 是 self-contained:内部 `useState` 管 `projects`(目前 mock) + `expandedIds` + `sectionExpanded`,**不持久化**。等真实数据接入后,这些 state 上提到 store / props 注入。
+项目列表来自 catalog store。每个项目的收起在 `store/local.ts`。`sectionExpanded`(整块折叠)仍是 `ProjectSection` 内部的 `useState`,不写入 `relax`。
 
 **icon 复用**:
 
@@ -504,7 +514,7 @@ src/store/
 toggleSidebar: () => set((s) => { s.sidebarOpen = !s.sidebarOpen })
 ```
 
-**不持久化** —— 每次 reload 状态回到默认值,与"折叠状态不持久化"的约定一致(`persist` middleware 按需再加)。
+**不持久化** —— 每次 reload 状态回到默认值。要记住的界面状态加到 `store/local.ts`，不要给 common store 加 `persist`。
 
 ### `MainView` 类型
 
@@ -538,8 +548,8 @@ const { sidebarOpen, extensionOpen, toggleSidebar, toggleExtension } = useCommon
 
 ### 不进 store 的状态(YAGNI)
 
-- **面板宽度**:`usePersistedPanelLayout` 已经自管 localStorage,迁移收益小、改造代价大。
-- **ProjectSection 内部状态**(`projects` / `expandedIds` / `sectionExpanded`):self-contained,无跨组件共享需求。
+- **面板宽度和项目收起**:在 `store/local.ts`,见上文「持久化」。
+- **ProjectSection 的整块折叠**(`sectionExpanded`):只影响这一次打开,不跨刷新。
 - **UI-only 状态**(scrollbar hover / Popover open / Setting 内部):跟随组件生命周期即可。
 
 ### 新增 store 的流程

@@ -8,7 +8,8 @@
 		"build": "tsc --noEmit && vite build",
 		"build:test": "tsc --noEmit && vite build --mode test",
 		"preview": "vite preview",
-		"typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.node.json"
+		"typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.node.json",
+		"test": "node --experimental-strip-types --test src/store/local.test.ts"
 	},
 	"dependencies": {
 		"@floating-ui/react": "^0.27.20",
