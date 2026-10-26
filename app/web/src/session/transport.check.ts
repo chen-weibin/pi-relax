@@ -1,6 +1,7 @@
-import { projectRows } from './groupCatalog'
+import { placeNewProject, projectRows } from './groupCatalog'
 import { toCatalogSession } from './service'
 import {
+	clearOpenSession,
 	createTransportState,
 	historyFailed,
 	historyLoaded,
@@ -50,6 +51,18 @@ const switched = selectSession(loaded.state, 'b')
 assert(switched.state.openSessionId === 'b' && switched.state.queue.length === 0, 'switch clears the previous queue')
 assert(switched.effects[0]?.type === 'load-history', 'switch reloads history')
 assert(historyLoaded(switched.state, loaded.state.generation).replay.length === 0, 'stale history is ignored')
+const cleared = clearOpenSession(switched.state)
+assert(cleared.openSessionId === null && cleared.phase === 'idle' && cleared.queue.length === 0, 'draft clears the open session')
+assert(cleared.generation === switched.state.generation + 1, 'draft invalidates in-flight history')
+assert(clearOpenSession(cleared) === cleared, 'clearing twice keeps the generation')
+
+const placed = placeNewProject(
+	[{ id: 'p2', cwd: '/other', name: 'Other', position: 1, created: '', modified: '' }],
+	{ id: 'p3', cwd: '/new', name: 'New', position: 3, created: '', modified: '' },
+)
+assert(placed[0]?.id === 'p3', 'new project is placed first')
+const created = placed[0]
+assert(created !== undefined && placeNewProject(placed, created) === placed, 'same cwd is not inserted twice')
 
 const rows = projectRows(
 	[

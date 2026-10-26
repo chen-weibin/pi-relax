@@ -1,5 +1,7 @@
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
+import { ensureDraft, type SessionDraft } from '../session/draft'
+import { placeNewProject } from '../session/groupCatalog'
 import type { CatalogProject, CatalogSession, SseStatus } from '../session/catalogTypes'
 
 export type { CatalogProject, CatalogSession, SessionStatus, SseStatus } from '../session/catalogTypes'
@@ -21,14 +23,20 @@ interface CatalogState {
 	defaultName: string | null
 	listsReady: boolean
 	sessionPages: Record<string, SessionPage>
+	drafts: SessionDraft[]
+	activeDraftCwd: string | null
+	draftNotice: number
 	sseStatus: SseStatus
 	setProjectsLoading: (loading: boolean) => void
+	noteNewProject: (project: CatalogProject) => void
 	replaceProjectPage: (projects: CatalogProject[], total: number, append: boolean) => void
 	setDefaultWorkspace: (cwd: string, name: string) => void
 	setProjectsError: (message: string) => void
 	beginSessionPage: (cwd: string) => void
 	applySessionPage: (cwd: string, sessions: CatalogSession[], total: number, append: boolean) => void
 	setSessionPageError: (cwd: string, message: string) => void
+	openDraft: (cwd: string) => void
+	clearActiveDraft: () => void
 	setSseStatus: (status: SseStatus) => void
 }
 
@@ -46,10 +54,20 @@ export const useCatalogStore = create<CatalogState>()(
 		defaultName: null,
 		listsReady: false,
 		sessionPages: {},
+		drafts: [],
+		activeDraftCwd: null,
+		draftNotice: 0,
 		sseStatus: 'connecting',
 		setProjectsLoading: (loading) =>
 			set((state) => {
 				state.projectsLoading = loading
+			}),
+		noteNewProject: (project) =>
+			set((state) => {
+				const next = placeNewProject(state.projects, project)
+				if (next === state.projects) return
+				state.projects = next
+				state.projectsTotal += 1
 			}),
 		replaceProjectPage: (projects, total, append) =>
 			set((state) => {
@@ -111,6 +129,16 @@ export const useCatalogStore = create<CatalogState>()(
 				page.loading = false
 				page.error = message
 				state.sessionPages[cwd] = page
+			}),
+		openDraft: (cwd) =>
+			set((state) => {
+				state.drafts = ensureDraft(state.drafts, cwd, Date.now())
+				state.activeDraftCwd = cwd
+				state.draftNotice += 1
+			}),
+		clearActiveDraft: () =>
+			set((state) => {
+				state.activeDraftCwd = null
 			}),
 		setSseStatus: (status) =>
 			set((state) => {

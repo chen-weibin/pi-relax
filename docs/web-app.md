@@ -65,11 +65,11 @@ Store 继续按字段切片订阅。做法见 [web-zustand-store-design.md](supe
 
 ## 目录与项目登记
 
-侧栏先拉 `GET /api/projects?offset=0&limit=20`，并另请求 `GET /api/workspace` 拿到默认工作区。前端把默认工作区固定在第一行，名字用接口返回的 `name`（目录名）；已登记的同一 `cwd` 不重复。项目没有收起记录时默认展开，并拉 `GET /api/sessions?cwd=`，同样每次 20 条；收起的不请求。收起名单在 `useLocalStore` 的 `projectsCollapsed`，并写入 `localStorage` 的 `relax`（见 [web.md](web.md) 的「持久化」，查阅时机：改侧栏展开或面板宽度的记住方式时）。项目列表底部、以及每个项目的会话底部，在还没拿完 `total` 时各有一个「更多」。收起不重新请求。新建会话会把还没有项目行的 cwd 补进项目表。已软删除的目录不会因此回来。更早留下、又从未登记的目录，要再在那里新建一条会话，或走登记接口，才会出现。
+侧栏先拉 `GET /api/projects?offset=0&limit=20`，并另请求 `GET /api/workspace` 拿到默认工作区。前端把默认工作区固定在第一行，名字用接口返回的 `name`（目录名）；已登记的同一 `cwd` 不重复。项目没有收起记录时默认展开，并拉 `GET /api/sessions?cwd=`，同样每次 20 条；收起的不请求。收起名单在 `useLocalStore` 的 `projectsCollapsed`，并写入 `localStorage` 的 `relax`（见 [web.md](web.md) 的「持久化」，查阅时机：改侧栏展开或面板宽度的记住方式时）。项目列表底部、以及每个项目的会话底部，在还没拿完 `total` 时各有一个「更多」。收起不重新请求。新建会话会把还没有项目行的 cwd 补进项目表。已软删除的目录不会因此回来。更早留下、又从未登记的目录，要再在那里新建一条会话，或走登记接口，才会出现。登记入口是项目标题右侧的文件夹按钮：居中输入框，用户自己粘贴绝对路径，提交 `POST /api/projects`。目录不存在等 400 留在弹框里。`409` 则用已登记的那一行。
 
 项目登记在服务端 `GET /api/projects`（见 [server-implemented.md](server-implemented.md)，查阅时机：接侧栏项目列表时）。未指定工作区时的目录是 `~/.relax/workspace`（随服务端 `home` 换走，见 [server.md](server.md)）。多根工作区不做。
 
-新建对话只是空草稿。第一次发送才 `POST /api/sessions`。不先造空会话文件。
+新建对话只是空草稿，出现在目标项目会话列的最前，标题为「新对话」，状态点用现有的 `normal`（`--fg-disabled`）。目标是当前选中会话所在的项目；没有选中则用默认工作区。每个项目最多一条，再点只是选中。选中草稿会清掉当前真实会话，不拉历史。刷新即丢。第一次发送才 `POST /api/sessions`。不先造空会话文件。
 
 删除走 `DELETE /api/sessions/:id`。改名走 `POST /api/sessions/:id/name`，空字符串清空标题，界面回到 `firstMessage`。
 
@@ -121,9 +121,11 @@ Store 继续按字段切片订阅。做法见 [web-zustand-store-design.md](supe
 
 依赖：模块 1。项目分页、固定的默认工作区，以及展开后按目录分页的会话，已经在模块 1。
 
-验收：可以钉住文件夹、删除、改名。点「新对话」得到空草稿，刷新前不出现新的会话文件。点选一行已经在模块 1，只高亮并拉历史，不画正文。
+验收：可以登记一个目录。点「新对话」得到空草稿，刷新前不出现新的会话文件。点选已有会话已经在模块 1，只高亮并拉历史，不画正文。
 
-此块不做：打开历史后的正文、发送。
+此块不做：打开历史后的正文、发送、删除、改名。
+
+当前实现：草稿在 `useCatalogStore` 的 `drafts`，不进 `sessionPages`，不写 `localStorage`。侧栏「新对话」走 `openDraftForCurrentProject`，项目行 `+` 走 `openProjectDraft(cwd)`。选中草稿调用 `clearOpenSession`，不发 history 请求。添加项目是 `AddProjectDialog`，只收绝对路径。登记成功后重拉第一页（新行 `position` 最大，排在默认工作区下面）；列表没刷新成功时把返回的项目插到已加载列表最前。同一 `cwd` 再登记得到 `409`，向后翻页直到那一行出现，不另插一行。默认工作区仍固定第一行，不进项目表。
 
 ### 3. 打开历史
 

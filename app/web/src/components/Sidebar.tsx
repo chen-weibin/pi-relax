@@ -13,11 +13,11 @@ import { ProjectSection } from './ProjectSection'
 import { UserBar } from './UserBar'
 import { useShallow } from 'zustand/react/shallow'
 import { useCommonStore } from '../store'
+import { openDraftForCurrentProject } from '../session'
 import type { MainView } from '../store'
 import '../styles/scrollbar.css'
 
 function viewFromActionKey(key: string): MainView | null {
-	if (key === 'newChat') return 'conversation'
 	if (key === 'customize') return 'customize'
 	return null
 }
@@ -43,8 +43,7 @@ export function Sidebar() {
 			icon: SendIcon,
 			label: '新对话',
 			onClick: () => {
-				const next = viewFromActionKey('newChat')
-				if (next) setMainView(next)
+				openDraftForCurrentProject()
 			},
 		},
 		{

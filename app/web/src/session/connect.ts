@@ -1,12 +1,15 @@
 import type { AgentSessionEvent, SessionContext } from '@earendil-works/pi-coding-agent'
-import { listProjects } from '../api/projects'
+import { createProject, listProjects } from '../api/projects'
 import { getDefaultWorkspace } from '../api/workspace'
 import { getSessionHistory, listSessions } from '../api/sessions'
 import { subscribeSessionEvents } from '../api/sse'
-import { useCatalogStore } from '../store'
+import { ApiError } from '../api/http'
+import { useCatalogStore, useCommonStore, useLocalStore } from '../store'
 import { LIST_PAGE_SIZE } from './listPage'
+import { draftTarget } from './draft'
 import { toCatalogSessions } from './service'
 import {
+	clearOpenSession,
 	createTransportState,
 	historyFailed,
 	historyLoaded,
@@ -62,11 +65,51 @@ export function subscribeOpenSessionEvents(listener: (event: AgentSessionEvent) 
 }
 
 export function selectOpenSession(sessionId: string) {
+	useCatalogStore.getState().clearActiveDraft()
 	const next = selectSession(state, sessionId)
 	state = next.state
 	if (next.effects.length > 0) history = null
 	publish()
 	void runEffects(next.effects)
+}
+
+function dismissOpenSession() {
+	const next = clearOpenSession(state)
+	if (next === state) return
+	state = next
+	history = null
+	publish()
+}
+
+function cwdOfOpenSession(): string | null {
+	const id = state.openSessionId
+	if (!id) return null
+	for (const page of Object.values(useCatalogStore.getState().sessionPages)) {
+		const hit = page.sessions.find((session) => session.id === id)
+		if (hit) return hit.cwd
+	}
+	return null
+}
+
+function expandProject(cwd: string) {
+	const catalog = useCatalogStore.getState()
+	const id = catalog.defaultCwd === cwd ? 'default' : catalog.projects.find((project) => project.cwd === cwd)?.id
+	if (id) useLocalStore.getState().setProjectCollapsed(id, false)
+}
+
+/** 在这个目录放一条草稿并选中。不拉历史。 */
+export function openProjectDraft(cwd: string) {
+	dismissOpenSession()
+	useCatalogStore.getState().openDraft(cwd)
+	expandProject(cwd)
+	useCommonStore.getState().setMainView('conversation')
+}
+
+/** 落在当前选中会话的项目；没有选中则用默认工作区。 */
+export function openDraftForCurrentProject() {
+	const catalog = useCatalogStore.getState()
+	const cwd = draftTarget(cwdOfOpenSession(), catalog.activeDraftCwd, catalog.defaultCwd)
+	if (cwd) openProjectDraft(cwd)
 }
 
 let projectGeneration = 0
@@ -83,25 +126,53 @@ async function loadDefaultWorkspace(generation: number) {
 	}
 }
 
-async function loadProjectPage(append: boolean) {
+async function loadProjectPage(append: boolean): Promise<'ok' | 'stale' | 'error'> {
 	const generation = append ? projectGeneration : ++projectGeneration
-	if (append && projectsInflight) return
+	if (append && projectsInflight) return 'stale'
 	const catalog = useCatalogStore.getState()
-	if (append && catalog.projects.length >= catalog.projectsTotal) return
+	if (append && catalog.projects.length >= catalog.projectsTotal) return 'ok'
 	const offset = append ? catalog.projects.length : 0
 	projectsInflight = true
 	catalog.setProjectsLoading(true)
 	if (!append) void loadDefaultWorkspace(generation)
 	try {
 		const page = await listProjects(offset, LIST_PAGE_SIZE)
-		if (generation !== projectGeneration) return
+		if (generation !== projectGeneration) return 'stale'
 		useCatalogStore.getState().replaceProjectPage(page.projects, page.total, append)
+		return 'ok'
 	} catch (error) {
-		if (generation !== projectGeneration) return
+		if (generation !== projectGeneration) return 'stale'
 		const message = error instanceof Error ? error.message : '列表加载失败'
 		useCatalogStore.getState().setProjectsError(message)
+		return 'error'
 	} finally {
 		if (generation === projectGeneration) projectsInflight = false
+	}
+}
+
+async function revealProject(cwd: string): Promise<boolean> {
+	if (useCatalogStore.getState().projects.some((project) => project.cwd === cwd)) return true
+	while (useCatalogStore.getState().projects.length < useCatalogStore.getState().projectsTotal) {
+		const before = useCatalogStore.getState().projects.length
+		const result = await loadProjectPage(true)
+		if (useCatalogStore.getState().projects.some((project) => project.cwd === cwd)) return true
+		if (result !== 'ok' || useCatalogStore.getState().projects.length === before) return false
+	}
+	return false
+}
+
+/** 登记一个已有目录。已登记则沿用那一行。成功后打开该目录的草稿。 */
+export async function registerProjectDirectory(cwd: string): Promise<void> {
+	try {
+		const created = await createProject(cwd)
+		const loaded = await loadProjectPage(false)
+		if (loaded !== 'ok') useCatalogStore.getState().noteNewProject(created)
+		openProjectDraft(created.cwd)
+	} catch (error) {
+		if (!(error instanceof ApiError) || error.code !== 'ALREADY_EXISTS') throw error
+		const visible = await revealProject(cwd)
+		if (!visible) throw error
+		openProjectDraft(cwd)
 	}
 }
 

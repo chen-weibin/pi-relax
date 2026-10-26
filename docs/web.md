@@ -361,7 +361,7 @@ src/
 
 切换流程:
 
-1. 用户点 SidebarActions 中的「新对话 / 自定义」按钮 → `Sidebar` 直接调 `useCommonStore(s => s.setMainView)`
+1. 用户点「新对话」→ `openDraftForCurrentProject`：在当前选中会话所在项目（没有选中则默认工作区）放一条内存草稿，并把 `mainView` 设为 `'conversation'`。点「自定义」仍直接 `setMainView`。
 2. common store 更新 `mainView`
 3. `MainContainer` 重新渲染对应 view 组件(`view === 'customize'` 走 `<CustomizeView />`,其它走 `<Conversation />`)
 4. `Sidebar` 内 `SidebarActions` 的 `activeKey` 同步反映当前 view(view→key 映射:'conversation'→'newChat'、'customize'→'customize';`search` 永远不 active)
@@ -429,8 +429,9 @@ ProjectSection
 **交互行为**:
 
 - **section 整体折叠**:点 header 中的「项目 + chevron」整块(hover 时 chevron 显形),`sectionExpanded` 切换;折叠走外层 `<Expandable duration={200}>` 高度过渡(`grid-template-rows: 0fr ↔ 1fr`,200ms `ease-out`),项目列表常驻以保证动画可播。
-- **header 右侧 IconButton**(filter / add-folder):用 `IconButton` 默认 size(等同 `UserBar` 设置按钮),点击各自 handler;不影响 header toggle。
+- **header 右侧 IconButton**(filter / add-folder):用 `IconButton` 默认 size(等同 `UserBar` 设置按钮),点击各自 handler;不影响 header toggle。过滤仍是空函数。添加项目打开居中输入框,用户粘贴绝对路径后登记;取消或点外面关闭,不登记。
 - **项目展开/收起**:点项目行 toggle。没有收起记录默认展开;收起的 id 记在 `useLocalStore` 的 `projectsCollapsed` 并写入 `relax`。展开/收起走 `<Expandable duration={200}>` 高度过渡(`grid-template-rows: 0fr ↔ 1fr`,200ms `ease-out`),`SessionItem` 列表常驻以保证动画可播。只有展开的项目才拉会话。
+- **新对话**:侧栏「新对话」和项目行 `+` 都在目标项目会话列最前放一条内存草稿,标题「新对话」,状态点 `normal`(`--fg-disabled`)。每个项目最多一条。选中它不拉历史。打开草稿时展开对应项目,并展开整块项目列表。
 - **项目 icon 切换**:默认显示 folder(展开=open,收起=closed),hover 时切到 chevron(展开=rotate-90 朝下,收起=朝右)。folder 在 14×14 槽内,chevron 缩到 10×10 居中,通过 `group` + `group-hover/row:hidden` / `group-hover/row:flex` 切换,两种 icon 绝对定位重叠占同 14×14 槽,布局不抖。
 - **项目 + 按钮**:`opacity-0 group-hover/row:opacity-100`,加 `pointer-events-none` → `group-hover/row:pointer-events-auto` 让 hover 区域可点击,不在 hover 时穿透。`absolute right-2.5 top-1/2 -translate-y-1/2` 居中,IconButton box 右边缘与 session 时间文字右边缘对齐。
 - **项目行 hover pr 展开**:`group-hover/row:pr-8`(32px),给 + 按钮腾位;非 hover 时 `pr-2.5`(10px),文字贴近右边。
@@ -439,7 +440,7 @@ ProjectSection
 
 **状态**:
 
-项目列表来自 catalog store。每个项目的收起在 `store/local.ts`。`sectionExpanded`(整块折叠)仍是 `ProjectSection` 内部的 `useState`,不写入 `relax`。
+项目列表来自 catalog store。每个项目的收起在 `store/local.ts`。`sectionExpanded`(整块折叠)仍是 `ProjectSection` 内部的 `useState`,不写入 `relax`。内存草稿在 catalog store 的 `drafts`,刷新即丢,不写进 `relax`。
 
 **icon 复用**:
 

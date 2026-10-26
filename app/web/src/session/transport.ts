@@ -32,6 +32,12 @@ export function onSseOpen<E>(
 }
 
 /** 换一条，或当前这条还没对齐成功时，清空队列再拉历史。 */
+/** 选中内存草稿时清掉真实会话。不产生加载。已经是空的则原样返回，避免把进行中的代际加一。 */
+export function clearOpenSession<E>(state: TransportState<E>): TransportState<E> {
+	if (state.openSessionId === null && state.phase === 'idle' && state.queue.length === 0) return state
+	return { openSessionId: null, phase: 'idle', generation: state.generation + 1, queue: [] }
+}
+
 export function selectSession<E>(
 	state: TransportState<E>,
 	sessionId: string,
