@@ -25,8 +25,9 @@
 | 需求 | 用 | 别用 / 别写 |
 |---|---|---|
 | 三栏/两栏可拖布局 | [`ResizablePanelGroup` / `ResizablePanel` / `ResizableHandle`](#resizablepanels) | 不要直接用 `react-resizable-panels` 原生 API |
-| 图标按钮(可访问、统一样式) | [`IconButton`](#iconbutton) | 不要写裸 `<button>` 套 `<svg>`(style 漂移、`disabled` 漏处理) |
-| 浮层 / Tooltip / 菜单 | [`Popover`](#popover) | 不要直接用 `@floating-ui/react`(定位/翻转/portal 都要自己粘) |
+| 图标按钮(可访问、统一样式) | [`IconButton`](#iconbutton) | 不要写裸 `<button>` 套 `<svg>`(style 漂移、`disabled` 漏处理);不要再外包一层 Tooltip,`title` 就是提示 |
+| 短 hover 提示 | [`Tooltip`](#tooltip) | 不要在业务里手写 `<Popover role="tooltip">`,也不要再用原生 `title` 当气泡 |
+| 浮层 / 菜单 | [`Popover`](#popover) | 不要直接用 `@floating-ui/react`(定位/翻转/portal 都要自己粘) |
 | 富文本输入(Enter 提交 / 多行展开) | [`Editor`](#editor) + 领域组件 `Composer` | 不要拿 `<textarea>`(无 IME 友好 / 无 history / 无 keymap) |
 | 渲染 Markdown(流式 / 静态) | [`MarkdownView`](#markdownview) | 不要直接 `<Streamdown>`(无项目样式封装) |
 | 只读/可编辑代码文本(Monaco) | [`MonacoEditor`](#monacoeditor) | 不要在业务里直接 `@monaco-editor/react` / 自配 worker |
@@ -63,6 +64,8 @@
 | 给 `ProgressBar` 加 `color` / `trackColor` / `thumbColor` 等 per-instance 颜色 prop | 颜色走 token(`bg-fg-3` / `bg-border-hover`);想换色通过外层 `className` + 子选择器覆盖,不要把调色板塞进 API |
 | 在插件主区顶部手写 `h-[38px] flex border-b` | 用 [`PaneHeader`](#paneheader),高度和分割线已收敛 |
 | 在业务模块里直接 `import Editor from '@monaco-editor/react'` | 用 [`MonacoEditor`](#monacoeditor),worker / 主题 token 已封装 |
+| 给 `IconButton` 再写原生 `title`,或在业务里手写 `<Popover role="tooltip">` | 图标按钮的 `title` 已走 [`Tooltip`](#tooltip);短提示用 Tooltip,菜单才用 [`Popover`](#popover) |
+| 在 `IconButton` 外包一层 `Tooltip` | [`IconButton`](#iconbutton) 已内置,配 `title` / `tooltipPlacement` / `tooltipDelay` 即可 |
 
 ## Expandable
 
@@ -622,6 +625,16 @@
 
 **API**: `variant: ghost | solid`,`size: sm | md`(默认 `md` 固定命中区 26×26,与壳层展开/收起 toggle 同尺寸;图标默认 14px,调用方用 `[&_svg]:h-* [&_svg]:w-*` 改视觉大小,不要改按钮尺寸),`disabled` 自动降透明 + 禁交互,`type` 默认 `button`,透传其他原生属性(`aria-pressed` / `name` / `value` / `tabIndex` 等)。
 
+提示走内置 [`Tooltip`](#tooltip),不写原生 `title` 属性:
+
+| prop | 类型 | 默认 | 说明 |
+|---|---|---|---|
+| `title` | `ReactNode` | — | 提示内容。`null` / `undefined` / `false` / `''` 时不展示。字符串同时作为默认 `aria-label` |
+| `tooltipPlacement` | `Placement` | `top` | `@floating-ui/react` 的 `Placement`，与 [`Popover`](#popover) 相同 |
+| `tooltipDelay` | `number` | `400` | 悬停多少毫秒后打开 |
+
+`title` 不是字符串时,无障碍名称用调用方传入的 `aria-label`。
+
 ## SearchInput
 
 单文件 `ui/SearchInput.tsx`。左侧带搜索图标的输入框,统一圆角 / 字号 / hover / focus 视觉。
@@ -1030,7 +1043,7 @@ const loadOptions = async ({ query, offset, limit }: Params): Promise<Result<V>>
 
 封装自 `@floating-ui/react`(`useFloating` + `useClick` / `useHover` + `useDismiss` + `useRole`),负责"算坐标 + 处理交互"这类底层逻辑,样式由 Popover 自行接管。
 
-**查阅时机**:加 tooltip / dropdown / context menu / 信息卡浮层,或评估直接用 `@floating-ui/react`。
+**查阅时机**:加 dropdown / context menu / 信息卡浮层,或评估直接用 `@floating-ui/react`。短 hover 文案用 [`Tooltip`](#tooltip),不要在这里手写 `role="tooltip"`。
 
 **何时用**:
 
@@ -1040,6 +1053,7 @@ const loadOptions = async ({ query, offset, limit }: Params): Promise<Result<V>>
 
 **何时不用**:
 
+- 短 hover 提示 → [`Tooltip`](#tooltip);图标按钮直接用 [`IconButton`](#iconbutton) 的 `title`
 - 全屏 modal → 自己写 fixed inset-0 覆盖层(参考 [`web.md` §Setting](web.md#布局))
 - 不需要浮层定位 → inline 展开
 
@@ -1052,6 +1066,7 @@ const loadOptions = async ({ query, offset, limit }: Params): Promise<Result<V>>
   offset={6}                      // 主轴偏移(距 trigger),默认 6
   crossOffset={0}                 // 十字轴偏移(对齐微调),默认 0
   interactive={false}             // hover 模式下,浮层里是否有可交互内容(按钮/链接等);默认 false
+  openDelay={0}                   // hover 打开延迟(ms),默认 0。大于 0 时不再用 restMs: 50
   open / onOpenChange             // 受控用法;二者都给才走受控,否则内部 state
   role="dialog"                   // 浮层 ARIA role,默认 'dialog';Select 等 listbox 类场景传 'listbox'
   className                       // 透传到浮层容器
@@ -1073,7 +1088,7 @@ const loadOptions = async ({ query, offset, limit }: Params): Promise<Result<V>>
 | 文字色 | `text-fg-2` | 次级文字 |
 | z-index | `z-[99]` | 全局最高一档(预留 Setting 等覆盖层用更高值) |
 
-> 内 padding 不固定 —— 由 `content` 自己控制(popover 内容差异巨大,tooltip 用 `px-3 py-1.5`,菜单用 `p-1`,信息卡用 `p-3`)。
+> 内 padding 不固定 —— 由 `content` 自己控制(popover 内容差异巨大,菜单用 `p-1`,信息卡用 `p-3`)。短提示的 `px-3 py-1.5` 在 [`Tooltip`](#tooltip) 里。
 
 **interactive 模式**:
 
@@ -1095,7 +1110,40 @@ const loadOptions = async ({ query, offset, limit }: Params): Promise<Result<V>>
 - 触发器(`children`)必须是单个 ReactElement;`cloneElement` 需要 `ref` 注入。如果传了 fragment / 数组 / 字符串,运行时直接 throw。
 - 触发器的原始 `ref` 会被保留(函数式 / object 式都支持)。
 - 浮层挂在 `document.body`(`FloatingPortal` 默认),脱离任何 `overflow:hidden` 祖先。
-- `role` 默认 `'dialog'`。listbox / menu / tooltip 等场景必须传对应 role,否则屏幕阅读器会朗读成「对话框」。底层用 `@floating-ui/react` 的 `useRole(context, { role })` 接管。
+- `role` 默认 `'dialog'`。listbox / menu 等场景必须传对应 role,否则屏幕阅读器会朗读成「对话框」。底层用 `@floating-ui/react` 的 `useRole(context, { role })` 接管。短提示不要传 `role="tooltip"`,用 [`Tooltip`](#tooltip)。
+- `openDelay` 默认 `0`,此时 hover 仍是指针停住 `restMs: 50` 后打开。`openDelay > 0` 时改走 `delay.open`,不再设 `restMs`,避免两个定时器抢在一起。
+
+## Tooltip
+
+单文件 `ui/Tooltip.tsx`。短 hover 提示,包在 [`Popover`](#popover) 上。图标按钮不要直接用它,[`IconButton`](#iconbutton) 已经内置。
+
+**查阅时机**:给非图标按钮的触发器加一句悬停说明,或改提示的方位 / 延迟 / 空内容行为。
+
+**何时用**:
+
+- 悬停后出现一句说明(或一小块自定义内容)
+- 不想自己写定位、翻转、`role="tooltip"`
+
+**何时不用**:
+
+- 图标按钮 → [`IconButton`](#iconbutton) 的 `title`
+- 可点击的菜单 / 信息卡 → [`Popover`](#popover)
+
+**API**:
+
+```tsx
+<Tooltip
+  title="打开工作目录"   // ReactNode,可选。null / undefined / false / '' 时不挂浮层
+  placement="top"        // Placement，与 Popover 相同；默认 'top'，放不下时 flip()
+  delay={400}            // 打开延迟(ms),默认 400,传给 Popover 的 openDelay
+>
+  <button type="button">触发器</button>  // 单个 ReactElement
+</Tooltip>
+```
+
+`placement` 直接用 `@floating-ui/react` 的 `Placement`，不另定义一套方位。
+
+固定行为:`trigger={['hover']}`、`role="tooltip"`、`interactive={false}`。浮层外壳沿用 Popover(背景、边框、阴影、`text-sm`、`text-fg-2`)，圆角用 `rounded-sm`(6px)，比 Popover 的 `rounded-lg` 小一档，因为内容一般只有一行。内容区 `px-3 py-1.5`，`pointer-events-none`。
 
 ## ResizablePanels
 
@@ -1132,8 +1180,9 @@ ui/Editor           ← components/Composer
 ui/MonacoEditor     ← extensions/plugins/files/viewers
 ui/MessageSurface   ← components/conversation/UserMessage
 ui/PaneHeader       ← extensions/plugins/terminal/TerminalView, extensions/plugins/files/FilesView
+ui/Popover          ← ui/Tooltip, components/* (按需)
+ui/Tooltip          ← ui/IconButton
 ui/IconButton       ← components/SidebarActions, components/ProjectSectionHeader, ...
-ui/Popover          ← components/* (按需)
 ui/Resizable*       ← App.tsx
 ```
 

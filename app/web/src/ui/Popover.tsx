@@ -38,6 +38,8 @@ export type PopoverProps = {
 	onOpenChange?: (open: boolean) => void
 	/** ARIA role for the floating element. Default `'dialog'`. */
 	role?: PopoverRole
+	/** Hover open delay in ms. `0` keeps the resting-pointer behavior. */
+	openDelay?: number
 	className?: string
 }
 
@@ -52,6 +54,7 @@ export function Popover({
 	open: controlledOpen,
 	onOpenChange: controlledOnOpenChange,
 	role = 'dialog',
+	openDelay = 0,
 	className,
 }: PopoverProps) {
 	const isControlled = controlledOpen !== undefined
@@ -79,8 +82,8 @@ export function Popover({
 		trigger.includes('click') && useClick(context),
 		trigger.includes('hover') &&
 			useHover(context, {
-				restMs: 50,
-				delay: interactive ? { close: 100 } : 0,
+				...(openDelay > 0 ? {} : { restMs: 50 }),
+				delay: { open: openDelay, close: interactive ? 100 : 0 },
 				move: interactive ? false : true,
 			}),
 		useDismiss(context, { outsidePress: true, escapeKey: true }),

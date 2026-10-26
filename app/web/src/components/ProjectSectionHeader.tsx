@@ -38,7 +38,7 @@ export function ProjectSectionHeader({
 				<IconButton title="过滤项目" onClick={onFilter}>
 					<FilterIcon />
 				</IconButton>
-				<IconButton title="添加项目" onClick={onAddProject}>
+				<IconButton title="打开工作目录" onClick={onAddProject}>
 					<AddFolderIcon />
 				</IconButton>
 			</div>

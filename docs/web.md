@@ -168,8 +168,9 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
 |---|---|---|
 | `ResizablePanelGroup` / `ResizablePanel` / `ResizableHandle` | 可拖布局三件套,封装 `react-resizable-panels` | [`ui.md#resizablepanels`](ui.md#resizablepanels) |
 | `PaneHeader` | 子面板顶栏(38px + 底部分割线,左右 slot) | [`ui.md#paneheader`](ui.md#paneheader) |
-| `IconButton` | 图标按钮,统一变体 / 尺寸 / 禁用态 | [`ui.md#iconbutton`](ui.md#iconbutton) |
-| `Popover` | 浮层 / tooltip / 菜单,封装 `@floating-ui/react` | [`ui.md#popover`](ui.md#popover) |
+| `IconButton` | 图标按钮,统一变体 / 尺寸 / 禁用态;`title` 走 Tooltip | [`ui.md#iconbutton`](ui.md#iconbutton) |
+| `Tooltip` | 短 hover 提示,包在 Popover 上 | [`ui.md#tooltip`](ui.md#tooltip) |
+| `Popover` | 浮层 / 菜单,封装 `@floating-ui/react` | [`ui.md#popover`](ui.md#popover) |
 | `Editor` | ProseMirror 智能输入框 | [`ui.md#editor`](ui.md#editor) |
 | `MonacoEditor` | Monaco 代码/文本编辑器,主题走 CSS token | [`ui.md#monacoeditor`](ui.md#monacoeditor) |
 | `MarkdownView` | `streamdown` Markdown 渲染(static / streaming) | [`ui.md#markdownview`](ui.md#markdownview) |
@@ -292,6 +293,7 @@ src/
 │   ├── IconButton.tsx
 │   ├── PaneHeader.tsx            # 子面板顶栏(38px + 底部分割线)
 │   ├── Popover.tsx
+│   ├── Tooltip.tsx               # 短 hover 提示,包在 Popover 上
 │   ├── MarkdownView/             # streamdown 封装(static / streaming);index.tsx + index.css
 │   ├── TypewriterText.tsx        # grapheme 增量打字机
 │   ├── DisclosureRow/            # 折叠行 + 标题 blink;index.tsx + index.css
