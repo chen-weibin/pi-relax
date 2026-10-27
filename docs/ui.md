@@ -1238,7 +1238,7 @@ ui/Popover          ← ui/Tooltip, components/* (按需)
 ui/Modal            ← components/AddProjectDialog
 ui/Tooltip          ← ui/IconButton
 ui/IconButton       ← components/SidebarActions, components/ProjectSectionHeader, ...
-ui/Resizable*       ← App.tsx
+ui/Resizable*       ← pages/Workspace.tsx
 ```
 
 约束:

@@ -38,6 +38,7 @@
 		"react": "^19.0.0",
 		"react-dom": "^19.0.0",
 		"react-resizable-panels": "^4.12.4",
+		"react-router": "^8.5.0",
 		"shiki": "^4.4.3",
 		"streamdown": "^2.6.0",
 		"use-stick-to-bottom": "^1.1.6",

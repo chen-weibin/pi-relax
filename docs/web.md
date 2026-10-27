@@ -253,9 +253,23 @@ streamdown 与插件的 Tailwind 类扫描写在 [`ui/MarkdownView/index.css`](.
 
 文件图标匹配在 [`matchFileIcon.ts`](../app/web/src/icons/matchFileIcon.ts),不依赖具体组件,别处传入自己的关联表即可。顺序:带父目录的文件名、文件名、从长到短的扩展名(每一段先看带父目录的键)、语言 id,最后默认文件图标。目录名是另一条:带父目录的目录名、目录名、默认目录图标。键不区分大小写。文件插件的表在 [`fileKinds.ts`](../app/web/src/extensions/plugins/files/fileKinds.ts),把扩展名绑到图标和 Monaco 高亮语言;没有对应项时用 `FileUnknownIcon`。`.jsx` 与 `.tsx` 共用 `FileTsxIcon`,Monaco 分别用 `javascript` 和 `typescript`。文件名是 `.env` 或以 `.env.` 开头时用 `FileEnvIcon`,不进扩展名表。补一种图标:组件加在 `fileTypes.tsx`,再在 `fileKinds` 加一条 `names` 或 `extensions`。哪些已经有、哪些还是兜底,见 [`file-icons.md`](file-icons.md)(按清单补图时查阅)。
 
+## 路由
+
+`main.tsx` 在 `StrictMode` 里挂 `BrowserRouter`，里面渲染 `App`。`App` 用 `useRoutes(routes)` 挂路由表，外包一层 `Suspense`（`fallback={null}`，`body` 背景已是 `--app`）。路由表在 [`app/web/src/router/index.tsx`](../app/web/src/router/index.tsx)。
+
+| 路径 | 页面 | 说明 |
+|---|---|---|
+| `/` | `pages/Workspace` | 现有四区壳。`startSessionTransport()` 在这里启动 |
+| `/ui` | `pages/Ui` | 整页 `bg-app`，左上角标题占位，内容以后再补 |
+| 其他 | — | `<Navigate to="/" replace />` |
+
+两条页面都用 `React.lazy` 动态 `import`，Vite 拆 chunk。路由级组件放 `src/pages/`，不要放进 `src/ui/`（那是组件库）。
+
+`mainView`（对话 / 自定义）仍是壳内状态，不进 URL。
+
 ## 布局
 
-app shell 由两层嵌套的 `react-resizable-panels` Group 组成:外层 `[Sidebar | main]`,内层(挂在 `main` Panel 内)`[content | Extension]`。`content` 承载 `<MainContainer />`,内部根据 `mainView` state 决定渲染 `<Conversation />` 或 `<CustomizeView />`(未来会更多)。这样拖 `Sidebar | main` 的分隔条不会影响 content/Extension 的内部比例,反之亦然。
+四区壳在 [`pages/Workspace.tsx`](../app/web/src/pages/Workspace.tsx)。由两层嵌套的 `react-resizable-panels` Group 组成:外层 `[Sidebar | main]`,内层(挂在 `main` Panel 内)`[content | Extension]`。`content` 承载 `<MainContainer />`,内部根据 `mainView` state 决定渲染 `<Conversation />` 或 `<CustomizeView />`(未来会更多)。这样拖 `Sidebar | main` 的分隔条不会影响 content/Extension 的内部比例,反之亦然。
 
 ### 树结构
 
@@ -279,7 +293,12 @@ app shell 由两层嵌套的 `react-resizable-panels` Group 组成:外层 `[Side
 
 ```
 src/
-├── App.tsx                       # 嵌套两层 Group;shell 状态从 common store 切片读取
+├── main.tsx                      # BrowserRouter，里面渲染 App
+├── App.tsx                       # useRoutes(routes)；Suspense fallback 为空
+├── router/index.tsx              # 路由表：/ 、/ui ，其余重定向到 /
+├── pages/
+│   ├── Workspace.tsx             # 四区壳；shell 状态从 common store 切片读取
+│   └── Ui.tsx                    # /ui 占位页
 ├── conversation/                 # 会话数据层:类型 + createBlockRuntime(详见 docs/web-conversation.md)
 ├── hooks/
 │   └── usePersistedPanelLayout.ts # 面板宽度读写 store/local.ts，不直接碰 localStorage
@@ -351,7 +370,7 @@ src/
 
 ### 收起/展开
 
-`{ sidebarOpen: boolean; extensionOpen: boolean }` 状态由 common store 持有(`src/store/common.ts`),**不持久化** —— 每次启动 sidebar 默认 `true`(展开),extension 默认 `false`(收起)。`App.tsx` 切片订阅这两个字段,值翻转时整棵子树重新渲染并决定 Panel 是否挂载。
+`{ sidebarOpen: boolean; extensionOpen: boolean }` 状态由 common store 持有(`src/store/common.ts`),**不持久化** —— 每次启动 sidebar 默认 `true`(展开),extension 默认 `false`(收起)。`pages/Workspace.tsx` 切片订阅这两个字段,值翻转时整棵子树重新渲染并决定 Panel 是否挂载。
 
 收起 = 整 Panel 从所属 Group 中移除(`{sidebarOpen && <Panel/>}` 模式),不是 `collapsedSize:0`。这样展开时回到原记录的宽度。
 
@@ -370,7 +389,7 @@ src/
 3. `MainContainer` 重新渲染对应 view 组件(`view === 'customize'` 走 `<CustomizeView />`,其它走 `<Conversation />`)
 4. `Sidebar` 内 `SidebarActions` 的 `activeKey` 同步反映当前 view(view→key 映射:'conversation'→'newChat'、'customize'→'customize';`search` 永远不 active)
 
-新增 view 的步骤:在 `MainView` 类型加成员 + `MainContainer` 的 `if/else` 加分支 + `Sidebar.tsx` 的 `viewFromActionKey` / `actionKeyFromView` 加映射 + 新建 view 文件 + SidebarActions 加 action。不引入注册表 / router。
+新增 view 的步骤:在 `MainView` 类型加成员 + `MainContainer` 的 `if/else` 加分支 + `Sidebar.tsx` 的 `viewFromActionKey` / `actionKeyFromView` 加映射 + 新建 view 文件 + SidebarActions 加 action。`mainView` 切换不走 URL，也不另做一份注册表。新的整页走上面的路由表。
 
 ### 持久化
 
@@ -393,7 +412,7 @@ src/
 
 **壳层开关不进这份文档。** `sidebarOpen` / `extensionOpen` / `mainView` / `settingOpen` 仍由 common store 持有，每次启动 sidebar 展开、extension 收起、`mainView='conversation'`、`settingOpen=false`。「项目」标题那一行的整块折叠也只活在组件里。
 
-Setting 由 `settingOpen` 控制显隐(`{settingOpen && <Setting />}`),在 `App.tsx` 内挂载。Setting `z-50`,在四区上方全屏渲染。
+Setting 由 `settingOpen` 控制显隐(`{settingOpen && <Setting />}`),在 `pages/Workspace.tsx` 内挂载。Setting `z-50`,在四区上方全屏渲染。
 
 ### 项目区块(ProjectSection)
 
@@ -523,7 +542,7 @@ toggleSidebar: () => set((s) => { s.sidebarOpen = !s.sidebarOpen })
 
 ### `MainView` 类型
 
-`MainView` 从 `App.tsx` 迁到 `store/common.ts`,统一从 `import type { MainView } from './store'` 取。`App.tsx` 保留 `export type { MainView }` 兼容旧 import 路径。
+`MainView` 在 `store/common.ts`，从 `import type { MainView } from './store'` 取。
 
 ### 选择器约定
 

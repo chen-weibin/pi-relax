@@ -16,7 +16,7 @@ app/web/src/extensions/
 └── plugins/files|terminal
 ```
 
-`components/Extension.tsx` 只 re-export `extensions/shell/Extension`，`App.tsx` 仍挂 `<Extension />`。
+`components/Extension.tsx` 只 re-export `extensions/shell/Extension`，`pages/Workspace.tsx` 挂 `<Extension />`。
 
 ## 只有一层壳层 tab
 
