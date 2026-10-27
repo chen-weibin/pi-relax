@@ -171,6 +171,7 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
 | `IconButton` | 图标按钮,统一变体 / 尺寸 / 禁用态;`title` 走 Tooltip | [`ui.md#iconbutton`](ui.md#iconbutton) |
 | `Tooltip` | 短 hover 提示,包在 Popover 上 | [`ui.md#tooltip`](ui.md#tooltip) |
 | `Popover` | 浮层 / 菜单,封装 `@floating-ui/react` | [`ui.md#popover`](ui.md#popover) |
+| `Modal` | 遮罩对话框壳,居中或距顶;内容自定义 | [`ui.md#modal`](ui.md#modal) |
 | `Editor` | ProseMirror 智能输入框 | [`ui.md#editor`](ui.md#editor) |
 | `MonacoEditor` | Monaco 代码/文本编辑器,主题走 CSS token | [`ui.md#monacoeditor`](ui.md#monacoeditor) |
 | `MarkdownView` | `streamdown` Markdown 渲染(static / streaming) | [`ui.md#markdownview`](ui.md#markdownview) |
@@ -293,6 +294,7 @@ src/
 │   ├── IconButton.tsx
 │   ├── PaneHeader.tsx            # 子面板顶栏(38px + 底部分割线)
 │   ├── Popover.tsx
+│   ├── Modal.tsx                 # 遮罩对话框壳,与 Popover 并列
 │   ├── Tooltip.tsx               # 短 hover 提示,包在 Popover 上
 │   ├── MarkdownView/             # streamdown 封装(static / streaming);index.tsx + index.css
 │   ├── TypewriterText.tsx        # grapheme 增量打字机
@@ -431,7 +433,7 @@ ProjectSection
 **交互行为**:
 
 - **section 整体折叠**:点 header 中的「项目 + chevron」整块(hover 时 chevron 显形),`sectionExpanded` 切换;折叠走外层 `<Expandable duration={200}>` 高度过渡(`grid-template-rows: 0fr ↔ 1fr`,200ms `ease-out`),项目列表常驻以保证动画可播。
-- **header 右侧 IconButton**(filter / add-folder):用 `IconButton` 默认 size(等同 `UserBar` 设置按钮),点击各自 handler;不影响 header toggle。过滤仍是空函数。添加项目打开居中输入框,用户粘贴绝对路径后登记;取消或点外面关闭,不登记。
+- **header 右侧 IconButton**(filter / add-folder):用 `IconButton` 默认 size(等同 `UserBar` 设置按钮),点击各自 handler;不影响 header toggle。过滤仍是空函数。添加项目用 [`Modal`](ui.md#modal) 打开居中输入框,用户粘贴绝对路径后登记;取消、Esc 或点遮罩关闭,不登记。
 - **项目展开/收起**:点项目行 toggle。没有收起记录默认展开;收起的 id 记在 `useLocalStore` 的 `projectsCollapsed` 并写入 `relax`。展开/收起走 `<Expandable duration={200}>` 高度过渡(`grid-template-rows: 0fr ↔ 1fr`,200ms `ease-out`),`SessionItem` 列表常驻以保证动画可播。只有展开的项目才拉会话。
 - **新对话**:侧栏「新对话」和项目行 `+` 都在目标项目会话列最前放一条内存草稿,标题「新对话」,状态点 `normal`(`--fg-disabled`)。每个项目最多一条。选中它不拉历史。打开草稿时展开对应项目,并展开整块项目列表。
 - **项目 icon 切换**:默认显示 folder(展开=open,收起=closed),hover 时切到 chevron(展开=rotate-90 朝下,收起=朝右)。folder 在 14×14 槽内,chevron 缩到 10×10 居中,通过 `group` + `group-hover/row:hidden` / `group-hover/row:flex` 切换,两种 icon 绝对定位重叠占同 14×14 槽,布局不抖。

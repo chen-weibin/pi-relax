@@ -28,6 +28,7 @@
 | 图标按钮(可访问、统一样式) | [`IconButton`](#iconbutton) | 不要写裸 `<button>` 套 `<svg>`(style 漂移、`disabled` 漏处理);不要再外包一层 Tooltip,`title` 就是提示 |
 | 短 hover 提示 | [`Tooltip`](#tooltip) | 不要在业务里手写 `<Popover role="tooltip">`,也不要再用原生 `title` 当气泡 |
 | 浮层 / 菜单 | [`Popover`](#popover) | 不要直接用 `@floating-ui/react`(定位/翻转/portal 都要自己粘) |
+| 遮罩对话框(居中或距顶) | [`Modal`](#modal) | 不要手写 `fixed inset-0` 遮罩;不要把 [`Popover`](#popover) 当成对话框 |
 | 富文本输入(Enter 提交 / 多行展开) | [`Editor`](#editor) + 领域组件 `Composer` | 不要拿 `<textarea>`(无 IME 友好 / 无 history / 无 keymap) |
 | 渲染 Markdown(流式 / 静态) | [`MarkdownView`](#markdownview) | 不要直接 `<Streamdown>`(无项目样式封装) |
 | 只读/可编辑代码文本(Monaco) | [`MonacoEditor`](#monacoeditor) | 不要在业务里直接 `@monaco-editor/react` / 自配 worker |
@@ -66,6 +67,7 @@
 | 在业务模块里直接 `import Editor from '@monaco-editor/react'` | 用 [`MonacoEditor`](#monacoeditor),worker / 主题 token 已封装 |
 | 给 `IconButton` 再写原生 `title`,或在业务里手写 `<Popover role="tooltip">` | 图标按钮的 `title` 已走 [`Tooltip`](#tooltip);短提示用 Tooltip,菜单才用 [`Popover`](#popover) |
 | 在 `IconButton` 外包一层 `Tooltip` | [`IconButton`](#iconbutton) 已内置,配 `title` / `tooltipPlacement` / `tooltipDelay` 即可 |
+| 为对话框手写 `fixed inset-0` + 点遮罩关闭 | 用 [`Modal`](#modal)。Setting 那种整页覆盖仍自己写 |
 
 ## Expandable
 
@@ -1054,7 +1056,7 @@ const loadOptions = async ({ query, offset, limit }: Params): Promise<Result<V>>
 **何时不用**:
 
 - 短 hover 提示 → [`Tooltip`](#tooltip);图标按钮直接用 [`IconButton`](#iconbutton) 的 `title`
-- 全屏 modal → 自己写 fixed inset-0 覆盖层(参考 [`web.md` §Setting](web.md#布局))
+- 遮罩对话框 → [`Modal`](#modal)。Setting 那种整页覆盖仍自己写 `fixed inset-0`(参考 [`web.md` §Setting](web.md#布局))
 - 不需要浮层定位 → inline 展开
 
 **API**:
@@ -1145,6 +1147,58 @@ const loadOptions = async ({ query, offset, limit }: Params): Promise<Result<V>>
 
 固定行为:`trigger={['hover']}`、`role="tooltip"`、`interactive={false}`。浮层外壳沿用 Popover(背景、边框、阴影、`text-sm`、`text-fg-2`)，圆角用 `rounded-sm`(6px)，比 Popover 的 `rounded-lg` 小一档，因为内容一般只有一行。内容区 `px-3 py-1.5`，`pointer-events-none`。
 
+## Modal
+
+单文件 `ui/Modal.tsx`。视口遮罩上的对话框壳,与 [`Popover`](#popover) 并列,都包 `@floating-ui/react`,不包 `<Popover>`。没有触发器,没有标题和按钮。内容、宽度、内边距由调用方写。
+
+**查阅时机**:加一个居中或距顶的对话框,或把一次性 `fixed inset-0` 收成可复用壳。Setting 整页覆盖不用它。
+
+**何时用**:
+
+- 需要遮罩、Esc、点遮罩关闭、焦点困在框内、进出过渡
+- 框内内容完全自定义,只要一层基本外壳
+
+**何时不用**:
+
+- 贴着按钮的菜单 / 信息卡 → [`Popover`](#popover)
+- 整页覆盖(Setting) → 自己写 `fixed inset-0`
+
+**API**:
+
+```tsx
+<Modal
+  open={open}                    // 传了即受控;没传走内部 state
+  defaultOpen={false}            // 仅非受控的初始值,默认 false
+  onOpenChange={setOpen}         // 受控和非受控都会调用
+  closeOnBackdrop={true}         // 点遮罩关闭,默认 true
+  closeOnEscape={true}           // Esc 关闭,默认 true
+  align="center"                 // 'center' | 'top';默认 'center'
+  top={80}                       // 仅 align="top",距视口顶的像素,默认 80
+  className="w-full max-w-[360px] p-4"  // 包住 children 的最外层内容盒
+  style={{ }}                    // 同一层,CSSProperties,可覆盖内置样式
+  aria-labelledby={titleId}
+>
+  {children}
+</Modal>
+```
+
+受控时外面不把 `open` 改成 `false`,框就不会关。非受控没有触发器:按 `defaultOpen` 决定一开始是否出现,关掉后保持关闭。
+
+**外壳**(内置):
+
+| 项 | 值 |
+|---|---|
+| 内容盒背景 | `bg-app`(`#151515`),比 Popover 的 `bg-sidebar` 深 |
+| 边框 | `border-border-hover` |
+| 圆角 | `rounded-lg` |
+| 阴影 | `shadow-lg` |
+| 字号 / 字色 | `text-sm` / `text-fg-2` |
+| 遮罩 | `bg-black/70`,左右 `px-6` |
+| z-index | 遮罩 `z-[100]`,高于 Popover 的 `z-[99]` |
+| 过渡 | 出现 200ms `ease-out`,消失 220ms `ease-in`(先停住再收走)。遮罩只淡入淡出;内容盒同时动透明度、`scale` 和 8px 位移。过渡属性要含 `scale` / `translate`(Tailwind v4 不写进 `transform`)。`prefers-reduced-motion` 时无过渡 |
+
+`align="center"` 水平垂直都居中。`align="top"` 只水平居中,`top` 写在遮罩的 `paddingTop` 上。点遮罩用 `mousedown`,避免触摸事件穿透到后面。打开时焦点进入框内第一个可聚焦元素,关闭后回到之前的焦点。背景滚动锁定。`className` / `style` 不作用在遮罩上。
+
 ## ResizablePanels
 
 `ResizablePanelGroup` / `ResizablePanel` / `ResizableHandle` 三个一起用,封装自 `react-resizable-panels`。`web.md` §布局 讲了四区布局与尺寸约束;组件 API 在此补完。
@@ -1181,6 +1235,7 @@ ui/MonacoEditor     ← extensions/plugins/files/viewers
 ui/MessageSurface   ← components/conversation/UserMessage
 ui/PaneHeader       ← extensions/plugins/terminal/TerminalView, extensions/plugins/files/FilesView
 ui/Popover          ← ui/Tooltip, components/* (按需)
+ui/Modal            ← components/AddProjectDialog
 ui/Tooltip          ← ui/IconButton
 ui/IconButton       ← components/SidebarActions, components/ProjectSectionHeader, ...
 ui/Resizable*       ← App.tsx

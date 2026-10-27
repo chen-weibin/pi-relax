@@ -1,6 +1,7 @@
 import { useEffect, useId, useState } from 'react'
 import { ApiError } from '../api/http'
 import { registerProjectDirectory } from '../session'
+import { Modal } from '../ui/Modal'
 
 export function AddProjectDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
 	const titleId = useId()
@@ -13,14 +14,7 @@ export function AddProjectDialog({ open, onClose }: { open: boolean; onClose: ()
 		setPath('')
 		setError(null)
 		setPending(false)
-		const onKey = (event: KeyboardEvent) => {
-			if (event.key === 'Escape') onClose()
-		}
-		window.addEventListener('keydown', onKey)
-		return () => window.removeEventListener('keydown', onKey)
-	}, [open, onClose])
-
-	if (!open) return null
+	}, [open])
 
 	async function submit() {
 		const cwd = path.trim()
@@ -41,16 +35,15 @@ export function AddProjectDialog({ open, onClose }: { open: boolean; onClose: ()
 	}
 
 	return (
-		<div
-			className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6"
-			onMouseDown={onClose}
+		<Modal
+			open={open}
+			onOpenChange={(next) => {
+				if (!next) onClose()
+			}}
+			className="w-full max-w-[360px] p-4"
+			aria-labelledby={titleId}
 		>
 			<form
-				role="dialog"
-				aria-modal="true"
-				aria-labelledby={titleId}
-				className="w-full max-w-[360px] rounded-lg border border-border bg-sidebar p-4"
-				onMouseDown={(event) => event.stopPropagation()}
 				onSubmit={(event) => {
 					event.preventDefault()
 					void submit()
@@ -86,6 +79,6 @@ export function AddProjectDialog({ open, onClose }: { open: boolean; onClose: ()
 					</button>
 				</div>
 			</form>
-		</div>
+		</Modal>
 	)
 }
