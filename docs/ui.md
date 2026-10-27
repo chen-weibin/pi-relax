@@ -2,7 +2,7 @@
 
 `app/web/src/ui/` 是 `app/web` 的 UI 组件库目录,业务无关、可在多处复用。对内封装第三方库,对上提供与领域词无关的原子组件。
 
-> 集成层(Tailwind 接入、设计 token、`app/web` 四区布局、滚动条变体)在 [`docs/web.md`](web.md)。本文档回答「该用哪个 / 别自己写 / 组件细节」。
+> 集成层(Tailwind 接入、设计 token、`app/web` 四区布局、滚动条变体)在 [`docs/web.md`](web.md)。本文档回答「该用哪个 / 别自己写 / 组件细节」。要对着实机看形态时，本地开发服务器打开 `/ui`（生产构建不含这条路由）。说明和演示在 `app/web/src/uidoc/`，API 仍看本文。
 
 ## 何时放进 `ui/`
 

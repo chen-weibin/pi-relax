@@ -260,10 +260,10 @@ streamdown 与插件的 Tailwind 类扫描写在 [`ui/MarkdownView/index.css`](.
 | 路径 | 页面 | 说明 |
 |---|---|---|
 | `/` | `pages/Workspace` | 现有四区壳。`startSessionTransport()` 在这里启动 |
-| `/ui` | `pages/Ui` | 整页 `bg-app`，左上角标题占位，内容以后再补 |
+| `/ui` | `pages/Ui` | 只在 `import.meta.env.DEV` 注册。左侧目录宽固定 220px，按操作 / 浮层 / 反馈 / 布局 / 文本分组。当前节底色只包住文字；同一节有多项时只高亮离标题最近的一项。滚动条隐藏。右侧内容居中，每个组件一块圆角描边预览，组件之间一条与内容同宽的分隔线。点目录平滑滚到对应节。说明和演示在 `src/uidoc/`，页面不贴源码。`vite build` 不包含这条路由 |
 | 其他 | — | `<Navigate to="/" replace />` |
 
-两条页面都用 `React.lazy` 动态 `import`，Vite 拆 chunk。路由级组件放 `src/pages/`，不要放进 `src/ui/`（那是组件库）。
+`Workspace` 用 `React.lazy` 动态 `import`，Vite 拆 chunk。`/ui` 的 `lazy(() => import('../pages/Ui'))` 写在 `if (import.meta.env.DEV)` 里，生产构建把这个分支和 `uidoc` 一起裁掉。路由级组件放 `src/pages/`，不要放进 `src/ui/`（那是组件库）。陈列页的文案和多种形态放 `src/uidoc/`，不要堆进 `pages/Ui.tsx`。
 
 `mainView`（对话 / 自定义）仍是壳内状态，不进 URL。
 
@@ -295,10 +295,11 @@ streamdown 与插件的 Tailwind 类扫描写在 [`ui/MarkdownView/index.css`](.
 src/
 ├── main.tsx                      # BrowserRouter，里面渲染 App
 ├── App.tsx                       # useRoutes(routes)；Suspense fallback 为空
-├── router/index.tsx              # 路由表：/ 、/ui ，其余重定向到 /
+├── router/index.tsx              # 路由表：/ ；开发环境另有 /ui ，其余重定向到 /
 ├── pages/
 │   ├── Workspace.tsx             # 四区壳；shell 状态从 common store 切片读取
-│   └── Ui.tsx                    # /ui 占位页
+│   └── Ui.tsx                    # 开发环境陈列页壳：左侧目录 + 右侧分节
+├── uidoc/                        # /ui 的说明和演示，仅开发构建引用
 ├── conversation/                 # 会话数据层:类型 + createBlockRuntime(详见 docs/web-conversation.md)
 ├── hooks/
 │   └── usePersistedPanelLayout.ts # 面板宽度读写 store/local.ts，不直接碰 localStorage
