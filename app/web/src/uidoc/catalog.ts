@@ -4,6 +4,7 @@ import { dotMatrixDoc } from './DotMatrix'
 import { editorDoc } from './Editor'
 import { expandableDoc } from './Expandable'
 import { iconButtonDoc } from './IconButton'
+import { inputDoc } from './Input'
 import { loadingDotsDoc } from './LoadingDots'
 import { markdownViewDoc } from './MarkdownView'
 import { messageSurfaceDoc } from './MessageSurface'
@@ -34,7 +35,7 @@ export type UiDocSection = {
 export const uiDocGroups: { title: string; sections: UiDocSection[] }[] = [
 	{
 		title: '操作',
-		sections: [iconButtonDoc, switchDoc, searchInputDoc, selectDoc, numberStepperDoc, progressBarDoc],
+		sections: [iconButtonDoc, switchDoc, inputDoc, searchInputDoc, selectDoc, numberStepperDoc, progressBarDoc],
 	},
 	{
 		title: '浮层',

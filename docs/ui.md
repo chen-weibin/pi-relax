@@ -36,6 +36,7 @@
 | 渐变扫光文字(标题 / CTA / loading) | [`ShinyText`](#shinytext) | 不要自己写 `linear-gradient` + `@keyframes`,也不要为单次使用装 `motion` |
 | 标题 + 展开收起(chevron + 高度过渡 + 标题可扫光) | [`DisclosureRow`](#disclosurerow) | 不要写本地 `<button>` + `<svg>` + `useState` 三件套 |
 | 任意区域的高度过渡展开(无 header) | [`Expandable`](#expandable) | 不要自己写 `max-height` 凑数(无法适配动态内容高度);不要为单处使用装 `framer-motion` |
+| 单行文本输入(尺寸、清空、前后缀、字数、状态、提示) | [`Input`](#input) | 不要写裸 `<input>` 再拼清空、字数和状态边框;带搜索图标仍用 [`SearchInput`](#searchinput) |
 | 搜索框(带搜索图标、统一 hover/focus) | [`SearchInput`](#searchinput) | 不要写裸 `<input>` + 绝对定位 icon 的样式散落 |
 | 设置面板里的分组卡片(可选小标题) | [`SettingGroup`](#settinggroup) | 不要在 Setting 页里写裸 `<section rounded-xl bg-surface>` + `<h2>` 三件套 |
 | 设置面板里的一行(左 label + 描述,右控制区) | [`SettingRow`](#settingrow) | 不要写裸 `<div flex justify-between><div>{label}<div>{desc}</div></div><div>...</div></div>` 三层嵌套 |
@@ -68,6 +69,7 @@
 | 给 `IconButton` 再写原生 `title`,或在业务里手写 `<Popover role="tooltip">` | 图标按钮的 `title` 已走 [`Tooltip`](#tooltip);短提示用 Tooltip,菜单才用 [`Popover`](#popover) |
 | 在 `IconButton` 外包一层 `Tooltip` | [`IconButton`](#iconbutton) 已内置,配 `title` / `tooltipPlacement` / `tooltipDelay` 即可 |
 | 为对话框手写 `fixed inset-0` + 点遮罩关闭 | 用 [`Modal`](#modal)。Setting 那种整页覆盖仍自己写 |
+| 手写带清空、前后缀、字数或状态边框的 `<input>` | 用 [`Input`](#input)。搜索框仍用 [`SearchInput`](#searchinput) |
 
 ## Expandable
 
@@ -637,6 +639,76 @@
 
 `title` 不是字符串时,无障碍名称用调用方传入的 `aria-label`。
 
+## Input
+
+单文件 `ui/Input.tsx`。单行文本框:三种高度、清空、前后缀、框内字数、状态边框,以及输入框下方的提示。
+
+**查阅时机**:表单或设置里要一个普通文本框,或评估是否写裸 `<input>` 再拼清空按钮、字数和错误边框。
+
+**何时用**:
+
+- 单行文本,要统一高度 / focus / placeholder
+- 需要清空、前后缀、字数、`error` / `warning` / `success`,或框下提示
+- 后续表单要把校验文案放在控件下,并可事先留出一行高度
+
+**何时不用**:
+
+- 带搜索图标、回车即搜索 → [`SearchInput`](#searchinput)
+- 富文本、多行提交 → [`Editor`](#editor) + `Composer`
+- 只要一个没有这些能力的框 → 裸 `<input>` 即可
+
+**API**:透传 `InputHTMLAttributes<HTMLInputElement>` 中除 `size` / `prefix` / `value` / `defaultValue` / `onChange` 外的属性(`readOnly`、`name`、`autoFocus`、`type`、`onBlur` 等走 rest)。原生 `size`(字符宽度)让给视觉尺寸。
+
+| prop | 类型 | 默认 | 说明 |
+|---|---|---|---|
+| `value` | `string` | — | 受控值;**传了就走受控** |
+| `defaultValue` | `string` | — | 非受控初始值 |
+| `onChange` | `(value: string) => void` | — | 每次输入变化,只传字符串 |
+| `onPressEnter` | `(value: string) => void` | — | 按下 Enter 时触发。不 `preventDefault`,表单提交仍会继续 |
+| `size` | `'sm' \| 'md' \| 'lg'` | `'md'` | sm 24px,md 30px(与 SearchInput / Select 同高),lg 36px |
+| `variant` | `'filled' \| 'transparent'` | `'filled'` | `'filled'` 有边框和 `bg-surface`。`'transparent'` 保留边框,中间透明;焦点只加深边框,不铺背景 |
+| `disabled` | `boolean` | — | 整框降透明并禁交互;清空按钮不出现 |
+| `allowClear` | `boolean` | `false` | 值非空、且非 `disabled` / `readOnly` 时,在右侧显示清空 |
+| `prefix` / `suffix` | `ReactNode` | — | 框内前后内容,图标或短文本 |
+| `showCount` | `boolean` | `false` | 字数画在框内最右侧 |
+| `maxLength` | `number` | — | 写到原生 input 上,`onChange` 前再截一次。和 `showCount` 同时存在时显示 `6 / 20`;只有 `showCount` 时显示 `6` |
+| `status` | `'error' \| 'warning' \| 'success'` | — | 边框和输入文字的颜色;`error` 时 `aria-invalid`。焦点仍保持该颜色 |
+| `hint` | `ReactNode` | — | 框下提示。有内容时接到 `aria-describedby` |
+| `hintStatus` | 同 `status` | 跟随 `status` | 提示自己的颜色 |
+| `hintReserve` | `boolean` | `false` | `true` 时提示槽始终占一行,空文案也留高;`false` 时绝对贴在框下,不推动后面的字段 |
+| `className` | `string` | — | 透传到外层 wrapper |
+
+```tsx
+<Input placeholder="名称" />
+
+<Input variant="transparent" placeholder="只有边框" />
+
+<Input allowClear defaultValue="可清空" onChange={setName} />
+
+<Input showCount maxLength={20} prefix={<SearchIcon />} />
+
+<Input status="error" hint="至少 2 个字符" hintReserve />
+
+// 提示不占位,盖在框下
+<Input status="warning" hint="格式不对" />
+```
+
+**视觉**:
+
+- `'filled'`(默认):边框 `border-border-hover`、`bg-surface`,焦点边框略加深、背景到 `surface-hover`,与 [`SearchInput`](#searchinput) 的 bordered 一致。
+- `'transparent'`:同一条边框,中间 `bg-transparent`。焦点只加深边框,背景保持透明。状态色仍画在边框和文字上。
+- 字数在框内最右(`text-fg-3`、`tabular-nums`)。从右往左是字数、`suffix`、清空按钮,清空出现时数字仍留在框内。
+- 清空是 14px 圆标,颜色在 `fg-3` 和 `fg-disabled` 之间,悬停升到 `fg-2`。中间的叉是镂空,能透出输入框背景。只有值非空时出现。
+- 提示约 160ms 透明度 + 约 2px 上移,不做高度动画。`hintReserve` 的一行高度一直在;不占位时只淡入淡出。
+
+**踩坑备忘**:
+
+- Enter 跳过 IME 组字中(`!e.nativeEvent.isComposing`),中文输入法回车选词不会触发 `onPressEnter`。
+- 受控时如果 `onChange` 没有把 `value` 写回去,输入看起来没变化。
+- 字数按 JS 字符串长度,和原生 `maxLength`(UTF-16 码元)一致。
+- `hint` 每次渲染都换成新的 React 元素会重跑淡入。文案用字符串,或把元素提到渲染外面。
+- 清空按钮 `tabIndex={-1}`,Tab 不会从输入框跳到它上面。
+
 ## SearchInput
 
 单文件 `ui/SearchInput.tsx`。左侧带搜索图标的输入框,统一圆角 / 字号 / hover / focus 视觉。
@@ -651,8 +723,8 @@
 
 **何时不用**:
 
-- 不需要左侧 icon → 裸 `<input>` 即可
-- 需要右置 icon / suffix / 清除按钮 → 直接写自己的 wrapper,这种变体不值得抽
+- 不需要搜索图标 → [`Input`](#input);连清空、字数、状态都不要时,裸 `<input>` 即可
+- 需要清空 / 前后缀 / 字数 / 状态边框 / 框下提示 → [`Input`](#input)
 - 富文本输入 → [`Editor`](#editor) + `Composer`
 
 **API**:透传 `InputHTMLAttributes<HTMLInputElement>` 中除 `value` / `defaultValue` / `onChange` 外的全部属性,以下为本组件专有契约:
