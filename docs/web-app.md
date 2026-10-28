@@ -125,7 +125,7 @@ Store 继续按字段切片订阅。做法见 [web-zustand-store-design.md](supe
 
 此块不做：打开历史后的正文、发送、删除、改名。
 
-当前实现：草稿在 `useCatalogStore` 的 `drafts`，不进 `sessionPages`，不写 `localStorage`。侧栏「新对话」走 `openDraftForCurrentProject`，项目行 `+` 走 `openProjectDraft(cwd)`。选中草稿调用 `clearOpenSession`，不发 history 请求。添加项目是 `AddProjectDialog`，只收绝对路径。登记成功后重拉第一页（新行 `position` 最大，排在默认工作区下面）；列表没刷新成功时把返回的项目插到已加载列表最前。同一 `cwd` 再登记得到 `409`，向后翻页直到那一行出现，不另插一行。默认工作区仍固定第一行，不进项目表。
+当前实现：草稿在 `useCatalogStore` 的 `drafts`，不进 `sessionPages`，不写 `localStorage`。侧栏「新对话」走 `openDraftForCurrentProject`，项目行 `+` 走 `openProjectDraft(cwd)`。选中草稿调用 `clearOpenSession`，不发 history 请求。添加工作目录是 `AddProjectDialog`，只收绝对路径。登记成功后重拉第一页（新行 `position` 最大，排在默认工作区下面）；列表没刷新成功时把返回的项目插到已加载列表最前。同一 `cwd` 再登记得到 `409`，向后翻页直到那一行出现，不另插一行。默认工作区仍固定第一行，不进项目表。
 
 ### 3. 打开历史
 

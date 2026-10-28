@@ -458,7 +458,7 @@ ProjectSection
 **交互行为**:
 
 - **section 整体折叠**:点 header 中的「项目 + chevron」整块(hover 时 chevron 显形),`sectionExpanded` 切换;折叠走外层 `<Expandable duration={200}>` 高度过渡(`grid-template-rows: 0fr ↔ 1fr`,200ms `ease-out`),项目列表常驻以保证动画可播。
-- **header 右侧 IconButton**(filter / add-folder):用 `IconButton` 默认 size(等同 `UserBar` 设置按钮),点击各自 handler;不影响 header toggle。过滤仍是空函数。添加项目用 [`Modal`](ui.md#modal) 打开居中输入框,用户粘贴绝对路径后登记;取消、Esc 或点遮罩关闭,不登记。
+- **header 右侧 IconButton**(filter / add-folder):用 `IconButton` 默认 size(等同 `UserBar` 设置按钮),点击各自 handler;不影响 header toggle。过滤仍是空函数。添加工作目录用 [`Modal`](ui.md#modal) 打开居中输入框,标题「添加工作目录」,输入框透明底并可清空,确认是「确定」。用户粘贴绝对路径后登记;取消、Esc 或点遮罩关闭,不登记。
 - **项目展开/收起**:点项目行 toggle。没有收起记录默认展开;收起的 id 记在 `useLocalStore` 的 `projectsCollapsed` 并写入 `relax`。展开/收起走 `<Expandable duration={200}>` 高度过渡(`grid-template-rows: 0fr ↔ 1fr`,200ms `ease-out`),`SessionItem` 列表常驻以保证动画可播。只有展开的项目才拉会话。
 - **新对话**:侧栏「新对话」和项目行 `+` 都在目标项目会话列最前放一条内存草稿,标题「新对话」,状态点 `normal`(`--fg-disabled`)。每个项目最多一条。选中它不拉历史。打开草稿时展开对应项目,并展开整块项目列表。
 - **项目 icon 切换**:默认显示 folder(展开=open,收起=closed),hover 时切到 chevron(展开=rotate-90 朝下,收起=朝右)。folder 在 14×14 槽内,chevron 缩到 10×10 居中,通过 `group` + `group-hover/row:hidden` / `group-hover/row:flex` 切换,两种 icon 绝对定位重叠占同 14×14 槽,布局不抖。

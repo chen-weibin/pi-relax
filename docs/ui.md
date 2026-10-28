@@ -1370,6 +1370,7 @@ const loadOptions = async ({ query, offset, limit }: Params): Promise<Result<V>>
 | `ellipsis` | `boolean \| number` | 关 | 关则换行(`wrap-break-word`)。`true` 或 `1` 单行省略。`2` 及以上按行数截断。省略时带 `min-w-0`,父级仍要有确定宽度 |
 | `tooltip` | `boolean` | `false` | 省略开启且文字真的溢出时,悬停用 [`Tooltip`](#tooltip) 显示全文。子节点不是字符串时不启用。未溢出不挂浮层 |
 | `className` | `string` | — | 最后合并 |
+| `id` | `string` | — | 挂在标题标签上,给 `aria-labelledby` 用 |
 | `children` | `ReactNode` | — | 标题内容 |
 
 ## Paragraph

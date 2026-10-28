@@ -24,6 +24,7 @@ export type HeadingProps = {
 	/** When ellipsis is on and the text actually overflows, hover shows the full string. */
 	tooltip?: boolean
 	className?: string
+	id?: string
 	children?: ReactNode
 }
 
@@ -44,6 +45,7 @@ export function Heading({
 	ellipsis,
 	tooltip = false,
 	className,
+	id,
 	children,
 }: HeadingProps) {
 	const lines = ellipsisLines(ellipsis)
@@ -54,6 +56,7 @@ export function Heading({
 		levelTag[level],
 		{
 			ref,
+			id,
 			className: classNames(
 				'm-0 font-semibold',
 				levelClass[level],

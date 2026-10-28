@@ -1,6 +1,10 @@
 import { useEffect, useId, useState } from 'react'
 import { ApiError } from '../api/http'
 import { registerProjectDirectory } from '../session'
+import { Button } from '../ui/Button'
+import { Heading } from '../ui/Heading'
+import { Hint } from '../ui/Hint'
+import { Input } from '../ui/Input'
 import { Modal } from '../ui/Modal'
 
 export function AddProjectDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -28,7 +32,7 @@ export function AddProjectDialog({ open, onClose }: { open: boolean; onClose: ()
 			await registerProjectDirectory(cwd)
 			onClose()
 		} catch (caught) {
-			const message = caught instanceof ApiError ? caught.message : '登记失败'
+			const message = caught instanceof ApiError ? caught.message : '添加失败'
 			setError(message)
 			setPending(false)
 		}
@@ -49,34 +53,28 @@ export function AddProjectDialog({ open, onClose }: { open: boolean; onClose: ()
 					void submit()
 				}}
 			>
-				<h2 id={titleId} className="text-sm text-fg">
-					添加项目
-				</h2>
-				<p className="mt-1 text-xs text-fg-3">请自己复制目录的绝对路径，例如 /Users/xxx/project</p>
-				<input
+				<Heading id={titleId}>添加工作目录</Heading>
+				<Hint className="mt-1">请自己复制目录的绝对路径，例如 /Users/xxx/project</Hint>
+				<Input
 					autoFocus
+					allowClear
+					variant="transparent"
+					className="mt-3"
 					value={path}
 					disabled={pending}
 					placeholder="/Users/xxx/project"
-					onChange={(event) => setPath(event.target.value)}
-					className="mt-3 w-full rounded-md border border-border bg-surface px-2.5 py-1.5 text-sm text-fg outline-none placeholder:text-fg-disabled"
+					status={error ? 'error' : undefined}
+					hint={error ?? undefined}
+					hintReserve={error != null}
+					onChange={setPath}
 				/>
-				{error ? <p className="mt-2 text-xs text-error">{error}</p> : null}
 				<div className="mt-4 flex justify-end gap-2">
-					<button
-						type="button"
-						onClick={onClose}
-						className="cursor-pointer rounded-md px-2.5 py-1 text-sm text-fg-2 hover:bg-surface-hover"
-					>
+					<Button type="button" variant="ghost" onClick={onClose}>
 						取消
-					</button>
-					<button
-						type="submit"
-						disabled={pending}
-						className="cursor-pointer rounded-md bg-surface-active px-2.5 py-1 text-sm text-fg disabled:opacity-50"
-					>
-						{pending ? '登记中' : '登记'}
-					</button>
+					</Button>
+					<Button type="submit" tone="inverse" disabled={pending}>
+						{pending ? '添加中' : '确定'}
+					</Button>
 				</div>
 			</form>
 		</Modal>
