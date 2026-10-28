@@ -22,7 +22,7 @@ export function Tooltip({ title, children, placement = 'top', delay = 400 }: Too
 			placement={placement}
 			interactive={false}
 			openDelay={delay}
-			className="pointer-events-none rounded-sm!"
+			className="pointer-events-none rounded-sm! bg-app!"
 			content={<div className="px-3 py-1.5">{title}</div>}
 		>
 			{children}

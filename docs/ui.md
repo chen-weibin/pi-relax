@@ -1257,7 +1257,7 @@ const loadOptions = async ({ query, offset, limit }: Params): Promise<Result<V>>
 
 `placement` 直接用 `@floating-ui/react` 的 `Placement`，不另定义一套方位。
 
-固定行为:`trigger={['hover']}`、`role="tooltip"`、`interactive={false}`。浮层外壳沿用 Popover(背景、边框、阴影、`text-sm`、`text-fg-2`)，圆角用 `rounded-sm`(6px)，比 Popover 的 `rounded-lg` 小一档，因为内容一般只有一行。内容区 `px-3 py-1.5`，`pointer-events-none`。
+固定行为:`trigger={['hover']}`、`role="tooltip"`、`interactive={false}`。浮层外壳沿用 Popover 的边框、阴影、`text-sm`、`text-fg-2`，背景改成与 Modal 内容盒相同的 `bg-app`。圆角用 `rounded-sm`(6px)，比 Popover 的 `rounded-lg` 小一档，因为内容一般只有一行。内容区 `px-3 py-1.5`，`pointer-events-none`。背景和圆角用 `!`，否则盖不过 Popover 上同名的 utility。
 
 ## Modal
 

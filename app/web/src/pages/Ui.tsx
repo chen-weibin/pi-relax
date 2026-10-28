@@ -1,15 +1,16 @@
 import classNames from 'classnames'
 import { Fragment, useEffect, useRef, useState } from 'react'
+import '../styles/scrollbar.css'
 import { uiDocGroups, uiDocSections } from '../uidoc/catalog'
-import './Ui.css'
 
 function nearestLabel(sectionId: string): string | null {
 	const heading = document.getElementById(sectionId)
 	const links = [...document.querySelectorAll<HTMLAnchorElement>(`nav a[href="#${sectionId}"]`)]
-	if (links.length === 0) return null
-	if (!heading) return links[0].dataset.label ?? null
+	const first = links[0]
+	if (!first) return null
+	if (!heading) return first.dataset.label ?? null
 	const y = heading.getBoundingClientRect().top
-	let best = links[0]
+	let best = first
 	let bestDist = Infinity
 	for (const link of links) {
 		const dist = Math.abs(link.getBoundingClientRect().top - y)
@@ -23,7 +24,7 @@ function nearestLabel(sectionId: string): string | null {
 
 export function UiPage() {
 	const mainRef = useRef<HTMLElement>(null)
-	const activeIdRef = useRef(window.location.hash.slice(1) || uiDocSections[0]?.id)
+	const activeIdRef = useRef(window.location.hash.slice(1) || uiDocSections[0]?.id || '')
 	const [activeId, setActiveId] = useState(activeIdRef.current)
 	const [activeLabel, setActiveLabel] = useState<string | null>(null)
 
@@ -71,7 +72,7 @@ export function UiPage() {
 
 	return (
 		<div className="flex h-full bg-app text-fg">
-			<nav className="ui-doc-nav w-[220px] shrink-0 overflow-y-auto px-4 py-8">
+			<nav className="scrollbar-none w-[220px] shrink-0 overflow-y-auto px-4 py-8">
 				{uiDocGroups.map((group) => (
 					<div key={group.title} className="mt-6 first:mt-0">
 						<div className="px-2 text-sm text-fg-2">{group.title}</div>
