@@ -25,6 +25,7 @@
 | 需求 | 用 | 别用 / 别写 |
 |---|---|---|
 | 三栏/两栏可拖布局 | [`ResizablePanelGroup` / `ResizablePanel` / `ResizableHandle`](#resizablepanels) | 不要直接用 `react-resizable-panels` 原生 API |
+| 带文字的按钮(变体、尺寸、色调、整行、前后图标) | [`Button`](#button) | 不要手写实底 / 描边 / 幽灵三套 class;只显示图标用 [`IconButton`](#iconbutton) |
 | 图标按钮(可访问、统一样式) | [`IconButton`](#iconbutton) | 不要写裸 `<button>` 套 `<svg>`(style 漂移、`disabled` 漏处理);不要再外包一层 Tooltip,`title` 就是提示 |
 | 短 hover 提示 | [`Tooltip`](#tooltip) | 不要在业务里手写 `<Popover role="tooltip">`,也不要再用原生 `title` 当气泡 |
 | 浮层 / 菜单 | [`Popover`](#popover) | 不要直接用 `@floating-ui/react`(定位/翻转/portal 都要自己粘) |
@@ -70,6 +71,8 @@
 | 在 `IconButton` 外包一层 `Tooltip` | [`IconButton`](#iconbutton) 已内置,配 `title` / `tooltipPlacement` / `tooltipDelay` 即可 |
 | 为对话框手写 `fixed inset-0` + 点遮罩关闭 | 用 [`Modal`](#modal)。Setting 那种整页覆盖仍自己写 |
 | 手写带清空、前后缀、字数或状态边框的 `<input>` | 用 [`Input`](#input)。搜索框仍用 [`SearchInput`](#searchinput) |
+| 手写实底 / 描边 / 幽灵文字按钮 | 用 [`Button`](#button)。只显示图标用 [`IconButton`](#iconbutton) |
+| 给 `Button` 加任意颜色 prop | 色调只有 `neutral` / `inverse`,走 token;一次性换色用 `className` |
 
 ## Expandable
 
@@ -610,6 +613,37 @@
 
 **视觉**:`h-[38px] shrink-0 items-center`,`border-b border-border`,`pl-2 pr-3`(右侧与壳层 `ExtensionShellHeader` 的 `pr-3` 对齐);左右用 `justify-between`。
 
+## Button
+
+单文件 `ui/Button.tsx`。带可见文字的按钮。变体管底和边,色调管颜色,圆角随尺寸变。
+
+**查阅时机**:加文字按钮(对话框确认 / 取消、整行操作、带图标的动作),或评估是否手写 `<button>` 的实底 / 描边 / 幽灵样式。
+
+**何时用**:
+
+- 按钮上有可见文字,可能再带前或后图标
+- 要统一高度、圆角、hover、禁用
+- 要占满当前行(`block`)
+
+**何时不用**:
+
+- 只显示一个图标 → [`IconButton`](#iconbutton)
+- 列表行、Tab、开关、选择器触发器、输入框内的清空 / 搜索图标 → 各用对应组件,不要套 Button
+- 需要 accent / error 等彩色档 → 先不要加色调;一次性换色用 `className`
+
+**API**: `forwardRef`。`type` 默认 `button`。`className` 最后合并,可压过默认样式。`disabled` 降透明并禁交互。原生 `prefix`(字符串)让给前面的图标。其余原生属性透传。
+
+| prop | 类型 | 默认 | 说明 |
+|---|---|---|---|
+| `variant` | `solid \| outline \| ghost` | `solid` | 实底 / 描边 / 无底 |
+| `size` | `sm \| md \| lg` | `md` | 高 24 / 30 / 36px,圆角 6 / 8 / 10px,图标 12 / 14 / 16px |
+| `tone` | `neutral \| inverse` | `neutral` | `neutral` 走 surface / fg 灰阶。`inverse` 是浅色按钮:`bg-fg text-app`,与主题一起翻转 |
+| `block` | `boolean` | `false` | `w-full`,内容保持居中 |
+| `prefix` | `ReactNode` | — | 文字前的图标。空则不渲染 |
+| `suffix` | `ReactNode` | — | 文字后的图标。空则不渲染 |
+
+`neutral` + `solid` 为 `bg-surface`,hover `surface-hover`,按下 `surface-active`。`outline` 为透明底 + `border-border`。`ghost` 无底无边。`inverse` 的描边和幽灵 hover 用 `bg-fg/10`。
+
 ## IconButton
 
 单文件 `ui/IconButton.tsx`。图标按钮,统一变体 / 尺寸 / 禁用态。
@@ -624,7 +658,7 @@
 
 **何时不用**:
 
-- 按钮带可见文字 → 普通 `<button>`(Material/Tailwind 已有 `text-sm` 等可用)
+- 按钮带可见文字 → [`Button`](#button)
 - 复杂下拉菜单触发器 → [`Popover`](#popover) 自带触发器
 
 **API**: `variant: ghost | solid`,`size: sm | md`(默认 `md` 固定命中区 26×26,与壳层展开/收起 toggle 同尺寸;图标默认 14px,调用方用 `[&_svg]:h-* [&_svg]:w-*` 改视觉大小,不要改按钮尺寸),`disabled` 自动降透明 + 禁交互,`type` 默认 `button`,透传其他原生属性(`aria-pressed` / `name` / `value` / `tabIndex` 等)。

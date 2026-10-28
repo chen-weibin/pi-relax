@@ -1,4 +1,5 @@
 import type { ComponentType } from 'react'
+import { buttonDoc } from './Button'
 import { disclosureRowDoc } from './DisclosureRow'
 import { dotMatrixDoc } from './DotMatrix'
 import { editorDoc } from './Editor'
@@ -35,7 +36,7 @@ export type UiDocSection = {
 export const uiDocGroups: { title: string; sections: UiDocSection[] }[] = [
 	{
 		title: '操作',
-		sections: [iconButtonDoc, switchDoc, inputDoc, searchInputDoc, selectDoc, numberStepperDoc, progressBarDoc],
+		sections: [buttonDoc, iconButtonDoc, switchDoc, inputDoc, searchInputDoc, selectDoc, numberStepperDoc, progressBarDoc],
 	},
 	{
 		title: '浮层',

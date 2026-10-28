@@ -168,6 +168,7 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
 |---|---|---|
 | `ResizablePanelGroup` / `ResizablePanel` / `ResizableHandle` | 可拖布局三件套,封装 `react-resizable-panels` | [`ui.md#resizablepanels`](ui.md#resizablepanels) |
 | `PaneHeader` | 子面板顶栏(38px + 底部分割线,左右 slot) | [`ui.md#paneheader`](ui.md#paneheader) |
+| `Button` | 文字按钮:变体、随尺寸变化的圆角、neutral / inverse、整行、前后图标 | [`ui.md#button`](ui.md#button) |
 | `IconButton` | 图标按钮,统一变体 / 尺寸 / 禁用态;`title` 走 Tooltip | [`ui.md#iconbutton`](ui.md#iconbutton) |
 | `Input` | 单行文本框:尺寸、清空、前后缀、框内字数、状态与框下提示 | [`ui.md#input`](ui.md#input) |
 | `Tooltip` | 短 hover 提示,包在 Popover 上 | [`ui.md#tooltip`](ui.md#tooltip) |
