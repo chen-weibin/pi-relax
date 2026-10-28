@@ -177,6 +177,9 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
 | `Editor` | ProseMirror 智能输入框 | [`ui.md#editor`](ui.md#editor) |
 | `MonacoEditor` | Monaco 代码/文本编辑器,主题走 CSS token | [`ui.md#monacoeditor`](ui.md#monacoeditor) |
 | `MarkdownView` | `streamdown` Markdown 渲染(static / streaming) | [`ui.md#markdownview`](ui.md#markdownview) |
+| `Heading` | 标题:级别即字号、token 色、行高、整行或省略、溢出 Tooltip | [`ui.md#heading`](ui.md#heading) |
+| `Paragraph` | 正文:三种字号、token 色、行高、换行或省略、溢出 Tooltip | [`ui.md#paragraph`](ui.md#paragraph) |
+| `Hint` | 辅助说明:12px、默认三级文字色,其余同 Paragraph | [`ui.md#hint`](ui.md#hint) |
 | `TypewriterText` | rAF grapheme 逐字打字机 | [`ui.md#typewritertext`](ui.md#typewritertext) |
 | `ShinyText` | `motion/react` 渐变扫光文字 | [`ui.md#shinytext`](ui.md#shinytext) |
 | `DisclosureRow` | 标题 + chevron + 展开收起;标题可扫光 | [`ui.md#disclosurerow`](ui.md#disclosurerow) |

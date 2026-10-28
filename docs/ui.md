@@ -50,6 +50,9 @@
 | 点阵 loading(3×3 / 4×4,多尺寸多形状) | [`DotMatrix`](#dotmatrix) | 不要为单个 loading 写一次性 `<div>` 网格 + 自写 CSS `@keyframes`(`motion/react` 已在依赖里) |
 | 单点状态指示(成功 / 失败 / 已读) | [`StatusDot`](#statusdot) | 不要为 `success` / `failure` 单独写 `<div>` + 内联颜色;统一走 `StatusDot` + 项目语义色 token |
 | 插件 / 子面板顶栏(固定 38px + 底部分割线) | [`PaneHeader`](#paneheader) | 不要手写 `h-[38px] + border-b border-border` 顶栏三件套 |
+| 页面标题(级别、颜色、行高、整行、省略) | [`Heading`](#heading) | 不要手写 `h1`–`h4` 再拼 `text-*` / `truncate` |
+| 正文段落(字号、颜色、行高、换行或省略) | [`Paragraph`](#paragraph) | 不要手写 `<p>` 再拼字号、颜色和 `truncate` |
+| 辅助说明(更浅、更小) | [`Hint`](#hint) | 不要把 [`Paragraph`](#paragraph) 改成 `text-sm text-fg-3`;输入框框下那一行仍用 [`Input`](#input) 的 `hint` |
 
 ## 反例:这些事不要做
 
@@ -73,6 +76,9 @@
 | 手写带清空、前后缀、字数或状态边框的 `<input>` | 用 [`Input`](#input)。搜索框仍用 [`SearchInput`](#searchinput) |
 | 手写实底 / 描边 / 幽灵文字按钮 | 用 [`Button`](#button)。只显示图标用 [`IconButton`](#iconbutton) |
 | 给 `Button` 加任意颜色 prop | 色调只有 `neutral` / `inverse`,走 token;一次性换色用 `className` |
+| 手写 `text-xl font-semibold` 当标题,或再拼 `truncate` | 用 [`Heading`](#heading)。颜色走行文 token,一次性换色用 `className` |
+| 手写正文的字号、颜色、换行和省略 | 用 [`Paragraph`](#paragraph) |
+| 辅助说明用 `Paragraph` 再改成 `text-sm text-fg-3` | 用 [`Hint`](#hint)。输入框框下那一行仍用 [`Input`](#input) 的 `hint`,它有绝对定位和状态色 |
 
 ## Expandable
 
@@ -1216,7 +1222,7 @@ const loadOptions = async ({ query, offset, limit }: Params): Promise<Result<V>>
 **踩坑备忘**:
 
 - 触发器(`children`)必须是单个 ReactElement;`cloneElement` 需要 `ref` 注入。如果传了 fragment / 数组 / 字符串,运行时直接 throw。
-- 触发器的原始 `ref` 会被保留(函数式 / object 式都支持)。
+- 触发器的原始 `ref` 会被保留(函数式 / object 式都支持),并和定位用的 ref 接在同一个节点上。React 19 里 `ref` 在 props 上,不能让它盖掉定位 ref,否则 hover 打不开。
 - 浮层挂在 `document.body`(`FloatingPortal` 默认),脱离任何 `overflow:hidden` 祖先。
 - `role` 默认 `'dialog'`。listbox / menu 等场景必须传对应 role,否则屏幕阅读器会朗读成「对话框」。底层用 `@floating-ui/react` 的 `useRole(context, { role })` 接管。短提示不要传 `role="tooltip"`,用 [`Tooltip`](#tooltip)。
 - `openDelay` 默认 `0`,此时 hover 仍是指针停住 `restMs: 50` 后打开。`openDelay > 0` 时改走 `delay.open`,不再设 `restMs`,避免两个定时器抢在一起。
@@ -1329,6 +1335,85 @@ const loadOptions = async ({ query, offset, limit }: Params): Promise<Result<V>>
 - `<ResizableHandle />` 自动从 `<Separator>` 套 1px 分割线 + 5px 命中区
 - `groupResizeBehavior='preserve-pixel-size'` 让某个面板在父容器变宽时优先保绝对宽度
 
+## Heading
+
+单文件 `ui/Heading.tsx`。页面标题。`level` 同时决定标签和字号,字重固定 `font-semibold`。浏览器默认外边距已清掉。
+
+**查阅时机**:加一块标题,或准备手写 `h1`–`h4` 再拼字号、颜色、`truncate`。
+
+**何时用**:
+
+- 一块界面需要 h1–h4,并要统一颜色、行高、整行或省略
+- 单行或多行超出后要省略号,溢出时悬停看全文
+
+**何时不用**:
+
+- 标题带 chevron、要折叠内容 → [`DisclosureRow`](#disclosurerow)
+- 扫光强调 → [`ShinyText`](#shinytext)
+- Markdown 里的标题 → [`MarkdownView`](#markdownview) 自己的样式
+- 正文 → [`Paragraph`](#paragraph);辅助说明 → [`Hint`](#hint)
+
+**API**:
+
+```tsx
+<Heading level={2} color="fg" leading="snug" block ellipsis tooltip>
+  标题
+</Heading>
+```
+
+| prop | 类型 | 默认 | 说明 |
+|---|---|---|---|
+| `level` | `1 \| 2 \| 3 \| 4` | `2` | 标签和字号:h1 20px / h2 16px / h3 14px / h4 13px |
+| `color` | `fg` \| `fg-bright` \| `fg-2` \| `fg-3` \| `fg-disabled` \| `accent` \| `success` \| `error` \| `warning` \| `info` | `fg` | 行文 token。不接受任意色值,一次性换色用 `className` |
+| `leading` | `tight` \| `snug` \| `normal` \| `relaxed` | `snug` | 1.25 / 1.375 / 1.5 / 1.625 |
+| `block` | `boolean` | `true` | `w-full`。`false` 为 `inline`(省略时 `inline-block max-w-full`),压过浏览器对标题的 `display:block` |
+| `ellipsis` | `boolean \| number` | 关 | 关则换行(`wrap-break-word`)。`true` 或 `1` 单行省略。`2` 及以上按行数截断。省略时带 `min-w-0`,父级仍要有确定宽度 |
+| `tooltip` | `boolean` | `false` | 省略开启且文字真的溢出时,悬停用 [`Tooltip`](#tooltip) 显示全文。子节点不是字符串时不启用。未溢出不挂浮层 |
+| `className` | `string` | — | 最后合并 |
+| `children` | `ReactNode` | — | 标题内容 |
+
+## Paragraph
+
+单文件 `ui/Paragraph.tsx`。正文。标签 `p`,字重 `font-normal`,浏览器默认外边距已清掉。
+
+**查阅时机**:加一段说明文字,或准备手写 `<p>` 再拼字号和颜色。
+
+**何时用**:
+
+- 一段正文,要统一字号、次文字色、行高、换行或省略
+
+**何时不用**:
+
+- 页面标题 → [`Heading`](#heading)
+- 更浅、更小的辅助说明 → [`Hint`](#hint)
+- Markdown 正文 → [`MarkdownView`](#markdownview)
+
+**API**:颜色、行高、`block`、`ellipsis`、`tooltip`、`className` 与 [`Heading`](#heading) 相同。
+
+| prop | 类型 | 默认 | 说明 |
+|---|---|---|---|
+| `size` | `sm \| md \| base` | `base` | 12 / 13 / 14px |
+| `color` | 同 Heading | `fg-2` | 次文字 |
+| `leading` | 同 Heading | `normal` | 与 `body` 的 1.5 一致 |
+
+## Hint
+
+单文件 `ui/Hint.tsx`。辅助说明,是 [`Paragraph`](#paragraph) 的薄包装:固定 `size="sm"`(12px)。
+
+**查阅时机**:控件旁或卡片下的一句说明,希望默认就比正文浅、小。
+
+**何时用**:
+
+- 一句不抢正文的说明
+- 需要把这句改成错误色等 token 色
+
+**何时不用**:
+
+- 输入框正下方那一行 → [`Input`](#input) 的 `hint`(绝对定位、状态色、占位高度)
+- 正文 → [`Paragraph`](#paragraph)
+
+**API**:与 [`Paragraph`](#paragraph) 相同,但没有 `size`。`color` 默认 `fg-3`。错误、警告用 `color="error"` / `color="warning"`,不另做 `status`。
+
 ## 引用关系(避免循环 import)
 
 ```
@@ -1342,7 +1427,8 @@ ui/MessageSurface   ← components/conversation/UserMessage
 ui/PaneHeader       ← extensions/plugins/terminal/TerminalView, extensions/plugins/files/FilesView
 ui/Popover          ← ui/Tooltip, components/* (按需)
 ui/Modal            ← components/AddProjectDialog
-ui/Tooltip          ← ui/IconButton
+ui/Tooltip          ← ui/IconButton, ui/Heading, ui/Paragraph（Hint 经 Paragraph）
+ui/Paragraph        ← ui/Hint
 ui/IconButton       ← components/SidebarActions, components/ProjectSectionHeader, ...
 ui/Resizable*       ← pages/Workspace.tsx
 ```

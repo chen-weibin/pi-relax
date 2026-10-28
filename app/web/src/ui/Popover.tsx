@@ -95,17 +95,17 @@ export function Popover({
 		throw new Error('[Popover] `children` must be a single React element.')
 	}
 	const triggerElement = children as ReactElement<{ ref?: React.Ref<unknown> }>
+	const { ref: originalRef, ...userProps } = triggerElement.props
 	const triggerRef = (node: Element | null) => {
 		refs.setReference(node)
-		const originalRef = triggerElement.props.ref
 		if (typeof originalRef === 'function') originalRef(node as never)
-		else if (originalRef && 'current' in originalRef) {
+		else if (originalRef && typeof originalRef === 'object' && 'current' in originalRef) {
 			;(originalRef as React.MutableRefObject<Element | null>).current = node
 		}
 	}
 	const clonedTrigger = cloneElement(triggerElement, {
+		...getReferenceProps(userProps),
 		ref: triggerRef,
-		...getReferenceProps(triggerElement.props as Record<string, unknown>),
 	} as Record<string, unknown>)
 
 	return (

@@ -4,6 +4,8 @@ import { disclosureRowDoc } from './DisclosureRow'
 import { dotMatrixDoc } from './DotMatrix'
 import { editorDoc } from './Editor'
 import { expandableDoc } from './Expandable'
+import { headingDoc } from './Heading'
+import { hintDoc } from './Hint'
 import { iconButtonDoc } from './IconButton'
 import { inputDoc } from './Input'
 import { loadingDotsDoc } from './LoadingDots'
@@ -13,6 +15,7 @@ import { modalDoc } from './Modal'
 import { monacoEditorDoc } from './MonacoEditor'
 import { numberStepperDoc } from './NumberStepper'
 import { paneHeaderDoc } from './PaneHeader'
+import { paragraphDoc } from './Paragraph'
 import { popoverDoc } from './Popover'
 import { progressBarDoc } from './ProgressBar'
 import { resizableDoc } from './Resizable'
@@ -52,7 +55,7 @@ export const uiDocGroups: { title: string; sections: UiDocSection[] }[] = [
 	},
 	{
 		title: '文本',
-		sections: [editorDoc, typewriterTextDoc, markdownViewDoc, monacoEditorDoc],
+		sections: [headingDoc, paragraphDoc, hintDoc, editorDoc, typewriterTextDoc, markdownViewDoc, monacoEditorDoc],
 	},
 ]
 
