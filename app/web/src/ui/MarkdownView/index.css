@@ -41,6 +41,12 @@
 	margin-top: 0;
 }
 
+/* Two classes so this beats the `text-fg` utility on the same node. */
+.markdown-view.markdown-view--dim,
+.markdown-view.markdown-view--dim :where(h1, h2, h3, h4, blockquote) {
+	color: color-mix(in srgb, var(--fg-disabled) 72%, var(--fg-3));
+}
+
 .markdown-view :where(ul, ol) {
 	margin: 0 0 0.75em;
 	padding-left: 1.25em;

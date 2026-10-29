@@ -4,12 +4,16 @@ import { Expandable } from './Expandable'
 import { ShinyText } from './ShinyText'
 import { ChevronRightIcon } from '../icons'
 
+export type DisclosureChevron = 'always' | 'hover'
+
 export type DisclosureRowProps = {
 	title: ReactNode
 	open: boolean
 	onOpenChange: (open: boolean) => void
 	blinking?: boolean
 	disabled?: boolean
+	/** `always` keeps the chevron visible. `hover` shows it only while the row is hovered, and always while open. Collapsing hides it immediately unless the pointer is still over the row. */
+	chevron?: DisclosureChevron
 	children?: ReactNode
 	className?: string
 	duration?: number
@@ -21,6 +25,7 @@ export function DisclosureRow({
 	onOpenChange,
 	blinking = false,
 	disabled = false,
+	chevron = 'always',
 	children,
 	className,
 	duration,
@@ -33,7 +38,7 @@ export function DisclosureRow({
 		)
 
 	return (
-		<div className={classNames('flex flex-col gap-1', className)}>
+		<div className={classNames('group/disclosure flex flex-col gap-1', className)}>
 			<button
 				type="button"
 				disabled={disabled}
@@ -50,6 +55,7 @@ export function DisclosureRow({
 					className={classNames(
 						'inline-flex h-2.5 w-2.5 shrink-0 items-center justify-center transition-transform duration-100 [&_svg]:h-2.5 [&_svg]:w-2.5',
 						open && 'rotate-90',
+						chevron === 'hover' && !open && 'opacity-0 group-hover/disclosure:opacity-100',
 					)}
 				>
 					<ChevronRightIcon />

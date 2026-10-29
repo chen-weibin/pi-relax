@@ -100,7 +100,7 @@ adapter 建议将来放 `app/web/src/conversation/adaptAgentSession.ts`（或 se
 
 > 任何 ui 组件的「何时用 / 何时不用 / API」,查 [`docs/ui.md`](ui.md);不在本表重复。
 
-思考块：默认收起；历史与流式都可展开/收起；流式时标题走 `ShinyText`(由 `DisclosureRow.blinking` 控制);`isAnimating={open && streaming}`。Composer 未接 `onSubmit` 到 session。
+思考块：默认收起；历史与流式都可展开/收起；流式时标题走 `ShinyText`(由 `DisclosureRow.blinking` 控制);`isAnimating={open && streaming}`。正文用 `markdown-view--dim`（`--fg-disabled` 混 28% `--fg-3`，比纯禁用色略亮，仍暗于「思考」标题）。箭头 `chevron="hover"`：收起时只有悬停才显示，展开后常显；再收起且指针不在行上时立刻消失。Composer 未接 `onSubmit` 到 session。
 
 ## 明确不做
 

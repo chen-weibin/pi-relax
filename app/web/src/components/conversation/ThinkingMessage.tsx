@@ -13,11 +13,12 @@ export function ThinkingMessage({ block }: ThinkingMessageProps) {
 	const title = streaming ? '思考中' : '思考'
 
 	return (
-		<DisclosureRow title={title} open={open} blinking={streaming} onOpenChange={setOpen}>
+		<DisclosureRow title={title} open={open} blinking={streaming} chevron="hover" onOpenChange={setOpen}>
 			<MarkdownView
 				text={block.data.text}
 				mode={streaming ? 'streaming' : 'static'}
 				isAnimating={open && streaming}
+				className="markdown-view--dim"
 			/>
 		</DisclosureRow>
 	)

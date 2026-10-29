@@ -148,6 +148,7 @@
   open={open}
   onOpenChange={setOpen}
   blinking={false}        // 仅 string title 生效;走 ShinyText 闪光
+  chevron="always"        // 'always' | 'hover'。hover：收起时只有悬停才显示，展开后常显；再收起且指针不在行上时立刻消失
   disabled={false}
   duration={200}          // 透传给内部 Expandable
 >
@@ -161,8 +162,9 @@
 | header 文字色 | `text-fg-3`,hover → `text-fg-2` |
 | header 间距 | `gap-1.5`(标题 ↔ chevron) |
 | header 内边距 | `py-0.5` |
-| chevron 槽 | `h-2.5 w-2.5`(10×10),内部 svg 强制 `h-2.5 w-2.5` |
-| chevron 旋转 | `transition-transform duration-100`,open=true 时 `rotate-90` |
+| chevron 槽 | `h-2.5 w-2.5`(10×10),内部 svg 强制 `h-2.5 w-2.5`。隐藏时仍占位，标题不横移 |
+| chevron 显示 | 默认 `always`。`hover`：收起时 `opacity-0`，只有悬停该行才显示，不看焦点。`open` 后常显。再收起且指针不在行上时立刻隐藏，不淡出 |
+| chevron 旋转 | `transition-transform duration-100`,open=true 时 `rotate-90`。透明度不参与过渡 |
 | 折叠动画 | 内部 `<Expandable duration={duration}/>`,200ms `ease-out` |
 | `title` 类型 | `ReactNode`;string + `blinking` → `ShinyText`,否则原样渲染 |
 | `blinking` | 不写业务文案(不要传入 `'思考中'` 等流式状态字符串);状态语义由调用方决定 |
@@ -261,7 +263,7 @@
 | `plugins` | `@streamdown/code`(Shiki)、`mermaid`、`math`(KaTeX,`$$` 定界)、`cjk` |
 | `shikiTheme` | `['github-light', 'github-dark']`;html `color-scheme` 跟 `data-theme` 走 |
 | `codeBlockMaxHeight` | `0`(关掉 streamdown 打在 body 上的高度,改由外壳 `max-height: 400px`,header 固定、content 滚动) |
-| 视觉 | 见 `index.css`:行高 1.6、行内 code 圆角 4、`a` 用 `--info`、blockquote 左侧 2px `--border-hover`;代码块 / mermaid 外框 `--border`,header `--surface`,content `--app` |
+| 视觉 | 见 `index.css`:行高 1.6、正文 `text-fg`、行内 code 圆角 4、`a` 用 `--info`、blockquote 左侧 2px `--border-hover`;代码块 / mermaid 外框 `--border`,header `--surface`,content `--app`。`className="markdown-view--dim"` 把正文、h1–h4、blockquote 改成 `color-mix(--fg-disabled 72%, --fg-3)`（思考块用，比 `--fg-disabled` 略亮，仍暗于标题 `--fg-3`） |
 
 **踩坑备忘**:
 
