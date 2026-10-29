@@ -7,5 +7,7 @@ export {
 	selectOpenSession,
 	startSessionTransport,
 	subscribeTransport,
+	getOpenSessionHistory,
+	getTransportGeneration,
 	getTransportSnapshot,
 } from './connect'

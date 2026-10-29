@@ -4,7 +4,7 @@
 
 本文是当前方案，不是必须照做的合同。文档效力见 [AGENTS.md](../AGENTS.md) 的「开发记录规范」：实现改了就改文档；有问题或更合适的做法就提出来，用代码和测量核对。下面的 16ms、32ms、8ms 是当前取舍，改它们的条件写在「发布与绘制」。
 
-服务端对话已经能用。`app/web` 的侧栏项目和对话列仍是 mock。下面按块做，每次只做一块。
+服务端对话已经能用。侧栏项目、会话列表和草稿已经接上。选中会话后，对话列正文来自 history。发送还没有。下面按块做，每次只做一块。
 
 ## 权威与三份状态
 
@@ -134,6 +134,8 @@ Store 继续按字段切片订阅。做法见 [web-zustand-store-design.md](supe
 验收：点一条已有会话，正文来自 history，经 Worker 译一次再 `replace`。切走再打开，内容与文件一致。此块不能发送。
 
 此块不做：流式节流、结构共享改造。
+
+当前实现：`historyToMessages` 把 `SessionContext.messages` 收成 `CompletedMessage[]`，`Conversation` 在历史 `ready` 后 `replace` 一次。user 的字符串和 `text` 拼成一段；`image` 这一版不进文本块，后面单独做。assistant 保留 `thinking` 和 `text`，跳过 `toolCall`；没有正文时用 `errorMessage`。`system` 和 `toolResult` 跳过。Worker 在 `conversation/history.worker.ts`，建不起来或译失败就在主线程跑同一函数。代际对不上的结果丢掉。`loading` 清空列，并在列内左右居中显示「加载中...」，`error` 显示「历史加载失败」，草稿和未选中是空列。对话区 mock 已删除。实时事件仍不 `apply`。
 
 ### 4. 发送与中止
 

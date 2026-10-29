@@ -1,48 +1,40 @@
 # 对话区渲染架构
 
-查阅时机：改对话列表、块类型、贴底滚动、打字机、把 mock feed 换成真实 `AgentSessionEvent` 时。布局 / token / 四区 shell 仍看 [`web.md`](web.md)。UI 组件(用什么 / 别造轮子)见 [`docs/ui.md`](ui.md);原子组件 API / 视觉细节见 [`web.md` §UI 组件库](web.md#ui-组件库ui)。会话列表、发送、全局 SSE、历史对齐，以及帧通知 / Markdown 节流 / Worker 的边界见 [`web-app.md`](web-app.md)（查阅时机：把 mock 换成服务端会话时）。本文的「明确不做」是渲染层当前不做的事；接入顺序在那篇里。
+查阅时机：改对话列表、块类型、贴底滚动、打字机、接历史或实时 `AgentSessionEvent` 时。布局 / token / 四区 shell 仍看 [`web.md`](web.md)。UI 组件(用什么 / 别造轮子)见 [`docs/ui.md`](ui.md);原子组件 API / 视觉细节见 [`web.md` §UI 组件库](web.md#ui-组件库ui)。会话列表、发送、全局 SSE、历史对齐，以及帧通知 / Markdown 节流 / Worker 的边界见 [`web-app.md`](web-app.md)（查阅时机：接服务端会话时）。本文的「明确不做」是渲染层当前不做的事；接入顺序在那篇里。
 
 ## 分层
 
 ```
-mock fixture / playMockStream          未来: AgentSessionEvent
-        │                                      │
-        │                                      ▼
-        │                           adapter（未实现）
-        │                                      │
-        └──────────────┬───────────────────────┘
-                       ▼
-              BlockFeedEvent
-                       │
-                       ▼
-         createBlockRuntime()          ← app/web/src/conversation/
-                       │
-                       ▼
-            ConversationSnapshot
-             (blocks + messages + runPhase + revision)
-                       │
-          Conversation（组装：注入 runtime / mock feed）
-                       │
-                       ▼
-              ConversationView          ← 只认 snapshot，不 new runtime
-                       │
-         message 分组 → renderBlock registry[BlockKind]
-                       │
-         User / Thinking / Assistant / Generic
-                       │
-                       ▼
-         ui/（MarkdownView, TypewriterText, DisclosureRow, MessageSurface）
+history JSON → historyToMessages（Worker，失败则主线程） → runtime.replace
+AgentSessionEvent → adapter（未写） → BlockFeedEvent → runtime.apply
+                              │
+                              ▼
+                   createBlockRuntime()     ← app/web/src/conversation/
+                              │
+                              ▼
+                   ConversationSnapshot
+                              │
+                   Conversation（持有 runtime，历史 ready 后 replace）
+                              │
+                              ▼
+                   ConversationView          ← 只认 snapshot，不 new runtime
+                              │
+                   message 分组 → renderBlock registry[BlockKind]
+                              │
+                   User / Thinking / Assistant / Generic
+                              │
+                              ▼
+                   ui/（MarkdownView, TypewriterText, DisclosureRow, MessageSurface）
 ```
 
 | 层 | 路径 | 职责 |
 |---|---|---|
-| 数据层 | [`app/web/src/conversation/`](../app/web/src/conversation/) | `BlockFeedEvent`、判别联合 `BlockSnapshot`、`createBlockRuntime`、`runPhase` |
-| 组装 | [`Conversation.tsx`](../app/web/src/components/conversation/Conversation.tsx) | 持有 runtime、订 snapshot、注入 mock feed |
+| 数据层 | [`app/web/src/conversation/`](../app/web/src/conversation/) | `BlockFeedEvent`、判别联合 `BlockSnapshot`、`createBlockRuntime`、`historyToMessages`、`runPhase` |
+| 组装 | [`Conversation.tsx`](../app/web/src/components/conversation/Conversation.tsx) | 持有 runtime、订 snapshot、历史 `ready` 后 `replace` 一次 |
 | 渲染 | [`components/conversation/`](../app/web/src/components/conversation/) | 按 message 分组画扁 block 列表；registry 用 `BlockKind` |
 | 观感 | [`ui/`](../app/web/src/ui/) | 无 user/thinking 词 |
-| mock | [`mock/conversation/`](../app/web/src/mock/conversation/) | 仅 fixture、`playMockStream`、`DevToolbar`、`useMockFeed` |
 
-渲染层禁止 `import` mock，禁止在 View 里 `createBlockRuntime()`。
+渲染层禁止在 View 里 `createBlockRuntime()`。
 
 ## 数据模型
 
@@ -77,17 +69,19 @@ mock fixture / playMockStream          未来: AgentSessionEvent
 
 ## 滚动与流式出现
 
-- 对话列贴底：[`use-stick-to-bottom`](https://www.npmjs.com/package/use-stick-to-bottom) 的 `StickToBottom`（在 `Conversation.tsx`）。初次载入 / 内容变高用 `instant`；用户上滑暂停、滚回底部恢复；发送与「模拟流式」调用 `scrollToBottom('instant')` 强制拉回。不上虚拟列表。
+- 对话列贴底：[`use-stick-to-bottom`](https://www.npmjs.com/package/use-stick-to-bottom) 的 `StickToBottom`（在 `Conversation.tsx`）。初次载入 / 内容变高用 `instant`；用户上滑暂停、滚回底部恢复；发送调用 `scrollToBottom('instant')` 强制拉回。不上虚拟列表。
 - Streamdown `animated`（`blurIn`）只作用于流式 Markdown 正文怎么出现，与列滚动无关。代码块内部滚动由 `isAnimating` + `MarkdownView` 外壳 `max-height: 400px` 处理。
 - [`TypewriterText`](../app/web/src/ui/TypewriterText.tsx)：grapheme 按前缀增量缓存；只在 `playing` 且未追上时 rAF；追上停帧。`playing={open && streaming}`，折叠时不跑。不再用于助手正文。
 
-## mock vs 真实事件
+## 历史与实时
 
-当前 mock 直接生产 `BlockFeedEvent`。真实链路预留：
+打开会话：`SessionContext.messages` → `historyToMessages`（Worker，失败则主线程）→ `runtime.replace`。用户消息里的 `image` 这一版不进文本块，后面单独做块。`toolCall`、`system`、`toolResult` 先跳过，工具块是 [`web-app.md`](web-app.md) 的模块 7。
+
+实时还没接上：
 
 `AgentSessionEvent` → **adapter（未写）** → `BlockFeedEvent` → `runtime.apply`。
 
-adapter 建议将来放 `app/web/src/conversation/adaptAgentSession.ts`（或 server 侧先规范化）。未接真实 session。
+adapter 建议将来放 `app/web/src/conversation/adaptAgentSession.ts`（或 server 侧先规范化）。
 
 ## 打磨 UI
 
@@ -106,18 +100,13 @@ adapter 建议将来放 `app/web/src/conversation/adaptAgentSession.ts`（或 se
 
 > 任何 ui 组件的「何时用 / 何时不用 / API」,查 [`docs/ui.md`](ui.md);不在本表重复。
 
-思考块：默认收起；历史与流式都可展开/收起；流式时标题走 `ShinyText`(由 `DisclosureRow.blinking` 控制);`isAnimating={open && streaming}`。Composer 未接 `onSubmit` 到 session。DevToolbar 只有历史渲染与模拟流式。
+思考块：默认收起；历史与流式都可展开/收起；流式时标题走 `ShinyText`(由 `DisclosureRow.blinking` 控制);`isAnimating={open && streaming}`。Composer 未接 `onSubmit` 到 session。
 
 ## 明确不做
 
 - 虚拟列表
-- 接入真实 agent session / `AgentSessionEvent`
+- 把实时 `AgentSessionEvent` 接进 runtime（adapter 未写）
 - 复制 / 重试按钮（分组已在 snapshot 里）
-- tool / 图片 / 错误块 UI（类型可加）
+- tool / 错误块 UI（类型可加）。用户消息里的图片这一版不进历史文本，后面单独做块
 - 把 `revealPhase` 接回 runtime
 - 把 `src/conversation/` 数据层并进 `components/conversation/`（与 UI 分目录；职责见上文分层）
-
-## 调试期默认
-
-- `Conversation.tsx` 挂载即 `useEffect(loadHistory)`:打开页面直接看到历史快照,免手动点 DevToolbar。DevToolbar 的「loadHistory / playStream」按钮保留,用于在流式之后回到快照 / 重放。
-- 历史与流式 fixture(`mock/conversation/history.ts`、`stream.ts`)覆盖 `MarkdownView` 支持的全部格式(标题、段落含 bold/italic/inline code/link、嵌套 ul、ol、blockquote、围栏代码块高亮、Mermaid、`$$` 公式、CJK 强调紧贴全角标点、hr),方便逐项调试视觉。详见 [`docs/ui.md` §MarkdownView](ui.md#markdownview)。

@@ -57,6 +57,10 @@ export function getOpenSessionHistory(): SessionContext | null {
 	return history
 }
 
+export function getTransportGeneration(): number {
+	return state.generation
+}
+
 export function subscribeOpenSessionEvents(listener: (event: AgentSessionEvent) => void): () => void {
 	eventListeners.add(listener)
 	return () => {

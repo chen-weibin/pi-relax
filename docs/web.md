@@ -231,11 +231,11 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
 
 ### Conversation(v1)
 
-对话区渲染的分层、数据模型、runtime、滚动/打字机约定、mock 与真实事件边界,见 [`docs/web-conversation.md`](web-conversation.md)(改对话列表、块类型、贴底滚动、打字机,或把 mock feed 换成 `AgentSessionEvent` 时查阅)。会话列表、发送、全局 SSE、历史回放和前端性能边界见 [`docs/web-app.md`](web-app.md)(接真实会话或改帧通知、Markdown 节流、Worker 时查阅)。打磨消息卡片 / 思考折叠 / Markdown / 打字机观感时也先看 [`web-conversation.md`](web-conversation.md) 的「打磨 UI」节,再改 `ui/` 或 `components/conversation/`。本节只记接入点。
+对话区渲染的分层、数据模型、runtime、滚动/打字机约定、历史替换与实时事件边界,见 [`docs/web-conversation.md`](web-conversation.md)(改对话列表、块类型、贴底滚动、打字机,或接历史 / 实时事件时查阅)。会话列表、发送、全局 SSE、历史回放和前端性能边界见 [`docs/web-app.md`](web-app.md)(接真实会话或改帧通知、Markdown 节流、Worker 时查阅)。打磨消息卡片 / 思考折叠 / Markdown / 打字机观感时也先看 [`web-conversation.md`](web-conversation.md) 的「打磨 UI」节,再改 `ui/` 或 `components/conversation/`。本节只记接入点。
 
-消息列与 Composer 共用 `max-w-[800px]` + `px-4` 居中。列贴底用 [`use-stick-to-bottom`](https://www.npmjs.com/package/use-stick-to-bottom)(`StickToBottom`，`initial`/`resize` 均为 `instant`；发送与模拟流式强制 `scrollToBottom`)。Streamdown `animated` 只管文字出现，不管列表滚动；代码块内部滚动仍由 `isAnimating` + MarkdownView 外壳 max-height 处理。数据层在 [`src/conversation/`](../app/web/src/conversation/)(类型 + runtime,不是 UI);组装与渲染在 [`components/conversation/`](../app/web/src/components/conversation/)。
+有消息时，消息列与 Composer 共用 `max-w-[800px]` + `px-4`，Composer 贴底。没有可画的消息（未选中、新对话、空历史）时 Composer 在对话区垂直居中，边框盒子用 `min(620px, calc(100% - 2rem))`，宽屏最大 620，更窄时两侧留 1rem。从居中落到贴底（以及反向）用 `motion/react` 的 `layout`，约 0.4s。加载另一条会话时保持加载前的位置，避免空列把输入框弹回中间。列贴底用 [`use-stick-to-bottom`](https://www.npmjs.com/package/use-stick-to-bottom)(`StickToBottom`，`initial`/`resize` 均为 `instant`；发送时强制 `scrollToBottom`)。Streamdown `animated` 只管文字出现，不管列表滚动；代码块内部滚动仍由 `isAnimating` + MarkdownView 外壳 max-height 处理。数据层在 [`src/conversation/`](../app/web/src/conversation/)(类型 + runtime,不是 UI);组装与渲染在 [`components/conversation/`](../app/web/src/components/conversation/)。选中会话后正文来自 history，见 [`web-app.md`](web-app.md) 模块 3。
 
-思考块(历史与流式同一套):默认收起,随时可展开/收起;流式时标题走 `ShinyText` 扫光(`DisclosureRow` 的 `blinking`);展开后正文用 `MarkdownView`,`mode='streaming'` 让未闭合语法被自动修补。`isAnimating={open && streaming}` 跟原打字机 `playing` 语义对齐。DevToolbar 只留「历史渲染 / 模拟流式」。这三个组件的「何时用 / 何时不用 / 视觉细节」分别在 [`docs/ui.md` 对应小节](ui.md)。
+思考块(历史与流式同一套):默认收起,随时可展开/收起;流式时标题走 `ShinyText` 扫光(`DisclosureRow` 的 `blinking`);展开后正文用 `MarkdownView`,`mode='streaming'` 让未闭合语法被自动修补。`isAnimating={open && streaming}` 跟原打字机 `playing` 语义对齐。这三个组件的「何时用 / 何时不用 / 视觉细节」分别在 [`docs/ui.md` 对应小节](ui.md)。
 
 streamdown 与插件的 Tailwind 类扫描写在 [`ui/MarkdownView/index.css`](../app/web/src/ui/MarkdownView/index.css) 的 `@source`,由 `src/index.css` `@import` 进来;否则内部工具类不会生成。
 
@@ -344,14 +344,13 @@ src/
     ├── ProjectItem.tsx           # 单个项目行:folder/chevron icon + 名称 + hover-only +;展开后渲染 SessionItem 列表
     ├── SessionItem.tsx           # 单个会话行:标题 + 相对时间
     ├── MainContainer.tsx         # 中,内层 content Panel 容器;顶部挂 MainHeader + 按 mainView 渲染 view
-    ├── MainHeader.tsx            # MainContainer 顶部统一 header(高 36px,无 border/bg;左侧暂空,右侧并排放 sidebar / extension toggle)
+    ├── MainHeader.tsx            # MainContainer 顶部统一 header(高 36px,无 border/bg;对话视图左侧为选中会话标题,右侧并排放 sidebar / extension toggle)
     ├── Composer.tsx              # 对话输入外壳(Editor + 右下发送)
     ├── conversation/             # 对话 UI: Conversation 组装 + ConversationView + kind 渲染器
     ├── CustomizeView.tsx         # view: 自定义内容(占位)
     ├── Extension.tsx             # re-export extensions/shell/Extension；右栏可被内层 Group 收起
     ├── Setting.tsx               # 全屏 fixed inset-0 z-50 覆盖层
     └── UserBar.tsx               # 用户信息条(头像 + 用户名 + 设置入口),固定高 48px,可在 Sidebar / Setting 左下复用
-├── mock/conversation/            # 临时: fixture + playMockStream + DevToolbar(不含 runtime)
 └── utils/
     └── relativeTime.ts           # formatRelativeTime(ms) — "Nm" / "Nh" / "Nd" / "Nw" / "Ny"
 ```
@@ -382,7 +381,7 @@ src/
 
 右侧 Extension **内容**(欢迎页、壳层 tab、files/terminal 插件)见 [`docs/web-extension.md`](web-extension.md)。关到最后一个 tab 时默认也会 `setExtensionOpen(false)`(策略可替换)。
 
-`MainContainer` 顶部挂一个统一的 `<MainHeader />`(高 36px,无 border/bg,与主区域共享 `--app` 背景):左侧暂空,右侧并排 `IconButton` + `PanelLeftIcon` toggle sidebar、`IconButton` + `PanelRightIcon` toggle extension(顺序不变),标题反映当前状态(`收起 / 展开左侧栏` 等)。各 view 不再自带 header,只渲染占位主体。
+`MainContainer` 顶部挂一个统一的 `<MainHeader />`(高 36px,无 border/bg,与主区域共享 `--app` 背景)。对话视图下,左侧是当前选中会话或草稿的标题,与侧栏同一套 `sessionTitle` / 「新对话」;短标题只占文字宽度,最长 20rem,窗口更窄时按左侧剩余宽度省略,悬停可见全文。其它视图左侧不显示。右侧并排 `IconButton` + `PanelLeftIcon` toggle sidebar、`IconButton` + `PanelRightIcon` toggle extension(顺序不变),按钮标题反映当前状态(`收起 / 展开左侧栏` 等)。右侧栏展开时这两颗按钮改挂到扩展区顶栏,主区顶栏只留标题。各 view 不再自带 header,只渲染占位主体。
 
 ### MainContainer(view 切换)
 

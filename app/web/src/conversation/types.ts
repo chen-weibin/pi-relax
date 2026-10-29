@@ -72,8 +72,8 @@ export type CompletedMessage =
  *
  * Real `AgentSessionEvent` is not wired. A future adapter (e.g.
  * `app/web/src/conversation/adaptAgentSession.ts`) should map session events
- * onto this union, then call `runtime.apply`. Mock stream/history already emit
- * this shape directly.
+ * onto this union, then call `runtime.apply`. Opened history uses
+ * `historyToMessages` and `runtime.replace`.
  */
 export type BlockFeedEvent =
 	| { type: 'run_start' }
