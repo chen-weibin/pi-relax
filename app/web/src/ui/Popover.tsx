@@ -40,6 +40,8 @@ export type PopoverProps = {
 	role?: PopoverRole
 	/** Hover open delay in ms. `0` keeps the resting-pointer behavior. */
 	openDelay?: number
+	/** Fixed width in px. Omit to size to the content. */
+	width?: number
 	className?: string
 }
 
@@ -55,6 +57,7 @@ export function Popover({
 	onOpenChange: controlledOnOpenChange,
 	role = 'dialog',
 	openDelay = 0,
+	width,
 	className,
 }: PopoverProps) {
 	const isControlled = controlledOpen !== undefined
@@ -117,7 +120,7 @@ export function Popover({
 						ref={(node) => {
 							refs.setFloating(node)
 						}}
-						style={floatingStyles}
+						style={width === undefined ? floatingStyles : { ...floatingStyles, width }}
 						{...getFloatingProps()}
 						className={classNames(
 							'z-[99] bg-sidebar border border-border-hover rounded-lg shadow-lg text-sm text-fg-2 outline-none',

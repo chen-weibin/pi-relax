@@ -123,22 +123,57 @@ export function createBlockRuntime(): BlockRuntime {
 	let revision = 0
 	let runPhase: RunPhase = 'idle'
 	let snapshot: ConversationSnapshot = EMPTY_SNAPSHOT
+	let structural = false
+	let dirty: string[] = []
+
+	const noteInsert = () => {
+		structural = true
+	}
+
+	const noteUpdate = (key: string) => {
+		dirty.push(key)
+	}
+
+	const resetTouch = () => {
+		structural = false
+		dirty = []
+	}
 
 	const emit = () => {
-		const nextByKey: Record<string, BlockSnapshot> = {}
-		for (const key of order) {
-			const block = blocks.get(key)
-			if (block) nextByKey[key] = block
-		}
-		const grouped = buildMessages(order, blocks)
+		if (!structural && dirty.length === 0 && runPhase === snapshot.runPhase) return
 		revision += 1
-		snapshot = {
-			revision,
-			order,
-			byKey: nextByKey,
-			messageOrder: grouped.messageOrder,
-			messages: grouped.messages,
-			runPhase,
+		if (!structural) {
+			const byKey = dirty.length === 0 ? snapshot.byKey : { ...snapshot.byKey }
+			if (dirty.length > 0) {
+				const next = byKey as Record<string, BlockSnapshot>
+				for (const key of dirty) {
+					const block = blocks.get(key)
+					if (block) next[key] = block
+				}
+			}
+			snapshot = {
+				revision,
+				order,
+				byKey,
+				messageOrder: snapshot.messageOrder,
+				messages: snapshot.messages,
+				runPhase,
+			}
+		} else {
+			const nextByKey: Record<string, BlockSnapshot> = {}
+			for (const key of order) {
+				const block = blocks.get(key)
+				if (block) nextByKey[key] = block
+			}
+			const grouped = buildMessages(order, blocks)
+			snapshot = {
+				revision,
+				order,
+				byKey: nextByKey,
+				messageOrder: grouped.messageOrder,
+				messages: grouped.messages,
+				runPhase,
+			}
 		}
 		for (const listener of listeners) listener()
 	}
@@ -148,10 +183,12 @@ export function createBlockRuntime(): BlockRuntime {
 		if (!prev) {
 			order = [...order, block.key]
 			blocks.set(block.key, block)
+			noteInsert()
 			return
 		}
 		if (sameBlock(prev, block)) return
 		blocks.set(block.key, block)
+		noteUpdate(block.key)
 	}
 
 	const applyOne = (event: BlockFeedEvent) => {
@@ -161,6 +198,11 @@ export function createBlockRuntime(): BlockRuntime {
 				return
 			case 'run_end':
 				runPhase = 'complete'
+				for (const block of blocks.values()) {
+					if (block.contentPhase !== 'open') continue
+					blocks.set(block.key, { ...block, contentPhase: 'complete' })
+					noteUpdate(block.key)
+				}
 				return
 			case 'run_error':
 				runPhase = 'error'
@@ -268,6 +310,7 @@ export function createBlockRuntime(): BlockRuntime {
 		if (pending.length === 0) return
 		const batch = pending
 		pending = []
+		resetTouch()
 		for (const event of batch) applyOne(event)
 		emit()
 	}
@@ -292,6 +335,8 @@ export function createBlockRuntime(): BlockRuntime {
 				raf = 0
 			}
 			pending = []
+			resetTouch()
+			noteInsert()
 			order = []
 			blocks.clear()
 			runPhase = 'idle'
@@ -300,33 +345,33 @@ export function createBlockRuntime(): BlockRuntime {
 					applyOne({ type: 'user', messageId: message.id, text: message.text })
 					continue
 				}
-				message.parts.forEach((part, contentIndex) => {
+				for (const part of message.parts) {
 					if (part.type === 'thinking') {
 						applyOne({
 							type: 'thinking_start',
 							messageId: message.id,
-							contentIndex,
+							contentIndex: part.contentIndex,
 						})
 						applyOne({
 							type: 'thinking_end',
 							messageId: message.id,
-							contentIndex,
+							contentIndex: part.contentIndex,
 							content: part.text,
 						})
-						return
+						continue
 					}
 					applyOne({
 						type: 'text_start',
 						messageId: message.id,
-						contentIndex,
+						contentIndex: part.contentIndex,
 					})
 					applyOne({
 						type: 'text_end',
 						messageId: message.id,
-						contentIndex,
+						contentIndex: part.contentIndex,
 						content: part.text,
 					})
-				})
+				}
 			}
 			runPhase = 'idle'
 			emit()

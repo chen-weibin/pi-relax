@@ -14,10 +14,14 @@ const controls = {
 	mermaid: { download: false },
 } as const
 
+const plainPlugins = { math, cjk } as const
+
 export type MarkdownViewProps = {
 	text: string
 	mode?: 'static' | 'streaming'
 	isAnimating?: boolean
+	/** 流式中关掉 Shiki 和 Mermaid。围栏先当普通文本，完成后再算。 */
+	highlight?: boolean
 	className?: string
 }
 
@@ -25,6 +29,7 @@ export function MarkdownView({
 	text,
 	mode = 'static',
 	isAnimating = false,
+	highlight = true,
 	className,
 }: MarkdownViewProps) {
 	return (
@@ -33,14 +38,17 @@ export function MarkdownView({
 				mode={mode}
 				isAnimating={isAnimating}
 				animated={{
-					animation: 'blurIn',
+					animation: 'fadeIn',
 					duration: 200,
-					easing: 'ease-out',
+					easing: 'ease',
+					sep: 'char',
+					stagger: 10,
+					maxBacklogMs: 200,
 				}}
 				lineNumbers
 				codeBlockMaxHeight={0}
 				controls={controls}
-				plugins={plugins}
+				plugins={highlight ? plugins : plainPlugins}
 				shikiTheme={['github-light', 'github-dark']}
 				mermaid={{ config: { theme: 'dark' } }}
 				parseIncompleteMarkdown={mode === 'streaming'}

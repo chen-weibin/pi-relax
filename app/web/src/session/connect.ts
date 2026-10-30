@@ -1,20 +1,21 @@
 import type { AgentSessionEvent, SessionContext } from '@earendil-works/pi-coding-agent'
 import { createProject, listProjects } from '../api/projects'
 import { getDefaultWorkspace } from '../api/workspace'
-import { getSessionHistory, listSessions } from '../api/sessions'
+import { abortSession, createSession, getSessionHistory, listSessions, promptSession, type StreamingBehavior } from '../api/sessions'
 import { subscribeSessionEvents } from '../api/sse'
 import { ApiError } from '../api/http'
 import { useCatalogStore, useCommonStore, useLocalStore } from '../store'
 import { LIST_PAGE_SIZE } from './listPage'
 import { draftTarget } from './draft'
-import { toCatalogSessions } from './service'
+import { toCatalogSession, toCatalogSessions } from './service'
 import {
 	clearOpenSession,
 	createTransportState,
+	historyArrived,
 	historyFailed,
-	historyLoaded,
 	onSseOpen,
 	pushEvent,
+	releaseLive,
 	selectSession,
 	type HistoryPhase,
 	type TransportEffect,
@@ -66,6 +67,79 @@ export function subscribeOpenSessionEvents(listener: (event: AgentSessionEvent) 
 	return () => {
 		eventListeners.delete(listener)
 	}
+}
+
+/** 历史已经 replace。把积下的事件交给订阅者，之后的事件直接转发。 */
+export function releaseOpenSession(generation: number) {
+	const result = releaseLive(state, generation)
+	state = result.state
+	emitEvents(result.replay)
+}
+
+let captureCreate = false
+let captured: { sessionId: string; event: AgentSessionEvent }[] = []
+
+function rememberStatus(id: string, status: string | undefined) {
+	useCatalogStore.getState().setSessionStatus(id, status === 'running' ? 'running' : 'idle')
+}
+
+function noteRunStatus(sessionId: string, event: AgentSessionEvent) {
+	if (event.type === 'agent_start') rememberStatus(sessionId, 'running')
+	else if (event.type === 'agent_settled') rememberStatus(sessionId, 'idle')
+}
+
+/** 创建请求还没返回 id 时，先按 sessionId 留下事件。选中后再放进短队列。 */
+function takeCaptured(sessionId: string): AgentSessionEvent[] {
+	const events = captured.filter((item) => item.sessionId === sessionId).map((item) => item.event)
+	captured = []
+	captureCreate = false
+	return events
+}
+
+function queueCaptured(sessionId: string, events: readonly AgentSessionEvent[]) {
+	for (const event of events) {
+		noteRunStatus(sessionId, event)
+		const result = pushEvent(state, sessionId, event)
+		state = result.state
+		if (result.forward) emitEvents([result.forward])
+	}
+}
+
+/** 没有打开的会话就创建并发送。已有则续发。忙时不带 behavior 会得到 BUSY。 */
+export async function sendConversation(text: string, behavior?: StreamingBehavior): Promise<void> {
+	const trimmed = text.trim()
+	if (!trimmed) return
+	const openId = state.openSessionId
+	if (openId) {
+		const record = await promptSession(openId, trimmed, behavior)
+		rememberStatus(openId, record.status)
+		return
+	}
+	const catalog = useCatalogStore.getState()
+	const cwd = draftTarget(null, catalog.activeDraftCwd, catalog.defaultCwd)
+	if (!cwd) throw new Error('没有工作区')
+	captureCreate = true
+	captured = []
+	try {
+		const record = await createSession(trimmed, cwd)
+		const session = toCatalogSession(record)
+		if (!session.name.trim()) session.name = trimmed
+		useCatalogStore.getState().noteSentSession(session)
+		useCatalogStore.getState().removeDraft(cwd)
+		selectOpenSession(record.id)
+		queueCaptured(record.id, takeCaptured(record.id))
+	} catch (error) {
+		captureCreate = false
+		captured = []
+		throw error
+	}
+}
+
+export async function abortConversation(): Promise<void> {
+	const id = state.openSessionId
+	if (!id) return
+	const record = await abortSession(id)
+	rememberStatus(id, record.status)
 }
 
 export function selectOpenSession(sessionId: string) {
@@ -213,11 +287,9 @@ async function loadHistory(sessionId: string, generation: number) {
 	try {
 		const body = await getSessionHistory(sessionId)
 		if (generation !== state.generation) return
-		const result = historyLoaded(state, generation)
 		history = body
-		state = result.state
+		state = historyArrived(state, generation, body.messages.length > 0)
 		publish()
-		emitEvents(result.replay)
 	} catch {
 		if (generation !== state.generation) return
 		history = null
@@ -255,6 +327,8 @@ export function startSessionTransport(): () => void {
 			useCatalogStore.getState().setSseStatus('reconnecting')
 		},
 		onEvent(sessionId, event) {
+			if (captureCreate) captured.push({ sessionId, event })
+			if (sessionId === state.openSessionId) noteRunStatus(sessionId, event)
 			const result = pushEvent(state, sessionId, event)
 			state = result.state
 			if (result.forward) emitEvents([result.forward])

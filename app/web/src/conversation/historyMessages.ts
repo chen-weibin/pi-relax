@@ -5,7 +5,15 @@ function record(value: unknown): Record<string, unknown> | null {
 	return value as Record<string, unknown>
 }
 
-function userText(content: unknown): string {
+export function messageKey(message: unknown, fallback: string): string {
+	const item = record(message)
+	if (!item) return fallback
+	if (typeof item.id === 'string' && item.id) return item.id
+	if (typeof item.timestamp === 'number') return `t${item.timestamp}`
+	return fallback
+}
+
+export function userMessageText(content: unknown): string {
 	if (typeof content === 'string') return content
 	if (!Array.isArray(content)) return ''
 	let text = ''
@@ -24,20 +32,20 @@ function userText(content: unknown): string {
 function assistantParts(content: unknown, errorMessage: unknown): CompletedPart[] {
 	const parts: CompletedPart[] = []
 	if (Array.isArray(content)) {
-		for (const part of content) {
+		content.forEach((part, index) => {
 			const item = record(part)
-			if (!item) continue
+			if (!item) return
 			if (item.type === 'thinking' && typeof item.thinking === 'string' && item.thinking !== '') {
-				parts.push({ type: 'thinking', text: item.thinking })
-				continue
+				parts.push({ type: 'thinking', text: item.thinking, contentIndex: index })
+				return
 			}
 			if (item.type === 'text' && typeof item.text === 'string' && item.text !== '') {
-				parts.push({ type: 'text', text: item.text })
+				parts.push({ type: 'text', text: item.text, contentIndex: index })
 			}
-		}
+		})
 	}
 	if (parts.length === 0 && typeof errorMessage === 'string' && errorMessage !== '') {
-		parts.push({ type: 'text', text: errorMessage })
+		parts.push({ type: 'text', text: errorMessage, contentIndex: 0 })
 	}
 	return parts
 }
@@ -46,7 +54,7 @@ function one(message: unknown, id: string): CompletedMessage | null {
 	const item = record(message)
 	if (!item || typeof item.role !== 'string') return null
 	if (item.role === 'user') {
-		const text = userText(item.content)
+		const text = userMessageText(item.content)
 		if (text === '') return null
 		return { role: 'user', id, text }
 	}
@@ -58,11 +66,11 @@ function one(message: unknown, id: string): CompletedMessage | null {
 	return null
 }
 
-/** 把 history 的 messages 收成 runtime.replace 能用的已完成消息。序号用输入下标。 */
+/** 把 history 的 messages 收成 runtime.replace 能用的已完成消息。有 id 或 timestamp 时用它，否则用输入下标。 */
 export function historyToMessages(input: readonly unknown[]): CompletedMessage[] {
 	const out: CompletedMessage[] = []
 	input.forEach((message, index) => {
-		const mapped = one(message, `m${index}`)
+		const mapped = one(message, messageKey(message, `m${index}`))
 		if (mapped) out.push(mapped)
 	})
 	return out

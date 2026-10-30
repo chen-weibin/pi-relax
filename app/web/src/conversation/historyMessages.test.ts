@@ -21,8 +21,8 @@ describe('history messages', () => {
 				role: 'assistant',
 				id: 'm1',
 				parts: [
-					{ type: 'thinking', text: '想一下' },
-					{ type: 'text', text: '在' },
+					{ type: 'thinking', text: '想一下', contentIndex: 0 },
+					{ type: 'text', text: '在', contentIndex: 1 },
 				],
 			},
 		])
@@ -56,7 +56,7 @@ describe('history messages', () => {
 			},
 		])
 		assert.deepEqual(messages, [
-			{ role: 'assistant', id: 'm3', parts: [{ type: 'text', text: '好' }] },
+			{ role: 'assistant', id: 'm3', parts: [{ type: 'text', text: '好', contentIndex: 1 }] },
 		])
 	})
 
@@ -65,13 +65,22 @@ describe('history messages', () => {
 			{ role: 'assistant', content: [{ type: 'toolCall', id: 'c', name: 'bash', arguments: {} }], errorMessage: '失败了' },
 		])
 		assert.deepEqual(onlyError, [
-			{ role: 'assistant', id: 'm0', parts: [{ type: 'text', text: '失败了' }] },
+			{ role: 'assistant', id: 'm0', parts: [{ type: 'text', text: '失败了', contentIndex: 0 }] },
 		])
 		const withBody = historyToMessages([
 			{ role: 'assistant', content: [{ type: 'text', text: '有正文' }], errorMessage: '失败了' },
 		])
 		assert.deepEqual(withBody, [
-			{ role: 'assistant', id: 'm0', parts: [{ type: 'text', text: '有正文' }] },
+			{ role: 'assistant', id: 'm0', parts: [{ type: 'text', text: '有正文', contentIndex: 0 }] },
 		])
+	})
+
+	it('prefers a string id, then the timestamp', () => {
+		const messages = historyToMessages([
+			{ role: 'user', id: 'u1', timestamp: 1, content: '你好' },
+			{ role: 'assistant', timestamp: 2, content: [{ type: 'text', text: '在' }] },
+		])
+		assert.equal(messages[0]?.id, 'u1')
+		assert.equal(messages[1]?.id, 't2')
 	})
 })

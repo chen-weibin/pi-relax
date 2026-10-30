@@ -37,6 +37,9 @@ interface CatalogState {
 	setSessionPageError: (cwd: string, message: string) => void
 	openDraft: (cwd: string) => void
 	clearActiveDraft: () => void
+	removeDraft: (cwd: string) => void
+	noteSentSession: (session: CatalogSession) => void
+	setSessionStatus: (id: string, status: CatalogSession['status']) => void
 	setSseStatus: (status: SseStatus) => void
 }
 
@@ -112,7 +115,11 @@ export const useCatalogStore = create<CatalogState>()(
 				page.error = null
 				page.loaded = true
 				if (!append) {
-					page.sessions = sessions
+					const extra = page.sessions.filter(
+						(session) => session.status === 'running' && !sessions.some((item) => item.id === session.id),
+					)
+					page.sessions = extra.length === 0 ? sessions : [...extra, ...sessions]
+					page.total = total + extra.length
 				} else {
 					const seen = new Set(page.sessions.map((session) => session.id))
 					for (const session of sessions) {
@@ -139,6 +146,26 @@ export const useCatalogStore = create<CatalogState>()(
 		clearActiveDraft: () =>
 			set((state) => {
 				state.activeDraftCwd = null
+			}),
+		removeDraft: (cwd) =>
+			set((state) => {
+				state.drafts = state.drafts.filter((draft) => draft.cwd !== cwd)
+				if (state.activeDraftCwd === cwd) state.activeDraftCwd = null
+			}),
+		noteSentSession: (session) =>
+			set((state) => {
+				const page = state.sessionPages[session.cwd] ?? blankSessionPage()
+				const existed = page.sessions.some((item) => item.id === session.id)
+				page.sessions = [session, ...page.sessions.filter((item) => item.id !== session.id)]
+				if (!existed) page.total += 1
+				state.sessionPages[session.cwd] = page
+			}),
+		setSessionStatus: (id, status) =>
+			set((state) => {
+				for (const page of Object.values(state.sessionPages)) {
+					const row = page.sessions.find((session) => session.id === id)
+					if (row) row.status = status
+				}
 			}),
 		setSseStatus: (status) =>
 			set((state) => {

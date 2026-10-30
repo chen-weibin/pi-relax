@@ -248,6 +248,7 @@
   text={markdown}
   mode="static"               // 'static' | 'streaming',默认 'static'
   isAnimating={false}         // 流式进行中：禁用复制、代码块内跟底、并播 animated
+  highlight={true}            // false 时不挂 code / mermaid，围栏当普通文本
   className="…"
 />
 ```
@@ -257,7 +258,8 @@
 | `mode='static'` | 完整 Markdown,`parseIncompleteMarkdown=false` |
 | `mode='streaming'` | 未闭合语法自动补全(`**` → `<strong>` 推迟闭合、` ``` ` → 临时占位),适合边渲染边收 |
 | `isAnimating` | 流式进行中为 true：禁用代码块复制、代码块内部贴底、并启用 `animated` |
-| `animated` | `blurIn` / 200ms / ease-out；仅 `isAnimating` 时拆词淡入，历史消息不套动画 DOM |
+| `highlight` | 默认 true。流式中传 false：不挂 `@streamdown/code` 和 `mermaid`，围栏先当普通文本；完成后再算 Shiki 和 Mermaid |
+| `animated` | `fadeIn` / 200ms / `ease` / `sep: 'char'` / stagger 10ms / `maxBacklogMs` 200；仅 `isAnimating` 时每个新字做透明度淡入，同一批字错开出现，排队不超过 200ms。按词切开只认空白，中文一整句会是一块。历史消息不套动画 DOM |
 | `lineNumbers` | `true`(围栏代码块显示行号) |
 | `controls` | 代码块复制开、下载关;mermaid 下载关,全屏/复制走官方默认 |
 | `plugins` | `@streamdown/code`(Shiki)、`mermaid`、`math`(KaTeX,`$$` 定界)、`cjk` |
@@ -1183,6 +1185,7 @@ const loadOptions = async ({ query, offset, limit }: Params): Promise<Result<V>>
   crossOffset={0}                 // 十字轴偏移(对齐微调),默认 0
   interactive={false}             // hover 模式下,浮层里是否有可交互内容(按钮/链接等);默认 false
   openDelay={0}                   // hover 打开延迟(ms),默认 0。大于 0 时不再用 restMs: 50
+  width={320}                     // 可选,浮层宽度(px)。不传则随内容
   open / onOpenChange             // 受控用法;二者都给才走受控,否则内部 state
   role="dialog"                   // 浮层 ARIA role,默认 'dialog';Select 等 listbox 类场景传 'listbox'
   className                       // 透传到浮层容器

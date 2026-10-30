@@ -6,7 +6,7 @@
 
 ```
 history JSON → historyToMessages（Worker，失败则主线程） → runtime.replace
-AgentSessionEvent → adapter（未写） → BlockFeedEvent → runtime.apply
+AgentSessionEvent → adaptAgentSession → BlockFeedEvent → runtime.apply
                               │
                               ▼
                    createBlockRuntime()     ← app/web/src/conversation/
@@ -69,19 +69,16 @@ AgentSessionEvent → adapter（未写） → BlockFeedEvent → runtime.apply
 
 ## 滚动与流式出现
 
-- 对话列贴底：[`use-stick-to-bottom`](https://www.npmjs.com/package/use-stick-to-bottom) 的 `StickToBottom`（在 `Conversation.tsx`）。初次载入 / 内容变高用 `instant`；用户上滑暂停、滚回底部恢复；发送调用 `scrollToBottom('instant')` 强制拉回。不上虚拟列表。
-- Streamdown `animated`（`blurIn`）只作用于流式 Markdown 正文怎么出现，与列滚动无关。代码块内部滚动由 `isAnimating` + `MarkdownView` 外壳 `max-height: 400px` 处理。
+- 对话列贴底：[`use-stick-to-bottom`](https://www.npmjs.com/package/use-stick-to-bottom) 的 `StickToBottom`（在 `Conversation.tsx`）。滚动容器是 `container-type: size`。每一轮一层，最后一轮（用户消息到列表末尾，含后面的回复和「生成中」）`min-height: 100cqh`。短回复时贴底把这层顶对齐视口顶，回复在上半、下面留白。这层有 `padding-bottom: 40cqh`（算在 `min-height` 里）：回复超过一屏后，滚到底时末尾停在视口大约往上四成的位置，下面仍是空白，不贴输入框。没有用户消息时不包这层。初次载入、打开历史、流式增高用 `instant`。只在消息条数加一且末尾是用户消息时，`resize` / `initial` 用弹簧（`damping` 0.85、`stiffness` 0.04、`mass` 1.2），把这一轮顶上去，约 800ms 后恢复 `instant`（库里这次弹簧只保留 350ms，提前改回会把没滚完的距离瞬间补上）。用户上滑暂停、滚回底部恢复；发送时若已经不在底部，`scrollToBottom('instant')` 先拉回当前底部。不上虚拟列表。贴底时滚动视口底边有一条 `h-20`（80px）的渐隐，绝对定位、不占高度，从透明收到 `--app`，字滚过底边时变淡。空态输入框居中时没有这层。
+- 每一轮（一条用户消息和它后面的回复）单独一层。用户消息在这一层里 `sticky top-0`，气泡实底、最小宽度 320px，滚到右上角贴顶吸住，背后的正文不会从气泡上方露出来；下一轮滚到顶时这一层结束，前一条被顶走。助手消息不吸。
+- Streamdown `animated`（`fadeIn`，按字，错开 10ms）只作用于流式 Markdown 正文怎么出现，与列滚动无关。代码块内部滚动由 `isAnimating` + `MarkdownView` 外壳 `max-height: 400px` 处理。
 - [`TypewriterText`](../app/web/src/ui/TypewriterText.tsx)：grapheme 按前缀增量缓存；只在 `playing` 且未追上时 rAF；追上停帧。`playing={open && streaming}`，折叠时不跑。不再用于助手正文。
 
 ## 历史与实时
 
-打开会话：`SessionContext.messages` → `historyToMessages`（Worker，失败则主线程）→ `runtime.replace`。用户消息里的 `image` 这一版不进文本块，后面单独做块。`toolCall`、`system`、`toolResult` 先跳过，工具块是 [`web-app.md`](web-app.md) 的模块 7。
+打开会话：`SessionContext.messages` → `historyToMessages`（Worker，失败则主线程）→ `runtime.replace`，然后才 `apply` 这条的实时事件。消息有字符串 `id` 用它，否则用 `t` 加 `timestamp`。用户消息里的 `image` 这一版不进文本块，后面单独做块。`toolCall`、`system`、`toolResult` 先跳过，工具块是 [`web-app.md`](web-app.md) 的模块 7。
 
-实时还没接上：
-
-`AgentSessionEvent` → **adapter（未写）** → `BlockFeedEvent` → `runtime.apply`。
-
-adapter 建议将来放 `app/web/src/conversation/adaptAgentSession.ts`（或 server 侧先规范化）。
+实时：`AgentSessionEvent` → [`adaptAgentSession.ts`](../app/web/src/conversation/adaptAgentSession.ts) → `BlockFeedEvent` → `runtime.apply`。`agent_end` 不把这一轮收成结束，要等 `agent_settled`。
 
 ## 打磨 UI
 
@@ -100,12 +97,11 @@ adapter 建议将来放 `app/web/src/conversation/adaptAgentSession.ts`（或 se
 
 > 任何 ui 组件的「何时用 / 何时不用 / API」,查 [`docs/ui.md`](ui.md);不在本表重复。
 
-思考块：默认收起；历史与流式都可展开/收起；流式时标题走 `ShinyText`(由 `DisclosureRow.blinking` 控制);`isAnimating={open && streaming}`。正文用 `markdown-view--dim`（`--fg-disabled` 混 28% `--fg-3`，比纯禁用色略亮，仍暗于「思考」标题）。箭头 `chevron="hover"`：收起时只有悬停才显示，展开后常显；再收起且指针不在行上时立刻消失。Composer 未接 `onSubmit` 到 session。
+思考块：默认收起；历史与流式都可展开/收起；流式时标题走 `ShinyText`(由 `DisclosureRow.blinking` 控制);`isAnimating={open && streaming}`。正文用 `markdown-view--dim`（`--fg-disabled` 混 28% `--fg-3`，比纯禁用色略亮，仍暗于「思考」标题）。箭头 `chevron="hover"`：收起时只有悬停才显示，展开后常显；再收起且指针不在行上时立刻消失。`Composer` 的发送接到 `sendConversation`：没有会话就创建，已有则续发。生成中输入为空时圆按钮是停止；有字再发只进前端队列，当前回复结束后按顺序自动发。队列里的立刻发送会先停掉当前回复再发那一条，取消只删掉这一条。
 
 ## 明确不做
 
 - 虚拟列表
-- 把实时 `AgentSessionEvent` 接进 runtime（adapter 未写）
 - 复制 / 重试按钮（分组已在 snapshot 里）
 - tool / 错误块 UI（类型可加）。用户消息里的图片这一版不进历史文本，后面单独做块
 - 把 `revealPhase` 接回 runtime

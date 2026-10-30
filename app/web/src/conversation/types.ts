@@ -61,6 +61,8 @@ export type ConversationSnapshot = {
 export type CompletedPart = {
 	type: 'thinking' | 'text'
 	text: string
+	/** 在 assistant content 数组里的下标。toolCall 占下标但不进 parts。 */
+	contentIndex: number
 }
 
 export type CompletedMessage =
@@ -70,10 +72,8 @@ export type CompletedMessage =
 /**
  * Normalized feed the runtime understands.
  *
- * Real `AgentSessionEvent` is not wired. A future adapter (e.g.
- * `app/web/src/conversation/adaptAgentSession.ts`) should map session events
- * onto this union, then call `runtime.apply`. Opened history uses
- * `historyToMessages` and `runtime.replace`.
+ * `adaptAgentSession` maps `AgentSessionEvent` onto this union, then
+ * `runtime.apply`. Opened history uses `historyToMessages` and `runtime.replace`.
  */
 export type BlockFeedEvent =
 	| { type: 'run_start' }

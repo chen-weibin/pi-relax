@@ -35,7 +35,7 @@ SSE / HTTP  →  按 sessionId 分流
 
 - **内存追加**。每个 delta 到达就拼进该块文本。留在主线程。
 - **通知 React**。下一帧，且一帧最多一次（约 16ms）。`user`、`*_start`、`*_end`、`run_*` 立刻 flush。流式结束的那一帧立刻把最终文本画出来，不吃下面的绘制节流。
-- **流式 Markdown**。块的 `contentPhase` 仍是 `open` 时，最多每 32ms（约 30fps）把最新文本交给 `MarkdownView`。runtime 可以比这更勤。30fps 的正文看起来连续。`blurIn` 是 200ms，比 30fps 更密的解析看不见。50ms（三帧）在中文逐字上会一顿一顿，不用。已经 `complete` 的块不再解析。只有正在开着的那一块换文本。
+- **流式 Markdown**。块的 `contentPhase` 仍是 `open` 时，最多每 32ms（约 30fps）把最新文本交给 `MarkdownView`。runtime 可以比这更勤。30fps 的正文看起来连续。`fadeIn` 是 200ms，按字切开并错开 10ms（中文没有空格，按词等于整句一块），比 30fps 更密的解析看不见。50ms（三帧）在中文逐字上会一顿一顿，不用。已经 `complete` 的块不再解析。只有正在开着的那一块换文本。
 - **结构共享**。接上真实流式时，`emit` 只替换正在写的那一块，不为它复制整份 `order` / `byKey`。现有 runtime 每次 flush 都新建整份 `byKey`，那是 mock 能用的写法，接 SSE 时要改。这比多等一帧更影响主线程。
 - **高亮**。围栏或图未闭合时不算 Shiki、不算 Mermaid。`contentPhase === 'complete'` 再算。流式中的代码块先当普通文本。
 
@@ -77,7 +77,7 @@ Store 继续按字段切片订阅。做法见 [web-zustand-store-design.md](supe
 
 选中已有会话时拉 history。Worker 译成一份快照（或译成现有 runtime 能 `replace` 的已完成消息）。主线程 `replace` 一次。此阶段不发送。
 
-正在生成的会话也可以打开：先落地历史，再把短队列里积下的事件放进 runtime，然后接上这条的实时事件。
+正在生成的会话也可以打开：先落地历史，再把短队列里积下的事件放进 runtime，然后接上这条的实时事件。历史响应到达时，若正文里已经有消息，响应前积下的增量丢掉（那些字已经在这份 history 里），只重放响应到手之后、画上屏之前的新事件。history 还是空的则整段重放。服务端没有事件序号，响应发出后、浏览器收到前的极短一段仍可能缺字，再打开会用 history 对齐。
 
 ## 发送与中止
 
@@ -85,9 +85,9 @@ Store 继续按字段切片订阅。做法见 [web-zustand-store-design.md](supe
 
 通知仍是一帧一次。流式 Markdown 按 32ms 画，结束立刻画最终文本。快照只换正在写的那一块。
 
-同一条正在生成时，不带 `streamingBehavior` 再发会得到 409 `BUSY`。`steer` 在当前回复及其工具结束后、下一次模型调用前插入；`followUp` 在这一轮结束后再发。两种都不打断正在吐的字。出队模式在服务端全局设置里，本文不另做开关，除非单独开一块。
+同一条正在生成时，再发的文字留在前端队列，不调用 `streamingBehavior`。当前回复结束（含停止）后，按顺序把队首当作普通消息发出去，成功才从队列拿走。停止不删这个队列。队列里悬停可「取消」或「立刻发送」。立刻发送会先中止当前回复，再发那一条；这次中止不会把队首也自动发出去。取消只从队列去掉这一条。服务端的 `steer` / `followUp` 仍在接口上，输入框不再使用。
 
-中止走 `POST /api/sessions/:id/abort`。策略由服务端 `abortPolicy` 决定，前端不在本地猜队列清没清，以响应为准。
+中止走 `POST /api/sessions/:id/abort`。策略由服务端 `abortPolicy` 决定，前端不在本地猜服务端队列清没清，以响应为准。前端这条队列不受该策略影响。
 
 ## 后台会话
 
@@ -135,15 +135,17 @@ Store 继续按字段切片订阅。做法见 [web-zustand-store-design.md](supe
 
 此块不做：流式节流、结构共享改造。
 
-当前实现：`historyToMessages` 把 `SessionContext.messages` 收成 `CompletedMessage[]`，`Conversation` 在历史 `ready` 后 `replace` 一次。user 的字符串和 `text` 拼成一段；`image` 这一版不进文本块，后面单独做。assistant 保留 `thinking` 和 `text`，跳过 `toolCall`；没有正文时用 `errorMessage`。`system` 和 `toolResult` 跳过。Worker 在 `conversation/history.worker.ts`，建不起来或译失败就在主线程跑同一函数。代际对不上的结果丢掉。`loading` 清空列，并在列内左右居中显示「加载中...」，`error` 显示「历史加载失败」，草稿和未选中是空列。对话区 mock 已删除。实时事件仍不 `apply`。
+当前实现：`historyToMessages` 把 `SessionContext.messages` 收成 `CompletedMessage[]`，`Conversation` 在历史 `ready` 后 `replace` 一次，再放行这条会话的实时事件。有字符串 `id` 用它，否则用 `t` 加 `timestamp`，都没有才用 `m` 加输入下标。user 的字符串和 `text` 拼成一段；`image` 这一版不进文本块，后面单独做。assistant 保留 `thinking` 和 `text`，`contentIndex` 用内容数组里的原下标，跳过 `toolCall`；没有正文时用 `errorMessage`。`system` 和 `toolResult` 跳过。Worker 在 `conversation/history.worker.ts`，建不起来或译失败就在主线程跑同一函数。代际对不上的结果丢掉。`loading` 清空列，并在列内左右居中显示「加载中...」，`error` 显示「历史加载失败」，草稿和未选中是空列。对话区 mock 已删除。
 
 ### 4. 发送与中止
 
 依赖：模块 3 的 runtime 替换路径；空草稿来自模块 2。
 
-验收：发送后看到流式正文。生成中的 Markdown 约 30fps 更新，结束立刻是最终文本。完成的块不再跟着重解析。未闭合代码块不高亮。同一条生成中直接再发得到 `BUSY`；`steer` / `followUp` 按服务端排队。中止后目录变为 `idle`，正文停在已收到的内容。快照更新不复制整份块表。
+验收：发送后看到流式正文。生成中的 Markdown 约 30fps 更新，结束立刻是最终文本。完成的块不再跟着重解析。未闭合代码块不高亮。生成中再发进入前端队列，回复结束后按顺序自动发。停止只停当前回复，队列还在，停完队首会接着发。中止后目录变为 `idle`，正文停在已收到的内容。快照更新不复制整份块表。
 
 此块不做：后台会话的全文、模型选择器、工具块 UI。
+
+当前实现：`Composer` 在没有打开的会话时 `POST /api/sessions`（带草稿或默认工作区的 `cwd`），有会话则 `POST /api/sessions/:id/prompt`。创建返回前先按 sessionId 留下事件，选中后再放进短队列。202 后把会话插到该目录列表最前，标题先用刚发送的那句，并清掉草稿。忙时输入框仍可用。生成中再发不请求接口，按会话 id 留在 `src/session/pendingQueue.ts` 的内存队列里，刷新即丢，切走再回来还在。回复结束（含停止）后把队首按普通续发发出去，成功才删掉。输入框上方的「消息队列」浮层里，立刻发送会先中止，并且这次中止不顺带发出队首，只发点中的那一条；取消只删这一条。输入为空时圆按钮走 `POST /api/sessions/:id/abort`，有字时仍是发送。这一行的状态点以响应为准。只把当前这条的 `agent_start` / `agent_settled` 写成 `running` / `idle`。`adaptAgentSession` 把 `thinking_*` / `text_*` 和用户 `message_end` 译成 `BlockFeedEvent`，工具和压缩丢掉。`replace` 之后才 `apply`。delta 不换 `order` / 分组引用，只换正在写的那一块。开着的块最多每 32ms 把文本交给 Markdown，并且不挂代码和高亮插件；`complete` 的那一帧用最终文本并恢复高亮。`run_end` 把还开着的块收成 `complete`。
 
 ### 5. 后台状态
 

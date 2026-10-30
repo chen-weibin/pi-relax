@@ -222,7 +222,7 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
   |---|---|
   | 外壳 | `color-mix(--app 45%, --surface)`(暗色约 `#212121`,比 `--surface` 深) + `rounded-pill` + `border-border-hover` |
   | 聚焦边框 | `color-mix(--border-hover, --fg 12%)`,只比默认亮一档 |
-  | 发送 | 右下 28px 圆钮;可发送 `bg-fg text-app`,空内容 `bg-surface-active text-fg-disabled` |
+  | 发送 | 右下 28px 圆钮;可发送 `bg-fg text-app`,空内容 `bg-surface-active text-fg-disabled`。生成中且输入为空时换成同尺寸方块,点击停止 |
   | 图标 | 复用 `SendIcon`(与侧栏「新对话」同一 glyph),视觉居中用 `-translate-x-[0.5px]` |
 
   Enter 与点发送走同一 `onSubmit`。左侧附件 / 模型选择本轮未做。
@@ -233,7 +233,7 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
 
 对话区渲染的分层、数据模型、runtime、滚动/打字机约定、历史替换与实时事件边界,见 [`docs/web-conversation.md`](web-conversation.md)(改对话列表、块类型、贴底滚动、打字机,或接历史 / 实时事件时查阅)。会话列表、发送、全局 SSE、历史回放和前端性能边界见 [`docs/web-app.md`](web-app.md)(接真实会话或改帧通知、Markdown 节流、Worker 时查阅)。打磨消息卡片 / 思考折叠 / Markdown / 打字机观感时也先看 [`web-conversation.md`](web-conversation.md) 的「打磨 UI」节,再改 `ui/` 或 `components/conversation/`。本节只记接入点。
 
-有消息时，消息列与 Composer 共用 `max-w-[800px]` + `px-4`，Composer 贴底。没有可画的消息（未选中、新对话、空历史）时 Composer 在对话区垂直居中，边框盒子用 `min(620px, calc(100% - 2rem))`，宽屏最大 620，更窄时两侧留 1rem。从居中落到贴底（以及反向）用 `motion/react` 的 `layout`，约 0.4s。加载另一条会话时保持加载前的位置，避免空列把输入框弹回中间。列贴底用 [`use-stick-to-bottom`](https://www.npmjs.com/package/use-stick-to-bottom)(`StickToBottom`，`initial`/`resize` 均为 `instant`；发送时强制 `scrollToBottom`)。Streamdown `animated` 只管文字出现，不管列表滚动；代码块内部滚动仍由 `isAnimating` + MarkdownView 外壳 max-height 处理。数据层在 [`src/conversation/`](../app/web/src/conversation/)(类型 + runtime,不是 UI);组装与渲染在 [`components/conversation/`](../app/web/src/components/conversation/)。选中会话后正文来自 history，见 [`web-app.md`](web-app.md) 模块 3。
+有消息时，消息列与 Composer 共用 `max-w-[800px]` + `px-4`，Composer 贴底。没有可画的消息（未选中、新对话、空历史）时 Composer 在对话区垂直居中，边框盒子用 `min(620px, calc(100% - 2rem))`，宽屏最大 620，更窄时两侧留 1rem。从居中落到贴底（以及反向）用 `motion/react` 的 `layout`，约 0.4s。加载另一条会话时保持加载前的位置，避免空列把输入框弹回中间。列贴底用 [`use-stick-to-bottom`](https://www.npmjs.com/package/use-stick-to-bottom)（`StickToBottom`。打开历史和流式增高是 `instant`；新的一条用户消息用弹簧滚上去，见 [`web-conversation.md`](web-conversation.md) 的「滚动与流式出现」）。Streamdown `animated` 只管文字出现，不管列表滚动；代码块内部滚动仍由 `isAnimating` + MarkdownView 外壳 max-height 处理。数据层在 [`src/conversation/`](../app/web/src/conversation/)(类型 + runtime,不是 UI);组装与渲染在 [`components/conversation/`](../app/web/src/components/conversation/)。选中会话后正文来自 history，见 [`web-app.md`](web-app.md) 模块 3。
 
 思考块(历史与流式同一套):默认收起,随时可展开/收起;箭头用 `DisclosureRow` 的 `chevron="hover"`(收起时只有悬停才显示,展开后常显,再收起且指针不在行上时立刻消失);流式时标题走 `ShinyText` 扫光(`blinking`);展开后正文用 `MarkdownView` 的 `markdown-view--dim`(`--fg-disabled` 混 28% `--fg-3`,比纯禁用色略亮,仍暗于标题),`mode='streaming'` 让未闭合语法被自动修补。`isAnimating={open && streaming}` 跟原打字机 `playing` 语义对齐。这三个组件的「何时用 / 何时不用 / 视觉细节」分别在 [`docs/ui.md` 对应小节](ui.md)。
 
@@ -247,7 +247,7 @@ streamdown 与插件的 Tailwind 类扫描写在 [`ui/MarkdownView/index.css`](.
 
 | 风格 | 根属性 | 适用 | 现有图标 |
 |---|---|---|---|
-| 实心单色 | `width=14 height=14 viewBox="<shape-bbox>" fill="currentColor"` | 来源是第三方/参考 SVG 的填充字形 | `PanelLeftIcon` / `PanelRightIcon` / `SendIcon` / `SearchIcon` / `BlocksIcon` / `SettingsIcon` / `ChevronRightIcon` / `FolderClosedIcon` / `FolderOpenIcon` / `FolderIcon` / `AddFolderIcon` / `FilterIcon` / `PlusIcon` / `FileIcon` / `TerminalIcon` / `CloseIcon` / `ListIcon` |
+| 实心单色 | `width=14 height=14 viewBox="<shape-bbox>" fill="currentColor"` | 来源是第三方/参考 SVG 的填充字形 | `PanelLeftIcon` / `PanelRightIcon` / `SendIcon` / `SearchIcon` / `BlocksIcon` / `SettingsIcon` / `ChevronRightIcon` / `FolderClosedIcon` / `FolderOpenIcon` / `FolderIcon` / `AddFolderIcon` / `FilterIcon` / `PlusIcon` / `FileIcon` / `TerminalIcon` / `CloseIcon` / `MinusIcon` / `TrashIcon` / `ListIcon` |
 | 彩色文件类型 | `width=14 height=14`,path 写死 `fill` hex | 扩展名图标,多色不能吃 `currentColor` | [`fileTypes.tsx`](../app/web/src/icons/fileTypes.tsx): `FileMarkdownIcon` / `FileReadmeIcon` / `FileChangelogIcon` / `FileLicenseIcon` / `FileAgentsIcon` / `FileTxtIcon` / `FileJsIcon` / `FileJsTestIcon` / `FileTsIcon` / `FileTsTestIcon` / `FileTsxIcon` / `FileTsxTestIcon` / `FileViteIcon` / `FileCssIcon` / `FileScssIcon` / `FileLessIcon` / `FileHtmlIcon` / `FileXmlIcon` / `FileVueIcon` / `FileSvelteIcon` / `FileJsonIcon` / `FilePackageJsonIcon` / `FileLockIcon` / `FileYamlIcon` / `FileTomlIcon` / `FileSvgIcon` / `FileImageIcon` / `FileShellIcon` / `FilePythonIcon` / `FileGoIcon` / `FileRustIcon` / `FilePhpIcon` / `FileJavaIcon` / `FileHIcon` / `FileCIcon` / `FileCppIcon` / `FileRubyIcon` / `FileSqlIcon` / `FileGraphqlIcon` / `FilePrismaIcon` / `FileWasmIcon` / `FilePdfIcon` / `FileZipIcon` / `FileFontIcon` / `FileVideoIcon` / `FileAudioIcon` / `FileGitIcon` / `FileEnvIcon` / `FileTsconfigIcon` / `FileEslintIcon` / `FileDockerIcon` / `FileUnknownIcon` |
 
 实心单色图标的关键:**`viewBox` 设成 path 实际可见形状的 bounding box**(不是固定的 `0 0 1024 1024`)。原因:不同来源 SVG 的 path 占据的 bbox 大小差异很大(如一个纸飞机可能只占 viewBox 的 70%,一个 Blocks 网格占 85%),直接用源 viewBox 会导致渲染出来大小不一致。按 bbox 裁切后每个图标都充满 14×14 渲染区,视觉大小一致。bbox 之外留约 3% 内边距(在 viewBox 内侧加 padding),避免图形贴边。
