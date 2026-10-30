@@ -36,3 +36,18 @@ export function useStreamText(text: string, streaming: boolean): string {
 	if (!streaming) return text
 	return shown
 }
+
+/**
+ * 只有挂载时还是空的、并且正在流式，才逐字淡入。
+ * 切回来时正文已经在历史里，再开动画会把同一段字再画一层。
+ */
+export function nextStreamAnimate(allow: boolean | null, streaming: boolean, textLength: number): boolean {
+	if (allow !== null) return allow
+	return streaming && textLength === 0
+}
+
+export function useStreamAnimate(streaming: boolean, textLength: number): boolean {
+	const allow = useRef<boolean | null>(null)
+	allow.current = nextStreamAnimate(allow.current, streaming, textLength)
+	return streaming && allow.current
+}

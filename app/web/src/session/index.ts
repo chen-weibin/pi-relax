@@ -12,6 +12,7 @@ export {
 	subscribeOpenSessionEvents,
 	subscribeTransport,
 	getOpenSessionHistory,
+	getStreamingDraft,
 	getTransportGeneration,
 	getTransportSnapshot,
 } from './connect'

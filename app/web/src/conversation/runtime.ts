@@ -234,12 +234,16 @@ export function createBlockRuntime(): BlockRuntime {
 			case 'thinking_delta': {
 				const key = blockKey(event.messageId, event.contentIndex, 'thinking')
 				const prev = blocks.get(key)
-				if (!prev || prev.kind !== 'thinking') return
-				upsert({
-					...prev,
-					data: { text: prev.data.text + event.delta },
+				const text = event.content ?? (prev?.kind === 'thinking' ? prev.data.text + event.delta : undefined)
+				if (text === undefined) return
+				const block: ThinkingBlock = {
+					key,
+					kind: 'thinking',
+					data: { text },
 					contentPhase: 'open',
-				})
+					messageId: event.messageId,
+				}
+				upsert(prev?.kind === 'thinking' ? { ...prev, data: { text }, contentPhase: 'open' } : block)
 				runPhase = 'running'
 				return
 			}
@@ -272,12 +276,16 @@ export function createBlockRuntime(): BlockRuntime {
 			case 'text_delta': {
 				const key = blockKey(event.messageId, event.contentIndex, 'text')
 				const prev = blocks.get(key)
-				if (!prev || prev.kind !== 'text') return
-				upsert({
-					...prev,
-					data: { text: prev.data.text + event.delta },
+				const text = event.content ?? (prev?.kind === 'text' ? prev.data.text + event.delta : undefined)
+				if (text === undefined) return
+				const block: TextBlock = {
+					key,
+					kind: 'text',
+					data: { text },
 					contentPhase: 'open',
-				})
+					messageId: event.messageId,
+				}
+				upsert(prev?.kind === 'text' ? { ...prev, data: { text }, contentPhase: 'open' } : block)
 				runPhase = 'running'
 				return
 			}

@@ -259,7 +259,7 @@
 | `mode='streaming'` | 未闭合语法自动补全(`**` → `<strong>` 推迟闭合、` ``` ` → 临时占位),适合边渲染边收 |
 | `isAnimating` | 流式进行中为 true：禁用代码块复制、代码块内部贴底、并启用 `animated` |
 | `highlight` | 默认 true。流式中传 false：不挂 `@streamdown/code` 和 `mermaid`，围栏先当普通文本；完成后再算 Shiki 和 Mermaid |
-| `animated` | `fadeIn` / 200ms / `ease` / `sep: 'char'` / stagger 10ms / `maxBacklogMs` 200；仅 `isAnimating` 时每个新字做透明度淡入，同一批字错开出现，排队不超过 200ms。按词切开只认空白，中文一整句会是一块。历史消息不套动画 DOM |
+| `animated` | `fadeIn` / 200ms / `ease` / `sep: 'char'` / stagger 10ms / `maxBacklogMs` 200；仅 `isAnimating` 时每个新字做透明度淡入，同一批字错开出现，排队不超过 200ms。按词切开只认空白，中文一整句会是一块。历史消息，以及切回来时已经有字的块，不套动画 DOM |
 | `lineNumbers` | `true`(围栏代码块显示行号) |
 | `controls` | 代码块复制开、下载关;mermaid 下载关,全屏/复制走官方默认 |
 | `plugins` | `@streamdown/code`(Shiki)、`mermaid`、`math`(KaTeX,`$$` 定界)、`cjk` |

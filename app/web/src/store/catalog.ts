@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
+import type { UnseenRun } from '../session/catalogEvent'
 import { ensureDraft, type SessionDraft } from '../session/draft'
 import { placeNewProject } from '../session/groupCatalog'
 import type { CatalogProject, CatalogSession, SseStatus } from '../session/catalogTypes'
@@ -26,6 +27,7 @@ interface CatalogState {
 	drafts: SessionDraft[]
 	activeDraftCwd: string | null
 	draftNotice: number
+	unseenRuns: Record<string, UnseenRun>
 	sseStatus: SseStatus
 	setProjectsLoading: (loading: boolean) => void
 	noteNewProject: (project: CatalogProject) => void
@@ -39,7 +41,8 @@ interface CatalogState {
 	clearActiveDraft: () => void
 	removeDraft: (cwd: string) => void
 	noteSentSession: (session: CatalogSession) => void
-	setSessionStatus: (id: string, status: CatalogSession['status']) => void
+	patchSession: (id: string, patch: { status?: CatalogSession['status']; name?: string; modified?: string }) => void
+	setUnseenRun: (id: string, outcome: UnseenRun | null) => void
 	setSseStatus: (status: SseStatus) => void
 }
 
@@ -60,6 +63,7 @@ export const useCatalogStore = create<CatalogState>()(
 		drafts: [],
 		activeDraftCwd: null,
 		draftNotice: 0,
+		unseenRuns: {},
 		sseStatus: 'connecting',
 		setProjectsLoading: (loading) =>
 			set((state) => {
@@ -160,12 +164,25 @@ export const useCatalogStore = create<CatalogState>()(
 				if (!existed) page.total += 1
 				state.sessionPages[session.cwd] = page
 			}),
-		setSessionStatus: (id, status) =>
+		patchSession: (id, patch) =>
 			set((state) => {
 				for (const page of Object.values(state.sessionPages)) {
 					const row = page.sessions.find((session) => session.id === id)
-					if (row) row.status = status
+					if (!row) continue
+					if (patch.status !== undefined && row.status !== patch.status) row.status = patch.status
+					if (patch.name !== undefined && row.name !== patch.name) row.name = patch.name
+					if (patch.modified !== undefined && row.modified !== patch.modified) row.modified = patch.modified
 				}
+			}),
+		setUnseenRun: (id, outcome) =>
+			set((state) => {
+				if (outcome === null) {
+					if (state.unseenRuns[id] === undefined) return
+					delete state.unseenRuns[id]
+					return
+				}
+				if (state.unseenRuns[id] === outcome) return
+				state.unseenRuns[id] = outcome
 			}),
 		setSseStatus: (status) =>
 			set((state) => {

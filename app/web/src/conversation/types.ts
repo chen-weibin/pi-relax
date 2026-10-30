@@ -81,10 +81,10 @@ export type BlockFeedEvent =
 	| { type: 'run_error' }
 	| { type: 'user'; messageId: string; text: string }
 	| { type: 'thinking_start'; messageId: string; contentIndex: number }
-	| { type: 'thinking_delta'; messageId: string; contentIndex: number; delta: string }
+	| { type: 'thinking_delta'; messageId: string; contentIndex: number; delta: string; content?: string }
 	| { type: 'thinking_end'; messageId: string; contentIndex: number; content?: string }
 	| { type: 'text_start'; messageId: string; contentIndex: number }
-	| { type: 'text_delta'; messageId: string; contentIndex: number; delta: string }
+	| { type: 'text_delta'; messageId: string; contentIndex: number; delta: string; content?: string }
 	| { type: 'text_end'; messageId: string; contentIndex: number; content?: string }
 
 export type Publication = 'immediate' | 'animation-frame'

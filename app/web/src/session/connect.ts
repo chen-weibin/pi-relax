@@ -7,6 +7,7 @@ import { ApiError } from '../api/http'
 import { useCatalogStore, useCommonStore, useLocalStore } from '../store'
 import { LIST_PAGE_SIZE } from './listPage'
 import { draftTarget } from './draft'
+import { noteCatalogEvent, type UnseenRun } from './catalogEvent'
 import { toCatalogSession, toCatalogSessions } from './service'
 import {
 	clearOpenSession,
@@ -78,14 +79,28 @@ export function releaseOpenSession(generation: number) {
 
 let captureCreate = false
 let captured: { sessionId: string; event: AgentSessionEvent }[] = []
+const pendingRuns = new Map<string, UnseenRun>()
+const streamingDrafts = new Map<string, unknown>()
 
-function rememberStatus(id: string, status: string | undefined) {
-	useCatalogStore.getState().setSessionStatus(id, status === 'running' ? 'running' : 'idle')
+function rememberDraft(sessionId: string, event: AgentSessionEvent) {
+	if (event.type === 'message_update' && event.message.role === 'assistant') streamingDrafts.set(sessionId, event.message)
+	else if (event.type === 'agent_settled') streamingDrafts.delete(sessionId)
 }
 
-function noteRunStatus(sessionId: string, event: AgentSessionEvent) {
-	if (event.type === 'agent_start') rememberStatus(sessionId, 'running')
-	else if (event.type === 'agent_settled') rememberStatus(sessionId, 'idle')
+export function getStreamingDraft(sessionId: string): unknown | null {
+	return streamingDrafts.get(sessionId) ?? null
+}
+
+function rememberStatus(id: string, status: string | undefined) {
+	useCatalogStore.getState().patchSession(id, { status: status === 'running' ? 'running' : 'idle' })
+}
+
+function applyCatalogEvent(sessionId: string, event: AgentSessionEvent) {
+	const note = noteCatalogEvent(pendingRuns.get(sessionId) ?? null, event, sessionId === state.openSessionId)
+	if (note.pending) pendingRuns.set(sessionId, note.pending)
+	else pendingRuns.delete(sessionId)
+	if (note.patch) useCatalogStore.getState().patchSession(sessionId, note.patch)
+	if (note.unseen !== undefined) useCatalogStore.getState().setUnseenRun(sessionId, note.unseen)
 }
 
 /** 创建请求还没返回 id 时，先按 sessionId 留下事件。选中后再放进短队列。 */
@@ -98,7 +113,7 @@ function takeCaptured(sessionId: string): AgentSessionEvent[] {
 
 function queueCaptured(sessionId: string, events: readonly AgentSessionEvent[]) {
 	for (const event of events) {
-		noteRunStatus(sessionId, event)
+		applyCatalogEvent(sessionId, event)
 		const result = pushEvent(state, sessionId, event)
 		state = result.state
 		if (result.forward) emitEvents([result.forward])
@@ -143,6 +158,7 @@ export async function abortConversation(): Promise<void> {
 }
 
 export function selectOpenSession(sessionId: string) {
+	useCatalogStore.getState().setUnseenRun(sessionId, null)
 	useCatalogStore.getState().clearActiveDraft()
 	const next = selectSession(state, sessionId)
 	state = next.state
@@ -328,7 +344,8 @@ export function startSessionTransport(): () => void {
 		},
 		onEvent(sessionId, event) {
 			if (captureCreate) captured.push({ sessionId, event })
-			if (sessionId === state.openSessionId) noteRunStatus(sessionId, event)
+			rememberDraft(sessionId, event)
+			applyCatalogEvent(sessionId, event)
 			const result = pushEvent(state, sessionId, event)
 			state = result.state
 			if (result.forward) emitEvents([result.forward])

@@ -51,7 +51,7 @@ token 流不进 Worker。每条增量拷进 Worker 再拷回来，比在主线�
 
 `requestIdleCallback` 不用于流式。流式时主线程忙，空闲回调要么排不上，要么积成一大段然后卡一下。空闲时间只给可以晚一点的目录工作（例如以后的搜索索引），并且带 timeout；超时就在下一帧做完，避免侧栏停在旧数据上。几百条会话的分桶和排序留在主线程，不为这个加 Worker。
 
-后台会话：SSE 只改目录里的 `status`、`modified`，以及事件里确实带上的标题字段。不为看不见的会话建块树，不跑 Markdown。
+后台会话：SSE 只改目录里的 `status`、`modified`，以及事件里确实带上的标题字段。没在看的那条结束时，侧栏另记成功或失败，点进去清掉，刷新丢掉；目录的 `status` 仍只有 `idle` | `running`。不为看不见的会话建块树，不跑 Markdown。
 
 对话列仍不上虚拟列表，这是 [web-conversation.md](web-conversation.md) 的现结论。块数先把主线程打满时再评估窗口化，本文不预做。侧栏行高一致，会话多到滚动卡住时再虚拟化这一列。
 
@@ -77,7 +77,7 @@ Store 继续按字段切片订阅。做法见 [web-zustand-store-design.md](supe
 
 选中已有会话时拉 history。Worker 译成一份快照（或译成现有 runtime 能 `replace` 的已完成消息）。主线程 `replace` 一次。此阶段不发送。
 
-正在生成的会话也可以打开：先落地历史，再把短队列里积下的事件放进 runtime，然后接上这条的实时事件。历史响应到达时，若正文里已经有消息，响应前积下的增量丢掉（那些字已经在这份 history 里），只重放响应到手之后、画上屏之前的新事件。history 还是空的则整段重放。服务端没有事件序号，响应发出后、浏览器收到前的极短一段仍可能缺字，再打开会用 history 对齐。
+正在生成的会话也可以打开：先落地历史，再把短队列里积下的事件放进 runtime，然后接上这条的实时事件。热会话的 history 在文件上下文后面附上还没落盘的那条（`streamingMessage`）；同一条引用，或相同角色和时间戳，不重复附。客户端另留着每条会话最近一次助手 `message_update`：历史画完、放行实时事件之前，若这份半截还没出现在 history 里，先用它补上。之后的正文或思考增量若带了截至目前的全文，没有对应的开头也能把块补上。历史响应到达时，若正文里已经有消息，响应前积下的增量丢掉（那些字已经在这份 history 里），只重放响应到手之后、画上屏之前的新事件。history 还是空的则整段重放。服务端没有事件序号，响应发出后、浏览器收到前的极短一段仍可能缺字，再打开会用 history 对齐。
 
 ## 发送与中止
 
@@ -115,7 +115,7 @@ Store 继续按字段切片订阅。做法见 [web-zustand-store-design.md](supe
 
 此块不做：改 runtime、解析 Markdown、删除、改名、新建项目、新对话草稿。对话 mock、文件和终端 mock 仍留着。
 
-当前实现：接口根在 `app/web` 的 `.env.development`、`.env.test`、`.env.production`（都先是 `http://localhost:3001`），只由 `src/config/index.ts` 读出。JSON 走 axios，超时 5 分钟写在 config 里。SSE 用 `@microsoft/fetch-event-source`，不套这个超时。`src/api/sessions`、`src/api/projects`、`src/api/sse` 各自有 `index.ts`（请求）和 `types.ts`（线上形状）。有字段变换时另放 `service.ts`：SSE 信封解析在 `api/sse/service.ts`，列表行收成目录在 `src/session/service.ts`。目录在 `src/store/catalog.ts`，项目和每个目录的会话都按 20 条分页。打开的会话、历史阶段和 `SessionContext` 在 `src/session/connect.ts`，不进目录 store。事件类型用 `import type` 引用 `@earendil-works/pi-coding-agent`。实时目录更新（生成中把侧栏改成 `running` / `idle`）留给模块 5。帧合并、Markdown 节流和历史 Worker 留给模块 3、模块 4。
+当前实现：接口根在 `app/web` 的 `.env.development`、`.env.test`、`.env.production`（都先是 `http://localhost:3001`），只由 `src/config/index.ts` 读出。JSON 走 axios，超时 5 分钟写在 config 里。SSE 用 `@microsoft/fetch-event-source`，不套这个超时。`src/api/sessions`、`src/api/projects`、`src/api/sse` 各自有 `index.ts`（请求）和 `types.ts`（线上形状）。有字段变换时另放 `service.ts`：SSE 信封解析在 `api/sse/service.ts`，列表行收成目录在 `src/session/service.ts`。目录在 `src/store/catalog.ts`，项目和每个目录的会话都按 20 条分页。打开的会话、历史阶段和 `SessionContext` 在 `src/session/connect.ts`，不进目录 store。事件类型用 `import type` 引用 `@earendil-works/pi-coding-agent`。各会话的行首（进行中、没看过的成功或失败）在模块 5。帧合并、Markdown 节流和历史 Worker 留给模块 3、模块 4。
 
 ### 2. 目录
 
@@ -145,7 +145,7 @@ Store 继续按字段切片订阅。做法见 [web-zustand-store-design.md](supe
 
 此块不做：后台会话的全文、模型选择器、工具块 UI。
 
-当前实现：`Composer` 在没有打开的会话时 `POST /api/sessions`（带草稿或默认工作区的 `cwd`），有会话则 `POST /api/sessions/:id/prompt`。创建返回前先按 sessionId 留下事件，选中后再放进短队列。202 后把会话插到该目录列表最前，标题先用刚发送的那句，并清掉草稿。忙时输入框仍可用。生成中再发不请求接口，按会话 id 留在 `src/session/pendingQueue.ts` 的内存队列里，刷新即丢，切走再回来还在。回复结束（含停止）后把队首按普通续发发出去，成功才删掉。输入框上方的「消息队列」浮层里，立刻发送会先中止，并且这次中止不顺带发出队首，只发点中的那一条；取消只删这一条。输入为空时圆按钮走 `POST /api/sessions/:id/abort`，有字时仍是发送。这一行的状态点以响应为准。只把当前这条的 `agent_start` / `agent_settled` 写成 `running` / `idle`。`adaptAgentSession` 把 `thinking_*` / `text_*` 和用户 `message_end` 译成 `BlockFeedEvent`，工具和压缩丢掉。`replace` 之后才 `apply`。delta 不换 `order` / 分组引用，只换正在写的那一块。开着的块最多每 32ms 把文本交给 Markdown，并且不挂代码和高亮插件；`complete` 的那一帧用最终文本并恢复高亮。`run_end` 把还开着的块收成 `complete`。
+当前实现：`Composer` 在没有打开的会话时 `POST /api/sessions`（带草稿或默认工作区的 `cwd`），有会话则 `POST /api/sessions/:id/prompt`。创建返回前先按 sessionId 留下事件，选中后再放进短队列。202 后把会话插到该目录列表最前，标题先用刚发送的那句，并清掉草稿。忙时输入框仍可用。生成中再发不请求接口，按会话 id 留在 `src/session/pendingQueue.ts` 的内存队列里，刷新即丢，切走再回来还在。回复结束（含停止）后把队首按普通续发发出去，成功才删掉。输入框上方的「消息队列」浮层里，立刻发送会先中止，并且这次中止不顺带发出队首，只发点中的那一条；取消只删这一条。输入为空时圆按钮走 `POST /api/sessions/:id/abort`，有字时仍是发送。发送和中止的响应也会把这一行写成 `running` / `idle`。其它会话的行首在模块 5。`adaptAgentSession` 把 `thinking_*` / `text_*` 和用户 `message_end` 译成 `BlockFeedEvent`，工具和压缩丢掉。`replace` 之后才 `apply`。delta 不换 `order` / 分组引用，只换正在写的那一块。开着的块最多每 32ms 把文本交给 Markdown，并且不挂代码和高亮插件；`complete` 的那一帧用最终文本并恢复高亮。`run_end` 把还开着的块收成 `complete`。
 
 ### 5. 后台状态
 
@@ -154,6 +154,8 @@ Store 继续按字段切片订阅。做法见 [web-zustand-store-design.md](supe
 验收：A 在生成时看 B，A 的侧栏状态仍会变成 `running` / `idle`，B 的正文不重绘。再点回 A，先看到历史，再接上尚未画完的增量。
 
 此块不做：为后台会话预解析 Markdown。
+
+当前实现：每条 SSE 都走 `noteCatalogEvent`。`agent_start` / `agent_settled` 把已加载的那一行写成 `running` / `idle`，用户 `message_end`（以及带用户消息的 `entry_appended`）改 `modified`，`session_info_changed` 改标题。正文仍只进当前打开的会话。`willRetry` 的 `agent_end` 先不记结果；不再重试的那次，最后一条助手消息 `stopReason` 为 `error` 或 `aborted` 算失败，其余算成功。只有结束时这条不是正在看的会话，才把结果放进 `unseenRuns`（不进目录 `status`，刷新即丢）。点进这条就清掉。进行中是行首 3×3 点阵，盖过成功或失败；新对话仍是灰点；普通会话没有点。热会话历史附上 `streamingMessage`；切回来时若 history 里还没有半截，用客户端留着的最近一次助手 `message_update` 先补上。见上文「打开历史」。
 
 ### 6. 模型与思考档位
 

@@ -3,11 +3,13 @@ import classNames from 'classnames'
 import { motion } from 'motion/react'
 import { StickToBottom, useStickToBottomContext } from 'use-stick-to-bottom'
 import { adaptAgentSession } from '../../conversation/adaptAgentSession'
+import { historyToMessages } from '../../conversation/historyMessages'
 import { translateHistory } from '../../conversation/translateHistory'
 import { createBlockRuntime, isRunBusy, type ConversationSnapshot } from '../../conversation'
 import {
 	abortConversation,
 	getOpenSessionHistory,
+	getStreamingDraft,
 	getTransportGeneration,
 	getTransportSnapshot,
 	releaseOpenSession,
@@ -91,7 +93,7 @@ export function Conversation({ className }: Props) {
 
 	useEffect(() => {
 		return subscribeOpenSessionEvents((event) => {
-			for (const feed of adaptAgentSession(event)) runtime.apply(feed)
+			for (const item of adaptAgentSession(event)) runtime.apply(item)
 		})
 	}, [runtime])
 
@@ -183,6 +185,28 @@ export function Conversation({ className }: Props) {
 		void translateHistory(history.messages, generation, getTransportGeneration).then((messages) => {
 			if (cancelled || !messages) return
 			runtime.replace(messages)
+			const draft = transport.openSessionId ? getStreamingDraft(transport.openSessionId) : null
+			const painted = draft ? historyToMessages([draft]) : []
+			const assistant = painted[0]?.role === 'assistant' ? painted[0] : null
+			if (assistant) {
+				for (const part of assistant.parts) {
+					if (part.type === 'thinking') {
+						runtime.apply({
+							type: 'thinking_end',
+							messageId: assistant.id,
+							contentIndex: part.contentIndex,
+							content: part.text,
+						})
+					} else {
+						runtime.apply({
+							type: 'text_end',
+							messageId: assistant.id,
+							contentIndex: part.contentIndex,
+							content: part.text,
+						})
+					}
+				}
+			}
 			releaseOpenSession(generation)
 			setNotice(null)
 		})

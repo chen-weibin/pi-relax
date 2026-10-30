@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
 import { useShallow } from 'zustand/react/shallow'
+import type { UnseenRun } from '../session/catalogEvent'
 import { projectRows, sessionModifiedAt, sessionTitle } from '../session/groupCatalog'
 import { DRAFT_TITLE, draftId } from '../session/draft'
 import {
@@ -20,6 +21,14 @@ export interface ProjectSectionProps {
 	className?: string
 }
 
+function rowStatus(
+	running: boolean,
+	unseen: UnseenRun | undefined,
+): 'loading' | 'success' | 'failure' | undefined {
+	if (running) return 'loading'
+	return unseen
+}
+
 function sessionNote(page: SessionPage | undefined, hasDraft: boolean): string | null {
 	if (!page || page.loading) return '加载中'
 	if (page.error) return page.error
@@ -28,18 +37,20 @@ function sessionNote(page: SessionPage | undefined, hasDraft: boolean): string |
 }
 
 export function ProjectSection({ className }: ProjectSectionProps) {
-	const { projects, projectsTotal, projectsLoading, projectsError, defaultCwd, defaultName, listsReady, sessionPages } = useCatalogStore(
-		useShallow((state) => ({
-			projects: state.projects,
-			projectsTotal: state.projectsTotal,
-			projectsLoading: state.projectsLoading,
-			projectsError: state.projectsError,
-			defaultCwd: state.defaultCwd,
-			defaultName: state.defaultName,
-			listsReady: state.listsReady,
-			sessionPages: state.sessionPages,
-		})),
-	)
+	const { projects, projectsTotal, projectsLoading, projectsError, defaultCwd, defaultName, listsReady, sessionPages, unseenRuns } =
+		useCatalogStore(
+			useShallow((state) => ({
+				projects: state.projects,
+				projectsTotal: state.projectsTotal,
+				projectsLoading: state.projectsLoading,
+				projectsError: state.projectsError,
+				defaultCwd: state.defaultCwd,
+				defaultName: state.defaultName,
+				listsReady: state.listsReady,
+				sessionPages: state.sessionPages,
+				unseenRuns: state.unseenRuns,
+			})),
+		)
 	const openSessionId = useSyncExternalStore(subscribeTransport, () => getTransportSnapshot().openSessionId)
 	const projectsCollapsed = useLocalStore((state) => state.projectsCollapsed)
 	const setProjectCollapsed = useLocalStore((state) => state.setProjectCollapsed)
@@ -121,14 +132,17 @@ export function ProjectSection({ className }: ProjectSectionProps) {
 											},
 										]
 									: []),
-								...(page?.sessions ?? []).map((session) => ({
-									id: session.id,
-									title: sessionTitle(session),
-									createdAt: sessionModifiedAt(session),
-									active: session.id === openSessionId,
-									onClick: () => selectOpenSession(session.id),
-									...(session.status === 'running' ? { status: 'loading' as const } : {}),
-								})),
+								...(page?.sessions ?? []).map((session) => {
+									const status = rowStatus(session.status === 'running', unseenRuns[session.id])
+									return {
+										id: session.id,
+										title: sessionTitle(session),
+										createdAt: sessionModifiedAt(session),
+										active: session.id === openSessionId,
+										onClick: () => selectOpenSession(session.id),
+										...(status ? { status } : {}),
+									}
+								}),
 							]
 							return (
 								<ProjectItem

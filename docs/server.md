@@ -133,7 +133,7 @@ pi 暴露的加载点都要能指定到 `.relax` 或配置里的路径，不默�
 
 新对话：`SessionManager.create(cwd)` 后，用这条会话的 cwd 补项目行（没有行才插入），再立刻 `prompt`。文件等第一条 user 消息。思考档位默认 `medium`。正在回复时，不带 `streamingBehavior` 再 `prompt` 得 `BUSY`；`steer` 在当前回复及其工具结束后、下一次模型调用前插入，`followUp` 在本轮结束后再发。两者都不打断正在吐的字。多条排队的出队读全局 `~/.relax/agent/settings.json` 的 `steeringMode` / `followUpMode`（各自 `all` 或 `one-at-a-time`，缺省 `one-at-a-time`）。新建会话由基座 `SettingsManager` 合并该文件与工作区 `.pi/settings.json`，工厂里不调用 setter。`PATCH /api/settings` 之后，内存里的会话用 `setSteeringMode` / `setFollowUpMode` 立刻换模式。
 
-历史：热会话用该 `sessionManager.buildSessionContext()`，否则 `SessionManager.open` 再同样调用。返回 `{ messages, thinkingLevel, model }`，不手读 JSONL。
+历史：热会话用该 `sessionManager.buildSessionContext()`，并在后面附上还没落盘的 `streamingMessage`（同一条引用，或相同角色和时间戳，不重复）。否则 `SessionManager.open` 再同样调用，没有内存里的半截。返回 `{ messages, thinkingLevel, model }`，不手读 JSONL。
 
 列表字段从 pi 的 `SessionInfo` 推导（去掉 `path`、`allMessagesText`，时间输出 ISO）。另加内存 `status`：`idle` | `running`。历史类型即 pi 的 `SessionContext`。字段含义不在本文展开，看 [api.html](../app/server/test/html/api.html) 各接口的请求类型和返回类型，或直接看 [sessions/types.ts](../app/server/src/sessions/types.ts) 与路由。查阅时机：改会话 JSON 形状时，改实现并改调试页上的类型，不必在本文再抄一份。
 
@@ -152,7 +152,7 @@ pi 暴露的加载点都要能指定到 `.relax` 或配置里的路径，不默�
 - `POST /api/projects/:id/purge` 删掉该工作区的会话文件和这一行
 - `POST /api/projects/:id/sessions/purge` 按修改时间早于某时刻，或已完成，删掉一部分会话文件
 - `GET /api/sessions/:id` 一条信息
-- `GET /api/sessions/:id/history` `buildSessionContext()`
+- `GET /api/sessions/:id/history` `buildSessionContext()`，热会话再附上 `streamingMessage`
 - `DELETE /api/sessions/:id` 中止并逻辑删，JSONL 留在磁盘上，204
 - `POST /api/sessions/:id/prompt` 续发，202。可选 `streamingBehavior`（`steer` | `followUp`）、`thinkingLevel`，以及一起出现的 `provider` 与 `model`。带了模型且与该会话上次不同时才写入会话
 - `POST /api/sessions/:id/model` 只把所选模型写成全局默认，不改这条会话的上次模型

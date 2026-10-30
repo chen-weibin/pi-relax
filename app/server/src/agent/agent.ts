@@ -10,6 +10,7 @@ import {
 	type SessionRecord,
 	type SessionStatus,
 } from '../sessions/index.js'
+import { withStreamingMessage } from '../sessions/history.js'
 import { ensureSessionRow, fillUnsetSessionName, fillUnsetSessionNames } from '../sessions/index-row.js'
 import { listSessionRows, noteUserMessage, renameSession, sessionRow, softDeleteSession, toSessionRecord } from '../sessions/rows.js'
 import { backfillSessions, dropMissingSessionFiles } from '../sessions/sync.js'
@@ -87,7 +88,11 @@ export class Agent {
 
 	async history(id: string): Promise<SessionHistory> {
 		const slot = this.slots.get(id)
-		if (slot) return historyFrom(slot.session.sessionManager)
+		if (slot) {
+			const streaming = slot.session.state.streamingMessage
+			const base = historyFrom(slot.session.sessionManager)
+			return withStreamingMessage(base, streaming)
+		}
 		const history = await historyById(id)
 		if (!history) throw new SessionNotFoundError(id)
 		return history
