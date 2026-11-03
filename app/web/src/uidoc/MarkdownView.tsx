@@ -15,7 +15,7 @@ function MarkdownViewDemo() {
 	return (
 		<Preview label="Markdown" bodyClassName="flex-col items-stretch gap-4">
 			<Segmented value={mode} options={modes} onChange={setMode} />
-			<MarkdownView text={sample} mode={mode} isAnimating={mode === 'streaming'} />
+			<MarkdownView key={mode} text={sample} mode={mode} isAnimating={mode === 'streaming'} />
 		</Preview>
 	)
 }

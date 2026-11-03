@@ -257,9 +257,9 @@
 |---|---|
 | `mode='static'` | 完整 Markdown,`parseIncompleteMarkdown=false` |
 | `mode='streaming'` | 未闭合语法自动补全(`**` → `<strong>` 推迟闭合、` ``` ` → 临时占位),适合边渲染边收 |
-| `isAnimating` | 流式进行中为 true：禁用代码块复制、代码块内部贴底、并启用 `animated` |
+| `isAnimating` | 父组件：这块正在流式，新到的字做透明度淡入。变为 false 后不再播，直接显示当前文本。挂载时已经有字则不打开这项 |
 | `highlight` | 默认 true。流式中传 false：不挂 `@streamdown/code` 和 `mermaid`，围栏先当普通文本；完成后再算 Shiki 和 Mermaid |
-| `animated` | `fadeIn` / 200ms / `ease` / `sep: 'char'` / stagger 10ms / `maxBacklogMs` 200；仅 `isAnimating` 时每个新字做透明度淡入，同一批字错开出现，排队不超过 200ms。按词切开只认空白，中文一整句会是一块。历史消息，以及切回来时已经有字的块，不套动画 DOM |
+| `animated` | 只在 `isAnimating` 时交给 streamdown：`fadeIn` / 120ms / `ease-out` / `sep: 'char'` / stagger 0。视图不再自己拆字，每一拍交给它的就是当时的全文；stagger 为 0，这一拍新到的字一起淡入。`sep: 'char'` 只让库把新后缀和已经出现的字分开，不是逐字排队。历史和不在动画中的块不传这项 |
 | `lineNumbers` | `true`(围栏代码块显示行号) |
 | `controls` | 代码块复制开、下载关;mermaid 下载关,全屏/复制走官方默认 |
 | `plugins` | `@streamdown/code`(Shiki)、`mermaid`、`math`(KaTeX,`$$` 定界)、`cjk` |
@@ -272,6 +272,7 @@
 - `parseIncompleteMarkdown` 在 `mode='streaming'` 时自动 true,不要手动开,会让 `mode='static'` 渲染坏掉。
 - 公式只用 `$$`,不要开 `singleDollarTextMath`,避免和金额 `$` 冲突。
 - 极长 Markdown(> 5k 字)会让 streamdown 同步解析阻塞主线程一次;若遇到,后续考虑 `requestIdleCallback` 切 chunk。
+- 流式淡入跟着交给 `MarkdownView` 的那一拍全文走。streamdown 用 `sep: 'char'` 认出新后缀，`stagger: 0` 让这些新字同一时刻做透明度过渡。不要在视图里再按字素往前放；那样流结束后队列还会继续补。
 
 ## TypewriterText
 

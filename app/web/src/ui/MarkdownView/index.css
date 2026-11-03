@@ -146,3 +146,9 @@
 	border-radius: 0;
 	background: var(--app);
 }
+
+/* 已经出现过的字素被 streamdown 标成 0ms。改 duration 会让 CSS 动画从头播，整段闪一下。 */
+.markdown-view [data-sd-animate][style*='--sd-duration:0ms'] {
+	animation: none;
+	opacity: 1;
+}

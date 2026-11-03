@@ -16,6 +16,18 @@ const controls = {
 
 const plainPlugins = { math, cjk } as const
 
+/**
+ * 只淡这一拍新到的后缀。sep 用 char，是因为无空格的中文在 word 模式下整段算已经出现过，新字不会淡入。
+ * stagger 为 0：同一次渲染里的新字同一时刻开始，不逐字排队。
+ */
+const streamFade = {
+	animation: 'fadeIn',
+	duration: 120,
+	easing: 'ease-out',
+	sep: 'char',
+	stagger: 0,
+} as const
+
 export type MarkdownViewProps = {
 	text: string
 	mode?: 'static' | 'streaming'
@@ -37,18 +49,11 @@ export function MarkdownView({
 			<Streamdown
 				mode={mode}
 				isAnimating={isAnimating}
-				animated={{
-					animation: 'fadeIn',
-					duration: 200,
-					easing: 'ease',
-					sep: 'char',
-					stagger: 10,
-					maxBacklogMs: 200,
-				}}
+				animated={isAnimating ? streamFade : false}
 				lineNumbers
 				codeBlockMaxHeight={0}
 				controls={controls}
-				plugins={highlight ? plugins : plainPlugins}
+				plugins={highlight && !isAnimating ? plugins : plainPlugins}
 				shikiTheme={['github-light', 'github-dark']}
 				mermaid={{ config: { theme: 'dark' } }}
 				parseIncompleteMarkdown={mode === 'streaming'}
