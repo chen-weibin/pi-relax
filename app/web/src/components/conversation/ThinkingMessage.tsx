@@ -19,10 +19,9 @@ export function ThinkingMessage({ block }: ThinkingMessageProps) {
 	const text = useStreamText(block.data.text, streaming)
 	const live = useLived(streaming)
 	const [open, setOpen] = useState(false)
-	const title = streaming ? '思考中' : '思考'
 
 	return (
-		<DisclosureRow title={title} open={open} blinking={streaming} chevron="hover" onOpenChange={setOpen}>
+		<DisclosureRow title="思考" open={open} blinking={streaming} chevron="hover" onOpenChange={setOpen}>
 			<MarkdownView
 				text={text}
 				live={live}

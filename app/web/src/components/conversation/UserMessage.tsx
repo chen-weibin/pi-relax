@@ -8,8 +8,8 @@ export type UserMessageProps = {
 
 export function UserMessage({ block }: UserMessageProps) {
 	return (
-		<div className="flex justify-end">
-			<MessageSurface className="max-w-full min-w-[320px]">
+		<div className="flex w-full justify-end">
+			<MessageSurface className="w-full">
 				<MarkdownView text={block.data.text} mode="static" />
 			</MessageSurface>
 		</div>

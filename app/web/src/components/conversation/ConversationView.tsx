@@ -18,7 +18,7 @@ function MessageArticle({ group, blocks }: { group: MessageSnapshot; blocks: rea
 		<article
 			className={classNames(
 				'flex flex-col gap-2',
-				group.role === 'user' && 'sticky top-0 z-10 w-fit max-w-full self-end',
+				group.role === 'user' && 'sticky top-0 z-10 w-full',
 			)}
 			data-message-id={group.id}
 			data-role={group.role}

@@ -16,8 +16,8 @@ function useLived(streaming: boolean): boolean {
 
 function UserRow({ block }: { block: UserTextBlock }) {
 	return (
-		<div className="flex justify-end">
-			<MessageSurface className="max-w-full min-w-[320px]">
+		<div className="flex w-full justify-end">
+			<MessageSurface className="w-full">
 				<ChatMarkdown text={block.data.text} live={false} streaming={false} />
 			</MessageSurface>
 		</div>
@@ -37,7 +37,7 @@ function ThinkingRow({ block, feed }: { block: ThinkingBlock; feed: FeedConfig }
 	const live = useLived(streaming)
 	const [open, setOpen] = useState(false)
 	return (
-		<DisclosureRow title={streaming ? '思考中' : '思考'} open={open} blinking={streaming} chevron="hover" onOpenChange={setOpen}>
+		<DisclosureRow title="思考" open={open} blinking={streaming} chevron="hover" onOpenChange={setOpen}>
 			<ChatMarkdown
 				text={text}
 				live={live}
@@ -103,7 +103,7 @@ export function ChatView({ snapshot, feed }: { snapshot: ConversationSnapshot; f
 							key={group.id}
 							className={classNames(
 								'flex flex-col gap-2',
-								group.role === 'user' && 'sticky top-0 z-10 w-fit max-w-full self-end',
+								group.role === 'user' && 'sticky top-0 z-10 w-full',
 							)}
 							data-message-id={group.id}
 							data-role={group.role}
