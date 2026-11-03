@@ -266,9 +266,10 @@ streamdown 与插件的 Tailwind 类扫描写在 [`ui/MarkdownView/index.css`](.
 |---|---|---|
 | `/` | `pages/Workspace` | 现有四区壳。`startSessionTransport()` 在这里启动 |
 | `/ui` | `pages/Ui` | 只在 `import.meta.env.DEV` 注册。左侧目录宽固定 220px，按操作 / 浮层 / 反馈 / 布局 / 文本分组。当前节底色只包住文字；同一节有多项时只高亮离标题最近的一项。滚动条隐藏。右侧内容居中，每个组件一块圆角描边预览，组件之间一条与内容同宽的分隔线。点目录平滑滚到对应节。说明和演示在 `src/uidoc/`，页面不贴源码。`vite build` 不包含这条路由 |
+| `/chat` | `pages/Chat` | 只在 `import.meta.env.DEV` 注册。流式渲染试验页，固定 220px 侧栏加主对话，不拖拽。侧栏只列默认工作区的会话；导入的模拟留在侧栏顶部，页面不刷新就能再点开重放。新建、录制、导出、模拟在右侧顶栏。对话视图在 `src/chat/`。露出节奏和正式对话共用 `defaultFeed`，右侧改动只影响这一页。可录制一轮原始 SSE、导出 JSON，再按到达间隔回放。`vite build`（含 `--mode test`）不包含这条路由 |
 | 其他 | — | `<Navigate to="/" replace />` |
 
-`Workspace` 用 `React.lazy` 动态 `import`，Vite 拆 chunk。`/ui` 的 `lazy(() => import('../pages/Ui'))` 写在 `if (import.meta.env.DEV)` 里，生产构建把这个分支和 `uidoc` 一起裁掉。路由级组件放 `src/pages/`，不要放进 `src/ui/`（那是组件库）。陈列页的文案和多种形态放 `src/uidoc/`，不要堆进 `pages/Ui.tsx`。
+`Workspace` 用 `React.lazy` 动态 `import`，Vite 拆 chunk。`/ui` 和 `/chat` 的 `lazy` 都写在 `if (import.meta.env.DEV)` 里，生产构建和 `vite build --mode test` 把这些分支裁掉。路由级组件放 `src/pages/`，不要放进 `src/ui/`（那是组件库）。陈列页的文案和多种形态放 `src/uidoc/`，不要堆进 `pages/Ui.tsx`。`/chat` 的试验渲染放 `src/chat/`，确认观感后再迁回 `components/conversation/`。
 
 `mainView`（对话 / 自定义）仍是壳内状态，不进 URL。
 

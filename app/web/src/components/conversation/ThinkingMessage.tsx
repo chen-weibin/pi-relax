@@ -1,17 +1,23 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { DisclosureRow } from '../../ui/DisclosureRow'
 import { MarkdownView } from '../../ui/MarkdownView'
 import type { ThinkingBlock } from '../../conversation'
-import { useStreamAnimate, useStreamText } from './useStreamText'
+import { useStreamText } from './useStreamText'
 
 export type ThinkingMessageProps = {
 	block: ThinkingBlock
 }
 
+function useLived(streaming: boolean): boolean {
+	const lived = useRef(false)
+	if (streaming) lived.current = true
+	return lived.current
+}
+
 export function ThinkingMessage({ block }: ThinkingMessageProps) {
 	const streaming = block.contentPhase === 'open'
 	const text = useStreamText(block.data.text, streaming)
-	const animate = useStreamAnimate(streaming, block.data.text.length)
+	const live = useLived(streaming)
 	const [open, setOpen] = useState(false)
 	const title = streaming ? '思考中' : '思考'
 
@@ -19,9 +25,9 @@ export function ThinkingMessage({ block }: ThinkingMessageProps) {
 		<DisclosureRow title={title} open={open} blinking={streaming} chevron="hover" onOpenChange={setOpen}>
 			<MarkdownView
 				text={text}
-				mode={streaming ? 'streaming' : 'static'}
-				isAnimating={open && animate}
-				highlight={!streaming}
+				live={live}
+				streaming={streaming}
+				isAnimating={open && streaming}
 				className="markdown-view--dim"
 			/>
 		</DisclosureRow>

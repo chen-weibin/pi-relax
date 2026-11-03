@@ -1,21 +1,21 @@
+import { useRef } from 'react'
 import { MarkdownView } from '../../ui/MarkdownView'
 import type { TextBlock } from '../../conversation'
-import { useStreamAnimate, useStreamText } from './useStreamText'
+import { useStreamText } from './useStreamText'
 
 export type AssistantMessageProps = {
 	block: TextBlock
 }
 
+function useLived(streaming: boolean): boolean {
+	const lived = useRef(false)
+	if (streaming) lived.current = true
+	return lived.current
+}
+
 export function AssistantMessage({ block }: AssistantMessageProps) {
 	const streaming = block.contentPhase === 'open'
 	const text = useStreamText(block.data.text, streaming)
-	const animate = useStreamAnimate(streaming, block.data.text.length)
-	return (
-		<MarkdownView
-			text={text}
-			mode={streaming ? 'streaming' : 'static'}
-			isAnimating={animate}
-			highlight={!streaming}
-		/>
-	)
+	const live = useLived(streaming)
+	return <MarkdownView text={text} live={live} streaming={streaming} isAnimating={streaming} />
 }

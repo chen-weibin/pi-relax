@@ -1,41 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-
-const INTERVAL_MS = 32
-
-/** 流式时最多每 32ms 交出一次最新文本。结束后立刻用最终文本。 */
-export function useStreamText(text: string, streaming: boolean): string {
-	const textRef = useRef(text)
-	const timer = useRef(0)
-	const [shown, setShown] = useState(text)
-	textRef.current = text
-
-	useEffect(() => {
-		if (!streaming) {
-			if (timer.current) {
-				window.clearTimeout(timer.current)
-				timer.current = 0
-			}
-			setShown(text)
-			return
-		}
-		if (timer.current) return
-		timer.current = window.setTimeout(() => {
-			timer.current = 0
-			setShown(textRef.current)
-		}, INTERVAL_MS)
-	}, [text, streaming])
-
-	useEffect(() => {
-		return () => {
-			if (!timer.current) return
-			window.clearTimeout(timer.current)
-			timer.current = 0
-		}
-	}, [])
-
-	if (!streaming) return text
-	return shown
-}
+import { FRAME_MS, advanceShown, defaultFeed, type FeedConfig } from '../../chat/pace.ts'
 
 /**
  * 只有挂载时还是空的、并且正在流式，才逐字淡入。
@@ -50,4 +14,45 @@ export function useStreamAnimate(streaming: boolean, textLength: number): boolea
 	const allow = useRef<boolean | null>(null)
 	allow.current = nextStreamAnimate(allow.current, streaming, textLength)
 	return streaming && allow.current
+}
+
+/** 正式对话用 /chat 定下的默认节奏。试验页可以传入另一份 feed。 */
+export function useStreamText(text: string, streaming: boolean, feed: FeedConfig = defaultFeed): string {
+	const textRef = useRef(text)
+	const shownRef = useRef(streaming && feed.mode === 'pace' ? '' : text)
+	const timer = useRef(0)
+	const [shown, setShown] = useState(shownRef.current)
+	textRef.current = text
+	const direct = feed.mode === 'direct'
+	const frames = Math.max(1, Math.round(feed.frames))
+	const lag = feed.lag
+	const step = feed.step
+
+	useEffect(() => {
+		const stop = () => {
+			if (!timer.current) return
+			window.clearTimeout(timer.current)
+			timer.current = 0
+		}
+		if (!streaming || direct) {
+			stop()
+			shownRef.current = text
+			setShown(text)
+			return
+		}
+		if (!text.startsWith(shownRef.current)) shownRef.current = ''
+		const tick = () => {
+			const next = advanceShown(textRef.current, shownRef.current, true, { lag, step })
+			shownRef.current = next
+			setShown(next)
+			if (next.length < textRef.current.length) timer.current = window.setTimeout(tick, frames * FRAME_MS)
+			else timer.current = 0
+		}
+		if (timer.current || shownRef.current.length >= text.length) return stop
+		timer.current = window.setTimeout(tick, frames * FRAME_MS)
+		return stop
+	}, [text, streaming, direct, frames, lag, step])
+
+	if (!streaming || direct) return text
+	return shown
 }

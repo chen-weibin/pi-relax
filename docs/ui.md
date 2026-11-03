@@ -258,8 +258,9 @@
 | `mode='static'` | 完整 Markdown,`parseIncompleteMarkdown=false` |
 | `mode='streaming'` | 未闭合语法自动补全(`**` → `<strong>` 推迟闭合、` ``` ` → 临时占位),适合边渲染边收 |
 | `isAnimating` | 父组件：这块正在流式，新到的字做透明度淡入。变为 false 后不再播，直接显示当前文本。挂载时已经有字则不打开这项 |
-| `highlight` | 默认 true。流式中传 false：不挂 `@streamdown/code` 和 `mermaid`，围栏先当普通文本；完成后再算 Shiki 和 Mermaid |
-| `animated` | 只在 `isAnimating` 时交给 streamdown：`fadeIn` / 120ms / `ease-out` / `sep: 'char'` / stagger 0。视图不再自己拆字，每一拍交给它的就是当时的全文；stagger 为 0，这一拍新到的字一起淡入。`sep: 'char'` 只让库把新后缀和已经出现的字分开，不是逐字排队。历史和不在动画中的块不传这项 |
+| `live` / `streaming` | 眼前流过的块用这组。`streaming` 时挂代码外壳、不算 Mermaid，并补未闭合语法；结束后仍走分块 DOM，再挂 Mermaid |
+| `highlight` | 非 `live` 时的旧路径。默认 true。`isAnimating` 时不挂 code / mermaid |
+| `animated` | `live && streaming && isAnimating` 时交给 streamdown：`fadeIn` / 200ms / `ease-out` / `sep: 'char'` / stagger 0。交给它的是前缀，不是已收到的全文。历史块不走这项 |
 | `lineNumbers` | `true`(围栏代码块显示行号) |
 | `controls` | 代码块复制开、下载关;mermaid 下载关,全屏/复制走官方默认 |
 | `plugins` | `@streamdown/code`(Shiki)、`mermaid`、`math`(KaTeX,`$$` 定界)、`cjk` |

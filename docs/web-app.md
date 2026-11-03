@@ -35,11 +35,13 @@ SSE / HTTP  →  按 sessionId 分流
 
 - **内存追加**。每个 delta 到达就拼进该块文本。留在主线程。
 - **通知 React**。下一帧，且一帧最多一次（约 16ms）。`user`、`*_start`、`*_end`、`run_*` 立刻 flush。流式结束的那一帧立刻把最终文本交给 `MarkdownView`，不吃下面的绘制节流，也不再补播淡入。
-- **流式 Markdown**。块的 `contentPhase` 仍是 `open` 时，最多每 32ms 把最新全文交给 `MarkdownView`。这一拍相对上一拍多出来的字一起做 120ms 透明度淡入，见 [web-conversation.md](web-conversation.md) 的「滚动与流式出现」。已经 `complete` 的块不再解析。只有正在开着的那一块换文本。
+- **流式 Markdown**。块的 `contentPhase` 仍是 `open` 时，不把已收到的全文一次交给 `MarkdownView`。默认每 96ms（6 × 16ms）交一截前缀：落后不超过 32 个字时每拍 2 个字素，落后上限每次 ×2、每拍字数每次 ×3。围栏按行。新露出的字一起做 200ms 透明度淡入，见 [web-conversation.md](web-conversation.md) 的「滚动与流式出现」。流式期就挂代码块外壳，Mermaid 等这段结束再挂。结束后立刻用全文，眼前流过的块仍走分块 DOM。只有正在开着的那一块换文本。
 - **结构共享**。接上真实流式时，`emit` 只替换正在写的那一块，不为它复制整份 `order` / `byKey`。现有 runtime 每次 flush 都新建整份 `byKey`，那是 mock 能用的写法，接 SSE 时要改。这比多等一帧更影响主线程。
-- **高亮**。围栏或图未闭合时不算 Shiki、不算 Mermaid。`contentPhase === 'complete'` 再算。流式中的代码块先当普通文本。
+- **高亮**。流式期挂代码外壳（含 Shiki），不算 Mermaid。这段结束后再挂 Mermaid。
 
-改这些数字的条件：通知间隔只有在测量到「一帧一次的通知本身」超过预算时才加长，加长之前先确认贵的不是 Markdown。32ms 不要为了让字「更连续」去缩短；连续感如果要改，改的是淡入时长。这一拍里新到的字本来就该一起淡入。若 32ms 下解析仍经常超过约 8ms，先确认高亮已经延后、完成块已不再解析，再考虑把解析移出主线程（见下节）。没量到之前不改常数。
+上面是正式对话（`/`）和 `/chat` 共用的节奏，数在 `app/web/src/chat/pace.ts` 的 `defaultFeed`。`/chat` 右侧可以改第一档或改成「直接给」（跳过 `shown`，全文一到就进视图），改动只影响试验页。正式页固定用默认档。
+
+改这些数字的条件：通知间隔只有在测量到「一帧一次的通知本身」超过预算时才加长，加长之前先确认贵的不是 Markdown。露出节奏改 `defaultFeed`。这一拍里新到的字一起淡入。若解析仍经常超过约 8ms，先确认 Mermaid 已经延后、完成块已不再解析，再考虑把解析移出主线程（见下节）。没量到之前不把解析搬进 Worker。
 
 ## Worker 与空闲时间
 
@@ -47,7 +49,7 @@ Worker 做「算一次、结果不参与当前这一帧」的事。打开历史�
 
 token 流不进 Worker。每条增量拷进 Worker 再拷回来，比在主线程拼接字符串贵，而且晚一拍。
 
-`Streamdown` 组件不进 Worker，它要产出 DOM。能挪的是解析。当前不挪。先做 32ms 节流、完成块不重解析、高亮延后。这样做完之后，若单次流式解析仍经常超过约 8ms，再把「解析出 HTML 或 AST」放进 Worker，主线程只插入结果。没量到之前不另写一套 Markdown。
+`Streamdown` 组件不进 Worker，它要产出 DOM。能挪的是解析。当前不挪。先做前缀露出、完成块不重解析、Mermaid 延后。这样做完之后，若单次流式解析仍经常超过约 8ms，再把「解析出 HTML 或 AST」放进 Worker，主线程只插入结果。没量到之前不另写一套 Markdown。
 
 `requestIdleCallback` 不用于流式。流式时主线程忙，空闲回调要么排不上，要么积成一大段然后卡一下。空闲时间只给可以晚一点的目录工作（例如以后的搜索索引），并且带 timeout；超时就在下一帧做完，避免侧栏停在旧数据上。几百条会话的分桶和排序留在主线程，不为这个加 Worker。
 
@@ -83,7 +85,7 @@ Store 继续按字段切片订阅。做法见 [web-zustand-store-design.md](supe
 
 `Composer` 的 `onSubmit` 接到会话。没有 sessionId 时走创建并发送；已有则走续发。当前会话的 SSE 经 adapter 进入 `runtime.apply`。
 
-通知仍是一帧一次。流式 Markdown 按 32ms 画，结束立刻画最终文本。快照只换正在写的那一块。
+通知仍是一帧一次。流式 Markdown 按 `defaultFeed` 交前缀，结束立刻画最终文本。快照只换正在写的那一块。
 
 同一条正在生成时，再发的文字留在前端队列，不调用 `streamingBehavior`。当前回复结束（含停止）后，按顺序把队首当作普通消息发出去，成功才从队列拿走。停止不删这个队列。队列里悬停可「取消」或「立刻发送」。立刻发送会先中止当前回复，再发那一条；这次中止不会把队首也自动发出去。取消只从队列去掉这一条。服务端的 `steer` / `followUp` 仍在接口上，输入框不再使用。
 
@@ -145,7 +147,7 @@ Store 继续按字段切片订阅。做法见 [web-zustand-store-design.md](supe
 
 此块不做：后台会话的全文、模型选择器、工具块 UI。
 
-当前实现：`Composer` 在没有打开的会话时 `POST /api/sessions`（带草稿或默认工作区的 `cwd`），有会话则 `POST /api/sessions/:id/prompt`。创建返回前先按 sessionId 留下事件，选中后再放进短队列。202 后把会话插到该目录列表最前，标题先用刚发送的那句，并清掉草稿。忙时输入框仍可用。生成中再发不请求接口，按会话 id 留在 `src/session/pendingQueue.ts` 的内存队列里，刷新即丢，切走再回来还在。回复结束（含停止）后把队首按普通续发发出去，成功才删掉。输入框上方的「消息队列」浮层里，立刻发送会先中止，并且这次中止不顺带发出队首，只发点中的那一条；取消只删这一条。输入为空时圆按钮走 `POST /api/sessions/:id/abort`，有字时仍是发送。发送和中止的响应也会把这一行写成 `running` / `idle`。其它会话的行首在模块 5。`adaptAgentSession` 把 `thinking_*` / `text_*` 和用户 `message_end` 译成 `BlockFeedEvent`，工具和压缩丢掉。`replace` 之后才 `apply`。delta 不换 `order` / 分组引用，只换正在写的那一块。开着的块最多每 32ms 把文本交给 Markdown，并且不挂代码和高亮插件；`complete` 的那一帧用最终文本并恢复高亮。`run_end` 把还开着的块收成 `complete`。
+当前实现：`Composer` 在没有打开的会话时 `POST /api/sessions`（带草稿或默认工作区的 `cwd`），有会话则 `POST /api/sessions/:id/prompt`。创建返回前先按 sessionId 留下事件，选中后再放进短队列。202 后把会话插到该目录列表最前，标题先用刚发送的那句，并清掉草稿。忙时输入框仍可用。生成中再发不请求接口，按会话 id 留在 `src/session/pendingQueue.ts` 的内存队列里，刷新即丢，切走再回来还在。回复结束（含停止）后把队首按普通续发发出去，成功才删掉。输入框上方的「消息队列」浮层里，立刻发送会先中止，并且这次中止不顺带发出队首，只发点中的那一条；取消只删这一条。输入为空时圆按钮走 `POST /api/sessions/:id/abort`，有字时仍是发送。发送和中止的响应也会把这一行写成 `running` / `idle`。其它会话的行首在模块 5。`adaptAgentSession` 把 `thinking_*` / `text_*` 和用户 `message_end` 译成 `BlockFeedEvent`，工具和压缩丢掉。`replace` 之后才 `apply`。delta 不换 `order` / 分组引用，只换正在写的那一块。开着的块按 `defaultFeed` 把前缀交给 Markdown，流式期挂代码外壳、不算 Mermaid；`complete` 的那一帧用最终文本并恢复 Mermaid。`run_end` 把还开着的块收成 `complete`。
 
 ### 5. 后台状态
 
