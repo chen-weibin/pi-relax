@@ -13,8 +13,8 @@
 		"test": "tsx --test test/*.test.ts"
 	},
 	"dependencies": {
-		"@earendil-works/pi-ai": "^1.0.4",
-		"@earendil-works/pi-coding-agent": "^1.0.4",
+		"@earendil-works/pi-ai": "^1.5.0",
+		"@earendil-works/pi-coding-agent": "^1.5.0",
 		"@langfuse/pi-observability-plugin": "0.1.2",
 		"@langfuse/tracing": "5.13.1",
 		"@opentelemetry/api": "1.9.1",

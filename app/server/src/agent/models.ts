@@ -6,7 +6,7 @@ import { getDefaultWorkspace, getRelaxAgentDir } from '../config/home.js'
 import { HttpError } from '../utils/errors.js'
 
 /**
- * 一把 key 就能对话的内置提供商。pi-ai@1.0.4。
+ * 一把 key 就能对话的内置提供商。pi-ai@1.5.0。
  * 升 @earendil-works/pi-ai 后对照 providers/*.ts 的 auth 再核一次。
  */
 export const KEY_PROVIDERS = [
@@ -50,18 +50,18 @@ export const KEY_PROVIDERS = [
 const KEY_PROVIDER_SET = new Set<string>(KEY_PROVIDERS)
 
 /**
- * 与 pi-coding-agent 1.0.4 `defaultModelPerProvider` 的键顺序一致，只留白名单。
+ * 与 pi-coding-agent 1.5.0 `defaultModelPerProvider` 的键顺序一致，只留白名单。
  * 该常量没有从包入口导出。升库时对照 core/model-resolver.ts。
  */
 const DEFAULT_MODEL_ORDER: ReadonlyArray<readonly [string, string]> = [
 	['ant-ling', 'Ring-2.6-1T'],
 	['anthropic', 'claude-opus-4-8'],
-	['openai', 'gpt-5.5'],
+	['openai', 'gpt-6.1-sol'],
 	['radius', 'balanced'],
-	['nvidia', 'nvidia/nemotron-3-ultra-550b-a55b'],
+	['nvidia', 'nvidia/nemotron-3.5-super-vl-120b-a12b'],
 	['deepseek', 'deepseek-v4-pro'],
 	['google', 'gemini-3.1-pro-preview'],
-	['github-copilot', 'gpt-5.4'],
+	['github-copilot', 'gpt-6.1-sol'],
 	['openrouter', 'moonshotai/kimi-k2.6'],
 	['vercel-ai-gateway', 'zai/glm-5.1'],
 	['xai', 'grok-4.7'],
@@ -85,10 +85,10 @@ const DEFAULT_MODEL_ORDER: ReadonlyArray<readonly [string, string]> = [
 	['qwen-token-plan', 'qwen3.7-max'],
 	['qwen-token-plan-cn', 'qwen3.7-max'],
 	['qwen-token-plan-individual', 'qwen3.8-max'],
-	['xiaomi', 'mimo-v2.5-pro'],
-	['xiaomi-token-plan-cn', 'mimo-v2.5-pro'],
-	['xiaomi-token-plan-ams', 'mimo-v2.5-pro'],
-	['xiaomi-token-plan-sgp', 'mimo-v2.5-pro'],
+	['xiaomi', 'mimo-v2.6-pro'],
+	['xiaomi-token-plan-cn', 'mimo-v2.6-pro'],
+	['xiaomi-token-plan-ams', 'mimo-v2.6-pro'],
+	['xiaomi-token-plan-sgp', 'mimo-v2.6-pro'],
 ]
 
 export const DEFAULT_THINKING_LEVEL = 'medium'

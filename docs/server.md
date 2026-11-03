@@ -4,7 +4,7 @@
 
 本文是底座。对话模块已接：会话文件、智能体类、路由与全局 SSE。前端（`app/web`）本轮不接，适配器以后再写。
 
-对接 pi 之前先读源码，不要只凭本文的 API 摘要选函数。本地克隆在仓库根的 `pi/`（已 git 忽略），会话相关源码在 `pi/packages/coding-agent/src/core/`，说明在 `pi/packages/coding-agent/docs/sdk.md`。运行时安装的是 `@earendil-works/pi-coding-agent@^1.0.4`（与 `pi-ai` 同版本）。类型或文档和源码不一致时，以源码为准，并把结论回写本文。
+对接 pi 之前先读源码，不要只凭本文的 API 摘要选函数。本地克隆在仓库根的 `pi/`（已 git 忽略），会话相关源码在 `pi/packages/coding-agent/src/core/`，说明在 `pi/packages/coding-agent/docs/sdk.md`。运行时安装的是 `@earendil-works/pi-coding-agent@^1.5.0`（与 `pi-ai` 同版本）。类型或文档和源码不一致时，以源码为准，并把结论回写本文。
 
 相关文档：当前已经实现的能力清单见 [server-implemented.md](server-implemented.md)（查阅时机：想看服务端现在做到哪、对照联调页时）。对话区现有块模型见 [web-conversation.md](web-conversation.md)（查阅时机：把服务端事件译成现有 UI 时）。前端怎么接会话、目录和 SSE 见 [web-app.md](web-app.md)（查阅时机：开始做 `app/web` 的对话与会话管理时）。文件与终端的前端契约见 [web-extension.md](web-extension.md)（查阅时机：做文件系统或 PTY 时）。`app/agenttest` 只是加载试验，不能当作已验证结论。
 
@@ -81,7 +81,7 @@ pi 暴露的加载点都要能指定到 `.relax` 或配置里的路径，不默�
 
 - 系统提示词、规则、扩展都要可控。技能已按基座默认目录加载，路径见「技能」。扩展能执行代码，磁盘扫描默认关掉。当前显式挂 Langfuse 官方插件和 `pi-web-access`，见下文「追踪」。找官方或社区插件时看 [https://pi.dev/packages](https://pi.dev/packages)（查阅时机：要加扩展、避免自己再写一份已有能力时）。
 - 工具白名单写在会话工厂：八个内置（`read`、`bash`、`edit`、`write`、`grep`、`find`、`ls`、`powershell`）、`codemode`，以及 `pi-web-access` 的 `web_search`、`fetch_content`、`get_search_content`、`source_check`。`tool_search` 和 `web_enable` 不开。`powershell` 在非 Windows 上调用会由基座报错。模式以后再按这份名单切换。路径仍是该会话的 cwd。
-- 模型走 pi 的 `ModelRuntime`，不另建配置文件。白名单在 `app/server/src/agent/models.ts` 的 `KEY_PROVIDERS`，只收一把 key 就能对话的内置提供商（`pi-ai@1.0.4`）。升 `@earendil-works/pi-ai` 后对照 `providers/*.ts` 的 `auth` 再核一次。名单外的 id，包括 `models.json` 里自造的提供商，接口拒绝。同时带 OAuth 的只走 `api_key` 登录。密钥写入 `~/.relax/agent/auth.json`，同一 id 再提交是修改。不删除环境变量：基座认为可用就算可用，包括 `auth.json`、环境变量和该提供商会读的本机凭证。不向厂商发请求试 key。可用对话模型至少有一个、但全局还没有一对仍可用的默认时，按基座 `defaultModelPerProvider` 的顺序补写 `settings.json` 的 `defaultProvider` / `defaultModel`（该常量未从包入口导出，顺序抄在 `DEFAULT_MODEL_ORDER`）。新建会话用这一对；请求里带了 `provider` 和 `model` 时这次用它，并写成新的默认。打开旧会话仍恢复该文件自己的 `model_change`。对话框里改模型只写全局默认，不改当前会话文件。续发带了 `provider` 和 `model`、且与该会话上次记录不同时，才追加 `model_change`，不改默认。没带则继续用该会话已恢复的模型。模型目录的底表在 npm 包里；手动更新是 `POST /api/models/refresh`，转调 `refresh({ allowNetwork: true, force: true })`，结果进 `~/.relax/agent/models-store.json`。不在启动或列模型时自动刷新。
+- 模型走 pi 的 `ModelRuntime`，不另建配置文件。白名单在 `app/server/src/agent/models.ts` 的 `KEY_PROVIDERS`，只收一把 key 就能对话的内置提供商（`pi-ai@1.5.0`）。升 `@earendil-works/pi-ai` 后对照 `providers/*.ts` 的 `auth` 再核一次。名单外的 id，包括 `models.json` 里自造的提供商，接口拒绝。同时带 OAuth 的只走 `api_key` 登录。密钥写入 `~/.relax/agent/auth.json`，同一 id 再提交是修改。不删除环境变量：基座认为可用就算可用，包括 `auth.json`、环境变量和该提供商会读的本机凭证。不向厂商发请求试 key。可用对话模型至少有一个、但全局还没有一对仍可用的默认时，按基座 `defaultModelPerProvider` 的顺序补写 `settings.json` 的 `defaultProvider` / `defaultModel`（该常量未从包入口导出，顺序抄在 `DEFAULT_MODEL_ORDER`）。新建会话用这一对；请求里带了 `provider` 和 `model` 时这次用它，并写成新的默认。打开旧会话仍恢复该文件自己的 `model_change`。对话框里改模型只写全局默认，不改当前会话文件。续发带了 `provider` 和 `model`、且与该会话上次记录不同时，才追加 `model_change`，不改默认。没带则继续用该会话已恢复的模型。模型目录的底表在 npm 包里；手动更新是 `POST /api/models/refresh`，转调 `refresh({ allowNetwork: true, force: true })`，结果进 `~/.relax/agent/models-store.json`。不在启动或列模型时自动刷新。
 - 上下文压缩沿用 pi 的自动行为，不单独做接口。它是上下文体积的安全阀。
 - 分支、fork、从某一条消息重开是高级能力。JSONL 里的树先留着，当前不设计接口。文件快照式的回滚也不做。
 

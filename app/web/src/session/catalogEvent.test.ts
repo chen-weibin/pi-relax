@@ -62,12 +62,12 @@ describe('catalog event notes', () => {
 		)
 		assert.equal(ok.pending, 'success')
 
-		const hidden = noteCatalogEvent(ok.pending, { type: 'agent_settled' }, false)
+		const hidden = noteCatalogEvent(ok.pending, { type: 'agent_settled', aborted: false }, false)
 		assert.equal(hidden.unseen, 'success')
 		assert.deepEqual(hidden.patch, { status: 'idle' })
 		assert.equal(hidden.pending, null)
 
-		const viewed = noteCatalogEvent('failure', { type: 'agent_settled' }, true)
+		const viewed = noteCatalogEvent('failure', { type: 'agent_settled', aborted: false }, true)
 		assert.equal(viewed.unseen, undefined)
 		assert.equal(viewed.pending, null)
 	})
@@ -79,7 +79,7 @@ describe('catalog event notes', () => {
 			false,
 		)
 		assert.equal(retry.pending, null)
-		const settled = noteCatalogEvent(retry.pending, { type: 'agent_settled' }, false)
+		const settled = noteCatalogEvent(retry.pending, { type: 'agent_settled', aborted: false }, false)
 		assert.equal(settled.unseen, undefined)
 	})
 })

@@ -34,7 +34,7 @@ function fakeFactory(): RuntimeFactory {
 				running = false
 				for (const listener of listeners) {
 					listener({ type: 'agent_end', messages: [], willRetry: false })
-					listener({ type: 'agent_settled' })
+					listener({ type: 'agent_settled', aborted: false })
 				}
 			},
 			getAvailableThinkingLevels() {
@@ -244,7 +244,7 @@ describe('agent', () => {
 		emit?.({ type: 'agent_end', messages: [], willRetry: false })
 		assert.equal((await agent.get(id)).status, 'running')
 		assert.equal(disposed, 0)
-		emit?.({ type: 'agent_settled' })
+		emit?.({ type: 'agent_settled', aborted: false })
 		assert.equal((await agent.get(id)).status, 'idle')
 		assert.equal(disposed, 0)
 		keep()

@@ -29,7 +29,7 @@ describe('adapt agent session', () => {
 		} as AgentSessionEvent)
 		assert.deepEqual(tool, [])
 		assert.deepEqual(adaptAgentSession({ type: 'agent_start' }), [{ type: 'run_start' }])
-		assert.deepEqual(adaptAgentSession({ type: 'agent_settled' }), [{ type: 'run_end' }])
+		assert.deepEqual(adaptAgentSession({ type: 'agent_settled', aborted: false }), [{ type: 'run_end' }])
 		assert.deepEqual(adaptAgentSession({ type: 'agent_end', messages: [], willRetry: false }), [])
 	})
 })
