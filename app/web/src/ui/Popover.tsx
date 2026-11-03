@@ -1,6 +1,8 @@
 import classNames from 'classnames'
 import {
+	FloatingNode,
 	FloatingPortal,
+	FloatingTree,
 	autoUpdate,
 	flip,
 	offset,
@@ -8,6 +10,8 @@ import {
 	useClick,
 	useDismiss,
 	useFloating,
+	useFloatingNodeId,
+	useFloatingParentNodeId,
 	useHover,
 	useInteractions,
 	useRole,
@@ -45,7 +49,19 @@ export type PopoverProps = {
 	className?: string
 }
 
-export function Popover({
+export function Popover(props: PopoverProps) {
+	const parentId = useFloatingParentNodeId()
+	if (parentId == null) {
+		return (
+			<FloatingTree>
+				<PopoverFrame {...props} />
+			</FloatingTree>
+		)
+	}
+	return <PopoverFrame {...props} />
+}
+
+function PopoverFrame({
 	children,
 	content,
 	trigger = ['click'],
@@ -60,6 +76,7 @@ export function Popover({
 	width,
 	className,
 }: PopoverProps) {
+	const nodeId = useFloatingNodeId()
 	const isControlled = controlledOpen !== undefined
 	const [uncontrolledOpen, setUncontrolledOpen] = useState(false)
 	const open = isControlled ? controlledOpen : uncontrolledOpen
@@ -70,6 +87,7 @@ export function Popover({
 	}
 
 	const { context, floatingStyles, refs } = useFloating({
+		nodeId,
 		open,
 		onOpenChange: setOpen,
 		placement,
@@ -89,7 +107,7 @@ export function Popover({
 				delay: { open: openDelay, close: interactive ? 100 : 0 },
 				move: interactive ? false : true,
 			}),
-		useDismiss(context, { outsidePress: true, escapeKey: true }),
+		useDismiss(context, { outsidePress: true, escapeKey: true, bubbles: { outsidePress: true, escapeKey: false } }),
 		useRole(context, { role }),
 	].filter(Boolean) as Parameters<typeof useInteractions>[0]
 	const { getReferenceProps, getFloatingProps } = useInteractions(interactions)
@@ -112,7 +130,7 @@ export function Popover({
 	} as Record<string, unknown>)
 
 	return (
-		<>
+		<FloatingNode id={nodeId}>
 			{clonedTrigger}
 			{open && (
 				<FloatingPortal>
@@ -131,6 +149,6 @@ export function Popover({
 					</div>
 				</FloatingPortal>
 			)}
-		</>
+		</FloatingNode>
 	)
 }

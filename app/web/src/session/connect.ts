@@ -2,6 +2,7 @@ import type { AgentSessionEvent, SessionContext } from '@earendil-works/pi-codin
 import { createProject, listProjects } from '../api/projects'
 import { getDefaultWorkspace } from '../api/workspace'
 import { abortSession, createSession, getSessionHistory, listSessions, promptSession, type StreamingBehavior } from '../api/sessions'
+import { getSendChoice } from './modelPicker'
 import { subscribeSessionEvents } from '../api/sse'
 import { ApiError } from '../api/http'
 import { useCatalogStore, useCommonStore, useLocalStore } from '../store'
@@ -126,7 +127,7 @@ export async function sendConversation(text: string, behavior?: StreamingBehavio
 	if (!trimmed) return
 	const openId = state.openSessionId
 	if (openId) {
-		const record = await promptSession(openId, trimmed, behavior)
+		const record = await promptSession(openId, trimmed, behavior, getSendChoice())
 		rememberStatus(openId, record.status)
 		return
 	}
@@ -136,7 +137,7 @@ export async function sendConversation(text: string, behavior?: StreamingBehavio
 	captureCreate = true
 	captured = []
 	try {
-		const record = await createSession(trimmed, cwd)
+		const record = await createSession(trimmed, cwd, getSendChoice())
 		const session = toCatalogSession(record)
 		if (!session.name.trim()) session.name = trimmed
 		useCatalogStore.getState().noteSentSession(session)

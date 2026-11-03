@@ -167,6 +167,8 @@ Store 继续按字段切片订阅。做法见 [web-zustand-store-design.md](supe
 
 此块不做：新的块类型。
 
+当前实现：输入框底栏右侧、发送钮左边是一个 `ghost` 按钮，文案是模型名加思考档位。点开用 `Dropdown`：一行「思考强度」，子菜单是该模型的 `thinkingLevels`，原文显示；一行「模型」，按 provider 分组，顶部可搜索。没有可用模型时按钮禁用。没打开会话时显示全局默认，改选走 `PUT /api/models/default`。打开会话且还没有本地覆盖时，显示 history 里的模型和 `thinkingLevel`；改模型走 `POST /api/sessions/:id/model`，只写全局默认，不改这条会话的上次模型。换会话或回到草稿会丢掉覆盖。新模型不支持当前档位时，落到接口给的 `defaultThinkingLevel`，再不成就列表第一项。创建和续发都带上当时的 `provider`、`model`、`thinkingLevel`。队列仍只存文本，自动发出和立刻发送在请求时读当前选择。切换失败把选择弹回去，错误显示在输入框下。设置页的模型分类仍是占位。
+
 ### 7. 工具与错误块
 
 依赖：模块 4 的 adapter 已经在收 `AgentSessionEvent`。

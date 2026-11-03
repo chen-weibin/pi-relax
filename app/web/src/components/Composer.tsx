@@ -1,5 +1,5 @@
 import classNames from 'classnames'
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { MinusIcon, SendIcon, TrashIcon } from '../icons'
 import type { PendingMessage } from '../session/pendingQueue'
 import { Button } from '../ui/Button'
@@ -18,6 +18,7 @@ export type ComposerProps = {
 	onAbort?: () => void
 	onSendNow?: (id: string) => void
 	onRemove?: (id: string) => void
+	accessory?: ReactNode
 	className?: string
 }
 
@@ -31,6 +32,7 @@ export function Composer({
 	onAbort,
 	onSendNow,
 	onRemove,
+	accessory,
 	className,
 }: ComposerProps) {
 	const editorRef = useRef<EditorHandle>(null)
@@ -135,7 +137,8 @@ export function Composer({
 					onChange={(text) => setCanSend(text.trim().length > 0)}
 					onSubmit={submit}
 				/>
-				<div className="flex items-center justify-end">
+				<div className="flex items-center justify-end gap-1">
+					{accessory}
 					<button
 						type="button"
 						title={stop ? '停止' : '发送'}

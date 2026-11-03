@@ -173,6 +173,7 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
 | `Input` | 单行文本框:尺寸、清空、前后缀、框内字数、状态与框下提示 | [`ui.md#input`](ui.md#input) |
 | `Tooltip` | 短 hover 提示,包在 Popover 上 | [`ui.md#tooltip`](ui.md#tooltip) |
 | `Popover` | 浮层 / 菜单,封装 `@floating-ui/react` | [`ui.md#popover`](ui.md#popover) |
+| `Dropdown` | 带子菜单的菜单,行尾当前值,子面板可搜索 | [`ui.md#dropdown`](ui.md#dropdown) |
 | `Modal` | 遮罩对话框壳,居中或距顶;内容自定义 | [`ui.md#modal`](ui.md#modal) |
 | `Editor` | ProseMirror 智能输入框 | [`ui.md#editor`](ui.md#editor) |
 | `MonacoEditor` | Monaco 代码/文本编辑器,主题走 CSS token | [`ui.md#monacoeditor`](ui.md#monacoeditor) |
@@ -225,7 +226,7 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
   | 发送 | 右下 28px 圆钮;可发送 `bg-fg text-app`,空内容 `bg-surface-active text-fg-disabled`。生成中且输入为空时换成同尺寸方块,点击停止 |
   | 图标 | 复用 `SendIcon`(与侧栏「新对话」同一 glyph),视觉居中用 `-translate-x-[0.5px]` |
 
-  Enter 与点发送走同一 `onSubmit`。左侧附件 / 模型选择本轮未做。
+  Enter 与点发送走同一 `onSubmit`。底栏右侧、发送钮左边是模型和思考强度,见 [web-app.md](web-app.md) 模块 6。附件本轮未做。
 
 - **`Popover`**:见 [`ui.md#popover`](ui.md#popover)。
 

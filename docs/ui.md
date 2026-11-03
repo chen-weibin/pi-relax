@@ -43,6 +43,7 @@
 | 设置面板里的一行(左 label + 描述,右控制区) | [`SettingRow`](#settingrow) | 不要写裸 `<div flex justify-between><div>{label}<div>{desc}</div></div><div>...</div></div>` 三层嵌套 |
 | 开关(on/off,绿色 + 灰色态) | [`Switch`](#switch) | 不要写裸 `<button role="switch">` + `translate-x-*` 自己拼 thumb 位移 |
 | 选择器(静态 / 懒加载 / 搜索三合一) | [`Select`](#select) | 不要写裸 `<select>`(样式难统一),也不要在 Setting 里再写 `<Popover>` + 自己造 listbox |
+| 带子菜单的菜单(行尾当前值,向右再展开,子面板可搜索) | [`Dropdown`](#dropdown) | 不要用 [`Select`](#select) 套两层,也不要在业务里手写多层 [`Popover`](#popover) |
 | 数字步进器(- n + 圆角 pill) | [`NumberStepper`](#numberstepper) | 不要写裸 `<div flex><button>-</button><span>{n}</span><button>+</button></div>` 三段散落 |
 | 连续范围拖拽(0–100% / 任意区间,带 thumb + 槽位) | [`ProgressBar`](#progressbar) | 不要写裸 `<input type="range">`(样式无法走 token、a11y / 键盘 / pointer capture 都要自己粘) |
 | 轻量卡片外壳(无角色语义) | [`MessageSurface`](#messagesurface) | 不要在块组件里手写 `bg-surface rounded-md border-border` 之类的样式散落 |
@@ -75,6 +76,7 @@
 | 为对话框手写 `fixed inset-0` + 点遮罩关闭 | 用 [`Modal`](#modal)。Setting 那种整页覆盖仍自己写 |
 | 手写带清空、前后缀、字数或状态边框的 `<input>` | 用 [`Input`](#input)。搜索框仍用 [`SearchInput`](#searchinput) |
 | 手写实底 / 描边 / 幽灵文字按钮 | 用 [`Button`](#button)。只显示图标用 [`IconButton`](#iconbutton) |
+| 手写多层 Popover 做「当前值 + 向右子菜单」 | 用 [`Dropdown`](#dropdown)。一层就能选完的列表仍用 [`Select`](#select) |
 | 给 `Button` 加任意颜色 prop | 色调只有 `neutral` / `inverse`,走 token;一次性换色用 `className` |
 | 手写 `text-xl font-semibold` 当标题,或再拼 `truncate` | 用 [`Heading`](#heading)。颜色走行文 token,一次性换色用 `className` |
 | 手写正文的字号、颜色、换行和省略 | 用 [`Paragraph`](#paragraph) |
@@ -1233,6 +1235,45 @@ const loadOptions = async ({ query, offset, limit }: Params): Promise<Result<V>>
 - 浮层挂在 `document.body`(`FloatingPortal` 默认),脱离任何 `overflow:hidden` 祖先。
 - `role` 默认 `'dialog'`。listbox / menu 等场景必须传对应 role,否则屏幕阅读器会朗读成「对话框」。底层用 `@floating-ui/react` 的 `useRole(context, { role })` 接管。短提示不要传 `role="tooltip"`,用 [`Tooltip`](#tooltip)。
 - `openDelay` 默认 `0`,此时 hover 仍是指针停住 `restMs: 50` 后打开。`openDelay > 0` 时改走 `delay.open`,不再设 `restMs`,避免两个定时器抢在一起。
+- 根浮层自己包一层 `FloatingTree`,嵌在内容里的另一个 `Popover` 会进同一棵树。点在子浮层上不算父级的外部点击。Esc 先关最里层。
+
+## Dropdown
+
+单文件 `ui/Dropdown.tsx`。建在 [`Popover`](#popover) 上的菜单:一行可以带当前值并向右再开一层,子面板可以本地搜索。定位、开关、翻转都不另写。
+
+**查阅时机**:菜单里还有下一层(例如先选类别再选具体项),或子面板需要搜索框。一层就能选完时用 [`Select`](#select)。
+
+**何时用**:
+
+- 行尾要显示当前值,旁边一个 `>`,悬停或点击再展开
+- 展开后的列表要打勾,或要一个搜索框在本地过滤
+- 选中某一行后,整棵菜单一起关掉
+
+**何时不用**:
+
+- 选项是一层、没有子菜单 → [`Select`](#select)
+- 只是一块自定义内容 → [`Popover`](#popover)
+- 短 hover 说明 → [`Tooltip`](#tooltip)
+
+**API**:
+
+```tsx
+<Dropdown placement="top-end" panel={panel}>
+  <Button variant="ghost" size="sm">当前值</Button>
+</Dropdown>
+```
+
+`panel.groups` 是分组。行有 `label`、可选 `detail`(行尾)、`checked`、`disabled`、`onSelect`。行再带 `panel` 就是子菜单,向右展开(`right-start`),悬停和点击都能开。`searchable` 时子面板顶部是 [`SearchInput`](#searchinput) 的 `ghost` 且 `showIcon={false}`,下面一条通栏 `border-border-hover`(和 [`Select`](#select) 的搜索行一样)。按 `label` 本地过滤,空结果是「没有匹配」。`width` 传给 Popover,不传则随内容。
+
+触发器由调用方传入,必须是单个元素(和 Popover 一样)。选中叶子行会关掉从这一层到根的菜单。Esc 和点外面由 Popover 处理。
+
+**视觉**:面板沿用 Popover(`rounded-lg`、`border-border-hover`、`bg-sidebar`),内边距 `p-1`。行高 30、`rounded-sm`,悬停 `bg-surface-hover`。勾用 `CheckIcon`,子菜单箭头用 `ChevronRightIcon`。分组名是 `text-xs text-fg-3`,组与组之间一条 `border-border`。
+
+**踩坑备忘**:
+
+- 子菜单挂在 body 上,能点到是因为 Popover 把嵌套浮层放进同一棵 `FloatingTree`。不要在 Dropdown 里再包一层会挡住外部点击的浮层。
+- 搜索只看行的 `label`,不看分组名,也不走接口。
+- `disabled` 的行不会触发 `onSelect`,菜单也不因此关闭。
 
 ## Tooltip
 
@@ -1433,7 +1474,8 @@ ui/Editor           ← components/Composer
 ui/MonacoEditor     ← extensions/plugins/files/viewers
 ui/MessageSurface   ← components/conversation/UserMessage
 ui/PaneHeader       ← extensions/plugins/terminal/TerminalView, extensions/plugins/files/FilesView
-ui/Popover          ← ui/Tooltip, components/* (按需)
+ui/Popover          ← ui/Tooltip, ui/Dropdown, components/* (按需)
+ui/Dropdown         ← components/ModelPicker
 ui/Modal            ← components/AddProjectDialog
 ui/Tooltip          ← ui/IconButton, ui/Heading, ui/Paragraph（Hint 经 Paragraph）
 ui/Paragraph        ← ui/Hint

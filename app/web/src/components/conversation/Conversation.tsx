@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import classNames from 'classnames'
 import { motion } from 'motion/react'
 import { StickToBottom, useStickToBottomContext } from 'use-stick-to-bottom'
@@ -17,9 +17,11 @@ import {
 	subscribeOpenSessionEvents,
 	subscribeTransport,
 } from '../../session'
+import { noteModelSession } from '../../session/modelPicker'
 import { enqueue, removePending, takeHead, type PendingMessage } from '../../session/pendingQueue'
 import { useCatalogStore } from '../../store'
 import { Composer } from '../Composer'
+import { ModelPicker } from '../ModelPicker'
 import { ConversationView } from './ConversationView'
 import '../../styles/scrollbar.css'
 
@@ -96,6 +98,14 @@ export function Conversation({ className }: Props) {
 			for (const item of adaptAgentSession(event)) runtime.apply(item)
 		})
 	}, [runtime])
+
+	useEffect(() => {
+		const history = transport.phase === 'ready' ? getOpenSessionHistory() : null
+		noteModelSession(
+			transport.openSessionId,
+			history ? { model: history.model, thinkingLevel: history.thinkingLevel } : null,
+		)
+	}, [transport.openSessionId, transport.phase])
 
 	const sessionId = transport.openSessionId
 	const pending = sessionId ? (queues[sessionId] ?? []) : []
@@ -235,6 +245,7 @@ export function Conversation({ className }: Props) {
 					if (!sessionId) return
 					drop(sessionId, itemId)
 				}}
+				accessory={<ModelPicker onError={(message) => setSendNotice(message)} />}
 				onSubmit={async (text) => {
 					setSendNotice(null)
 					if (generating && sessionId) {
@@ -284,6 +295,7 @@ function ConversationChrome({
 	onAbort,
 	onSendNow,
 	onRemove,
+	accessory,
 }: {
 	snapshot: ConversationSnapshot
 	notice: HistoryNotice
@@ -295,6 +307,7 @@ function ConversationChrome({
 	onAbort: () => void
 	onSendNow: (id: string) => void
 	onRemove: (id: string) => void
+	accessory?: ReactNode
 }) {
 	const { scrollToBottom } = useStickToBottomContext()
 
@@ -334,6 +347,7 @@ function ConversationChrome({
 					onAbort={onAbort}
 					onSendNow={onSendNow}
 					onRemove={onRemove}
+					accessory={accessory}
 					notice={sendNotice}
 					placeholder="发送消息…"
 					onSubmit={async (text) => {
