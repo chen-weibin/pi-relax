@@ -5,6 +5,7 @@ import { dropdownDoc } from './Dropdown'
 import { dotMatrixDoc } from './DotMatrix'
 import { editorDoc } from './Editor'
 import { expandableDoc } from './Expandable'
+import { flipTextDoc } from './FlipText'
 import { headingDoc } from './Heading'
 import { hintDoc } from './Hint'
 import { iconButtonDoc } from './IconButton'
@@ -27,6 +28,7 @@ import { shinyTextDoc } from './ShinyText'
 import { statusDotDoc } from './StatusDot'
 import { switchDoc } from './Switch'
 import { tooltipDoc } from './Tooltip'
+import { trailTextDoc } from './TrailText'
 import { typewriterTextDoc } from './TypewriterText'
 
 export type UiDocSection = {
@@ -48,7 +50,7 @@ export const uiDocGroups: { title: string; sections: UiDocSection[] }[] = [
 	},
 	{
 		title: '反馈',
-		sections: [statusDotDoc, loadingDotsDoc, dotMatrixDoc, shinyTextDoc],
+		sections: [statusDotDoc, loadingDotsDoc, dotMatrixDoc, shinyTextDoc, flipTextDoc, trailTextDoc],
 	},
 	{
 		title: '布局',

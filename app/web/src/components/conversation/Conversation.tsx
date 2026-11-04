@@ -3,7 +3,8 @@ import classNames from 'classnames'
 import { motion } from 'motion/react'
 import { StickToBottom, useStickToBottomContext } from 'use-stick-to-bottom'
 import { adaptAgentSession } from '../../conversation/adaptAgentSession'
-import { historyToMessages } from '../../conversation/historyMessages'
+import { assistantErrorFromEvent } from '../../conversation/assistantError'
+import { historyAssistantError, historyToMessages } from '../../conversation/historyMessages'
 import { translateHistory } from '../../conversation/translateHistory'
 import { createBlockRuntime, isRunBusy, type ConversationSnapshot } from '../../conversation'
 import {
@@ -21,6 +22,7 @@ import { noteModelSession } from '../../session/modelPicker'
 import { enqueue, removePending, takeHead, type PendingMessage } from '../../session/pendingQueue'
 import { useCatalogStore } from '../../store'
 import { Composer } from '../Composer'
+import { AssistantErrorNotice } from '../AssistantErrorNotice'
 import { ModelPicker } from '../ModelPicker'
 import { ConversationView } from './ConversationView'
 import '../../styles/scrollbar.css'
@@ -62,6 +64,7 @@ export function Conversation({ className }: Props) {
 	const [notice, setNotice] = useState<HistoryNotice>(null)
 	const [queues, setQueues] = useState<Record<string, PendingMessage[]>>({})
 	const [sendNotice, setSendNotice] = useState<string | null>(null)
+	const [assistantError, setAssistantError] = useState<string | null>(null)
 	const queuesRef = useRef(queues)
 	const holdAuto = useRef(false)
 	const flight = useRef<Promise<unknown> | null>(null)
@@ -96,6 +99,8 @@ export function Conversation({ className }: Props) {
 	useEffect(() => {
 		return subscribeOpenSessionEvents((event) => {
 			for (const item of adaptAgentSession(event)) runtime.apply(item)
+			const next = assistantErrorFromEvent(event)
+			if (next !== undefined) setAssistantError(next)
 		})
 	}, [runtime])
 
@@ -175,11 +180,13 @@ export function Conversation({ className }: Props) {
 	useEffect(() => {
 		if (transport.phase === 'error') {
 			runtime.replace([])
+			setAssistantError(null)
 			setNotice('error')
 			return
 		}
 		if (transport.phase !== 'ready') {
 			runtime.replace([])
+			setAssistantError(null)
 			setNotice(transport.phase === 'loading' ? 'loading' : null)
 			return
 		}
@@ -187,6 +194,7 @@ export function Conversation({ className }: Props) {
 		const history = getOpenSessionHistory()
 		if (!history) {
 			runtime.replace([])
+			setAssistantError(null)
 			setNotice('error')
 			return
 		}
@@ -207,6 +215,26 @@ export function Conversation({ className }: Props) {
 							contentIndex: part.contentIndex,
 							content: part.text,
 						})
+					} else if (part.type === 'tool') {
+						runtime.apply({
+							type: 'tool_end',
+							messageId: assistant.id,
+							contentIndex: part.contentIndex,
+							toolCallId: part.id,
+							name: part.name,
+							argumentsText: part.argumentsText,
+							settled: true,
+						})
+						if (part.resultText !== '' || part.isError) {
+							runtime.apply({
+								type: 'tool_result',
+								toolCallId: part.id,
+								name: part.name,
+								resultText: part.resultText,
+								isError: part.isError,
+								done: true,
+							})
+						}
 					} else {
 						runtime.apply({
 							type: 'text_end',
@@ -217,6 +245,7 @@ export function Conversation({ className }: Props) {
 					}
 				}
 			}
+			setAssistantError(historyAssistantError(history.messages))
 			releaseOpenSession(generation)
 			setNotice(null)
 		})
@@ -237,6 +266,8 @@ export function Conversation({ className }: Props) {
 				generating={generating}
 				pending={pending}
 				sendNotice={sendNotice}
+				assistantError={assistantError}
+				onDismissAssistantError={() => setAssistantError(null)}
 				docked={docked}
 				onSendNow={(itemId) => {
 					void sendNow(itemId)
@@ -248,6 +279,7 @@ export function Conversation({ className }: Props) {
 				accessory={<ModelPicker onError={(message) => setSendNotice(message)} />}
 				onSubmit={async (text) => {
 					setSendNotice(null)
+					setAssistantError(null)
 					if (generating && sessionId) {
 						const next = {
 							...queuesRef.current,
@@ -290,6 +322,8 @@ function ConversationChrome({
 	generating,
 	pending,
 	sendNotice,
+	assistantError,
+	onDismissAssistantError,
 	docked,
 	onSubmit,
 	onAbort,
@@ -302,6 +336,8 @@ function ConversationChrome({
 	generating: boolean
 	pending: readonly PendingMessage[]
 	sendNotice: string | null
+	assistantError: string | null
+	onDismissAssistantError: () => void
 	docked: boolean
 	onSubmit: (text: string) => Promise<void>
 	onAbort: () => void
@@ -341,20 +377,22 @@ function ConversationChrome({
 						: 'mx-auto w-[min(620px,calc(100%-2rem))]'
 				}
 			>
-				<Composer
-					generating={generating}
-					pending={pending}
-					onAbort={onAbort}
-					onSendNow={onSendNow}
-					onRemove={onRemove}
-					accessory={accessory}
-					notice={sendNotice}
-					placeholder="发送消息…"
-					onSubmit={async (text) => {
-						void scrollToBottom('instant')
-						await onSubmit(text)
-					}}
-				/>
+				<AssistantErrorNotice message={assistantError} onDismiss={onDismissAssistantError}>
+					<Composer
+						generating={generating}
+						pending={pending}
+						onAbort={onAbort}
+						onSendNow={onSendNow}
+						onRemove={onRemove}
+						accessory={accessory}
+						notice={sendNotice}
+						placeholder="发送消息…"
+						onSubmit={async (text) => {
+							void scrollToBottom('instant')
+							await onSubmit(text)
+						}}
+					/>
+				</AssistantErrorNotice>
 			</motion.div>
 		</>
 	)

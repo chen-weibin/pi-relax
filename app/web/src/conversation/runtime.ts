@@ -6,8 +6,11 @@ import type {
 	MessageSnapshot,
 	Publication,
 	RunPhase,
+	CompletedPart,
 	TextBlock,
 	ThinkingBlock,
+	ToolBlock,
+	ToolData,
 	UserTextBlock,
 } from './types'
 
@@ -28,11 +31,24 @@ function userKey(messageId: string): string {
 	return `${messageId}:user`
 }
 
+function toolSlot(messageId: string, contentIndex: number): string {
+	return `${messageId}:${contentIndex}`
+}
+
+function provisionalToolKey(messageId: string, contentIndex: number): string {
+	return `${messageId}:${contentIndex}:tool`
+}
+
+const EMPTY_TOOL: ToolData = { name: '', argumentsText: '', resultText: '', isError: false }
+
 function publicationOf(event: BlockFeedEvent): Publication {
 	switch (event.type) {
 		case 'thinking_delta':
 		case 'text_delta':
+		case 'tool_delta':
 			return 'animation-frame'
+		case 'tool_result':
+			return event.done ? 'immediate' : 'animation-frame'
 		case 'run_start':
 		case 'run_end':
 		case 'run_error':
@@ -41,6 +57,9 @@ function publicationOf(event: BlockFeedEvent): Publication {
 		case 'thinking_end':
 		case 'text_start':
 		case 'text_end':
+		case 'tool_start':
+		case 'tool_end':
+		case 'tool_run':
 			return 'immediate'
 		default: {
 			const _exhaustive: never = event
@@ -58,6 +77,14 @@ function sameBlock(prev: BlockSnapshot, next: BlockSnapshot): boolean {
 			return prev.kind === 'thinking' && prev.data.text === next.data.text
 		case 'text':
 			return prev.kind === 'text' && prev.data.text === next.data.text
+		case 'tool':
+			return (
+				prev.kind === 'tool' &&
+				prev.data.name === next.data.name &&
+				prev.data.argumentsText === next.data.argumentsText &&
+				prev.data.resultText === next.data.resultText &&
+				prev.data.isError === next.data.isError
+			)
 		default: {
 			const _exhaustive: never = next
 			return _exhaustive
@@ -100,11 +127,53 @@ function textOf(block: BlockSnapshot | undefined): string {
 		case 'thinking':
 		case 'text':
 			return block.data.text
+		case 'tool':
+			return ''
 		default: {
 			const _exhaustive: never = block
 			return _exhaustive
 		}
 	}
+}
+
+export function settledPartEvents(messageId: string, parts: readonly CompletedPart[]): BlockFeedEvent[] {
+	const events: BlockFeedEvent[] = []
+	for (const part of parts) {
+		if (part.type === 'thinking') {
+			events.push(
+				{ type: 'thinking_start', messageId, contentIndex: part.contentIndex },
+				{ type: 'thinking_end', messageId, contentIndex: part.contentIndex, content: part.text },
+			)
+			continue
+		}
+		if (part.type === 'tool') {
+			events.push({
+				type: 'tool_end',
+				messageId,
+				contentIndex: part.contentIndex,
+				toolCallId: part.id,
+				name: part.name,
+				argumentsText: part.argumentsText,
+				settled: true,
+			})
+			if (part.resultText !== '' || part.isError) {
+				events.push({
+					type: 'tool_result',
+					toolCallId: part.id,
+					name: part.name,
+					resultText: part.resultText,
+					isError: part.isError,
+					done: true,
+				})
+			}
+			continue
+		}
+		events.push(
+			{ type: 'text_start', messageId, contentIndex: part.contentIndex },
+			{ type: 'text_end', messageId, contentIndex: part.contentIndex, content: part.text },
+		)
+	}
+	return events
 }
 
 export type BlockRuntime = {
@@ -125,6 +194,8 @@ export function createBlockRuntime(): BlockRuntime {
 	let snapshot: ConversationSnapshot = EMPTY_SNAPSHOT
 	let structural = false
 	let dirty: string[] = []
+	const toolAlias = new Map<string, string>()
+	const toolIds = new Map<string, string>()
 
 	const noteInsert = () => {
 		structural = true
@@ -176,6 +247,28 @@ export function createBlockRuntime(): BlockRuntime {
 			}
 		}
 		for (const listener of listeners) listener()
+	}
+
+	const rekey = (from: string, to: string) => {
+		if (from === to) return
+		const block = blocks.get(from)
+		if (!block) return
+		blocks.delete(from)
+		if (blocks.has(to)) {
+			order = order.filter((key) => key !== from)
+		} else {
+			blocks.set(to, { ...block, key: to })
+			order = order.map((key) => (key === from ? to : key))
+		}
+		noteInsert()
+	}
+
+	const toolKey = (messageId: string, contentIndex: number, toolCallId?: string) => {
+		const slot = toolSlot(messageId, contentIndex)
+		const current = toolAlias.get(slot) ?? (toolCallId ? toolCallId : provisionalToolKey(messageId, contentIndex))
+		if (!toolCallId || current === toolCallId) return current
+		rekey(current, toolCallId)
+		return toolCallId
 	}
 
 	const upsert = (block: BlockSnapshot) => {
@@ -303,6 +396,57 @@ export function createBlockRuntime(): BlockRuntime {
 				if (runPhase === 'running' || runPhase === 'awaiting') runPhase = 'awaiting'
 				return
 			}
+			case 'tool_start':
+			case 'tool_delta':
+			case 'tool_end': {
+				const key = toolKey(event.messageId, event.contentIndex, event.toolCallId)
+				const prev = blocks.get(key)
+				const data: ToolData = prev?.kind === 'tool' ? prev.data : EMPTY_TOOL
+				const name = event.name || data.name
+				let argumentsText = data.argumentsText
+				if (event.type === 'tool_delta') argumentsText += event.delta
+				if (event.type === 'tool_end') argumentsText = event.argumentsText
+				const block: ToolBlock = {
+					key,
+					kind: 'tool',
+					data: { ...data, name, argumentsText },
+					contentPhase: event.type === 'tool_end' && (event.settled || prev?.contentPhase === 'complete') ? 'complete' : 'open',
+					messageId: event.messageId,
+				}
+				upsert(block)
+				toolAlias.set(toolSlot(event.messageId, event.contentIndex), key)
+				if (event.toolCallId) toolIds.set(event.toolCallId, key)
+				if (event.type === 'tool_end') {
+					if (!event.settled && (runPhase === 'running' || runPhase === 'awaiting')) runPhase = 'awaiting'
+				} else {
+					runPhase = 'running'
+				}
+				return
+			}
+			case 'tool_run':
+			case 'tool_result': {
+				const key = toolIds.get(event.toolCallId) ?? event.toolCallId
+				const prev = blocks.get(key)
+				const data: ToolData = prev?.kind === 'tool' ? prev.data : EMPTY_TOOL
+				const block: ToolBlock = {
+					key,
+					kind: 'tool',
+					data: {
+						name: event.name || data.name,
+						argumentsText: data.argumentsText,
+						resultText: event.type === 'tool_result' ? event.resultText : data.resultText,
+						isError: event.type === 'tool_result' && event.isError !== undefined ? event.isError : data.isError,
+					},
+					contentPhase:
+						event.type === 'tool_result' && (event.done || prev?.contentPhase === 'complete') ? 'complete' : 'open',
+					messageId: prev?.messageId ?? key,
+				}
+				upsert(block)
+				toolIds.set(event.toolCallId, key)
+				if (block.contentPhase === 'open') runPhase = 'running'
+				else if (runPhase === 'running' || runPhase === 'awaiting') runPhase = 'awaiting'
+				return
+			}
 			default: {
 				const _unknown: never = event
 				void _unknown
@@ -347,39 +491,15 @@ export function createBlockRuntime(): BlockRuntime {
 			noteInsert()
 			order = []
 			blocks.clear()
+			toolAlias.clear()
+			toolIds.clear()
 			runPhase = 'idle'
 			for (const message of messages) {
 				if (message.role === 'user') {
 					applyOne({ type: 'user', messageId: message.id, text: message.text })
 					continue
 				}
-				for (const part of message.parts) {
-					if (part.type === 'thinking') {
-						applyOne({
-							type: 'thinking_start',
-							messageId: message.id,
-							contentIndex: part.contentIndex,
-						})
-						applyOne({
-							type: 'thinking_end',
-							messageId: message.id,
-							contentIndex: part.contentIndex,
-							content: part.text,
-						})
-						continue
-					}
-					applyOne({
-						type: 'text_start',
-						messageId: message.id,
-						contentIndex: part.contentIndex,
-					})
-					applyOne({
-						type: 'text_end',
-						messageId: message.id,
-						contentIndex: part.contentIndex,
-						content: part.text,
-					})
-				}
+				for (const event of settledPartEvents(message.id, message.parts)) applyOne(event)
 			}
 			runPhase = 'idle'
 			emit()

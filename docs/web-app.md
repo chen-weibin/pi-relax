@@ -4,7 +4,7 @@
 
 本文是当前方案，不是必须照做的合同。文档效力见 [AGENTS.md](../AGENTS.md) 的「开发记录规范」：实现改了就改文档；有问题或更合适的做法就提出来，用代码和测量核对。下面的 16ms、32ms、8ms 是当前取舍，改它们的条件写在「发布与绘制」。
 
-服务端对话已经能用。侧栏项目、会话列表和草稿已经接上。选中会话后，对话列正文来自 history。发送还没有。下面按块做，每次只做一块。
+服务端对话已经能用。侧栏、历史、发送、后台状态和模型选择已经接上。下面按块做，每次只做一块。
 
 ## 权威与三份状态
 
@@ -99,7 +99,7 @@ Store 继续按字段切片订阅。做法见 [web-zustand-store-design.md](supe
 
 模型与思考档位读已有的 `/api/models` 和 thinking-levels。新建用全局默认。续发带上所选模型，且与该会话上次不同时，才由服务端写入会话。对话框里只改默认、不发送，不改这条会话的上次模型。这块不改块模型。
 
-工具调用和错误要上 UI 时，在 `BlockKind` 上加成员，adapter 加分支。暂时没有界面就先走 `GenericBlock`。协议仍是 `AgentSessionEvent`，不另造事件。
+工具调用是 `tool` 块，和连续的思考收成「探索」。助手错误在输入框上方，不进块。见模块 7。协议仍是 `AgentSessionEvent`，不另造事件。
 
 ## 明确不做
 
@@ -137,7 +137,7 @@ Store 继续按字段切片订阅。做法见 [web-zustand-store-design.md](supe
 
 此块不做：流式节流、结构共享改造。
 
-当前实现：`historyToMessages` 把 `SessionContext.messages` 收成 `CompletedMessage[]`，`Conversation` 在历史 `ready` 后 `replace` 一次，再放行这条会话的实时事件。有字符串 `id` 用它，否则用 `t` 加 `timestamp`，都没有才用 `m` 加输入下标。user 的字符串和 `text` 拼成一段；`image` 这一版不进文本块，后面单独做。assistant 保留 `thinking` 和 `text`，`contentIndex` 用内容数组里的原下标，跳过 `toolCall`；没有正文时用 `errorMessage`。`system` 和 `toolResult` 跳过。Worker 在 `conversation/history.worker.ts`，建不起来或译失败就在主线程跑同一函数。代际对不上的结果丢掉。`loading` 清空列，并在列内左右居中显示「加载中...」，`error` 显示「历史加载失败」，草稿和未选中是空列。对话区 mock 已删除。
+当前实现：`historyToMessages` 把 `SessionContext.messages` 收成 `CompletedMessage[]`，`Conversation` 在历史 `ready` 后 `replace` 一次，再放行这条会话的实时事件。有字符串 `id` 用它，否则用 `t` 加 `timestamp`，都没有才用 `m` 加输入下标。user 的字符串和 `text` 拼成一段；`image` 这一版不进文本块，后面单独做。assistant 保留 `thinking`、`text` 和 `toolCall`，`contentIndex` 用内容数组里的原下标；`toolResult` 按 `toolCallId` 写回那次调用。`errorMessage` 不进正文，显示在输入框上方。`system` 跳过。工具和探索组见模块 7。Worker 在 `conversation/history.worker.ts`，建不起来或译失败就在主线程跑同一函数。代际对不上的结果丢掉。`loading` 清空列，并在列内左右居中显示「加载中...」，`error` 显示「历史加载失败」，草稿和未选中是空列。对话区 mock 已删除。
 
 ### 4. 发送与中止
 
@@ -147,7 +147,7 @@ Store 继续按字段切片订阅。做法见 [web-zustand-store-design.md](supe
 
 此块不做：后台会话的全文、模型选择器、工具块 UI。
 
-当前实现：`Composer` 在没有打开的会话时 `POST /api/sessions`（带草稿或默认工作区的 `cwd`），有会话则 `POST /api/sessions/:id/prompt`。创建返回前先按 sessionId 留下事件，选中后再放进短队列。202 后把会话插到该目录列表最前，标题先用刚发送的那句，并清掉草稿。忙时输入框仍可用。生成中再发不请求接口，按会话 id 留在 `src/session/pendingQueue.ts` 的内存队列里，刷新即丢，切走再回来还在。回复结束（含停止）后把队首按普通续发发出去，成功才删掉。输入框上方的「消息队列」浮层里，立刻发送会先中止，并且这次中止不顺带发出队首，只发点中的那一条；取消只删这一条。输入为空时圆按钮走 `POST /api/sessions/:id/abort`，有字时仍是发送。发送和中止的响应也会把这一行写成 `running` / `idle`。其它会话的行首在模块 5。`adaptAgentSession` 把 `thinking_*` / `text_*` 和用户 `message_end` 译成 `BlockFeedEvent`，工具和压缩丢掉。`replace` 之后才 `apply`。delta 不换 `order` / 分组引用，只换正在写的那一块。开着的块按 `defaultFeed` 把前缀交给 Markdown，流式期挂代码外壳、不算 Mermaid；`complete` 的那一帧用最终文本并恢复 Mermaid。`run_end` 把还开着的块收成 `complete`。
+当前实现：`Composer` 在没有打开的会话时 `POST /api/sessions`（带草稿或默认工作区的 `cwd`），有会话则 `POST /api/sessions/:id/prompt`。创建返回前先按 sessionId 留下事件，选中后再放进短队列。202 后把会话插到该目录列表最前，标题先用刚发送的那句，并清掉草稿。忙时输入框仍可用。生成中再发不请求接口，按会话 id 留在 `src/session/pendingQueue.ts` 的内存队列里，刷新即丢，切走再回来还在。回复结束（含停止）后把队首按普通续发发出去，成功才删掉。输入框上方的「消息队列」浮层里，立刻发送会先中止，并且这次中止不顺带发出队首，只发点中的那一条；取消只删这一条。输入为空时圆按钮走 `POST /api/sessions/:id/abort`，有字时仍是发送。发送和中止的响应也会把这一行写成 `running` / `idle`。其它会话的行首在模块 5。`adaptAgentSession` 把 `thinking_*` / `text_*`、工具和用户 `message_end` 译成 `BlockFeedEvent`，压缩丢掉。工具怎么画见模块 7。`replace` 之后才 `apply`。delta 不换 `order` / 分组引用，只换正在写的那一块。开着的块按 `defaultFeed` 把前缀交给 Markdown，流式期挂代码外壳、不算 Mermaid；`complete` 的那一帧用最终文本并恢复 Mermaid。`run_end` 把还开着的块收成 `complete`。
 
 ### 5. 后台状态
 
@@ -169,10 +169,12 @@ Store 继续按字段切片订阅。做法见 [web-zustand-store-design.md](supe
 
 当前实现：输入框底栏右侧、发送钮左边是一个 `ghost` 按钮，文案是模型名加思考档位。点开用 `Dropdown`：一行「思考强度」，子菜单是该模型的 `thinkingLevels`，原文显示；一行「模型」，按 provider 分组，顶部可搜索。没有可用模型时按钮禁用。没打开会话时显示全局默认，改选走 `PUT /api/models/default`。打开会话且还没有本地覆盖时，显示 history 里的模型和 `thinkingLevel`；改模型走 `POST /api/sessions/:id/model`，只写全局默认，不改这条会话的上次模型。换会话或回到草稿会丢掉覆盖。新模型不支持当前档位时，落到接口给的 `defaultThinkingLevel`，再不成就列表第一项。创建和续发都带上当时的 `provider`、`model`、`thinkingLevel`。队列仍只存文本，自动发出和立刻发送在请求时读当前选择。切换失败把选择弹回去，错误显示在输入框下。设置页的模型分类仍是占位。
 
-### 7. 工具与错误块
+### 7. 工具与错误
 
 依赖：模块 4 的 adapter 已经在收 `AgentSessionEvent`。
 
-验收：工具或错误在块模型里有自己的 `kind` 和 `data`。有界面就画，没有就先 `GenericBlock`。不把这些事件收成 `{ text: string }`。
+验收：一次工具调用是一块 `tool`，`data` 是名字、参数、结果和 `isError`，不收成 `{ text: string }`。连续的思考和工具从第一块起收进「探索」，标题固定为「探索」；两块及以上且有工具时旁边写个数。下面一行活动表示当前在做什么，还不知道下一步时是「正在规划下一步行动」。结束后活动行消失，只剩一块时不再包「探索」。助手 `errorMessage` 不进对话列，显示在输入框上方。
 
-此块不做：命令审批、文件回滚。
+此块不做：命令审批、文件回滚、按工具名定制展开内容、工具结果里的图片。
+
+当前实现：`adaptAgentSession` 把 `toolcall_*` 和 `tool_execution_*` 译成工具事件，`toolResult` 的 `message_end` 再写一次结果。参数还在流、或工具还在跑时块是 `open`，结果落地或 `run_end` 后是 `complete`。还没有 `toolCallId` 时块 key 用内容下标，结束时换成 id，不另起一行。结果更新只换这一块。历史里的 `toolCall` 进 `historyToMessages`，后面的 `toolResult` 按 id 合并；对不上的结果单独一块。助手失败不进 runtime：`assistantErrorFromEvent` 和 `historyAssistantError` 把最新一条助手 `errorMessage` 放到输入框上方，再次发送、换会话，或后面一条助手消息正常结束就清掉。工具自己的 `isError` 留在该工具块里。渲染分组在 `conversation/explore.ts`，外壳规则在 `conversation/exploreChrome.ts`。正式页 `ConversationView` 和 `/chat` 的 `ChatView` 共用 `ExploreGroup` / `ActivityLine`，不从 `chat` 互相引用；试验页的行仍用自己的 `ChatMarkdown` 和 `feed`。输入框上的失败文案是 `components/AssistantErrorNotice.tsx`：浮在锚点上方，宽与锚点相同，背景和边框用 Popover 默认。关闭、点外面或 Esc 清掉这条错误。正式页锚在 `Composer` 上，`/chat` 锚在输入框上。发送失败仍在输入框下面，不走这块。

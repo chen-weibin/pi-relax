@@ -19,6 +19,8 @@ export type {
 	TextData,
 	ThinkingBlock,
 	ThinkingData,
+	ToolBlock,
+	ToolData,
 	UserTextBlock,
 	UserTextData,
 } from './types'

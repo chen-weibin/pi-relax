@@ -44,4 +44,51 @@ describe('block runtime', () => {
 		assert.equal(done.byKey['a:0:text']?.data.text, '停')
 		assert.equal(done.runPhase, 'complete')
 	})
+
+	it('keeps the order array when a tool result rewrites that block', () => {
+		installFrame()
+		const runtime = createBlockRuntime()
+		runtime.apply({
+			type: 'tool_end',
+			messageId: 'a',
+			contentIndex: 0,
+			toolCallId: 'call',
+			name: 'read',
+			argumentsText: '{\n  "path": "a.ts"\n}',
+		})
+		const painted = runtime.getSnapshot()
+		runtime.apply({
+			type: 'tool_result',
+			toolCallId: 'call',
+			name: 'read',
+			resultText: '文件',
+			isError: false,
+			done: true,
+		})
+		const done = runtime.getSnapshot()
+		assert.equal(done.order, painted.order)
+		assert.equal(done.messages, painted.messages)
+		assert.equal(done.byKey.call?.data.resultText, '文件')
+		assert.equal(done.byKey.call?.contentPhase, 'complete')
+		assert.equal(done.byKey['a:0:tool'], undefined)
+	})
+
+	it('renames a provisional tool key onto the call id', () => {
+		installFrame()
+		const runtime = createBlockRuntime()
+		runtime.apply({ type: 'tool_start', messageId: 'a', contentIndex: 1 })
+		runtime.apply({ type: 'tool_delta', messageId: 'a', contentIndex: 1, delta: '{' })
+		runtime.apply({
+			type: 'tool_end',
+			messageId: 'a',
+			contentIndex: 1,
+			toolCallId: 'call',
+			name: 'read',
+			argumentsText: '{\n  "path": "a.ts"\n}',
+		})
+		const snap = runtime.getSnapshot()
+		assert.deepEqual([...snap.order], ['call'])
+		assert.equal(snap.byKey.call?.data.argumentsText, '{\n  "path": "a.ts"\n}')
+		assert.equal(snap.byKey['a:1:tool'], undefined)
+	})
 })

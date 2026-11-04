@@ -38,14 +38,14 @@ export function DisclosureRow({
 		)
 
 	return (
-		<div className={classNames('group/disclosure flex flex-col gap-1', className)}>
+		<div className={classNames('flex flex-col', className)}>
 			<button
 				type="button"
 				disabled={disabled}
 				aria-expanded={open}
 				onClick={() => onOpenChange(!open)}
 				className={classNames(
-					'flex items-center gap-1.5 rounded-sm py-0.5 text-left text-base text-fg-3',
+					'group/disclosure flex items-center gap-1.5 rounded-sm py-0.5 text-left text-base text-fg-3',
 					disabled ? 'cursor-default' : 'cursor-pointer hover:text-fg-2',
 				)}
 			>
@@ -62,7 +62,7 @@ export function DisclosureRow({
 				</span>
 			</button>
 			<Expandable open={open} duration={duration}>
-				{children}
+				<div className="py-2">{children}</div>
 			</Expandable>
 		</div>
 	)

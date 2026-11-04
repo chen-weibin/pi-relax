@@ -21,15 +21,40 @@ describe('adapt agent session', () => {
 		assert.deepEqual(delta, [{ type: 'text_delta', messageId: 't5', contentIndex: 1, delta: '啊' }])
 	})
 
-	it('drops tool calls and closes the run when the agent settles', () => {
-		const tool = adaptAgentSession({
+	it('maps a tool call and its result, and ignores compaction', () => {
+		const start = adaptAgentSession({
 			type: 'message_update',
 			message: assistant,
-			assistantMessageEvent: { type: 'toolcall_delta', contentIndex: 0, delta: '{', partial: assistant },
+			assistantMessageEvent: {
+				type: 'toolcall_end',
+				contentIndex: 0,
+				toolCall: { type: 'toolCall', id: 'call', name: 'read', arguments: { path: 'a.ts' } },
+				partial: assistant,
+			},
 		} as AgentSessionEvent)
-		assert.deepEqual(tool, [])
+		assert.deepEqual(start, [
+			{
+				type: 'tool_end',
+				messageId: 't5',
+				contentIndex: 0,
+				toolCallId: 'call',
+				name: 'read',
+				argumentsText: '{\n  "path": "a.ts"\n}',
+			},
+		])
+		const result = adaptAgentSession({
+			type: 'tool_execution_end',
+			toolCallId: 'call',
+			toolName: 'read',
+			result: { content: [{ type: 'text', text: '文件' }] },
+			isError: false,
+		} as AgentSessionEvent)
+		assert.deepEqual(result, [
+			{ type: 'tool_result', toolCallId: 'call', name: 'read', resultText: '文件', isError: false, done: true },
+		])
 		assert.deepEqual(adaptAgentSession({ type: 'agent_start' }), [{ type: 'run_start' }])
 		assert.deepEqual(adaptAgentSession({ type: 'agent_settled', aborted: false }), [{ type: 'run_end' }])
 		assert.deepEqual(adaptAgentSession({ type: 'agent_end', messages: [], willRetry: false }), [])
+		assert.deepEqual(adaptAgentSession({ type: 'compaction_start', reason: 'manual' } as AgentSessionEvent), [])
 	})
 })

@@ -35,6 +35,8 @@
 | 只读/可编辑代码文本(Monaco) | [`MonacoEditor`](#monacoeditor) | 不要在业务里直接 `@monaco-editor/react` / 自配 worker |
 | 逐字打字机(纯文本) | [`TypewriterText`](#typewritertext) | 不要自己写 `setInterval` / `requestAnimationFrame` 循环切字符串 |
 | 渐变扫光文字(标题 / CTA / loading) | [`ShinyText`](#shinytext) | 不要自己写 `linear-gradient` + `@keyframes`,也不要为单次使用装 `motion` |
+| 一行文字换成下一行时向上翻出 | [`FlipText`](#fliptext) | 不要在业务里手写 `AnimatePresence` 做同一行的进出 |
+| 标题后面的小字辅文 | [`TrailText`](#trailtext) | 不要在标题旁另写一套 `text-sm text-fg-disabled` |
 | 标题 + 展开收起(chevron + 高度过渡 + 标题可扫光) | [`DisclosureRow`](#disclosurerow) | 不要写本地 `<button>` + `<svg>` + `useState` 三件套 |
 | 任意区域的高度过渡展开(无 header) | [`Expandable`](#expandable) | 不要自己写 `max-height` 凑数(无法适配动态内容高度);不要为单处使用装 `framer-motion` |
 | 单行文本输入(尺寸、清空、前后缀、字数、状态、提示) | [`Input`](#input) | 不要写裸 `<input>` 再拼清空、字数和状态边框;带搜索图标仍用 [`SearchInput`](#searchinput) |
@@ -150,7 +152,7 @@
   open={open}
   onOpenChange={setOpen}
   blinking={false}        // 仅 string title 生效;走 ShinyText 闪光
-  chevron="always"        // 'always' | 'hover'。hover：收起时只有悬停才显示，展开后常显；再收起且指针不在行上时立刻消失
+  chevron="always"        // 'always' | 'hover'。hover：收起时只有悬停这一行标题才显示，展开后常显；再收起且指针不在标题上时立刻消失
   disabled={false}
   duration={200}          // 透传给内部 Expandable
 >
@@ -165,7 +167,7 @@
 | header 间距 | `gap-1.5`(标题 ↔ chevron) |
 | header 内边距 | `py-0.5` |
 | chevron 槽 | `h-2.5 w-2.5`(10×10),内部 svg 强制 `h-2.5 w-2.5`。隐藏时仍占位，标题不横移 |
-| chevron 显示 | 默认 `always`。`hover`：收起时 `opacity-0`，只有悬停该行才显示，不看焦点。`open` 后常显。再收起且指针不在行上时立刻隐藏，不淡出 |
+| chevron 显示 | 默认 `always`。`hover`：收起时 `opacity-0`，只有悬停这一行的标题才显示，不看焦点，也不跟着外层那组一起亮。`open` 后常显。再收起且指针不在标题上时立刻隐藏，不淡出 |
 | chevron 旋转 | `transition-transform duration-100`,open=true 时 `rotate-90`。透明度不参与过渡 |
 | 折叠动画 | 内部 `<Expandable duration={duration}/>`,200ms `ease-out` |
 | `title` 类型 | `ReactNode`;string + `blinking` → `ShinyText`,否则原样渲染 |
@@ -223,6 +225,55 @@
 - `motion/react` 是项目级依赖(`package.json` 已含 `motion`)。不要为单次使用新装库。
 - 不要把 `ShinyText` 套在 flex / grid item 内但忘了 `inline-block` — wrapper 默认 `inline-block`,但若父容器是 `display: flex` 子项默认 `align-items: stretch`,文本 baseline 不稳。
 - 单次使用不值得时:为「一个标题加扫光」装 motion + 写一个组件 → 投入产出不成比例,改用 CSS `@keyframes` 临时写在 `index.css`。
+
+## FlipText
+
+单文件 `ui/FlipText.tsx`。一行文字，`text` 变了时旧字向上移出、新字从下面进来，约 200ms。首次出现不播。`shimmer` 时当前行走 `ShinyText`。
+
+**查阅时机**:同一行的状态文案要换成下一句，并且希望看起来是翻上去，而不是整行闪一下换字。
+
+**何时用**:
+
+- 一行状态在几个短文案之间切换
+- 切换时要扫光，把 `shimmer` 打开
+
+**何时不用**:
+
+- 标题本身不该跟着内容变 — 辅文用 [`TrailText`](#trailtext)，标题留静态
+- 整段正文进出 — 用 [`Expandable`](#expandable)
+- 只想扫光、文字不变 — 用 [`ShinyText`](#shinytext)
+
+**API**:
+
+```tsx
+<FlipText text={label} shimmer />
+```
+
+**踩坑备忘**:
+
+- 不写业务词。文案由调用方传入。
+- `AnimatePresence` 的 `initial={false}` 保证第一次挂上不从下面滑入。历史回放不要靠它补播。
+
+## TrailText
+
+单文件 `ui/TrailText.tsx`。标题后面的辅文，`text-sm`、`text-fg-disabled`。`shimmer` 可选。
+
+**查阅时机**:主标题旁边要挂一个更小、更淡的计数或说明。
+
+**何时用**:
+
+- 标题保持不变，旁边的数字或短说明会更新
+
+**何时不用**:
+
+- 辅文自己要向上翻 — 那是 [`FlipText`](#fliptext)
+- 辅文是一整句说明 — 用普通正文，不要塞进标题行
+
+**API**:
+
+```tsx
+<TrailText text="2 个工具" />
+```
 
 ## MarkdownView
 
@@ -333,6 +384,7 @@
 - 需要彩色 / 多状态(成功 / 错误)→ `LoadingDots` 只表示「进行中」单一状态
 - 需要 9 / 16 点的「乱中有序」loading → [`DotMatrix`](#dotmatrix)
 - 整片区域 > 30 px(`LoadingDots` 固定 6px 点,放大无意义)
+- 对话列里表示「还在跑」→ 用活动行（「正在规划下一步行动」或当前块的标题），见 [`web-conversation.md`](web-conversation.md)。对话列不再放 `LoadingDots`
 
 **API**:
 

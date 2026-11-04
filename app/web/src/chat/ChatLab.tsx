@@ -7,9 +7,12 @@ import type { SessionRecord } from '../api/sessions/types'
 import { parseSessionEvent, subscribeSessionEvents } from '../api/sse'
 import { getDefaultWorkspace } from '../api/workspace'
 import { adaptAgentSession } from '../conversation/adaptAgentSession'
+import { assistantErrorFromEvent } from '../conversation/assistantError'
+import { historyAssistantError } from '../conversation/historyMessages'
 import { createBlockRuntime, isRunBusy } from '../conversation'
 import { translateHistory } from '../conversation/translateHistory'
 import { LIST_PAGE_SIZE } from '../session/listPage'
+import { AssistantErrorNotice } from '../components/AssistantErrorNotice'
 import { Button } from '../ui/Button'
 import { ChatView } from './ChatView'
 import { PacePanel } from './PacePanel'
@@ -71,6 +74,7 @@ export function ChatLab() {
 	const [notice, setNotice] = useState<'loading' | 'error' | null>(null)
 	const [listError, setListError] = useState<string | null>(null)
 	const [sendError, setSendError] = useState<string | null>(null)
+	const [assistantError, setAssistantError] = useState<string | null>(null)
 	const [draft, setDraft] = useState('')
 	const [flight, setFlight] = useState(false)
 	const [tapePhase, setTapePhase] = useState<TapePhase>('idle')
@@ -104,6 +108,8 @@ export function ChatLab() {
 
 	const applyEvent = (event: AgentSessionEvent) => {
 		for (const item of adaptAgentSession(event)) runtime.apply(item)
+		const next = assistantErrorFromEvent(event)
+		if (next !== undefined) setAssistantError(next)
 	}
 
 	const cancelReplay = () => {
@@ -205,6 +211,7 @@ export function ChatLab() {
 		setActiveSimId(null)
 		setNotice('loading')
 		setSendError(null)
+		setAssistantError(null)
 		runtime.replace([])
 		const row = sessions.find((item) => item.id === id)
 		setRun(row?.status === 'running' ? 'running' : 'idle')
@@ -214,6 +221,7 @@ export function ChatLab() {
 			const messages = await translateHistory(history.messages, ticketNo, () => ticket.current)
 			if (!messages) return
 			runtime.replace(messages)
+			setAssistantError(historyAssistantError(history.messages))
 			const rest = queue.current.splice(0)
 			phase.current = 'ready'
 			for (const event of [...preload, ...rest]) applyEvent(event)
@@ -238,6 +246,7 @@ export function ChatLab() {
 		setActiveSimId(null)
 		setNotice(null)
 		setSendError(null)
+		setAssistantError(null)
 		setRun('idle')
 		runtime.replace([])
 	}
@@ -249,6 +258,7 @@ export function ChatLab() {
 		if (!text || !target || flight || replaying.current || busy) return
 		setDraft('')
 		setSendError(null)
+		setAssistantError(null)
 		setFlight(true)
 		try {
 			const current = openId.current
@@ -320,6 +330,7 @@ export function ChatLab() {
 		setActiveSimId(simId)
 		setNotice(null)
 		setSendError(null)
+		setAssistantError(null)
 		setRun('idle')
 		runtime.replace([])
 		const timers = file.frames.map((frame) =>
@@ -467,13 +478,19 @@ export function ChatLab() {
 							void send()
 						}}
 					>
-						<input
-							value={draft}
-							onChange={(event) => setDraft(event.target.value)}
-							placeholder="发送消息…"
-							disabled={replayingUi}
-							className="h-[30px] min-w-0 flex-1 rounded-md border border-border bg-surface px-2.5 text-md text-fg outline-none placeholder:text-fg-3"
-						/>
+						<AssistantErrorNotice
+							className="min-w-0 flex-1"
+							message={assistantError}
+							onDismiss={() => setAssistantError(null)}
+						>
+							<input
+								value={draft}
+								onChange={(event) => setDraft(event.target.value)}
+								placeholder="发送消息…"
+								disabled={replayingUi}
+								className="h-[30px] w-full rounded-md border border-border bg-surface px-2.5 text-md text-fg outline-none placeholder:text-fg-3"
+							/>
+						</AssistantErrorNotice>
 						{generating && !replayingUi ? (
 							<Button type="button" variant="outline" onClick={stop}>
 								停止

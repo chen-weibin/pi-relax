@@ -1,9 +1,13 @@
-import { memo, useRef, useState } from 'react'
+import { memo, useEffect, useRef, useState, type ReactNode, type Ref } from 'react'
 import classNames from 'classnames'
-import type { BlockSnapshot, ConversationSnapshot, MessageSnapshot, TextBlock, ThinkingBlock, UserTextBlock } from '../conversation'
+import type { BlockSnapshot, ConversationSnapshot, TextBlock, ThinkingBlock, ToolBlock, UserTextBlock } from '../conversation'
+import { isRunBusy } from '../conversation'
+import { layoutTurns, showAwaiting, type Segment, type TurnLayout } from '../conversation/explore'
 import { DisclosureRow } from '../ui/DisclosureRow'
-import { LoadingDots } from '../ui/LoadingDots'
 import { MessageSurface } from '../ui/MessageSurface'
+import { ActivityLine } from '../components/conversation/ActivityLine'
+import { ExploreGroup, type ExploreGroupHandle } from '../components/conversation/ExploreGroup'
+import { activityForTail, chromeForExplore, PLANNING_LABEL } from '../conversation/exploreChrome'
 import { ChatMarkdown } from './ChatMarkdown'
 import type { FeedConfig } from './pace'
 import { useStreamText } from './useStreamText'
@@ -31,11 +35,14 @@ function AssistantRow({ block, feed }: { block: TextBlock; feed: FeedConfig }) {
 	return <ChatMarkdown text={text} live={live} streaming={streaming} isAnimating={streaming} />
 }
 
-function ThinkingRow({ block, feed }: { block: ThinkingBlock; feed: FeedConfig }) {
+function ThinkingRow({ block, feed, expandTick = 0 }: { block: ThinkingBlock; feed: FeedConfig; expandTick?: number }) {
 	const streaming = block.contentPhase === 'open'
 	const text = useStreamText(block.data.text, streaming, feed)
 	const live = useLived(streaming)
 	const [open, setOpen] = useState(false)
+	useEffect(() => {
+		if (expandTick > 0) setOpen(true)
+	}, [expandTick])
 	return (
 		<DisclosureRow title="思考" open={open} blinking={streaming} chevron="hover" onOpenChange={setOpen}>
 			<ChatMarkdown
@@ -49,74 +56,199 @@ function ThinkingRow({ block, feed }: { block: ThinkingBlock; feed: FeedConfig }
 	)
 }
 
-const BlockRow = memo(function BlockRow({ block, feed }: { block: BlockSnapshot; feed: FeedConfig }) {
+function ToolRow({ block, expandTick = 0 }: { block: ToolBlock; expandTick?: number }) {
+	const streaming = block.contentPhase === 'open'
+	const [open, setOpen] = useState(false)
+	useEffect(() => {
+		if (expandTick > 0) setOpen(true)
+	}, [expandTick])
+	const { name, argumentsText, resultText, isError } = block.data
+	return (
+		<DisclosureRow title={name || '工具'} open={open} blinking={streaming} chevron="hover" onOpenChange={setOpen}>
+			{argumentsText ? <pre className="whitespace-pre-wrap text-sm text-fg-3">{argumentsText}</pre> : null}
+			{resultText ? (
+				isError ? (
+					<p className="whitespace-pre-wrap text-sm text-error">{resultText}</p>
+				) : (
+					<ChatMarkdown text={resultText} live={false} streaming={false} />
+				)
+			) : null}
+		</DisclosureRow>
+	)
+}
+
+const BlockRow = memo(function BlockRow({
+	block,
+	feed,
+	expandTick = 0,
+}: {
+	block: BlockSnapshot
+	feed: FeedConfig
+	expandTick?: number
+}) {
 	if (block.kind === 'user-text') return <UserRow block={block} />
-	if (block.kind === 'thinking') return <ThinkingRow block={block} feed={feed} />
+	if (block.kind === 'thinking') return <ThinkingRow block={block} feed={feed} expandTick={expandTick} />
 	if (block.kind === 'text') return <AssistantRow block={block} feed={feed} />
-	return null
+	return <ToolRow block={block} expandTick={expandTick} />
 })
 
-type MessageGroup = { group: MessageSnapshot; blocks: BlockSnapshot[] }
-
-export function ChatView({ snapshot, feed }: { snapshot: ConversationSnapshot; feed: FeedConfig }) {
-	const groups: MessageGroup[] = []
-	for (const messageId of snapshot.messageOrder) {
-		const group = snapshot.messages[messageId]
-		if (!group) continue
-		const blocks: BlockSnapshot[] = []
-		for (const key of group.blockKeys) {
-			const block = snapshot.byKey[key]
-			if (block) blocks.push(block)
-		}
-		if (blocks.length === 0) continue
-		groups.push({ group, blocks })
-	}
-	const leading: MessageGroup[] = []
-	const turns: MessageGroup[][] = []
-	for (const item of groups) {
-		if (item.group.role === 'user') {
-			turns.push([item])
-			continue
-		}
-		const turn = turns[turns.length - 1]
-		if (turn) turn.push(item)
-		else leading.push(item)
-	}
-	const awaiting = snapshot.runPhase === 'awaiting' ? <LoadingDots label="生成中" /> : null
-
+function ExploreSegment({
+	blocks,
+	feed,
+	live,
+	groupRef,
+	focusKey,
+	focusTick,
+	onGroupOpenChange,
+}: {
+	blocks: readonly BlockSnapshot[]
+	feed: FeedConfig
+	live: boolean
+	groupRef?: Ref<ExploreGroupHandle>
+	focusKey: string | null
+	focusTick: number
+	onGroupOpenChange?: (open: boolean) => void
+}) {
+	const chrome = chromeForExplore(blocks, live)
+	if (chrome.mode === 'single') return <BlockRow block={chrome.block} feed={feed} />
+	if (chrome.mode !== 'group') return null
 	return (
-		<div className="flex flex-col gap-4 py-3">
-			{leading.map(({ group, blocks }) => (
-				<article key={group.id} className="flex flex-col gap-2" data-message-id={group.id} data-role={group.role}>
-					{blocks.map((block) => (
+		<ExploreGroup ref={groupRef} trail={chrome.trail} onOpenChange={onGroupOpenChange}>
+			{blocks.map((block) => (
+				<div key={block.key} data-block-key={block.key}>
+					<BlockRow block={block} feed={feed} expandTick={focusKey === block.key ? focusTick : 0} />
+				</div>
+			))}
+		</ExploreGroup>
+	)
+}
+
+function Segments({
+	segments,
+	feed,
+	liveTail,
+	groupRef,
+	focusKey,
+	focusTick,
+	onGroupOpenChange,
+	activity,
+}: {
+	segments: readonly Segment[]
+	feed: FeedConfig
+	liveTail: boolean
+	groupRef?: Ref<ExploreGroupHandle>
+	focusKey: string | null
+	focusTick: number
+	onGroupOpenChange?: (open: boolean) => void
+	activity?: ReactNode
+}) {
+	return segments.map((segment, index) => {
+		const tail = liveTail && index === segments.length - 1
+		const last = index === segments.length - 1
+		let node: ReactNode
+		if (segment.type === 'user') {
+			node = (
+				<article key={segment.id} className="sticky top-0 z-10 flex w-full flex-col gap-2" data-message-id={segment.id} data-role="user">
+					{segment.blocks.map((block) => (
 						<BlockRow key={block.key} block={block} feed={feed} />
 					))}
 				</article>
+			)
+		} else if (segment.type === 'explore') {
+			node = (
+				<ExploreSegment
+					key={segment.id}
+					blocks={segment.blocks}
+					feed={feed}
+					live={tail}
+					groupRef={tail ? groupRef : undefined}
+					focusKey={focusKey}
+					focusTick={focusTick}
+					onGroupOpenChange={tail ? onGroupOpenChange : undefined}
+				/>
+			)
+		} else {
+			node = <BlockRow key={segment.id} block={segment.block} feed={feed} />
+		}
+		if (!last) return node
+		return (
+			<div
+				key={segment.id}
+				className={classNames('flex flex-col gap-1', segment.type === 'user' && 'sticky top-0 z-10')}
+			>
+				{node}
+				{activity}
+			</div>
+		)
+	})
+}
+
+function Turn({
+	turn,
+	feed,
+	last,
+	busy,
+	awaiting,
+}: {
+	turn: TurnLayout
+	feed: FeedConfig
+	last: boolean
+	busy: boolean
+	awaiting: boolean
+}) {
+	const groupRef = useRef<ExploreGroupHandle>(null)
+	const [focusKey, setFocusKey] = useState<string | null>(null)
+	const [focusTick, setFocusTick] = useState(0)
+	const [groupOpen, setGroupOpen] = useState(false)
+	const live = last && busy
+	const activity = activityForTail(turn.segments, live, awaiting)
+	const showActivity = activity != null && !(groupOpen && activity.focusKey)
+	return (
+		<div className={classNames('flex flex-col gap-4', last && 'min-h-[100cqh] pb-[40cqh]')}>
+			<Segments
+				segments={turn.segments}
+				feed={feed}
+				liveTail={live}
+				groupRef={groupRef}
+				focusKey={focusKey}
+				focusTick={focusTick}
+				onGroupOpenChange={setGroupOpen}
+				activity={
+					showActivity && activity ? (
+						<ActivityLine
+							label={activity.label}
+							onLocate={
+								activity.focusKey
+									? () => {
+											const key = activity.focusKey
+											if (!key) return
+											setFocusKey(key)
+											setFocusTick((tick) => tick + 1)
+											groupRef.current?.reveal(key)
+										}
+									: undefined
+							}
+						/>
+					) : null
+				}
+			/>
+		</div>
+	)
+}
+
+export function ChatView({ snapshot, feed }: { snapshot: ConversationSnapshot; feed: FeedConfig }) {
+	const laid = layoutTurns(snapshot)
+	const busy = isRunBusy(snapshot.runPhase)
+	const awaiting = showAwaiting(snapshot)
+	const last = laid.turns.length - 1
+
+	return (
+		<div className="flex flex-col gap-4 py-3">
+			<Segments segments={laid.leading} feed={feed} liveTail={false} focusKey={null} focusTick={0} />
+			{laid.turns.map((turn, index) => (
+				<Turn key={turn.id} turn={turn} feed={feed} last={index === last} busy={busy} awaiting={index === last && awaiting} />
 			))}
-			{turns.map((turn, index) => (
-				<div
-					key={turn[0]?.group.id}
-					className={classNames('flex flex-col gap-4', index === turns.length - 1 && 'min-h-[100cqh] pb-[40cqh]')}
-				>
-					{turn.map(({ group, blocks }) => (
-						<article
-							key={group.id}
-							className={classNames(
-								'flex flex-col gap-2',
-								group.role === 'user' && 'sticky top-0 z-10 w-full',
-							)}
-							data-message-id={group.id}
-							data-role={group.role}
-						>
-							{blocks.map((block) => (
-								<BlockRow key={block.key} block={block} feed={feed} />
-							))}
-						</article>
-					))}
-					{index === turns.length - 1 ? awaiting : null}
-				</div>
-			))}
-			{turns.length === 0 ? awaiting : null}
+			{laid.turns.length === 0 && awaiting ? <ActivityLine label={PLANNING_LABEL} /> : null}
 		</div>
 	)
 }
