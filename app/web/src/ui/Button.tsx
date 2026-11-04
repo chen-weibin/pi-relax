@@ -1,7 +1,7 @@
 import classNames from 'classnames'
 import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react'
 
-export type ButtonVariant = 'solid' | 'outline' | 'ghost'
+export type ButtonVariant = 'solid' | 'outline' | 'ghost' | 'text'
 export type ButtonSize = 'sm' | 'md' | 'lg'
 export type ButtonTone = 'neutral' | 'inverse'
 
@@ -27,11 +27,13 @@ const toneClasses: Record<ButtonTone, Record<ButtonVariant, string>> = {
 		outline:
 			'border border-border bg-transparent text-fg-2 hover:border-border-hover hover:bg-surface-hover hover:text-fg',
 		ghost: 'text-fg-2 hover:bg-surface-hover hover:text-fg',
+		text: 'text-fg-2 hover:text-fg-bright',
 	},
 	inverse: {
 		solid: 'bg-fg text-app hover:bg-fg-bright',
 		outline: 'border border-fg bg-transparent text-fg hover:bg-fg/10',
 		ghost: 'text-fg hover:bg-fg/10',
+		text: 'text-fg hover:text-fg-bright',
 	},
 }
 

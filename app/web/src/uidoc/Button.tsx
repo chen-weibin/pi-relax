@@ -2,7 +2,7 @@ import { CloseIcon, PlusIcon } from '../icons'
 import { Button, type ButtonVariant } from '../ui/Button'
 import { Preview } from './frame'
 
-const variants: ButtonVariant[] = ['solid', 'outline', 'ghost']
+const variants: ButtonVariant[] = ['solid', 'outline', 'ghost', 'text']
 const sizes = ['sm', 'md', 'lg'] as const
 
 function ButtonDemo() {
