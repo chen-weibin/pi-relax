@@ -1,7 +1,7 @@
 import { FitAddon } from '@xterm/addon-fit'
 import { Terminal } from '@xterm/xterm'
 import '@xterm/xterm/css/xterm.css'
-import { mockPty } from '../../contracts/adapters/mock'
+import { pty } from '../../contracts/adapters/ptySocket'
 import './xterm.css'
 
 function cssVar(name: string, fallback: string) {
@@ -87,10 +87,14 @@ function createRuntime(sessionId: string): TerminalRuntime {
 	term.open(element)
 
 	const dataSub = term.onData((data) => {
-		void mockPty.write(sessionId, data)
+		void pty.write(sessionId, data)
 	})
-	const ptyUnsub = mockPty.subscribe(sessionId, (chunk) => {
-		term.write(chunk)
+	const ptyUnsub = pty.subscribe(sessionId, {
+		onData: (chunk) => term.write(chunk),
+		onReplay: (text) => {
+			term.reset()
+			if (text) term.write(text)
+		},
 	})
 
 	const themeObs = new MutationObserver(() => {
@@ -113,7 +117,7 @@ function createRuntime(sessionId: string): TerminalRuntime {
 		const dim = fitAddon.proposeDimensions()
 		if (!dim) return
 		fitAddon.fit()
-		void mockPty.resize(sessionId, term.cols, term.rows)
+		void pty.resize(sessionId, term.cols, term.rows)
 	}
 
 	return {

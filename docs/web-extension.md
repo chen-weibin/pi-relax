@@ -9,10 +9,10 @@
 ```
 app/web/src/extensions/
 ├── types.ts              # ExtensionPlugin / ExtensionTab / 空态策略
-├── store.ts              # 壳层 tab；不持久化；含 updateTab
+├── store.ts              # 壳层 tab；终端快照按对话写入 local store；含 updateTab
 ├── registry.ts           # 编译期登记表
 ├── shell/                # 欢迎页、唯一一层 tab 条、添加菜单
-├── contracts/            # FsApi / PtyApi + mock 适配器
+├── contracts/            # FsApi / PtyApi；文件仍是 mock，终端走 /ws/pty
 └── plugins/files|terminal
 ```
 
@@ -105,14 +105,16 @@ useExtensionStore.getState().setEmptyExtensionHandler(() => 'welcome')
 
 | 项 | 现状 | 后续 |
 |---|---|---|
-| 主区 | `@xterm/xterm` + fit；实例按 `sessionId` 保活，切 tab 只挪 DOM，关 tab 才 dispose | 真实 PTY 数据流 |
+| 主区 | `@xterm/xterm` + fit；实例按本地 `sessionId` 保活，切 tab 只挪 DOM，关 tab 才 dispose | — |
 | 插件顶栏 | `PaneHeader` 38px、`pr-3` 与壳层 toggle 右对齐；右 `ListIcon` 16px / 按钮 26 | 左侧可加 cwd / 操作 |
 | 会话列表 | 右侧占位 nav，`bg-panel`；宽度 0↔220，终端 fit 剩余宽度；item hover 显示关闭 | — |
-| 后端 | `mockPty.write` 回显（含 Enter / Backspace），无命令执行 | `node-pty` + WebSocket；`write` / `resize` 走 `PtyApi` |
+| 后端 | WebSocket `/ws/pty`（[ptySocket.ts](../app/web/src/extensions/contracts/adapters/ptySocket.ts)）。新终端的目录是当前对话快照上的 `cwd`（选中会话用那一行的目录，草稿用草稿目录），不退回默认工作区。输入、resize、close 走 `PtyApi`。服务端 id 只用于断线重连 | — |
 
-关终端 tab 会 `releaseTerminalRuntime` + `mockPty.dispose`；切换终端 / 切到文件再回来会保留缓冲。换真实适配器时保持此行为。
+终端快照按对话记在 `localStorage` 的 `relax.extensions`（见 [web.md](web.md) 的「持久化」）。只记终端 tab，不记文件。切到另一条对话时换上那条的终端，不 `closeTab`，所以 xterm 和套接字还在；关的是这个 tab 才释放。刷新后按快照里的本地 id 和 `cwd` 重新连接，进程是新的。服务端同时最多 16 路，多条对话各留着终端时会顶到这个上限。没有记录就是收起、零个终端。
+
+关终端 tab 会 `releaseTerminalRuntime` 并发送 `{ type: "close" }`。切换终端 / 切到文件再回来套接字仍开着，缓冲还在。没主动关闭就断开时，12 秒内用服务端 id 重连；`ready.replay` 先清屏再画，比回放缓冲更早的输出不再留在这一屏。shell 退出、路径错误、达到路数上限不再重连，原因写在终端里。
 
 ### 契约与宿主
 
-- 仅 [mock.ts](../app/web/src/extensions/contracts/adapters/mock.ts)；前端只依赖 `FsApi` / `PtyApi` 接口。
+- 文件仍是 [mock.ts](../app/web/src/extensions/contracts/adapters/mock.ts)。终端是 [ptySocket.ts](../app/web/src/extensions/contracts/adapters/ptySocket.ts)。插件只依赖 `FsApi` / `PtyApi`。
 - 新增插件：registry 登记 + 本文「新增插件」流程；大改后回来删改上表遗留项。

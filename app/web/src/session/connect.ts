@@ -7,8 +7,9 @@ import { subscribeSessionEvents } from '../api/sse'
 import { ApiError } from '../api/http'
 import { useCatalogStore, useCommonStore, useLocalStore } from '../store'
 import { LIST_PAGE_SIZE } from './listPage'
-import { draftTarget } from './draft'
+import { draftId, draftTarget } from './draft'
 import { noteCatalogEvent, type UnseenRun } from './catalogEvent'
+import { rekeyExtensionConversation, setExtensionConversation } from '../extensions/sessionTabs'
 import { toCatalogSession, toCatalogSessions } from './service'
 import {
 	clearOpenSession,
@@ -142,6 +143,7 @@ export async function sendConversation(text: string, behavior?: StreamingBehavio
 		if (!session.name.trim()) session.name = trimmed
 		useCatalogStore.getState().noteSentSession(session)
 		useCatalogStore.getState().removeDraft(cwd)
+		rekeyExtensionConversation(draftId(cwd), record.id)
 		selectOpenSession(record.id)
 		queueCaptured(record.id, takeCaptured(record.id))
 	} catch (error) {
@@ -166,6 +168,7 @@ export function selectOpenSession(sessionId: string) {
 	if (next.effects.length > 0) history = null
 	publish()
 	void runEffects(next.effects)
+	setExtensionConversation(sessionId, cwdOfSession(sessionId))
 }
 
 function dismissOpenSession() {
@@ -176,14 +179,17 @@ function dismissOpenSession() {
 	publish()
 }
 
-function cwdOfOpenSession(): string | null {
-	const id = state.openSessionId
-	if (!id) return null
+function cwdOfSession(sessionId: string): string | null {
 	for (const page of Object.values(useCatalogStore.getState().sessionPages)) {
-		const hit = page.sessions.find((session) => session.id === id)
-		if (hit) return hit.cwd
+		const hit = page.sessions.find((session) => session.id === sessionId)
+		if (hit?.cwd) return hit.cwd
 	}
 	return null
+}
+
+function cwdOfOpenSession(): string | null {
+	const id = state.openSessionId
+	return id ? cwdOfSession(id) : null
 }
 
 function expandProject(cwd: string) {
@@ -198,12 +204,18 @@ export function openProjectDraft(cwd: string) {
 	useCatalogStore.getState().openDraft(cwd)
 	expandProject(cwd)
 	useCommonStore.getState().setMainView('conversation')
+	setExtensionConversation(draftId(cwd), cwd)
+}
+
+/** 当前选中会话所在目录，否则当前草稿，再否则默认工作区。都没有则是 null。 */
+export function conversationCwd(): string | null {
+	const catalog = useCatalogStore.getState()
+	return draftTarget(cwdOfOpenSession(), catalog.activeDraftCwd, catalog.defaultCwd)
 }
 
 /** 落在当前选中会话的项目；没有选中则用默认工作区。 */
 export function openDraftForCurrentProject() {
-	const catalog = useCatalogStore.getState()
-	const cwd = draftTarget(cwdOfOpenSession(), catalog.activeDraftCwd, catalog.defaultCwd)
+	const cwd = conversationCwd()
 	if (cwd) openProjectDraft(cwd)
 }
 

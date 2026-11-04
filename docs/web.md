@@ -331,7 +331,7 @@ src/
 │   └── MonacoEditor/             # monaco-editor 封装(worker + Shiki aurora-x)
 ├── extensions/                   # 右侧扩展区：插件注册、壳层 tab、Fs/Pty 契约（详见 docs/web-extension.md）
 │   ├── types.ts
-│   ├── store.ts                  #   壳层 tabs；空态策略；不持久化
+│   ├── store.ts                  #   壳层 tabs；终端快照按对话写入 local store
 │   ├── registry.ts               #   编译期插件表
 │   ├── shell/                    #   欢迎页 + 唯一 tab 条 + 添加菜单
 │   ├── contracts/                #   FsApi / PtyApi + mock
@@ -377,7 +377,7 @@ src/
 
 ### 收起/展开
 
-`{ sidebarOpen: boolean; extensionOpen: boolean }` 状态由 common store 持有(`src/store/common.ts`),**不持久化** —— 每次启动 sidebar 默认 `true`(展开),extension 默认 `false`(收起)。`pages/Workspace.tsx` 切片订阅这两个字段,值翻转时整棵子树重新渲染并决定 Panel 是否挂载。
+`{ sidebarOpen: boolean; extensionOpen: boolean }` 状态由 common store 持有(`src/store/common.ts`)。`sidebarOpen` 不持久化，每次启动默认展开。`extensionOpen` 是当前这一份的开关：选中对话后跟那条的终端快照走，还没选中时默认收起。`pages/Workspace.tsx` 切片订阅这两个字段,值翻转时整棵子树重新渲染并决定 Panel 是否挂载。
 
 收起 = 整 Panel 从所属 Group 中移除(`{sidebarOpen && <Panel/>}` 模式),不是 `collapsedSize:0`。这样展开时回到原记录的宽度。
 
@@ -407,17 +407,19 @@ src/
   version: 1,
   layout: Record<string, unknown>, // groupId → 该组的 layout 对象
   projectsCollapsed: string[]       // 收起的项目 id；不在表里 = 展开
+  extensions: Record<string, ExtensionSnapshot> // 对话 id 或 draft:cwd → 终端快照
 }
 ```
 
-- 没有 key、JSON 坏了、`version` 不是 1、或 `localStorage` 不可用：空 layout、空收起名单。写失败（配额、隐私模式）忽略，内存里的状态继续用。
+- 没有 key、JSON 坏了、`version` 不是 1、或 `localStorage` 不可用：空 layout、空收起名单、空终端快照。写失败（配额、隐私模式）忽略，内存里的状态继续用。
 - 旧 key `app-shell:layout:app-shell` 和 `app-shell:layout:main-area` 已废弃。不读、不搬、不删。
 - `usePersistedPanelLayout` 只通过 store 读写宽度。外层 group `app-shell` 是 `[sidebar, main]`，内层 `main-area` 是 `[content, extension]`。
 - 侧栏每个项目的收起写在 `projectsCollapsed`。没有记录默认展开，并且只有展开的项目才拉该项目的会话。`ProjectSection` 订阅这份名单。
+- `extensions` 只记终端：这条对话的目录、右侧栏开没开、哪些终端、当前是哪一个。文件 tab 不记。键是会话 id，没发送前是 `draft:${cwd}`。第一次发送成功后改挂到新会话 id。切对话时换上对应快照，已经连着的终端进程先留着。没有记录就是收起、零个终端。
 
 以后要记住的界面状态加到这个 store 的字段里，不要再直接写 `localStorage`。
 
-**壳层开关不进这份文档。** `sidebarOpen` / `extensionOpen` / `mainView` / `settingOpen` 仍由 common store 持有，每次启动 sidebar 展开、extension 收起、`mainView='conversation'`、`settingOpen=false`。「项目」标题那一行的整块折叠也只活在组件里。
+**侧栏开关不进这份文档。** `sidebarOpen` / `mainView` / `settingOpen` 仍由 common store 持有，每次启动 sidebar 展开、`mainView='conversation'`、`settingOpen=false`。当前对话的右侧栏开没开写在 `extensions`；还没选中对话时 common store 的 `extensionOpen` 仍是收起。「项目」标题那一行的整块折叠也只活在组件里。
 
 Setting 由 `settingOpen` 控制显隐(`{settingOpen && <Setting />}`),在 `pages/Workspace.tsx` 内挂载。Setting `z-50`,在四区上方全屏渲染。
 
@@ -545,7 +547,7 @@ src/store/
 toggleSidebar: () => set((s) => { s.sidebarOpen = !s.sidebarOpen })
 ```
 
-**不持久化** —— 每次 reload 状态回到默认值。要记住的界面状态加到 `store/local.ts`，不要给 common store 加 `persist`。
+**不持久化** —— 每次 reload 状态回到默认值。要记住的界面状态加到 `store/local.ts`，不要给 common store 加 `persist`。当前对话的右侧栏开关不在这里记，而在 `extensions` 快照里。
 
 ### `MainView` 类型
 

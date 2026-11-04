@@ -103,7 +103,7 @@ Store 继续按字段切片订阅。做法见 [web-zustand-store-design.md](supe
 
 ## 明确不做
 
-这些不在下面的模块里：分支 / fork、附件、checkpoint、命令审批、自动标题、文件与终端从 mock 换成真接口（仍看 [web-extension.md](web-extension.md)，查阅时机：接真实文件系统或 PTY 时）、对话列虚拟列表、把 token 流或 `Streamdown` 组件搬进 Worker。解析进 Worker 只是「发布与绘制」里的测量后门，不单独立项。
+这些不在下面的模块里：分支 / fork、附件、checkpoint、命令审批、自动标题、文件从 mock 换成真接口（终端已接 `/ws/pty`，仍看 [web-extension.md](web-extension.md)，查阅时机：接真实文件系统时）、对话列虚拟列表、把 token 流或 `Streamdown` 组件搬进 Worker。解析进 Worker 只是「发布与绘制」里的测量后门，不单独立项。
 
 ## 模块
 

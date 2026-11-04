@@ -98,11 +98,11 @@
 2. 不传 `cols` / `rows` 时用 `config.json` 的 `pty.cols` / `pty.rows`（80 / 24）。shell 用 `SHELL`，没有则 `/bin/zsh`。
 3. 连上先收到文本帧 `ready`（服务端生成 `id`）。终端字节走二进制帧。`resize` 改大小，`close` 立刻结束进程。
 4. 没发 `close` 就断开时，进程保留 `pty.graceMs`（默认 15000）。期限内用同一个 `id` 重连，`ready.replay` 是最近 `pty.replayBytes`（默认 100KB）的输出。同时存活不超过 `pty.max`（默认 16），含宽限中的。
-5. `app/web` 的终端插件仍用 mock。手工页是 [pty.html](../app/server/test/html/pty.html)。
+5. `app/web` 的终端插件走这条 WebSocket。手工页是 [pty.html](../app/server/test/html/pty.html)。
 
 ## 当前关掉的剖面
 
-提示词模板、主题、上下文文件都显式关掉。磁盘扩展不扫。技能按基座默认目录加载，见上面「技能」。`tool_search` 和 `web_enable` 不开。`app/web` 还没接文件系统和终端。
+提示词模板、主题、上下文文件都显式关掉。磁盘扩展不扫。技能按基座默认目录加载，见上面「技能」。`tool_search` 和 `web_enable` 不开。`app/web` 还没接文件系统。终端已接。
 
 ## 手工脚本
 

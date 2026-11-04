@@ -29,6 +29,7 @@ interface ExtensionState {
 		tabId: string,
 		patch: Partial<Pick<ExtensionTab, 'title' | 'icon' | 'reuseKey' | 'payload'>>,
 	) => void
+	replaceTabs: (tabs: ExtensionTab[], activeTabId: string | null) => void
 }
 
 const defaultEmptyHandler: EmptyExtensionHandler = () => 'collapse'
@@ -78,6 +79,11 @@ export const useExtensionStore = create<ExtensionState>()(
 				if (patch.icon !== undefined) tab.icon = patch.icon
 				if (patch.reuseKey !== undefined) tab.reuseKey = patch.reuseKey
 				if (patch.payload !== undefined) tab.payload = patch.payload
+			}),
+		replaceTabs: (tabs, activeTabId) =>
+			set((s) => {
+				s.tabs = tabs
+				s.activeTabId = tabs.some((tab) => tab.id === activeTabId) ? activeTabId : (tabs[0]?.id ?? null)
 			}),
 		closeTab: (tabId) => {
 			const { tabs, activeTabId, emptyHandler } = get()
