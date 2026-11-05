@@ -57,7 +57,7 @@ export function MonacoEditor({
 					lineHeight: 22,
 					padding: { top: 12, bottom: 12 },
 					automaticLayout: true,
-					wordWrap: 'on',
+					wordWrap: 'off',
 					renderLineHighlight: 'none',
 					overviewRulerLanes: 0,
 					hideCursorInOverviewRuler: true,

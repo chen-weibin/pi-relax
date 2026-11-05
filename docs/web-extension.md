@@ -91,11 +91,11 @@ useExtensionStore.getState().setEmptyExtensionHandler(() => 'welcome')
 
 | 项 | 现状 | 后续 |
 |---|---|---|
-| 探索器主区 | 未选文件时居中「选择一个文件」 | 新建、最近文件 |
-| 目录树 | 根是当前对话 cwd。顶部一行是目录名，悬停看完整路径，下面直接列子项。展开才 `list`。`/ws/fs` 的 `change` 只重列已经展开的父目录 | 全局搜索 |
+| 探索器主区 | 未选文件时居中 [`EmptyState`](ui.md#emptystate)：`FileIcon` +「请选择要打开的文件」 | 新建、最近文件 |
+| 目录树 | 根是当前对话 cwd。顶部一行是目录名，悬停看完整路径，下面直接列子项。根目录列完且没有任何条目时，列表顶部居中「工作目录为空」，无图标。展开才 `list`。`/ws/fs` 的 `change` 只重列已经展开的父目录 | 全局搜索 |
 | 文件预览 | 文本进 Monaco，可编辑。停手 400ms 后整文件 `PUT`。还没写完时，tab 标题右侧是 `StatusDot` `normal`（6px）。超过 1 MiB 或二进制只显示一行原因。已打开且没有未保存草稿时，磁盘变化会重新读入；有草稿则提示「磁盘已变化」 | 图片等其它 viewer |
 | 类型扩展 | [`matchFileIcon`](../app/web/src/icons/matchFileIcon.ts):父目录/文件名、文件名、从长到短的扩展名、语言 id,否则 unknown。表在 [`fileKinds.ts`](../app/web/src/extensions/plugins/files/fileKinds.ts);`.jsx` 与 `.tsx` 共用 `FileTsxIcon`。待补清单在 [`file-icons.md`](file-icons.md) | 目录名图标;有图后再加 `spec.ts` 等更长扩展名 |
-| Header | 左路径面包屑（仅绑定文件时）；右 `FolderIcon` 收起/展开树（展开收起同一图标） | 面包屑可点击跳转目录 |
+| Header | 左路径面包屑（仅绑定文件时，`PathBreadcrumb`）；右 `FolderIcon` 收起/展开树（展开收起同一图标） | 面包屑可点击跳转目录 |
 | 文案 | 空态、过大、二进制、磁盘变化都是中文 | — |
 
 文件树继续自研 `Expandable`，不上第三方树库。
@@ -105,7 +105,7 @@ useExtensionStore.getState().setEmptyExtensionHandler(() => 'welcome')
 | 项 | 现状 | 后续 |
 |---|---|---|
 | 主区 | `@xterm/xterm` + fit；实例按本地 `sessionId` 保活，切 tab 只挪 DOM，关 tab 才 dispose | — |
-| 插件顶栏 | `PaneHeader` 38px、`pr-3` 与壳层 toggle 右对齐；右 `ListIcon` 16px / 按钮 26 | 左侧可加 cwd / 操作 |
+| 插件顶栏 | `PaneHeader` 38px、`pr-3` 与壳层 toggle 右对齐；左侧只显示当前对话工作区的目录名（`currentExtensionCwd` 的最后一段，不跟 shell 的 `cd`），悬停看完整路径；右 `ListIcon` 16px / 按钮 26 | 左侧可加操作 |
 | 会话列表 | 右侧占位 nav，`bg-panel`；宽度 0↔220，终端 fit 剩余宽度；item hover 显示关闭 | — |
 | 后端 | WebSocket `/ws/pty`（[ptySocket.ts](../app/web/src/extensions/contracts/adapters/ptySocket.ts)）。新终端的目录是当前对话快照上的 `cwd`（选中会话用那一行的目录，草稿用草稿目录），不退回默认工作区。输入、resize、close 走 `PtyApi`。服务端 id 只用于断线重连 | — |
 

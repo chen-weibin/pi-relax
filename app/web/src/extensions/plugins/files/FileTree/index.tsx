@@ -2,6 +2,7 @@ import { useEffect, type MouseEvent } from 'react'
 import classNames from 'classnames'
 import { ChevronRightIcon, FolderClosedIcon, FolderOpenIcon } from '../../../../icons'
 import { DotMatrix } from '../../../../ui/DotMatrix'
+import { EmptyState } from '../../../../ui/EmptyState'
 import { Expandable } from '../../../../ui/Expandable'
 import type { FsEntry } from '../../../contracts/fs'
 import { resolveFileKind } from '../fileKinds'
@@ -174,6 +175,9 @@ export function FileTree({ selectedPath, onSelectFile }: FileTreeProps) {
 				<DotMatrix size="xs" label="加载中" />
 			</div>
 		)
+	}
+	if (children && children.length === 0) {
+		return <EmptyState placement="top">工作目录为空</EmptyState>
 	}
 
 	return (

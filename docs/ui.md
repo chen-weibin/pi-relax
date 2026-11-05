@@ -56,6 +56,7 @@
 | 页面标题(级别、颜色、行高、整行、省略) | [`Heading`](#heading) | 不要手写 `h1`–`h4` 再拼 `text-*` / `truncate` |
 | 正文段落(字号、颜色、行高、换行或省略) | [`Paragraph`](#paragraph) | 不要手写 `<p>` 再拼字号、颜色和 `truncate` |
 | 辅助说明(更浅、更小) | [`Hint`](#hint) | 不要把 [`Paragraph`](#paragraph) 改成 `text-sm text-fg-3`;输入框框下那一行仍用 [`Input`](#input) 的 `hint` |
+| 一块区域还没有内容(可选图标,居中或贴顶) | [`EmptyState`](#emptystate) | 不要手写 `flex h-full items-center justify-center text-sm text-fg-3` |
 
 ## 反例:这些事不要做
 
@@ -83,6 +84,7 @@
 | 手写 `text-xl font-semibold` 当标题,或再拼 `truncate` | 用 [`Heading`](#heading)。颜色走行文 token,一次性换色用 `className` |
 | 手写正文的字号、颜色、换行和省略 | 用 [`Paragraph`](#paragraph) |
 | 辅助说明用 `Paragraph` 再改成 `text-sm text-fg-3` | 用 [`Hint`](#hint)。输入框框下那一行仍用 [`Input`](#input) 的 `hint`,它有绝对定位和状态色 |
+| 空区域手写居中的 `text-sm text-fg-3`,或自己拼图标加文案 | 用 [`EmptyState`](#emptystate)。文案和图标由调用方传入 |
 
 ## Expandable
 
@@ -611,7 +613,7 @@
 
 ## MonacoEditor
 
-目录 `ui/MonacoEditor/`(`index.tsx` + `env.ts` + `themes/`)。封装 `monaco-editor` + `@monaco-editor/react`,业务无关。Vite worker 走包 `exports`:`monaco-editor/editor/editor.worker.js?worker` 等。语法高亮走 `@shikijs/monaco` + `shiki` 的 `createHighlighter`(主题/语言用 bundled 名字)。当前默认主题 `aurora-x`,在 `themes/index.ts` 登记。加主题时在该数组追加名字。编辑器/gutter/minimap 背景覆盖为 `--app`(与扩展区一致)。主题没写 `editor.foreground` 时用 Shiki 的默认前景 `fg`(aurora-x 是 `#bbbbbb`),没单独上色的正文不再掉成黑色。对比度低于 7 的 token 前景(注释、半透明黑、灰)往白色抬到刚好 7,已经够亮的关键字色不动。行号前景与当前行行号用同一色,并走同一道对比度。右侧 minimap 默认开(`side: 'right'`,滑块 `mouseover` 才显)。关闭了 Monaco 语义高亮,避免盖住 Shiki token 色。
+目录 `ui/MonacoEditor/`(`index.tsx` + `env.ts` + `themes/`)。封装 `monaco-editor` + `@monaco-editor/react`,业务无关。Vite worker 走包 `exports`:`monaco-editor/editor/editor.worker.js?worker` 等。语法高亮走 `@shikijs/monaco` + `shiki` 的 `createHighlighter`(主题/语言用 bundled 名字)。当前默认主题 `aurora-x`,在 `themes/index.ts` 登记。加主题时在该数组追加名字。编辑器/gutter/minimap 背景覆盖为 `--app`(与扩展区一致)。主题没写 `editor.foreground` 时用 Shiki 的默认前景 `fg`(aurora-x 是 `#bbbbbb`),没单独上色的正文不再掉成黑色。对比度低于 7 的 token 前景(注释、半透明黑、灰)往白色抬到刚好 7,已经够亮的关键字色不动。行号前景与当前行行号用同一色,并走同一道对比度。右侧 minimap 默认开(`side: 'right'`,滑块 `mouseover` 才显)。关闭了 Monaco 语义高亮,避免盖住 Shiki token 色。`wordWrap` 为 `off`,长行不折行,横向滚动条 8px。
 
 **查阅时机**:展示或编辑代码/文本文件,或准备在业务里直接接 Monaco。
 
@@ -1517,6 +1519,39 @@ const loadOptions = async ({ query, offset, limit }: Params): Promise<Result<V>>
 
 **API**:与 [`Paragraph`](#paragraph) 相同,但没有 `size`。`color` 默认 `fg-3`。错误、警告用 `color="error"` / `color="warning"`,不另做 `status`。
 
+## EmptyState
+
+单文件 `ui/EmptyState.tsx`。一块区域还没有内容时的占位。不写业务文案,图标和句子都由调用方传入。
+
+**查阅时机**:主区、列表或面板在没有数据时要给一句提示,可选再带一个图标。
+
+**何时用**:
+
+- 还没选出内容,需要在区域中间放图标和一句说明
+- 列表为空,只要在顶部居中放一句说明、不带图标
+
+**何时不用**:
+
+- 一句跟在控件旁的说明 → [`Hint`](#hint)
+- 加载中 → [`DotMatrix`](#dotmatrix) 或 [`LoadingDots`](#loadingdots)
+- 需要按钮、插图或多种空态版式 → 调用方自己排,不要把版式塞进这个组件
+
+**API**:
+
+```tsx
+<EmptyState icon={<FileIcon />}>请选择要打开的文件</EmptyState>
+<EmptyState placement="top">工作目录为空</EmptyState>
+```
+
+| prop | 类型 | 默认 | 说明 |
+|---|---|---|---|
+| `children` | `ReactNode` | — | 文案 |
+| `icon` | `ReactNode` | — | 不传就只有文字。图标放大到 32px,颜色跟随文字 |
+| `placement` | `'center' \| 'top'` | `'center'` | `center` 铺满父级并水平垂直居中; `top` 贴在内容区顶部、文字水平居中 |
+| `className` | `string` | — | 透传到外层 |
+
+**视觉**:`text-sm text-fg-3`,`text-center`。居中时图标与文案间距 `gap-2`。贴顶时 `pt-3`。
+
 ## 引用关系(避免循环 import)
 
 ```
@@ -1533,6 +1568,7 @@ ui/Dropdown         ← components/ModelPicker
 ui/Modal            ← components/AddProjectDialog
 ui/Tooltip          ← ui/IconButton, ui/Heading, ui/Paragraph（Hint 经 Paragraph）
 ui/Paragraph        ← ui/Hint
+ui/EmptyState       ← extensions/plugins/files/FilesView, extensions/plugins/files/FileTree
 ui/IconButton       ← components/SidebarActions, components/ProjectSectionHeader, ...
 ui/Resizable*       ← pages/Workspace.tsx
 ```

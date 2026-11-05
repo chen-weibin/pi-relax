@@ -181,6 +181,7 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
 | `Heading` | 标题:级别即字号、token 色、行高、整行或省略、溢出 Tooltip | [`ui.md#heading`](ui.md#heading) |
 | `Paragraph` | 正文:三种字号、token 色、行高、换行或省略、溢出 Tooltip | [`ui.md#paragraph`](ui.md#paragraph) |
 | `Hint` | 辅助说明:12px、默认三级文字色,其余同 Paragraph | [`ui.md#hint`](ui.md#hint) |
+| `EmptyState` | 空区域占位:可选图标,居中或贴顶 | [`ui.md#emptystate`](ui.md#emptystate) |
 | `TypewriterText` | rAF grapheme 逐字打字机 | [`ui.md#typewritertext`](ui.md#typewritertext) |
 | `ShinyText` | `motion/react` 渐变扫光文字 | [`ui.md#shinytext`](ui.md#shinytext) |
 | `DisclosureRow` | 标题 + chevron + 展开收起;标题可扫光 | [`ui.md#disclosurerow`](ui.md#disclosurerow) |
@@ -320,6 +321,7 @@ src/
 │   ├── ResizableHandle.tsx
 │   ├── IconButton.tsx
 │   ├── PaneHeader.tsx            # 子面板顶栏(38px + 底部分割线)
+│   ├── EmptyState.tsx            # 空区域占位(可选图标,居中或贴顶)
 │   ├── Popover.tsx
 │   ├── Modal.tsx                 # 遮罩对话框壳,与 Popover 并列
 │   ├── Tooltip.tsx               # 短 hover 提示,包在 Popover 上

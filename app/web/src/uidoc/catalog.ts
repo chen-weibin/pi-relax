@@ -4,6 +4,7 @@ import { disclosureRowDoc } from './DisclosureRow'
 import { dropdownDoc } from './Dropdown'
 import { dotMatrixDoc } from './DotMatrix'
 import { editorDoc } from './Editor'
+import { emptyStateDoc } from './EmptyState'
 import { expandableDoc } from './Expandable'
 import { flipTextDoc } from './FlipText'
 import { headingDoc } from './Heading'
@@ -50,7 +51,7 @@ export const uiDocGroups: { title: string; sections: UiDocSection[] }[] = [
 	},
 	{
 		title: '反馈',
-		sections: [statusDotDoc, loadingDotsDoc, dotMatrixDoc, shinyTextDoc, flipTextDoc, trailTextDoc],
+		sections: [statusDotDoc, loadingDotsDoc, dotMatrixDoc, emptyStateDoc, shinyTextDoc, flipTextDoc, trailTextDoc],
 	},
 	{
 		title: '布局',

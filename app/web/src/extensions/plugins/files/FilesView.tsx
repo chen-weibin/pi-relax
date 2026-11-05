@@ -1,11 +1,13 @@
 import { useEffect } from 'react'
 import classNames from 'classnames'
-import { ChevronRightIcon, FolderIcon } from '../../../icons'
+import { FileIcon, FolderIcon } from '../../../icons'
 import { useCatalogStore } from '../../../store/catalog'
 import '../../../styles/scrollbar.css'
+import { EmptyState } from '../../../ui/EmptyState'
 import { IconButton } from '../../../ui/IconButton'
 import { PaneHeader } from '../../../ui/PaneHeader'
 import { watchDirectory } from '../../contracts/adapters/fsWatch'
+import { PathBreadcrumb } from '../../PathBreadcrumb'
 import { currentExtensionCwd } from '../../sessionTabs'
 import { useExtensionStore } from '../../store'
 import type { PluginRenderProps } from '../../types'
@@ -16,30 +18,6 @@ import { fileNameFromPath, isFilesPayload, selectFile } from './open'
 import { useFilesTreeStore } from './treeStore'
 
 export const FILES_NAV_WIDTH = 240
-
-function FilePathBreadcrumb({ path }: { path: string }) {
-	const parts = path.split('/').filter(Boolean)
-	return (
-		<div className="flex min-w-0 items-center gap-1 overflow-hidden px-1 text-xs text-fg-3">
-			{parts.map((part, index) => (
-				<span key={`${part}-${index}`} className="flex min-w-0 shrink items-center gap-1">
-					{index > 0 && (
-						<span className="inline-flex h-2.5 w-2.5 shrink-0 [&_svg]:h-2.5 [&_svg]:w-2.5">
-							<ChevronRightIcon />
-						</span>
-					)}
-					<span
-						className={
-							index === parts.length - 1 ? 'shrink-0 text-fg-2' : 'min-w-0 truncate'
-						}
-					>
-						{part}
-					</span>
-				</span>
-			))}
-		</div>
-	)
-}
 
 function FilesNav({ selectedPath }: { selectedPath?: string }) {
 	const root = useFilesTreeStore((s) => s.root)
@@ -85,7 +63,7 @@ export function FilesView({ tab }: PluginRenderProps) {
 	return (
 		<div className="flex h-full min-h-0 flex-col bg-app">
 			<PaneHeader
-				left={path ? <FilePathBreadcrumb path={path} /> : undefined}
+				left={path ? <PathBreadcrumb path={path} /> : undefined}
 				right={
 					<IconButton
 						title={navOpen ? '收起文件列表' : '展开文件列表'}
@@ -101,7 +79,7 @@ export function FilesView({ tab }: PluginRenderProps) {
 					{payload.kind === 'file' ? (
 						<FilePreview payload={payload} />
 					) : (
-						<div className="flex h-full items-center justify-center text-sm text-fg-3">选择一个文件</div>
+						<EmptyState icon={<FileIcon />}>请选择要打开的文件</EmptyState>
 					)}
 				</div>
 				<div
