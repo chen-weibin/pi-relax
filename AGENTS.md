@@ -39,4 +39,5 @@
 - [`docs/web-extension.md`](docs/web-extension.md) — 右侧扩展区插件架构：编译期 registry、唯一一层壳层 tab、`reuseKey`、空态策略、FsApi / PtyApi 与 mock 边界。查阅时机：新增插件、改欢迎页 / tab 条、改关最后一 tab 是否收起、接真实文件系统或 PTY 时。
 - [`docs/server.md`](docs/server.md) — `app/server` 的整体规划：`.relax` 数据根、能力剖面、性能上限、pi SDK 该用哪个入口、源码目录怎么拆。查阅时机：改服务端、定数据目录、接会话 / 文件同步 / 终端之前。对接 pi 时先看仓库里 `pi/packages/coding-agent` 的源码（运行时 `@earendil-works/pi-coding-agent@^1.5.0`），不要只凭该文档的摘要。改服务端行为时同步改这篇文档。已实现清单在 [`docs/server-implemented.md`](docs/server-implemented.md)。
 - [`docs/server-implemented.md`](docs/server-implemented.md) — `app/server` 当前已经能用的功能，标题加编号列表。查阅时机：想看服务端现在做到哪、对照联调页时。改服务端行为时和 [`docs/server.md`](docs/server.md) 一起改。
+- [`docs/server-fs.md`](docs/server-fs.md) — 后端文件系统按功能点写：列出、元信息、读、写、建目录、删除、监听。每点含功能说明、接口说明、使用说明。查阅时机：改 `/api/fs` 或 `/ws/fs`，或要核对某种请求会返回什么时。服务端总览仍看 [`docs/server.md`](docs/server.md)。
 - `app/agenttest/` — agent CLI 试验场，订阅 `AgentSessionEvent` 打到终端，用于研究事件流。需要 `MINIMAX_API_KEY` env。查阅时机：调试 `session.subscribe`、看 `message_update` 的 `text_delta`、或临时跑单次 prompt 验证 agent 输出时。

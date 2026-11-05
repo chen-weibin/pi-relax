@@ -84,6 +84,8 @@
 
 ## 文件系统
 
+按功能点写的说明见 [server-fs.md](server-fs.md)（查阅时机：要核对某种请求会返回什么、以及 text/binary 和阈值时）。
+
 1. 路径必须是绝对路径。没传、相对路径、以 `~` 开头为 400。不设默认目录，也不限制必须在某个工作区里。
 2. `GET /api/fs/list` 只列一层，子项带 `size` 和 `mtime`。`GET /api/fs/stat` 查单个路径。
 3. `GET /api/fs/read` 返回原文，响应头 `X-Relax-Transfer` 为 `text` 或 `binary`。不带分段时流式读出整个文件。`offset`+`length` 或 `Range` 读一段。

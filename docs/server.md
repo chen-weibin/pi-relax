@@ -6,7 +6,7 @@
 
 对接 pi 之前先读源码，不要只凭本文的 API 摘要选函数。本地克隆在仓库根的 `pi/`（已 git 忽略），会话相关源码在 `pi/packages/coding-agent/src/core/`，说明在 `pi/packages/coding-agent/docs/sdk.md`。运行时安装的是 `@earendil-works/pi-coding-agent@^1.5.0`（与 `pi-ai` 同版本）。类型或文档和源码不一致时，以源码为准，并把结论回写本文。
 
-相关文档：当前已经实现的能力清单见 [server-implemented.md](server-implemented.md)（查阅时机：想看服务端现在做到哪、对照联调页时）。对话区现有块模型见 [web-conversation.md](web-conversation.md)（查阅时机：把服务端事件译成现有 UI 时）。前端怎么接会话、目录和 SSE 见 [web-app.md](web-app.md)（查阅时机：开始做 `app/web` 的对话与会话管理时）。文件与终端的前端契约见 [web-extension.md](web-extension.md)（查阅时机：做文件系统或 PTY 时）。`app/agenttest` 只是加载试验，不能当作已验证结论。
+相关文档：当前已经实现的能力清单见 [server-implemented.md](server-implemented.md)（查阅时机：想看服务端现在做到哪、对照联调页时）。文件系统按功能点的说明、接口和使用情况见 [server-fs.md](server-fs.md)（查阅时机：改 `/api/fs`、`/ws/fs`，或核对某种请求会返回什么时）。对话区现有块模型见 [web-conversation.md](web-conversation.md)（查阅时机：把服务端事件译成现有 UI 时）。前端怎么接会话、目录和 SSE 见 [web-app.md](web-app.md)（查阅时机：开始做 `app/web` 的对话与会话管理时）。文件与终端的前端契约见 [web-extension.md](web-extension.md)（查阅时机：做文件系统或 PTY 时）。`app/agenttest` 只是加载试验，不能当作已验证结论。
 
 ## 产品形态
 
@@ -223,6 +223,8 @@ SSE 断线不补，客户端用历史对齐。发送和中止走 HTTP。本轮�
 分支、fork、附件、命令审批不在这个序列里。多提供商里「一把 key 就能对话」的已经接上，自定义提供商和 OAuth 没有。前端接入另行指定。
 
 ## 文件系统
+
+按功能点写的功能说明、接口说明和使用说明见 [server-fs.md](server-fs.md)（查阅时机：改 `/api/fs`、`/ws/fs`，或要核对某种请求会返回什么时）。
 
 `chokidar` 加 WebSocket `/ws/fs`，不上 Watchman。`app/web` 的文件树用 `list` / `read` / 整文件 `PUT`，并订阅当前工作目录的 `/ws/fs`。手工页仍是 [fs.html](../app/server/test/html/fs.html)。
 
