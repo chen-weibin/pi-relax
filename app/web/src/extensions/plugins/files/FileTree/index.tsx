@@ -98,7 +98,7 @@ function FileTreeDir({
 	}, [expanded, entry.path, ensureChildren])
 
 	return (
-		<div className="flex flex-col gap-[2px]">
+		<div className="flex flex-col">
 			<FileTreeRow
 				entry={entry}
 				depth={depth}
@@ -107,12 +107,14 @@ function FileTreeDir({
 				onToggle={() => toggleDir(entry.path)}
 			/>
 			<Expandable open={expanded} duration={160}>
-				<TreeChildren
-					entries={children ?? []}
-					depth={depth + 1}
-					selectedPath={selectedPath}
-					onSelectFile={onSelectFile}
-				/>
+				<div className="pt-[2px]">
+					<TreeChildren
+						entries={children ?? []}
+						depth={depth + 1}
+						selectedPath={selectedPath}
+						onSelectFile={onSelectFile}
+					/>
+				</div>
 			</Expandable>
 		</div>
 	)
