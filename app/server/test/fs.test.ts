@@ -111,7 +111,7 @@ describe('fs http', () => {
 		assert.deepEqual(Buffer.from(await res.arrayBuffer()), body)
 	})
 
-	it('非法 text 和超限写入留下原文件，整文件流式读不受上限', async () => {
+	it('非法 text 和超限写入留下原文件，整文件超过上限不吐正文', async () => {
 		const file = join(dir, 'keep.txt')
 		writeFileSync(file, 'hello')
 		const savedMaxBytes = serverConfig.fs.maxBytes
@@ -137,13 +137,52 @@ describe('fs http', () => {
 			assert.equal(readFileSync(file, 'utf8'), 'hello')
 
 			const streamed = await fetch(url('/api/fs/read', { path: file }))
-			assert.equal(await streamed.text(), 'hello')
+			const streamedBody = (await streamed.json()) as { error: { code: string; message: string } }
+			assert.equal(streamed.status, 413)
+			assert.equal(streamedBody.error.code, 'PAYLOAD_TOO_LARGE')
+			assert.match(streamedBody.error.message, /5/)
+			assert.match(streamedBody.error.message, /4/)
 
 			const slice = await fetch(url('/api/fs/read', { path: file, offset: '0', length: '5' }))
 			assert.equal(slice.status, 413)
 
 			const openRange = await fetch(url('/api/fs/read', { path: file }), { headers: { Range: 'bytes=0-' } })
 			assert.equal(openRange.status, 413)
+		} finally {
+			serverConfig.fs.maxBytes = savedMaxBytes
+		}
+	})
+
+	it('整文件等于上限仍可读，声明 text 或 binary 覆盖探测，分段固定 binary', async () => {
+		const file = join(dir, 'exact.txt')
+		writeFileSync(file, 'abcd')
+		const savedMaxBytes = serverConfig.fs.maxBytes
+		serverConfig.fs.maxBytes = 4
+		try {
+			const exact = await fetch(url('/api/fs/read', { path: file }))
+			assert.equal(exact.status, 200)
+			assert.equal(await exact.text(), 'abcd')
+
+			const asBinary = await fetch(url('/api/fs/read', { path: file }), {
+				headers: { 'X-Relax-Transfer': 'binary' },
+			})
+			assert.equal(asBinary.status, 200)
+			assert.equal(asBinary.headers.get('x-relax-transfer'), 'binary')
+			assert.equal(await asBinary.text(), 'abcd')
+
+			const nul = join(dir, 'nul.txt')
+			writeFileSync(nul, Buffer.from([0x61, 0]))
+			serverConfig.fs.maxBytes = 2
+			const declaredText = await fetch(url('/api/fs/read', { path: nul }), {
+				headers: { 'X-Relax-Transfer': 'text' },
+			})
+			assert.equal(declaredText.status, 400)
+			assert.match(((await declaredText.json()) as { error: { message: string } }).error.message, /UTF-8/)
+
+			const part = await fetch(url('/api/fs/read', { path: file, offset: '0', length: '2' }))
+			assert.equal(part.status, 206)
+			assert.equal(part.headers.get('x-relax-transfer'), 'binary')
+			assert.equal(await part.text(), 'ab')
 		} finally {
 			serverConfig.fs.maxBytes = savedMaxBytes
 		}

@@ -1,7 +1,6 @@
 import type { FsEntry, FsRead } from '../../extensions/contracts/fs'
 
-/** 整文件进编辑器的上限。更大的文件仍会从接口读完，但不交给 Monaco。 */
-export const TEXT_READ_LIMIT = 1_048_576
+export const NOT_TEXT = '当前文件不是文本，无法展示'
 
 export type FsChangeEvent = 'add' | 'change' | 'unlink' | 'addDir' | 'unlinkDir'
 
@@ -24,17 +23,17 @@ export function entriesFromList(body: unknown): FsEntry[] {
 	const entries: FsEntry[] = []
 	for (const item of (body as { entries: unknown[] }).entries) {
 		if (!item || typeof item !== 'object') continue
-		const rec = item as { name?: unknown; path?: unknown; kind?: unknown }
+		const rec = item as { name?: unknown; path?: unknown; kind?: unknown; size?: unknown }
 		if (typeof rec.name !== 'string' || typeof rec.path !== 'string') continue
 		if (rec.kind !== 'file' && rec.kind !== 'dir') continue
-		entries.push({ name: rec.name, path: rec.path, kind: rec.kind })
+		if (typeof rec.size !== 'number' || !Number.isFinite(rec.size)) continue
+		entries.push({ name: rec.name, path: rec.path, kind: rec.kind, size: rec.size })
 	}
 	return entries
 }
 
-export function classifyRead(input: { transfer: string | undefined; byteLength: number; bytes: Uint8Array }): FsRead {
-	if (input.byteLength > TEXT_READ_LIMIT) return { kind: 'blocked', reason: '文件过大' }
-	if (input.transfer === 'binary') return { kind: 'blocked', reason: '二进制文件' }
+export function classifyRead(input: { transfer: string | undefined; bytes: Uint8Array }): FsRead {
+	if (input.transfer === 'binary') return { kind: 'blocked', reason: NOT_TEXT }
 	return { kind: 'text', text: new TextDecoder().decode(input.bytes) }
 }
 

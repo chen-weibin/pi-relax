@@ -56,6 +56,7 @@ import {
 import { matchFileIcon, type FileIconAssociations } from '../../../icons/matchFileIcon'
 
 export type FileViewerId = 'monaco'
+export type FileOpen = 'text' | 'none'
 
 export type FileKind = {
 	id: string
@@ -63,13 +64,21 @@ export type FileKind = {
 	extensions?: string[]
 	icon: ComponentType
 	viewer: FileViewerId
+	open: FileOpen
 	language?: string
+}
+
+type FileKindInput = Omit<FileKind, 'open'> & { open?: FileOpen }
+
+function withOpen(kind: FileKindInput): FileKind {
+	return { ...kind, open: kind.open ?? 'text' }
 }
 
 export const unknownFileKind: FileKind = {
 	id: 'unknown',
 	icon: FileUnknownIcon,
 	viewer: 'monaco',
+	open: 'none',
 	language: 'plaintext',
 }
 
@@ -77,10 +86,11 @@ export const envFileKind: FileKind = {
 	id: 'env',
 	icon: FileEnvIcon,
 	viewer: 'monaco',
+	open: 'text',
 	language: 'ini',
 }
 
-export const fileKinds: FileKind[] = [
+const fileKindInputs: FileKindInput[] = [
 	{
 		id: 'md',
 		extensions: ['md', 'markdown'],
@@ -332,6 +342,7 @@ export const fileKinds: FileKind[] = [
 		extensions: ['svg'],
 		icon: FileSvgIcon,
 		viewer: 'monaco',
+		open: 'text',
 		language: 'plaintext',
 	},
 	{
@@ -339,6 +350,7 @@ export const fileKinds: FileKind[] = [
 		extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'ico', 'avif'],
 		icon: FileImageIcon,
 		viewer: 'monaco',
+		open: 'none',
 		language: 'plaintext',
 	},
 	{
@@ -437,6 +449,7 @@ export const fileKinds: FileKind[] = [
 		extensions: ['wasm'],
 		icon: FileWasmIcon,
 		viewer: 'monaco',
+		open: 'none',
 		language: 'plaintext',
 	},
 	{
@@ -444,6 +457,7 @@ export const fileKinds: FileKind[] = [
 		extensions: ['pdf'],
 		icon: FilePdfIcon,
 		viewer: 'monaco',
+		open: 'none',
 		language: 'plaintext',
 	},
 	{
@@ -451,6 +465,7 @@ export const fileKinds: FileKind[] = [
 		extensions: ['zip', 'gz', 'tgz'],
 		icon: FileZipIcon,
 		viewer: 'monaco',
+		open: 'none',
 		language: 'plaintext',
 	},
 	{
@@ -458,6 +473,7 @@ export const fileKinds: FileKind[] = [
 		extensions: ['woff', 'woff2', 'ttf', 'otf'],
 		icon: FileFontIcon,
 		viewer: 'monaco',
+		open: 'none',
 		language: 'plaintext',
 	},
 	{
@@ -465,6 +481,7 @@ export const fileKinds: FileKind[] = [
 		extensions: ['mp4', 'webm', 'mov'],
 		icon: FileVideoIcon,
 		viewer: 'monaco',
+		open: 'none',
 		language: 'plaintext',
 	},
 	{
@@ -472,6 +489,7 @@ export const fileKinds: FileKind[] = [
 		extensions: ['mp3', 'wav', 'ogg'],
 		icon: FileAudioIcon,
 		viewer: 'monaco',
+		open: 'none',
 		language: 'plaintext',
 	},
 	{
@@ -503,6 +521,8 @@ export const fileKinds: FileKind[] = [
 		language: 'plaintext',
 	},
 ]
+
+export const fileKinds: FileKind[] = fileKindInputs.map(withOpen)
 
 function fileKindAssociations(kinds: FileKind[]): FileIconAssociations<FileKind> {
 	const fileNames: Record<string, FileKind> = {}

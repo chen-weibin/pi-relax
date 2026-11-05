@@ -22,24 +22,20 @@ describe('fs frames', () => {
 			],
 		})
 		assert.deepEqual(entries, [
-			{ name: 'src', path: '/repo/src', kind: 'dir' },
-			{ name: 'a.txt', path: '/repo/a.txt', kind: 'file' },
+			{ name: 'src', path: '/repo/src', kind: 'dir', size: 0 },
+			{ name: 'a.txt', path: '/repo/a.txt', kind: 'file', size: 3 },
 		])
 	})
 
-	it('blocks binary and files over 1 MiB, otherwise decodes text', () => {
+	it('blocks binary and otherwise decodes text', () => {
 		const bytes = new TextEncoder().encode('hi')
-		assert.deepEqual(classifyRead({ transfer: 'text', byteLength: bytes.byteLength, bytes }), {
+		assert.deepEqual(classifyRead({ transfer: 'text', bytes }), {
 			kind: 'text',
 			text: 'hi',
 		})
-		assert.deepEqual(classifyRead({ transfer: 'binary', byteLength: 2, bytes }), {
+		assert.deepEqual(classifyRead({ transfer: 'binary', bytes }), {
 			kind: 'blocked',
-			reason: '二进制文件',
-		})
-		assert.deepEqual(classifyRead({ transfer: 'text', byteLength: 1_048_577, bytes }), {
-			kind: 'blocked',
-			reason: '文件过大',
+			reason: '当前文件不是文本，无法展示',
 		})
 	})
 

@@ -234,11 +234,11 @@ SSE 断线不补，客户端用历史对齐。发送和中止走 HTTP。本轮�
 
 - `list` 只列一层，子项带自己的 `size` 和 `mtime`。目录的 `size` 不把里面的文件加总。
 - `stat` 查单个路径的类型、大小和修改时间。
-- `read` 的正文是原文，响应头 `X-Relax-Transfer` 为 `text` 或 `binary`。不带分段时流式吐出整个文件，开头 8 KiB 用来标类型；窗口末尾切在多字节字符中间时，这段残缺不算非法 UTF-8。`offset`+`length` 与请求头 `Range` 二选一，读一段并返回 206。
+- `read` 的正文是原文，响应头 `X-Relax-Transfer` 为 `text` 或 `binary`。不带分段时，文件大于 `fs.maxBytes` 先 413，否则流式吐出整个文件。不传传输头时用开头 8 KiB 标类型；窗口末尾切在多字节字符中间时，这段残缺不算非法 UTF-8。请求头可以声明 `text`（整段必须是合法 UTF-8）或 `binary`（不探测）。`offset`+`length` 与请求头 `Range` 二选一，读一段并返回 206，这段的响应头固定是 `binary`。
 - `PUT /api/fs/file` 的正文也是原文，请求头标明 `text` 或 `binary`。不带 `offset` 时先写临时文件，成功后再替换，失败留下原文件。`text` 要整段都是合法 UTF-8。带 `offset` 只接受 `binary`：小于当前长度则覆盖该段，等于则追加，大于则拒绝。
 - `POST /api/fs/dir` 建目录。`DELETE /api/fs/file` 只删文件，`DELETE /api/fs/dir` 只删目录。目录默认必须为空，`recursive=true` 才连内容一起删。创建时 `recursive=true` 会把缺失的父目录一并建出。
 
-`config.json` 的 `fs.maxBytes` 默认 16777216（16 MiB），只限制一次分段读取或一次写入的正文。整文件流式读不受这个上限。超过时 413，`code` 为 `PAYLOAD_TOO_LARGE`，`message` 写明当前字节数和上限。偏移落在文件末尾之后为 416，`code` 为 `RANGE_NOT_SATISFIABLE`。其它失败的 `message` 也要写出具体原因。
+`config.json` 的 `fs.maxBytes` 默认 16777216（16 MiB）。整文件、一次分段、一次写入都看这个上限。大于上限时 413，`code` 为 `PAYLOAD_TOO_LARGE`，`message` 写明当前字节数和上限，正文不会返回。等于上限仍可读、可写。偏移落在文件末尾之后为 416，`code` 为 `RANGE_NOT_SATISFIABLE`。其它失败的 `message` 也要写出具体原因。
 
 `/ws/fs` 的客户端消息是 `watch` / `unwatch`。服务端先回 `watching`，之后把 `fs.watchDebounceMs`（默认 600）窗口里的变化合成一条 `change`（`add`、`change`、`unlink`、`addDir`、`unlinkDir`）。失败回 `error`，里面是同一套 `{ code, message }`。同时监听的根目录棵数是 `fs.watchMax`，默认 16；同一个根的多条连接只占 1。没有订阅时不占描述符。
 
@@ -270,7 +270,7 @@ SSE 断线不补，客户端用历史对齐。发送和中止走 HTTP。本轮�
 { "error": { "code": "NOT_FOUND", "message": "..." } }
 ```
 
-骨架用 `BAD_REQUEST`、`NOT_FOUND`、`INTERNAL`。对话模块另有 `BUSY`（409）。文件读写另有 `PAYLOAD_TOO_LARGE`（413）和 `RANGE_NOT_SATISFIABLE`（416）。JSON 请求体上限是 `config.json` 的 `http.jsonBodyLimit`，默认 1 MiB。文件正文不走这个上限，单次写入和分段读取看 `fs.maxBytes`。SSE 心跳间隔是 `http.ssePingMs`，默认 15000。
+骨架用 `BAD_REQUEST`、`NOT_FOUND`、`INTERNAL`。对话模块另有 `BUSY`（409）。文件读写另有 `PAYLOAD_TOO_LARGE`（413）和 `RANGE_NOT_SATISFIABLE`（416）。JSON 请求体上限是 `config.json` 的 `http.jsonBodyLimit`，默认 1 MiB。文件正文不走这个上限。整文件读取、单次写入和分段读取看 `fs.maxBytes`。SSE 心跳间隔是 `http.ssePingMs`，默认 15000。
 
 `/api`、`/ws/fs`、`/ws/pty` 是不同路径，前面加反向代理时可以按前缀分别转发。两条 WebSocket 共用同一次 HTTP upgrade 分发：`ws` 若各自监听，路径不匹配时会回 400，把另一条的握手拆掉。
 

@@ -4,6 +4,7 @@ export type FsEntry = {
 	name: string
 	path: string
 	kind: FsKind
+	size: number
 }
 
 export type FsErrorCode = 'NOT_FOUND' | 'NOT_IMPLEMENTED' | 'PERMISSION'

@@ -3,7 +3,10 @@ import { ApiError } from '../../../api/http'
 import { fsApi } from '../../contracts/adapters/fsHttp'
 import { FsError } from '../../contracts/fs'
 import { useExtensionStore } from '../../store'
+import { resolveFileKind } from './fileKinds'
+import { openBlockReason } from './openPolicy'
 import { fileNameFromPath, isFilesPayload } from './open'
+import { resolveFileSize } from './treeStore'
 import {
 	createDraftClock,
 	editDraftClock,
@@ -170,29 +173,51 @@ export function blockDraft(path: string, reason: string) {
 	emit()
 }
 
-export async function reloadClean(path: string) {
-	if (isPathDirty(path)) {
-		const slot = slots.get(path)
-		if (slot) slot.notice = '磁盘已变化'
-		emit()
-		return
+async function readIfOpenable(path: string, alive: () => boolean): Promise<'dirty' | 'done'> {
+	if (!alive()) return 'done'
+	if (isPathDirty(path)) return 'dirty'
+	const kind = resolveFileKind(path)
+	if (kind.open !== 'text') {
+		blockDraft(path, openBlockReason(kind, 0) ?? '当前不支持该文件类型')
+		return 'done'
 	}
+	const size = await resolveFileSize(path)
+	if (!alive()) return 'done'
+	if (isPathDirty(path)) return 'dirty'
+	const blocked = openBlockReason(kind, size)
+	if (blocked) {
+		blockDraft(path, blocked)
+		return 'done'
+	}
+	const outcome = await fsApi.read(path)
+	if (!alive()) return 'done'
+	if (isPathDirty(path)) return 'dirty'
+	if (outcome.kind === 'blocked') {
+		blockDraft(path, outcome.reason)
+		return 'done'
+	}
+	adoptDiskText(path, outcome.text)
+	return 'done'
+}
+
+export async function openFromDisk(path: string, alive: () => boolean = () => true): Promise<'dirty' | 'done'> {
 	try {
-		const outcome = await fsApi.read(path)
-		if (isPathDirty(path)) {
-			const slot = slots.get(path)
-			if (slot) slot.notice = '磁盘已变化'
-			emit()
-			return
-		}
-		if (outcome.kind === 'blocked') {
-			blockDraft(path, outcome.reason)
-			return
-		}
-		adoptDiskText(path, outcome.text)
+		return await readIfOpenable(path, alive)
 	} catch (err) {
-		if (err instanceof FsError && err.code === 'NOT_FOUND') blockDraft(path, '文件已删除')
+		if (!alive()) return 'done'
+		if (isPathDirty(path)) return 'dirty'
+		blockDraft(path, err instanceof FsError && err.code === 'NOT_FOUND' ? '文件已删除' : messageOf(err))
+		return 'done'
 	}
+}
+
+export async function reloadClean(path: string) {
+	const result = await openFromDisk(path)
+	if (result !== 'dirty') return
+	const slot = slots.get(path)
+	if (!slot) return
+	slot.notice = '磁盘已变化'
+	emit()
 }
 
 export async function applyRemote(path: string, changes: readonly FsChange[]) {

@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto'
 import { createReadStream } from 'node:fs'
-import { mkdir, open, readdir, rename, rm, rmdir, stat, unlink, writeFile } from 'node:fs/promises'
+import { mkdir, open, readFile, readdir, rename, rm, rmdir, stat, unlink, writeFile } from 'node:fs/promises'
 import { isAbsolute, dirname, join } from 'node:path'
 import type { Response } from 'express'
 import { serverConfig } from '../config/server.js'
@@ -122,10 +122,6 @@ export async function listDir(path: string): Promise<{ path: string; entries: Fs
 			mtime: Math.trunc(childInfo.mtimeMs),
 		})
 	}
-	entries.sort((a, b) => {
-		if (a.kind !== b.kind) return a.kind === 'dir' ? -1 : 1
-		return a.name.localeCompare(b.name)
-	})
 	return { path, entries }
 }
 
@@ -185,19 +181,36 @@ function setTransfer(res: Response, transfer: FsTransfer) {
 	res.setHeader('Content-Type', transfer === 'text' ? 'text/plain; charset=utf-8' : 'application/octet-stream')
 }
 
-export async function readFileResponse(path: string, res: Response, slice?: Slice): Promise<void> {
+export async function readFileResponse(
+	path: string,
+	res: Response,
+	slice?: Slice,
+	declared?: FsTransfer,
+): Promise<void> {
 	const info = await statOrThrow(path)
 	if (info.isDirectory()) throw new HttpError(400, 'BAD_REQUEST', `这是目录，不能读取正文：${path}`)
 	if (!info.isFile()) throw new HttpError(400, 'BAD_REQUEST', `不是普通文件：${path}`)
 	if (!slice) {
-		setTransfer(res, await sniff(path, info.size))
+		const limit = serverConfig.fs.maxBytes
+		if (info.size > limit) throw tooLarge(info.size, limit, '文件')
+		if (declared === 'text') {
+			const body = info.size === 0 ? Buffer.alloc(0) : await readFile(path)
+			if (transferOf(body) !== 'text') {
+				throw new HttpError(400, 'BAD_REQUEST', '声明为 text，但正文不是合法 UTF-8')
+			}
+			setTransfer(res, 'text')
+			res.setHeader('Content-Length', body.length)
+			res.status(200).end(body)
+			return
+		}
+		setTransfer(res, declared === 'binary' ? 'binary' : await sniff(path, info.size))
 		res.setHeader('Content-Length', info.size)
 		res.status(200)
 		if (info.size === 0) {
 			res.end()
 			return
 		}
-		// ponytail: 整文件流式读只看开头 8 KiB 标 text/binary，后面出现 NUL 仍可能标成 text
+		// ponytail: 未声明传输类型时只看开头 8 KiB 标 text/binary，后面出现 NUL 仍可能标成 text
 		const stream = createReadStream(path)
 		stream.on('error', () => {
 			if (!res.headersSent) res.status(500).end()
@@ -212,7 +225,7 @@ export async function readFileResponse(path: string, res: Response, slice?: Slic
 		const buf = Buffer.alloc(length)
 		const { bytesRead } = await fh.read(buf, 0, length, slice.start)
 		const body = buf.subarray(0, bytesRead)
-		setTransfer(res, transferOf(body))
+		setTransfer(res, 'binary')
 		const end = slice.start + Math.max(bytesRead, 1) - 1
 		res.setHeader('Content-Range', `bytes ${slice.start}-${end}/${info.size}`)
 		res.setHeader('Content-Length', body.length)

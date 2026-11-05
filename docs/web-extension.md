@@ -93,10 +93,10 @@ useExtensionStore.getState().setEmptyExtensionHandler(() => 'welcome')
 |---|---|---|
 | 探索器主区 | 未选文件时居中 [`EmptyState`](ui.md#emptystate)：`FileIcon` +「请选择要打开的文件」 | 新建、最近文件 |
 | 目录树 | 根是当前对话 cwd。顶部一行是目录名，悬停看完整路径，下面直接列子项。行高 30px，行间距 2px。目录和第一个子项的 2px 在 `Expandable` 里面，收起后不占高。根目录列完且没有任何条目时，列表顶部居中「工作目录为空」，无图标。展开才 `list`。`/ws/fs` 的 `change` 只重列已经展开的父目录 | 全局搜索 |
-| 文件预览 | 文本进 Monaco，可编辑。停手 400ms 后整文件 `PUT`。还没写完时，tab 标题右侧是 `StatusDot` `normal`（6px）。超过 1 MiB 或二进制只显示一行原因。已打开且没有未保存草稿时，磁盘变化会重新读入；有草稿则提示「磁盘已变化」 | 图片等其它 viewer |
+| 文件预览 | 只有 `fileKinds` 里 `open: 'text'` 的文件进 Monaco，可编辑。停手 400ms 后整文件 `PUT`。还没写完时，tab 标题右侧是 `StatusDot` `normal`（6px）。大于 16 MiB、未登记类型、或读出来不是文本，用类型图标加居中文案，不读或不再交给编辑器。已打开且没有未保存草稿时，先刷新目录列表再用新的大小决定是否重读；有草稿则提示「磁盘已变化」。名单和规则见 [web-fs.md](web-fs.md)（改支持的类型或大小阈值时查阅） | 图片等其它查看器 |
 | 类型扩展 | [`matchFileIcon`](../app/web/src/icons/matchFileIcon.ts):父目录/文件名、文件名、从长到短的扩展名、语言 id,否则 unknown。表在 [`fileKinds.ts`](../app/web/src/extensions/plugins/files/fileKinds.ts);`.jsx` 与 `.tsx` 共用 `FileTsxIcon`。待补清单在 [`file-icons.md`](file-icons.md) | 目录名图标;有图后再加 `spec.ts` 等更长扩展名 |
 | Header | 左路径面包屑（仅绑定文件时，`PathBreadcrumb`）；右 `FolderIcon` 收起/展开树（展开收起同一图标） | 面包屑可点击跳转目录 |
-| 文案 | 空态、过大、二进制、磁盘变化都是中文 | — |
+| 文案 | 空态、不支持、过大、非文本、磁盘变化都是中文，打不开时图标居中 | — |
 
 文件树继续自研 `Expandable`，不上第三方树库。
 

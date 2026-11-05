@@ -52,11 +52,12 @@ export function FilesView({ tab }: PluginRenderProps) {
 		useFilesTreeStore.getState().syncRoot(cwd)
 		if (!cwd) return
 		return watchDirectory(cwd, (changes) => {
-			useFilesTreeStore.getState().refreshListed(changes)
-			for (const open of useExtensionStore.getState().tabs) {
-				if (open.pluginId !== 'files' || !isFilesPayload(open.payload) || open.payload.kind !== 'file') continue
-				void applyRemote(open.payload.path, changes)
-			}
+			void useFilesTreeStore.getState().refreshListed(changes).then(() => {
+				for (const open of useExtensionStore.getState().tabs) {
+					if (open.pluginId !== 'files' || !isFilesPayload(open.payload) || open.payload.kind !== 'file') continue
+					void applyRemote(open.payload.path, changes)
+				}
+			})
 		})
 	}, [cwd])
 

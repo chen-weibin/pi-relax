@@ -35,15 +35,19 @@ function flag(value: unknown): boolean {
 	throw new HttpError(400, 'BAD_REQUEST', 'recursive 只能是 true 或 false')
 }
 
-function transferOfHeader(value: unknown): FsTransfer {
+function parseTransfer(value: unknown): FsTransfer | undefined {
 	const raw = Array.isArray(value) ? value[0] : value
-	if (raw === undefined) {
-		throw new HttpError(400, 'BAD_REQUEST', '缺少请求头 X-Relax-Transfer，取值为 text 或 binary')
-	}
+	if (raw === undefined) return undefined
 	if (raw !== 'text' && raw !== 'binary') {
 		throw new HttpError(400, 'BAD_REQUEST', 'X-Relax-Transfer 只能是 text 或 binary')
 	}
 	return raw
+}
+
+function requireTransfer(value: unknown): FsTransfer {
+	const transfer = parseTransfer(value)
+	if (!transfer) throw new HttpError(400, 'BAD_REQUEST', '缺少请求头 X-Relax-Transfer，取值为 text 或 binary')
+	return transfer
 }
 
 function pathQuery(value: unknown): string {
@@ -87,7 +91,8 @@ export function fsRouter(): Router {
 				: offset !== undefined && length !== undefined
 					? sliceFromQuery(path, meta.size, offset, length)
 					: undefined
-			await readFileResponse(path, res, slice)
+			const declared = slice ? undefined : parseTransfer(req.headers['x-relax-transfer'])
+			await readFileResponse(path, res, slice, declared)
 		}),
 	)
 
@@ -99,7 +104,7 @@ export function fsRouter(): Router {
 				throw new HttpError(400, 'BAD_REQUEST', '文件正文不要用 application/json，请发送原始字节并设置 X-Relax-Transfer')
 			}
 			const path = pathQuery(req.query.path)
-			const transfer = transferOfHeader(req.headers['x-relax-transfer'])
+			const transfer = requireTransfer(req.headers['x-relax-transfer'])
 			const recursive = flag(one(req.query.recursive))
 			const offset = optionalCount(req.query.offset, 'offset')
 			const declared = optionalCount(req.headers['content-length'], 'Content-Length')

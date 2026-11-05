@@ -258,7 +258,7 @@ streamdown 与插件的 Tailwind 类扫描写在 [`ui/MarkdownView/index.css`](.
 
 新增文件类型彩色图标:写在 `fileTypes.tsx`,从 `index.tsx` re-export;保留源 SVG 的多 path `fill`。源图贴满 `1024` 画布、看起来比旁边图标大时,加大 viewBox 留白,图形仍居中(如 `FileJsonIcon` / `FilePackageJsonIcon`)。全部彩色文件图标留在这一个模块里静态引用,不按类型拆包,也不在目录树每一行里动态加载。
 
-文件图标匹配在 [`matchFileIcon.ts`](../app/web/src/icons/matchFileIcon.ts),不依赖具体组件,别处传入自己的关联表即可。顺序:带父目录的文件名、文件名、从长到短的扩展名(每一段先看带父目录的键)、语言 id,最后默认文件图标。目录名是另一条:带父目录的目录名、目录名、默认目录图标。键不区分大小写。文件插件的表在 [`fileKinds.ts`](../app/web/src/extensions/plugins/files/fileKinds.ts),把扩展名绑到图标和 Monaco 高亮语言;没有对应项时用 `FileUnknownIcon`。`.jsx` 与 `.tsx` 共用 `FileTsxIcon`,Monaco 分别用 `javascript` 和 `typescript`。文件名是 `.env` 或以 `.env.` 开头时用 `FileEnvIcon`,不进扩展名表。补一种图标:组件加在 `fileTypes.tsx`,再在 `fileKinds` 加一条 `names` 或 `extensions`。哪些已经有、哪些还是兜底,见 [`file-icons.md`](file-icons.md)(按清单补图时查阅)。
+文件图标匹配在 [`matchFileIcon.ts`](../app/web/src/icons/matchFileIcon.ts),不依赖具体组件,别处传入自己的关联表即可。顺序:带父目录的文件名、文件名、从长到短的扩展名(每一段先看带父目录的键)、语言 id,最后默认文件图标。目录名是另一条:带父目录的目录名、目录名、默认目录图标。键不区分大小写。文件插件的表在 [`fileKinds.ts`](../app/web/src/extensions/plugins/files/fileKinds.ts),把扩展名绑到图标和 Monaco 高亮语言;没有对应项时用 `FileUnknownIcon`，并且不读正文。哪些能打开见 [`web-fs.md`](web-fs.md)（改支持的类型时查阅）。`.jsx` 与 `.tsx` 共用 `FileTsxIcon`,Monaco 分别用 `javascript` 和 `typescript`。文件名是 `.env` 或以 `.env.` 开头时用 `FileEnvIcon`,不进扩展名表。补一种图标:组件加在 `fileTypes.tsx`,再在 `fileKinds` 加一条 `names` 或 `extensions`。哪些已经有、哪些还是兜底,见 [`file-icons.md`](file-icons.md)(按清单补图时查阅)。
 
 ## 路由
 

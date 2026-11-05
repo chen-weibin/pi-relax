@@ -87,10 +87,10 @@
 按功能点写的说明见 [server-fs.md](server-fs.md)（查阅时机：要核对某种请求会返回什么、以及 text/binary 和阈值时）。
 
 1. 路径必须是绝对路径。没传、相对路径、以 `~` 开头为 400。不设默认目录，也不限制必须在某个工作区里。
-2. `GET /api/fs/list` 只列一层，子项带 `size` 和 `mtime`。`GET /api/fs/stat` 查单个路径。
-3. `GET /api/fs/read` 返回原文，响应头 `X-Relax-Transfer` 为 `text` 或 `binary`。不带分段时流式读出整个文件。`offset`+`length` 或 `Range` 读一段。
+2. `GET /api/fs/list` 只列一层，子项带 `size` 和 `mtime`，顺序与 `readdir` 一致。`GET /api/fs/stat` 查单个路径。
+3. `GET /api/fs/read` 返回原文，响应头 `X-Relax-Transfer` 为 `text` 或 `binary`。不带分段时，不超过 `fs.maxBytes` 才读出整个文件；可选请求头声明 `text` 或 `binary`。`offset`+`length` 或 `Range` 读一段，这段头固定为 `binary`。
 4. `PUT /api/fs/file` 写入原文。整文件先写临时文件再替换。带 `offset` 时只接受 `binary`，可以覆盖已写过的那段。`POST /api/fs/dir` 建目录。`DELETE /api/fs/file` 和 `DELETE /api/fs/dir` 分开删。`recursive=true` 才递归创建或递归删除。
-5. 一次分段或一次写入的上限是 `config.json` 的 `fs.maxBytes`，默认 16 MiB。超过为 413 `PAYLOAD_TOO_LARGE`，`message` 带当前大小和上限。整文件流式读不受这个上限。
+5. 整文件、一次分段、一次写入的上限都是 `config.json` 的 `fs.maxBytes`，默认 16 MiB。超过为 413 `PAYLOAD_TOO_LARGE`，`message` 带当前大小和上限。等于上限仍通过。
 6. WebSocket `/ws/fs` 递归监听调用方给的一个根。`fs.watchDebounceMs` 默认 600，`fs.watchMax` 默认 16。推送 `watching`、`change`、`error`。
 7. `app/web` 的文件插件读 `list` / `read`，文本整文件 `PUT`，并订阅 `/ws/fs`。手工页是 [fs.html](../app/server/test/html/fs.html)：左边目录，右边内容。
 

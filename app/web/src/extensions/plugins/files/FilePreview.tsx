@@ -1,13 +1,11 @@
 import { useEffect, useSyncExternalStore } from 'react'
-import { fsApi } from '../../contracts/adapters/fsHttp'
-import { FsError } from '../../contracts/fs'
+import { EmptyState } from '../../../ui/EmptyState'
 import {
-	adoptDiskText,
-	blockDraft,
 	editDraft,
 	getDraft,
 	getDraftVersion,
 	isPathDirty,
+	openFromDisk,
 	subscribeDrafts,
 } from './drafts'
 import type { FilesFilePayload } from './open'
@@ -18,40 +16,27 @@ export function FilePreview({ payload }: { payload: FilesFilePayload }) {
 	const path = payload.path
 	useSyncExternalStore(subscribeDrafts, getDraftVersion)
 	const draft = getDraft(path)
+	const kind = resolveFileKind(path)
+	const Icon = kind.icon
 
 	useEffect(() => {
 		let cancelled = false
 		if (getDraft(path)?.blocked) return
 		if (isPathDirty(path)) return
-		void fsApi.read(path).then(
-			(outcome) => {
-				if (cancelled || isPathDirty(path)) return
-				if (outcome.kind === 'blocked') {
-					blockDraft(path, outcome.reason)
-					return
-				}
-				adoptDiskText(path, outcome.text)
-			},
-			(err: unknown) => {
-				if (cancelled || isPathDirty(path)) return
-				const reason = err instanceof FsError && err.code === 'NOT_FOUND' ? '文件已删除' : err instanceof Error ? err.message : '无法读取'
-				blockDraft(path, reason)
-			},
-		)
+		void openFromDisk(path, () => !cancelled)
 		return () => {
 			cancelled = true
 		}
 	}, [path])
 
 	if (!draft) {
-		return <div className="p-3 text-sm text-fg-3">加载中…</div>
+		return <EmptyState icon={<Icon />}>加载中…</EmptyState>
 	}
 	if (draft.blocked) {
-		return <div className="p-3 text-sm text-fg-3">{draft.blocked}</div>
+		return <EmptyState icon={<Icon />}>{draft.blocked}</EmptyState>
 	}
 
-	const kind = resolveFileKind(path)
-	const editable = kind.viewer === 'monaco'
+	const editable = kind.open === 'text' && kind.viewer === 'monaco'
 
 	return (
 		<div className="flex h-full min-h-0 flex-col">

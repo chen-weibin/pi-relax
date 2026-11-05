@@ -15,20 +15,20 @@ type FilesTreeState = {
 	syncRoot: (cwd: string | null) => void
 	toggleDir: (path: string) => void
 	ensureChildren: (path: string) => void
-	refreshListed: (changes: readonly FsChange[]) => void
+	refreshListed: (changes: readonly FsChange[]) => Promise<void>
 }
 
 let loadToken = 0
 const tokens = new Map<string, number>()
 
-function load(path: string, set: (fn: (state: FilesTreeState) => void) => void) {
+function load(path: string, set: (fn: (state: FilesTreeState) => void) => void): Promise<void> {
 	const mine = ++loadToken
 	tokens.set(path, mine)
 	set((state) => {
 		state.loading[path] = true
 		if (path === state.root) state.rootError = null
 	})
-	void fsApi.list(path).then(
+	return fsApi.list(path).then(
 		(listed) => {
 			if (tokens.get(path) !== mine) return
 			set((state) => {
@@ -44,6 +44,20 @@ function load(path: string, set: (fn: (state: FilesTreeState) => void) => void) 
 			})
 		},
 	)
+}
+
+export function listedFileSize(path: string): number | undefined {
+	for (const entries of Object.values(useFilesTreeStore.getState().childrenByPath)) {
+		const hit = entries.find((entry) => entry.kind === 'file' && entry.path === path)
+		if (hit) return hit.size
+	}
+	return undefined
+}
+
+export async function resolveFileSize(path: string): Promise<number> {
+	const listed = listedFileSize(path)
+	if (listed !== undefined) return listed
+	return (await fsApi.stat(path)).size
 }
 
 export const useFilesTreeStore = create<FilesTreeState>()(
@@ -96,9 +110,8 @@ export const useFilesTreeStore = create<FilesTreeState>()(
 				})
 			}
 			const listed = new Set(Object.keys(get().childrenByPath))
-			for (const parent of listedParentsToRefresh(changes, listed)) {
-				load(parent, set)
-			}
+			const parents = listedParentsToRefresh(changes, listed)
+			return Promise.all(parents.map((parent) => load(parent, set))).then(() => {})
 		},
 	})),
 )

@@ -26,11 +26,8 @@ export async function readPath(path: string): Promise<FsRead> {
 		responseType: 'arraybuffer',
 	})
 	const bytes = new Uint8Array(res.data)
-	const declared = Number(header(res.headers, 'content-length'))
-	const byteLength = Number.isFinite(declared) ? Math.max(declared, bytes.byteLength) : bytes.byteLength
 	return classifyRead({
 		transfer: header(res.headers, 'x-relax-transfer'),
-		byteLength,
 		bytes,
 	})
 }
