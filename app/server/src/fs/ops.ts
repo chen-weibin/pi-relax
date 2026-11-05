@@ -42,6 +42,24 @@ export function transferOf(buf: Buffer): FsTransfer {
 	}
 }
 
+/** 窗口末尾缺的后续字节数。只认 lead 后面跟不够的 10xxxxxx，最多 3 个。 */
+function incompleteUtf8Tail(buf: Buffer): number {
+	let i = buf.length - 1
+	let cont = 0
+	while (i >= 0 && cont < 3 && (buf[i] & 0xc0) === 0x80) {
+		cont += 1
+		i -= 1
+	}
+	if (i < 0) return 0
+	const lead = buf[i]
+	let need = 0
+	if ((lead & 0xf8) === 0xf0) need = 3
+	else if ((lead & 0xf0) === 0xe0) need = 2
+	else if ((lead & 0xe0) === 0xc0) need = 1
+	if (need === 0 || cont >= need) return 0
+	return buf.length - i
+}
+
 function kindOf(isDirectory: boolean): FsKind {
 	return isDirectory ? 'dir' : 'file'
 }
@@ -151,7 +169,11 @@ async function sniff(path: string, size: number): Promise<FsTransfer> {
 		const n = Math.min(SNIFF_BYTES, size)
 		const buf = Buffer.alloc(n)
 		await fh.read(buf, 0, n, 0)
-		return transferOf(buf)
+		const direct = transferOf(buf)
+		if (direct === 'text' || size <= n) return direct
+		const drop = incompleteUtf8Tail(buf)
+		if (drop === 0) return 'binary'
+		return transferOf(buf.subarray(0, n - drop))
 	} finally {
 		await fh.close()
 	}

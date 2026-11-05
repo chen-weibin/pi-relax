@@ -232,7 +232,7 @@ SSE 断线不补，客户端用历史对齐。发送和中止走 HTTP。本轮�
 
 - `list` 只列一层，子项带自己的 `size` 和 `mtime`。目录的 `size` 不把里面的文件加总。
 - `stat` 查单个路径的类型、大小和修改时间。
-- `read` 的正文是原文，响应头 `X-Relax-Transfer` 为 `text` 或 `binary`。不带分段时流式吐出整个文件，开头 8 KiB 用来标类型。`offset`+`length` 与请求头 `Range` 二选一，读一段并返回 206。
+- `read` 的正文是原文，响应头 `X-Relax-Transfer` 为 `text` 或 `binary`。不带分段时流式吐出整个文件，开头 8 KiB 用来标类型；窗口末尾切在多字节字符中间时，这段残缺不算非法 UTF-8。`offset`+`length` 与请求头 `Range` 二选一，读一段并返回 206。
 - `PUT /api/fs/file` 的正文也是原文，请求头标明 `text` 或 `binary`。不带 `offset` 时先写临时文件，成功后再替换，失败留下原文件。`text` 要整段都是合法 UTF-8。带 `offset` 只接受 `binary`：小于当前长度则覆盖该段，等于则追加，大于则拒绝。
 - `POST /api/fs/dir` 建目录。`DELETE /api/fs/file` 只删文件，`DELETE /api/fs/dir` 只删目录。目录默认必须为空，`recursive=true` 才连内容一起删。创建时 `recursive=true` 会把缺失的父目录一并建出。
 

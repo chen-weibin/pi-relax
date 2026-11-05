@@ -102,6 +102,15 @@ describe('fs http', () => {
 		assert.match(((await noHeader.json()) as { error: { message: string } }).error.message, /X-Relax-Transfer/)
 	})
 
+	it('抽样窗口切在汉字中间仍标成文本', async () => {
+		const file = join(dir, 'split.md')
+		const body = Buffer.concat([Buffer.alloc(8190, 0x61), Buffer.from('你啊', 'utf8')])
+		writeFileSync(file, body)
+		const res = await fetch(url('/api/fs/read', { path: file }))
+		assert.equal(res.headers.get('x-relax-transfer'), 'text')
+		assert.deepEqual(Buffer.from(await res.arrayBuffer()), body)
+	})
+
 	it('非法 text 和超限写入留下原文件，整文件流式读不受上限', async () => {
 		const file = join(dir, 'keep.txt')
 		writeFileSync(file, 'hello')
