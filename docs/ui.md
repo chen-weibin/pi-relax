@@ -611,7 +611,7 @@
 
 ## MonacoEditor
 
-目录 `ui/MonacoEditor/`(`index.tsx` + `env.ts` + `themes/`)。封装 `monaco-editor` + `@monaco-editor/react`,业务无关。Vite worker 走包 `exports`:`monaco-editor/editor/editor.worker.js?worker` 等。语法高亮走 `@shikijs/monaco` + `shiki` 的 `createHighlighter`(主题/语言用 bundled 名字)。当前默认主题 `aurora-x`,在 `themes/index.ts` 登记。加主题时在该数组追加名字。编辑器/gutter/minimap 背景覆盖为 `--app`(与扩展区一致);行号前景与当前行行号用同一色,不随光标换行变亮。右侧 minimap 默认开(`side: 'right'`,滑块 `mouseover` 才显)。关闭了 Monaco 语义高亮,避免盖住 Shiki token 色。
+目录 `ui/MonacoEditor/`(`index.tsx` + `env.ts` + `themes/`)。封装 `monaco-editor` + `@monaco-editor/react`,业务无关。Vite worker 走包 `exports`:`monaco-editor/editor/editor.worker.js?worker` 等。语法高亮走 `@shikijs/monaco` + `shiki` 的 `createHighlighter`(主题/语言用 bundled 名字)。当前默认主题 `aurora-x`,在 `themes/index.ts` 登记。加主题时在该数组追加名字。编辑器/gutter/minimap 背景覆盖为 `--app`(与扩展区一致)。主题没写 `editor.foreground` 时用 Shiki 的默认前景 `fg`(aurora-x 是 `#bbbbbb`),没单独上色的正文不再掉成黑色。对比度低于 7 的 token 前景(注释、半透明黑、灰)往白色抬到刚好 7,已经够亮的关键字色不动。行号前景与当前行行号用同一色,并走同一道对比度。右侧 minimap 默认开(`side: 'right'`,滑块 `mouseover` 才显)。关闭了 Monaco 语义高亮,避免盖住 Shiki token 色。
 
 **查阅时机**:展示或编辑代码/文本文件,或准备在业务里直接接 Monaco。
 

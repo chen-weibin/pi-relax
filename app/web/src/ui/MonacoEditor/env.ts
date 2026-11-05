@@ -7,6 +7,7 @@ import htmlWorker from 'monaco-editor/language/html/html.worker.js?worker'
 import jsonWorker from 'monaco-editor/language/json/json.worker.js?worker'
 import tsWorker from 'monaco-editor/language/typescript/ts.worker.js?worker'
 import { createHighlighter } from 'shiki'
+import { readableForeground } from './themeContrast'
 import { MONACO_THEME, monacoThemes } from './themes'
 
 window.MonacoEnvironment = {
@@ -45,22 +46,30 @@ async function loadMonacoTheme() {
 		langs: ['javascript', 'typescript', 'css', 'html', 'markdown'],
 	})
 	shikiToMonaco(highlighter, monaco)
-	const theme = textmateThemeToMonacoTheme(
-		highlighter.getTheme(MONACO_THEME),
-	) as monaco.editor.IStandaloneThemeData
-	const colors = theme.colors
+	const shikiTheme = highlighter.getTheme(MONACO_THEME)
+	const theme = textmateThemeToMonacoTheme(shikiTheme) as monaco.editor.IStandaloneThemeData
+	const colors = theme.colors ?? {}
 	const background = cssColor('--app', '#151515')
-	const lineNumber =
+	const lineNumber = readableForeground(
 		colors['editorLineNumber.activeForeground'] ??
-		colors['editorLineNumber.foreground'] ??
-		cssColor('--fg-3', '#a1a1a1')
+			colors['editorLineNumber.foreground'] ??
+			cssColor('--fg-3', '#a1a1a1'),
+		background,
+	)
+	const foreground = readableForeground(colors['editor.foreground'] ?? shikiTheme.fg, background)
 	monaco.editor.defineTheme(MONACO_THEME, {
 		...theme,
+		rules: (theme.rules ?? []).map((rule) =>
+			rule.foreground
+				? { ...rule, foreground: readableForeground(rule.foreground, background) }
+				: rule,
+		),
 		colors: {
 			...colors,
 			'editor.background': background,
 			'editorGutter.background': background,
 			'minimap.background': background,
+			'editor.foreground': foreground,
 			'editorLineNumber.foreground': lineNumber,
 			'editorLineNumber.activeForeground': lineNumber,
 		},
