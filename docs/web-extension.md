@@ -1,6 +1,6 @@
 # 右侧扩展区（插件）
 
-查阅时机：在 `app/web` 增加扩展插件、改壳层 tab / 欢迎页、改关最后一 tab 的收起策略、接真实文件系统或 PTY、或把 mock 适配器换成后端实现时。
+查阅时机：在 `app/web` 增加扩展插件、改壳层 tab / 欢迎页、改关最后一 tab 的收起策略、改文件树或终端、或把适配器换成另一套后端时。
 
 布局外壳（三栏尺寸、`extensionOpen`）见 [web.md](web.md)。原子组件见 [ui.md](ui.md)。
 
@@ -12,7 +12,7 @@ app/web/src/extensions/
 ├── store.ts              # 壳层 tab；终端快照按对话写入 local store；含 updateTab
 ├── registry.ts           # 编译期登记表
 ├── shell/                # 欢迎页、唯一一层 tab 条、添加菜单
-├── contracts/            # FsApi / PtyApi；文件仍是 mock，终端走 /ws/pty
+├── contracts/            # FsApi / PtyApi；文件走 /api/fs 与 /ws/fs，终端走 /ws/pty
 └── plugins/files|terminal
 ```
 
@@ -91,13 +91,12 @@ useExtensionStore.getState().setEmptyExtensionHandler(() => 'welcome')
 
 | 项 | 现状 | 后续 |
 |---|---|---|
-| 探索器主区 | `RecentsPane` + mock 最近文件 | 接真实 recents / 空态 |
-| New File | 按钮占位，无 `FsApi.create` | 契约扩展 `create` 后接入 |
-| 目录树 | `FileTree/` + `treeStore`；展开才 `list`；加载中图标槽 `DotMatrix` xs；选中跟当前 tab | 全局搜索、watch 刷新 |
-| 文件预览 | `viewers/` 按 `fileKinds.viewer` 分发；本期仅 `monaco` → [`MonacoEditor`](ui.md#monacoeditor) | 图片等其它 viewer |
+| 探索器主区 | 未选文件时居中「选择一个文件」 | 新建、最近文件 |
+| 目录树 | 根是当前对话 cwd。顶部一行是目录名，悬停看完整路径，下面直接列子项。展开才 `list`。`/ws/fs` 的 `change` 只重列已经展开的父目录 | 全局搜索 |
+| 文件预览 | 文本进 Monaco，可编辑。停手 400ms 后整文件 `PUT`。还没写完时，tab 标题右侧是 `StatusDot` `normal`（6px）。超过 1 MiB 或二进制只显示一行原因。已打开且没有未保存草稿时，磁盘变化会重新读入；有草稿则提示「磁盘已变化」 | 图片等其它 viewer |
 | 类型扩展 | [`matchFileIcon`](../app/web/src/icons/matchFileIcon.ts):父目录/文件名、文件名、从长到短的扩展名、语言 id,否则 unknown。表在 [`fileKinds.ts`](../app/web/src/extensions/plugins/files/fileKinds.ts);`.jsx` 与 `.tsx` 共用 `FileTsxIcon`。待补清单在 [`file-icons.md`](file-icons.md) | 目录名图标;有图后再加 `spec.ts` 等更长扩展名 |
 | Header | 左路径面包屑（仅绑定文件时）；右 `FolderIcon` 收起/展开树（展开收起同一图标） | 面包屑可点击跳转目录 |
-| 文案 | 部分英文（`Files, Folders...`、`Recents`、`New File`） | 统一中文或 i18n |
+| 文案 | 空态、过大、二进制、磁盘变化都是中文 | — |
 
 文件树继续自研 `Expandable`，不上第三方树库。
 
@@ -110,11 +109,11 @@ useExtensionStore.getState().setEmptyExtensionHandler(() => 'welcome')
 | 会话列表 | 右侧占位 nav，`bg-panel`；宽度 0↔220，终端 fit 剩余宽度；item hover 显示关闭 | — |
 | 后端 | WebSocket `/ws/pty`（[ptySocket.ts](../app/web/src/extensions/contracts/adapters/ptySocket.ts)）。新终端的目录是当前对话快照上的 `cwd`（选中会话用那一行的目录，草稿用草稿目录），不退回默认工作区。输入、resize、close 走 `PtyApi`。服务端 id 只用于断线重连 | — |
 
-终端快照按对话记在 `localStorage` 的 `relax.extensions`（见 [web.md](web.md) 的「持久化」）。只记终端 tab，不记文件。切到另一条对话时换上那条的终端，不 `closeTab`，所以 xterm 和套接字还在；关的是这个 tab 才释放。刷新后按快照里的本地 id 和 `cwd` 重新连接，进程是新的。服务端同时最多 16 路，多条对话各留着终端时会顶到这个上限。没有记录就是收起、零个终端。
+终端和已打开的文件 tab 按对话记在 `localStorage` 的 `relax.extensions`（见 [web.md](web.md) 的「持久化」）。文件只记路径，不记正文。切到另一条对话时换上那条的终端和文件 tab，不 `closeTab`，所以 xterm 和套接字还在；关的是这个 tab 才释放。刷新后终端按快照里的本地 id 和 `cwd` 重新连接，进程是新的；文件 tab 还在，内容重新从磁盘读。服务端同时最多 16 路，多条对话各留着终端时会顶到这个上限。没有记录就是收起、零个 tab。
 
 关终端 tab 会 `releaseTerminalRuntime` 并发送 `{ type: "close" }`。切换终端 / 切到文件再回来套接字仍开着，缓冲还在。没主动关闭就断开时，12 秒内用服务端 id 重连；`ready.replay` 先清屏再画，比回放缓冲更早的输出不再留在这一屏。shell 退出、路径错误、达到路数上限不再重连，原因写在终端里。
 
 ### 契约与宿主
 
-- 文件仍是 [mock.ts](../app/web/src/extensions/contracts/adapters/mock.ts)。终端是 [ptySocket.ts](../app/web/src/extensions/contracts/adapters/ptySocket.ts)。插件只依赖 `FsApi` / `PtyApi`。
+- 文件是 [fsHttp.ts](../app/web/src/extensions/contracts/adapters/fsHttp.ts) 和 [fsWatch.ts](../app/web/src/extensions/contracts/adapters/fsWatch.ts)。终端是 [ptySocket.ts](../app/web/src/extensions/contracts/adapters/ptySocket.ts)。插件只依赖 `FsApi` / `PtyApi`，监听在适配器里。
 - 新增插件：registry 登记 + 本文「新增插件」流程；大改后回来删改上表遗留项。

@@ -334,7 +334,7 @@ src/
 │   ├── store.ts                  #   壳层 tabs；终端快照按对话写入 local store
 │   ├── registry.ts               #   编译期插件表
 │   ├── shell/                    #   欢迎页 + 唯一 tab 条 + 添加菜单
-│   ├── contracts/                #   FsApi / PtyApi + mock
+│   ├── contracts/                #   FsApi / PtyApi；文件 HTTP + /ws/fs，终端 /ws/pty
 │   └── plugins/                  #   files / terminal
 ├── icons/                       # 自绘 SVG 图标(详见上文 "图标 (icons/)" 小节)
 │   └── index.tsx
@@ -407,7 +407,7 @@ src/
   version: 1,
   layout: Record<string, unknown>, // groupId → 该组的 layout 对象
   projectsCollapsed: string[]       // 收起的项目 id；不在表里 = 展开
-  extensions: Record<string, ExtensionSnapshot> // 对话 id 或 draft:cwd → 终端快照
+  extensions: Record<string, ExtensionSnapshot> // 对话 id 或 draft:cwd → 终端和已打开文件
 }
 ```
 
@@ -415,7 +415,7 @@ src/
 - 旧 key `app-shell:layout:app-shell` 和 `app-shell:layout:main-area` 已废弃。不读、不搬、不删。
 - `usePersistedPanelLayout` 只通过 store 读写宽度。外层 group `app-shell` 是 `[sidebar, main]`，内层 `main-area` 是 `[content, extension]`。
 - 侧栏每个项目的收起写在 `projectsCollapsed`。没有记录默认展开，并且只有展开的项目才拉该项目的会话。`ProjectSection` 订阅这份名单。
-- `extensions` 只记终端：这条对话的目录、右侧栏开没开、哪些终端、当前是哪一个。文件 tab 不记。键是会话 id，没发送前是 `draft:${cwd}`。第一次发送成功后改挂到新会话 id。切对话时换上对应快照，已经连着的终端进程先留着。没有记录就是收起、零个终端。
+- `extensions` 记下这条对话的目录、右侧栏开没开、终端和已打开的文件 tab，以及当前是哪一个。文件只记路径，不记正文。键是会话 id，没发送前是 `draft:${cwd}`。第一次发送成功后改挂到新会话 id。切对话时按原顺序换上对应快照，已经连着的终端进程先留着。没有记录就是收起、零个 tab。刷新后文件 tab 还在，内容重新从磁盘读。
 
 以后要记住的界面状态加到这个 store 的字段里，不要再直接写 `localStorage`。
 

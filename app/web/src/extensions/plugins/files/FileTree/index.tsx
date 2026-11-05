@@ -3,7 +3,6 @@ import classNames from 'classnames'
 import { ChevronRightIcon, FolderClosedIcon, FolderOpenIcon } from '../../../../icons'
 import { DotMatrix } from '../../../../ui/DotMatrix'
 import { Expandable } from '../../../../ui/Expandable'
-import { FS_ROOT } from '../../../contracts/adapters/mock'
 import type { FsEntry } from '../../../contracts/fs'
 import { resolveFileKind } from '../fileKinds'
 import { useFilesTreeStore } from '../treeStore'
@@ -79,13 +78,11 @@ function FileTreeRow({
 function FileTreeDir({
 	entry,
 	depth,
-	query,
 	selectedPath,
 	onSelectFile,
 }: {
 	entry: FsEntry
 	depth: number
-	query: string
 	selectedPath?: string
 	onSelectFile: (path: string) => void
 }) {
@@ -109,54 +106,81 @@ function FileTreeDir({
 				onToggle={() => toggleDir(entry.path)}
 			/>
 			<Expandable open={expanded} duration={160}>
-				<div className="flex flex-col gap-[2px]">
-					{(children ?? [])
-						.filter((child) => child.kind === 'dir' || matchesQuery(child, query))
-						.map((child) =>
-							child.kind === 'dir' ? (
-								<FileTreeDir
-									key={child.path}
-									entry={child}
-									depth={depth + 1}
-									query={query}
-									selectedPath={selectedPath}
-									onSelectFile={onSelectFile}
-								/>
-							) : (
-								<FileTreeRow
-									key={child.path}
-									entry={child}
-									depth={depth + 1}
-									selected={child.path === selectedPath}
-									onSelectFile={onSelectFile}
-								/>
-							),
-						)}
-				</div>
+				<TreeChildren
+					entries={children ?? []}
+					depth={depth + 1}
+					selectedPath={selectedPath}
+					onSelectFile={onSelectFile}
+				/>
 			</Expandable>
 		</div>
 	)
 }
 
-function matchesQuery(entry: FsEntry, query: string) {
-	const q = query.trim().toLowerCase()
-	if (!q) return true
-	return entry.name.toLowerCase().includes(q)
+function TreeChildren({
+	entries,
+	depth,
+	selectedPath,
+	onSelectFile,
+}: {
+	entries: FsEntry[]
+	depth: number
+	selectedPath?: string
+	onSelectFile: (path: string) => void
+}) {
+	return (
+		<div className="flex flex-col gap-[2px]">
+			{entries.map((child) =>
+				child.kind === 'dir' ? (
+					<FileTreeDir
+						key={child.path}
+						entry={child}
+						depth={depth}
+						selectedPath={selectedPath}
+						onSelectFile={onSelectFile}
+					/>
+				) : (
+					<FileTreeRow
+						key={child.path}
+						entry={child}
+						depth={depth}
+						selected={child.path === selectedPath}
+						onSelectFile={onSelectFile}
+					/>
+				),
+			)}
+		</div>
+	)
 }
 
 export type FileTreeProps = {
 	selectedPath?: string
 	onSelectFile: (path: string) => void
-	query?: string
 }
 
-export function FileTree({ selectedPath, onSelectFile, query = '' }: FileTreeProps) {
+export function FileTree({ selectedPath, onSelectFile }: FileTreeProps) {
+	const root = useFilesTreeStore((s) => s.root)
+	const children = useFilesTreeStore((s) => (root ? s.childrenByPath[root] : undefined))
+	const loading = useFilesTreeStore((s) => (root ? Boolean(s.loading[root]) : false))
+	const rootError = useFilesTreeStore((s) => s.rootError)
+
+	if (!root) return null
+	if (rootError && !children) {
+		return <div className="px-2.5 py-2 text-sm text-fg-3">{rootError}</div>
+	}
+	if (loading && !children) {
+		return (
+			<div className="flex h-[30px] items-center px-2">
+				<DotMatrix size="xs" label="加载中" />
+			</div>
+		)
+	}
+
 	return (
 		<div className="flex flex-col gap-[2px] pb-2">
-			<FileTreeDir
-				entry={{ name: FS_ROOT, path: FS_ROOT, kind: 'dir' }}
+			<TreeChildren
+				entries={children ?? []}
 				depth={0}
-				query={query}
 				selectedPath={selectedPath}
 				onSelectFile={onSelectFile}
 			/>

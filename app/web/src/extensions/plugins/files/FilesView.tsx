@@ -1,15 +1,18 @@
-import { useState } from 'react'
+import { useEffect } from 'react'
 import classNames from 'classnames'
 import { ChevronRightIcon, FolderIcon } from '../../../icons'
+import { useCatalogStore } from '../../../store/catalog'
 import '../../../styles/scrollbar.css'
 import { IconButton } from '../../../ui/IconButton'
 import { PaneHeader } from '../../../ui/PaneHeader'
-import { SearchInput } from '../../../ui/SearchInput'
+import { watchDirectory } from '../../contracts/adapters/fsWatch'
+import { currentExtensionCwd } from '../../sessionTabs'
+import { useExtensionStore } from '../../store'
 import type { PluginRenderProps } from '../../types'
+import { applyRemote } from './drafts'
 import { FilePreview } from './FilePreview'
 import { FileTree } from './FileTree'
-import { RecentsPane } from './RecentsPane'
-import { isFilesPayload, selectFile } from './open'
+import { fileNameFromPath, isFilesPayload, selectFile } from './open'
 import { useFilesTreeStore } from './treeStore'
 
 export const FILES_NAV_WIDTH = 240
@@ -39,23 +42,21 @@ function FilePathBreadcrumb({ path }: { path: string }) {
 }
 
 function FilesNav({ selectedPath }: { selectedPath?: string }) {
-	const [query, setQuery] = useState('')
+	const root = useFilesTreeStore((s) => s.root)
+	const label = root ? fileNameFromPath(root) : ''
 
 	return (
 		<div
 			className="flex h-full min-h-0 shrink-0 flex-col"
 			style={{ width: FILES_NAV_WIDTH }}
 		>
-			<div className="px-2 py-2">
-				<SearchInput
-					value={query}
-					onChange={setQuery}
-					placeholder="Files, Folders..."
-					variant="bordered"
-				/>
+			<div className="flex h-9 shrink-0 items-center px-2.5">
+				<span className="min-w-0 truncate text-sm text-fg-2" title={root ?? undefined}>
+					{label}
+				</span>
 			</div>
 			<div className="scrollbar-shallow min-h-0 flex-1 overflow-y-auto px-1">
-				<FileTree selectedPath={selectedPath} onSelectFile={selectFile} query={query} />
+				<FileTree selectedPath={selectedPath} onSelectFile={selectFile} />
 			</div>
 		</div>
 	)
@@ -64,8 +65,22 @@ function FilesNav({ selectedPath }: { selectedPath?: string }) {
 export function FilesView({ tab }: PluginRenderProps) {
 	const navOpen = useFilesTreeStore((s) => s.navOpen)
 	const setNavOpen = useFilesTreeStore((s) => s.setNavOpen)
+	useCatalogStore((s) => s.defaultCwd)
+	const cwd = currentExtensionCwd()
 	const payload = isFilesPayload(tab.payload) ? tab.payload : { kind: 'explorer' as const }
 	const path = payload.kind === 'file' ? payload.path : undefined
+
+	useEffect(() => {
+		useFilesTreeStore.getState().syncRoot(cwd)
+		if (!cwd) return
+		return watchDirectory(cwd, (changes) => {
+			useFilesTreeStore.getState().refreshListed(changes)
+			for (const open of useExtensionStore.getState().tabs) {
+				if (open.pluginId !== 'files' || !isFilesPayload(open.payload) || open.payload.kind !== 'file') continue
+				void applyRemote(open.payload.path, changes)
+			}
+		})
+	}, [cwd])
 
 	return (
 		<div className="flex h-full min-h-0 flex-col bg-app">
@@ -83,7 +98,11 @@ export function FilesView({ tab }: PluginRenderProps) {
 			/>
 			<div className="flex min-h-0 flex-1 overflow-hidden">
 				<div className="min-h-0 min-w-0 flex-1">
-					{payload.kind === 'file' ? <FilePreview payload={payload} /> : <RecentsPane />}
+					{payload.kind === 'file' ? (
+						<FilePreview payload={payload} />
+					) : (
+						<div className="flex h-full items-center justify-center text-sm text-fg-3">选择一个文件</div>
+					)}
 				</div>
 				<div
 					aria-hidden={!navOpen}

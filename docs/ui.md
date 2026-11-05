@@ -634,6 +634,7 @@
   language="typescript"
   path="src/foo.ts"   // 可选,多模型区分
   readOnly={true}     // 默认 true
+  onChange={setText}  // 可选；不传则只展示
   className="h-full min-h-0 w-full"
 />
 ```
@@ -644,6 +645,7 @@
 | `language` | `string` | `'plaintext'` | Monaco languageId |
 | `path` | `string` | — | 多模型 key |
 | `readOnly` | `boolean` | `true` | 只读;同时开 `domReadOnly` |
+| `onChange` | `(value: string) => void` | — | 文档变成这串全文时调用。不传则不接编辑 |
 | `className` | `string` | 铺满父级 | 外层容器 |
 
 文件插件通过 `fileKinds.viewer === 'monaco'` 消费本组件,不在插件内再配一份 Monaco。

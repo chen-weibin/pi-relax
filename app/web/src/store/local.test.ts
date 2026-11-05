@@ -38,7 +38,7 @@ describe('parseLocalDocument', () => {
 		})
 	})
 
-	it('keeps terminal snapshots and drops a file tab', () => {
+	it('keeps terminal snapshots and open file tabs', () => {
 		const raw = JSON.stringify({
 			version: 1,
 			layout: {},
@@ -60,8 +60,11 @@ describe('parseLocalDocument', () => {
 			'session-1': {
 				cwd: '/work/app',
 				extensionOpen: true,
-				activeTabId: 'tab-1',
-				tabs: [{ id: 'tab-1', title: '终端', reuseKey: 'session:pty-1', sessionId: 'pty-1' }],
+				activeTabId: 'file-1',
+				tabs: [
+					{ id: 'tab-1', title: '终端', reuseKey: 'session:pty-1', sessionId: 'pty-1' },
+					{ id: 'file-1', reuseKey: 'file:a.ts', path: 'a.ts' },
+				],
 			},
 		})
 	})

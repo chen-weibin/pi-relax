@@ -1,7 +1,13 @@
 import { FileIcon } from '../../../icons'
-import type { ExtensionPlugin } from '../../types'
+import type { ExtensionPlugin, ExtensionTab } from '../../types'
+import { flushAndDrop } from './drafts'
 import { FilesView } from './FilesView'
-import { filesExplorerOpen } from './open'
+import { filesExplorerOpen, isFilesPayload } from './open'
+
+function onTabClosed(tab: ExtensionTab) {
+	if (!isFilesPayload(tab.payload) || tab.payload.kind !== 'file') return
+	void flushAndDrop(tab.payload.path)
+}
 
 export const filesPlugin: ExtensionPlugin = {
 	id: 'files',
@@ -10,4 +16,5 @@ export const filesPlugin: ExtensionPlugin = {
 	icon: FileIcon,
 	open: filesExplorerOpen,
 	render: FilesView,
+	onTabClosed,
 }

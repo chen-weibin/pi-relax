@@ -5,10 +5,12 @@ export function FileViewer({
 	path,
 	text,
 	kind,
+	onChange,
 }: {
 	path: string
 	text: string
 	kind: FileKind
+	onChange?: (value: string) => void
 }) {
 	if (kind.viewer === 'monaco') {
 		return (
@@ -16,7 +18,8 @@ export function FileViewer({
 				path={path}
 				value={text}
 				language={kind.language ?? 'plaintext'}
-				readOnly
+				readOnly={!onChange}
+				onChange={onChange}
 			/>
 		)
 	}

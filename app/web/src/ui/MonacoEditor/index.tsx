@@ -7,6 +7,7 @@ export type MonacoEditorProps = {
 	language?: string
 	path?: string
 	readOnly?: boolean
+	onChange?: (value: string) => void
 	className?: string
 }
 
@@ -15,6 +16,7 @@ export function MonacoEditor({
 	language = 'plaintext',
 	path,
 	readOnly = true,
+	onChange,
 	className,
 }: MonacoEditorProps) {
 	const [ready, setReady] = useState(false)
@@ -44,6 +46,7 @@ export function MonacoEditor({
 				value={value}
 				language={language}
 				theme={MONACO_THEME}
+				onChange={(next) => onChange?.(next ?? '')}
 				options={{
 					readOnly,
 					domReadOnly: readOnly,

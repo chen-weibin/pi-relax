@@ -224,7 +224,7 @@ SSE 断线不补，客户端用历史对齐。发送和中止走 HTTP。本轮�
 
 ## 文件系统
 
-`chokidar` 加 WebSocket `/ws/fs`，不上 Watchman。`app/web` 仍用 mock，这一轮只接服务端和 [fs.html](../app/server/test/html/fs.html)。
+`chokidar` 加 WebSocket `/ws/fs`，不上 Watchman。`app/web` 的文件树用 `list` / `read` / 整文件 `PUT`，并订阅当前工作目录的 `/ws/fs`。手工页仍是 [fs.html](../app/server/test/html/fs.html)。
 
 路径必须是调用方传入的绝对路径。没传、相对路径、以 `~` 开头都是 400，服务端不展开家目录，也不设默认目录。不限制必须落在某个项目根里。服务端不过滤 `node_modules`、`.git`、`dist`，显示什么由调用方决定。
 

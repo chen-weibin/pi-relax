@@ -1,7 +1,10 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import classNames from 'classnames'
 import { CloseIcon } from '../../icons'
+import { StatusDot } from '../../ui/StatusDot'
+import { getDraftVersion, isPathDirty, subscribeDrafts } from '../plugins/files/drafts'
+import { isFilesPayload } from '../plugins/files/open'
 import { getExtensionPlugin } from '../registry'
 import { useExtensionStore } from '../store'
 import type { ExtensionTab } from '../types'
@@ -51,8 +54,15 @@ function ExtensionTabItem({
 	onActivate: () => void
 	onClose: () => void
 }) {
+	useSyncExternalStore(subscribeDrafts, getDraftVersion)
 	const plugin = getExtensionPlugin(tab.pluginId)
 	const Icon = tab.icon ?? plugin?.icon
+	const filePath =
+		tab.pluginId === 'files' && isFilesPayload(tab.payload) && tab.payload.kind === 'file'
+			? tab.payload.path
+			: null
+	const saving = filePath ? isPathDirty(filePath) : false
+	const title = tab.title.replace(/ •$/, '')
 
 	return (
 		<div
@@ -74,7 +84,8 @@ function ExtensionTabItem({
 						<Icon />
 					</span>
 				)}
-				<span className="min-w-0 truncate">{tab.title}</span>
+				<span className="min-w-0 truncate">{title}</span>
+				{saving && <StatusDot kind="normal" label="保存中" />}
 			</button>
 			<span
 				aria-hidden
@@ -85,8 +96,8 @@ function ExtensionTabItem({
 			/>
 			<button
 				type="button"
-				title={`关闭 ${tab.title}`}
-				aria-label={`关闭 ${tab.title}`}
+				title={`关闭 ${title}`}
+				aria-label={`关闭 ${title}`}
 				className={classNames(
 					'absolute right-0 top-0 z-10 flex size-[26px] cursor-pointer items-center justify-center',
 					'text-fg-2 opacity-0 transition-opacity duration-100 hover:text-fg-bright',

@@ -90,7 +90,7 @@
 4. `PUT /api/fs/file` 写入原文。整文件先写临时文件再替换。带 `offset` 时只接受 `binary`，可以覆盖已写过的那段。`POST /api/fs/dir` 建目录。`DELETE /api/fs/file` 和 `DELETE /api/fs/dir` 分开删。`recursive=true` 才递归创建或递归删除。
 5. 一次分段或一次写入的上限是 `config.json` 的 `fs.maxBytes`，默认 16 MiB。超过为 413 `PAYLOAD_TOO_LARGE`，`message` 带当前大小和上限。整文件流式读不受这个上限。
 6. WebSocket `/ws/fs` 递归监听调用方给的一个根。`fs.watchDebounceMs` 默认 600，`fs.watchMax` 默认 16。推送 `watching`、`change`、`error`。
-7. `app/web` 的文件插件仍用 mock。手工页是 [fs.html](../app/server/test/html/fs.html)：左边目录，右边内容。
+7. `app/web` 的文件插件读 `list` / `read`，文本整文件 `PUT`，并订阅 `/ws/fs`。手工页是 [fs.html](../app/server/test/html/fs.html)：左边目录，右边内容。
 
 ## 终端
 

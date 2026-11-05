@@ -1,9 +1,11 @@
-import { TerminalIcon } from '../icons'
+import { FileIcon, TerminalIcon } from '../icons'
 import { useCommonStore } from '../store/common'
 import { useCatalogStore } from '../store/catalog'
 import { useLocalStore } from '../store/local'
 import { pty } from './contracts/adapters/ptySocket'
-import { captureTerminalSnapshot, type TerminalSnapshotTab } from './snapshot'
+import { resolveFileKind } from './plugins/files/fileKinds'
+import { fileNameFromPath } from './plugins/files/open'
+import { captureTerminalSnapshot, type SnapshotTab } from './snapshot'
 import { useExtensionStore } from './store'
 import type { ExtensionTab } from './types'
 
@@ -26,14 +28,35 @@ function persist() {
 	)
 }
 
-function tabFromSnapshot(tab: TerminalSnapshotTab): ExtensionTab {
+function tabFromSnapshot(tab: SnapshotTab): ExtensionTab {
+	if ('sessionId' in tab) {
+		return {
+			id: tab.id,
+			pluginId: 'terminal',
+			title: tab.title,
+			reuseKey: tab.reuseKey,
+			icon: TerminalIcon,
+			payload: { sessionId: tab.sessionId },
+		}
+	}
+	if ('path' in tab) {
+		const title = fileNameFromPath(tab.path)
+		return {
+			id: tab.id,
+			pluginId: 'files',
+			title,
+			reuseKey: tab.reuseKey,
+			icon: resolveFileKind(tab.path).icon,
+			payload: { kind: 'file', path: tab.path },
+		}
+	}
 	return {
 		id: tab.id,
-		pluginId: 'terminal',
-		title: tab.title,
-		reuseKey: tab.reuseKey,
-		icon: TerminalIcon,
-		payload: { sessionId: tab.sessionId },
+		pluginId: 'files',
+		title: '文件',
+		reuseKey: 'explorer',
+		icon: FileIcon,
+		payload: { kind: 'explorer' },
 	}
 }
 
@@ -54,7 +77,9 @@ export function setExtensionConversation(key: string, cwd: string | null) {
 	useCommonStore.getState().setExtensionOpen(saved?.extensionOpen ?? false)
 	applying = false
 	if (currentCwd) {
-		for (const tab of saved?.tabs ?? []) void pty.create({ id: tab.sessionId, cwd: currentCwd })
+		for (const tab of saved?.tabs ?? []) {
+			if ('sessionId' in tab) void pty.create({ id: tab.sessionId, cwd: currentCwd })
+		}
 	}
 	persist()
 }

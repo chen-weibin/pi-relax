@@ -24,9 +24,11 @@ export type FsStat = {
 	mtime: number
 }
 
+export type FsRead = { kind: 'text'; text: string } | { kind: 'blocked'; reason: string }
+
 export type FsApi = {
 	list(path: string): Promise<FsEntry[]>
 	stat(path: string): Promise<FsStat>
-	read(path: string): Promise<{ text: string }>
-	watch?(path: string, cb: (entries: FsEntry[]) => void): () => void
+	read(path: string): Promise<FsRead>
+	write(path: string, text: string): Promise<void>
 }
