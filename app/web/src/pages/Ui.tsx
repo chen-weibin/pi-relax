@@ -1,6 +1,8 @@
 import classNames from 'classnames'
 import { Fragment, useEffect, useRef, useState } from 'react'
+import { PanelLeftIcon } from '../icons'
 import '../styles/scrollbar.css'
+import { IconButton } from '../ui/IconButton'
 import { uiDocGroups, uiDocSections } from '../uidoc/catalog'
 
 function nearestLabel(sectionId: string): string | null {
@@ -27,6 +29,7 @@ export function UiPage() {
 	const activeIdRef = useRef(window.location.hash.slice(1) || uiDocSections[0]?.id || '')
 	const [activeId, setActiveId] = useState(activeIdRef.current)
 	const [activeLabel, setActiveLabel] = useState<string | null>(null)
+	const [navOpen, setNavOpen] = useState(true)
 
 	useEffect(() => {
 		const root = mainRef.current
@@ -72,7 +75,8 @@ export function UiPage() {
 
 	return (
 		<div className="flex h-full bg-app text-fg">
-			<nav className="scrollbar-none w-[220px] shrink-0 overflow-y-auto px-4 py-8">
+			{navOpen && (
+				<nav className="scrollbar-none w-[220px] shrink-0 overflow-y-auto px-4 py-8">
 				{uiDocGroups.map((group) => (
 					<div key={group.title} className="mt-6 first:mt-0">
 						<div className="px-2 text-sm text-fg-2">{group.title}</div>
@@ -113,9 +117,19 @@ export function UiPage() {
 						</ul>
 					</div>
 				))}
-			</nav>
-			<div aria-hidden className="my-8 w-px shrink-0 bg-border" />
-			<main ref={mainRef} className="min-w-0 flex-1 overflow-y-auto scroll-smooth px-10 py-8">
+				</nav>
+			)}
+			{navOpen && <div aria-hidden className="my-8 w-px shrink-0 bg-border" />}
+			<div className="flex min-w-0 flex-1 flex-col">
+				<div className="flex h-9 shrink-0 items-center px-3">
+					<IconButton
+						onClick={() => setNavOpen((open) => !open)}
+						title={navOpen ? '收起左侧栏' : '展开左侧栏'}
+					>
+						<PanelLeftIcon />
+					</IconButton>
+				</div>
+			<main ref={mainRef} className="min-h-0 min-w-0 flex-1 overflow-y-auto scroll-smooth px-10 py-8">
 				<div className="mx-auto flex w-full max-w-3xl flex-col">
 					{uiDocSections.map((section, index) => (
 						<Fragment key={section.id}>
@@ -137,6 +151,7 @@ export function UiPage() {
 					))}
 				</div>
 			</main>
+			</div>
 		</div>
 	)
 }

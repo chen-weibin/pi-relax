@@ -13,7 +13,9 @@ import { createBlockRuntime, isRunBusy } from '../conversation'
 import { translateHistory } from '../conversation/translateHistory'
 import { LIST_PAGE_SIZE } from '../session/listPage'
 import { AssistantErrorNotice } from '../components/AssistantErrorNotice'
+import { PanelLeftIcon, PanelRightIcon } from '../icons'
 import { Button } from '../ui/Button'
+import { IconButton } from '../ui/IconButton'
 import { ChatView } from './ChatView'
 import { PacePanel } from './PacePanel'
 import { defaultFeed, type FeedConfig } from './pace'
@@ -83,6 +85,8 @@ export function ChatLab() {
 	const [feed, setFeed] = useState<FeedConfig>(defaultFeed)
 	const [sims, setSims] = useState<SimItem[]>([])
 	const [activeSimId, setActiveSimId] = useState<string | null>(null)
+	const [leftOpen, setLeftOpen] = useState(true)
+	const [rightOpen, setRightOpen] = useState(false)
 	const fileRef = useRef<HTMLInputElement>(null)
 
 	const generating = isRunBusy(snapshot.runPhase) || runStatus === 'running'
@@ -368,7 +372,8 @@ export function ChatLab() {
 
 	return (
 		<div className="flex h-screen w-screen bg-app text-fg">
-			<aside className="flex w-[220px] shrink-0 flex-col border-r border-border">
+			{leftOpen && (
+				<aside className="flex w-[220px] shrink-0 flex-col border-r border-border">
 				<div className="px-3 py-3">
 					<p className="truncate text-sm text-fg">{workspaceName || '工作区'}</p>
 					<p className="truncate text-xs text-fg-3">{cwd ?? ''}</p>
@@ -415,7 +420,8 @@ export function ChatLab() {
 					) : null}
 					{listError ? <p className="px-2 py-2 text-sm text-fg-3">{listError}</p> : null}
 				</nav>
-			</aside>
+				</aside>
+			)}
 			<main className="flex min-w-0 flex-1 flex-col">
 				<div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-2">
 					<Button size="sm" variant="outline" className="shrink-0" onClick={startDraft}>
@@ -455,6 +461,20 @@ export function ChatLab() {
 						}}
 					/>
 					{replayingUi ? <span className="text-sm text-fg-3">模拟回放</span> : null}
+					<div className="ml-auto flex shrink-0 items-center gap-1">
+						<IconButton
+							onClick={() => setLeftOpen((open) => !open)}
+							title={leftOpen ? '收起左侧栏' : '展开左侧栏'}
+						>
+							<PanelLeftIcon />
+						</IconButton>
+						<IconButton
+							onClick={() => setRightOpen((open) => !open)}
+							title={rightOpen ? '收起右侧栏' : '展开右侧栏'}
+						>
+							<PanelRightIcon />
+						</IconButton>
+					</div>
 				</div>
 				<StickToBottom className="flex min-h-0 flex-1 flex-col" resize="instant" initial="instant">
 					<div className="relative flex min-h-0 flex-1 flex-col">
@@ -504,7 +524,7 @@ export function ChatLab() {
 					{sendError ? <p className={classNames(COLUMN, 'pb-3 text-sm text-fg-3')}>{sendError}</p> : null}
 				</StickToBottom>
 			</main>
-			<PacePanel feed={feed} onChange={setFeed} />
+			{rightOpen && <PacePanel feed={feed} onChange={setFeed} />}
 		</div>
 	)
 }
