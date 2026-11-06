@@ -92,7 +92,7 @@ function Segments({
 		}
 		if (!last) return node
 		return (
-			<div key={segment.id} className={classNames('flex flex-col gap-1', segment.type === 'user' && 'sticky top-0 z-10')}>
+			<div key={segment.id} className={classNames('flex flex-col gap-4', segment.type === 'user' && 'sticky top-0 z-10')}>
 				{node}
 				{activity}
 			</div>
