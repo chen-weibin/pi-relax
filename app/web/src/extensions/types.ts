@@ -1,4 +1,5 @@
 import type { ComponentType } from 'react'
+import type { CommandDisposable, ExtensionContext } from './commands'
 
 export type EmptyExtensionAction = 'welcome' | 'collapse'
 
@@ -34,6 +35,8 @@ export type ExtensionPlugin = {
 	render: ComponentType<PluginRenderProps>
 	renderSide?: ComponentType<PluginRenderProps>
 	onTabClosed?: (tab: ExtensionTab) => void
+	/** 宿主启动时调用一次。用来向命令总线注册命令。 */
+	activate?: (ctx: ExtensionContext) => void | CommandDisposable | readonly CommandDisposable[]
 }
 
 export type OpenTabInput = {

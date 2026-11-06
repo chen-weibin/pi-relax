@@ -3,6 +3,7 @@ import { pty } from '../../contracts/adapters/ptySocket'
 import type { ExtensionPlugin, ExtensionTab } from '../../types'
 import { TerminalView } from './TerminalView'
 import { createTerminalOpen, isTerminalPayload } from './open'
+import { activateTerminal } from './register'
 import { releaseTerminalRuntime } from './runtime'
 
 function onTabClosed(tab: ExtensionTab) {
@@ -19,4 +20,5 @@ export const terminalPlugin: ExtensionPlugin = {
 	open: createTerminalOpen,
 	render: TerminalView,
 	onTabClosed,
+	activate: activateTerminal,
 }

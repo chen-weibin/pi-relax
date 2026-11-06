@@ -9,6 +9,7 @@
 ```
 app/web/src/extensions/
 ├── types.ts              # ExtensionPlugin / ExtensionTab / 空态策略
+├── commands.ts           # 命令总线。注册、类型和调用见 [extension-commands.md](extension-commands.md)
 ├── store.ts              # 壳层 tab；终端快照按对话写入 local store；含 updateTab
 ├── registry.ts           # 编译期登记表
 ├── shell/                # 欢迎页、唯一一层 tab 条、添加菜单
@@ -54,6 +55,8 @@ app/web/src/extensions/
 
 1. 建 `plugins/<id>/`，导出 `ExtensionPlugin`（`open` / `render`，可选 `renderSide` / `onTabClosed`）。
 2. 在 [registry.ts](../app/web/src/extensions/registry.ts) 的 `extensionPlugins` 数组追加。欢迎页和「+」菜单只读该数组。
+
+命令不在壳层这条路径上。插件要对外提供能力时，在 `activate` 里注册命令。注册、类型和调用见 [extension-commands.md](extension-commands.md)（查阅时机：注册命令、从页面或其它模块调用命令、或给仓库外插件接这张表时）。
 
 ## 宿主 API
 
