@@ -1,6 +1,7 @@
 import type { ComponentType } from 'react'
 import { buttonDoc } from './Button'
 import { disclosureRowDoc } from './DisclosureRow'
+import { contextMenuDoc } from './ContextMenu'
 import { dropdownDoc } from './Dropdown'
 import { dotMatrixDoc } from './DotMatrix'
 import { editorDoc } from './Editor'
@@ -47,7 +48,7 @@ export const uiDocGroups: { title: string; sections: UiDocSection[] }[] = [
 	},
 	{
 		title: '浮层',
-		sections: [tooltipDoc, popoverDoc, dropdownDoc, modalDoc],
+		sections: [tooltipDoc, popoverDoc, dropdownDoc, contextMenuDoc, modalDoc],
 	},
 	{
 		title: '反馈',

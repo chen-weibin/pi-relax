@@ -174,6 +174,7 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
 | `Tooltip` | 短 hover 提示,包在 Popover 上 | [`ui.md#tooltip`](ui.md#tooltip) |
 | `Popover` | 浮层 / 菜单,封装 `@floating-ui/react` | [`ui.md#popover`](ui.md#popover) |
 | `Dropdown` | 带子菜单的菜单,行尾当前值,子面板可搜索 | [`ui.md#dropdown`](ui.md#dropdown) |
+| `ContextMenu` | 右键菜单,从点击点向右下展开,靠边翻转;面板与 Dropdown 相同 | [`ui.md#contextmenu`](ui.md#contextmenu) |
 | `Modal` | 遮罩对话框壳,居中或距顶;内容自定义 | [`ui.md#modal`](ui.md#modal) |
 | `Editor` | ProseMirror 智能输入框 | [`ui.md#editor`](ui.md#editor) |
 | `MonacoEditor` | Monaco 代码/文本编辑器,主题走 CSS token | [`ui.md#monacoeditor`](ui.md#monacoeditor) |

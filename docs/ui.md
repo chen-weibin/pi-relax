@@ -45,7 +45,8 @@
 | 设置面板里的一行(左 label + 描述,右控制区) | [`SettingRow`](#settingrow) | 不要写裸 `<div flex justify-between><div>{label}<div>{desc}</div></div><div>...</div></div>` 三层嵌套 |
 | 开关(on/off,绿色 + 灰色态) | [`Switch`](#switch) | 不要写裸 `<button role="switch">` + `translate-x-*` 自己拼 thumb 位移 |
 | 选择器(静态 / 懒加载 / 搜索三合一) | [`Select`](#select) | 不要写裸 `<select>`(样式难统一),也不要在 Setting 里再写 `<Popover>` + 自己造 listbox |
-| 带子菜单的菜单(行尾当前值,向右再展开,子面板可搜索) | [`Dropdown`](#dropdown) | 不要用 [`Select`](#select) 套两层,也不要在业务里手写多层 [`Popover`](#popover) |
+| 带子菜单的菜单(行尾当前值,向右再展开,子面板可搜索) | [`Dropdown`](#dropdown) | 不要用 [`Select`](#select) 套两层,也不要在业务里手写多层 [`Popover`](#popover)。锚点是指针时用 [`ContextMenu`](#contextmenu) |
+| 右键菜单(从点击点向右下展开,靠边翻转) | [`ContextMenu`](#contextmenu) | 不要自己监听 `contextmenu` 再绝对定位一块菜单;锚点是元素时用 [`Dropdown`](#dropdown) |
 | 数字步进器(- n + 圆角 pill) | [`NumberStepper`](#numberstepper) | 不要写裸 `<div flex><button>-</button><span>{n}</span><button>+</button></div>` 三段散落 |
 | 连续范围拖拽(0–100% / 任意区间,带 thumb + 槽位) | [`ProgressBar`](#progressbar) | 不要写裸 `<input type="range">`(样式无法走 token、a11y / 键盘 / pointer capture 都要自己粘) |
 | 轻量卡片外壳(无角色语义) | [`MessageSurface`](#messagesurface) | 不要在块组件里手写 `bg-surface rounded-md border-border` 之类的样式散落 |
@@ -80,6 +81,7 @@
 | 手写带清空、前后缀、字数或状态边框的 `<input>` | 用 [`Input`](#input)。搜索框仍用 [`SearchInput`](#searchinput) |
 | 手写实底 / 描边 / 幽灵 / 纯文字按钮 | 用 [`Button`](#button)。只显示图标用 [`IconButton`](#iconbutton) |
 | 手写多层 Popover 做「当前值 + 向右子菜单」 | 用 [`Dropdown`](#dropdown)。一层就能选完的列表仍用 [`Select`](#select) |
+| 自己监听 `contextmenu`,再用 `fixed` / `absolute` 把菜单摆到光标旁 | 用 [`ContextMenu`](#contextmenu)。定位、翻转、子菜单和关掉整棵菜单都已经接好 |
 | 给 `Button` 加任意颜色 prop | 色调只有 `neutral` / `inverse`,走 token;一次性换色用 `className` |
 | 手写 `text-xl font-semibold` 当标题,或再拼 `truncate` | 用 [`Heading`](#heading)。颜色走行文 token,一次性换色用 `className` |
 | 手写正文的字号、颜色、换行和省略 | 用 [`Paragraph`](#paragraph) |
@@ -1221,7 +1223,7 @@ const loadOptions = async ({ query, offset, limit }: Params): Promise<Result<V>>
 
 封装自 `@floating-ui/react`(`useFloating` + `useClick` / `useHover` + `useDismiss` + `useRole`),负责"算坐标 + 处理交互"这类底层逻辑,样式由 Popover 自行接管。
 
-**查阅时机**:加 dropdown / context menu / 信息卡浮层,或评估直接用 `@floating-ui/react`。短 hover 文案用 [`Tooltip`](#tooltip),不要在这里手写 `role="tooltip"`。
+**查阅时机**:加贴着元素的浮层 / 信息卡,或评估直接用 `@floating-ui/react`。短 hover 文案用 [`Tooltip`](#tooltip),不要在这里手写 `role="tooltip"`。右键菜单用 [`ContextMenu`](#contextmenu),贴着按钮的多层菜单用 [`Dropdown`](#dropdown)。
 
 **何时用**:
 
@@ -1310,6 +1312,7 @@ const loadOptions = async ({ query, offset, limit }: Params): Promise<Result<V>>
 - 选项是一层、没有子菜单 → [`Select`](#select)
 - 只是一块自定义内容 → [`Popover`](#popover)
 - 短 hover 说明 → [`Tooltip`](#tooltip)
+- 锚点是右键落下的点,不是某个元素 → [`ContextMenu`](#contextmenu)。面板数据仍是这里的 `DropdownPanel`
 
 **API**:
 
@@ -1319,17 +1322,55 @@ const loadOptions = async ({ query, offset, limit }: Params): Promise<Result<V>>
 </Dropdown>
 ```
 
-`panel.groups` 是分组。行有 `label`、可选 `detail`(行尾)、`checked`、`disabled`、`onSelect`。行再带 `panel` 就是子菜单,向右展开(`right-start`),悬停和点击都能开。`searchable` 时子面板顶部是 [`SearchInput`](#searchinput) 的 `ghost` 且 `showIcon={false}`,下面一条通栏 `border-border-hover`(和 [`Select`](#select) 的搜索行一样)。按 `label` 本地过滤,空结果是「没有匹配」。`width` 传给 Popover,不传则随内容。
+`panel.groups` 是分组。行有 `label`、可选 `icon`(行首)、`detail`(行尾,当前值或快捷键)、`checked`、`disabled`、`onSelect`。不传 `icon` 就只有文字;不传 `checked` 就没有勾;没有任何一行带 `panel` 时就是一级菜单。行再带 `panel` 就是子菜单,向右展开(`right-start`),悬停和点击都能开。`searchable` 时子面板顶部是 [`SearchInput`](#searchinput) 的 `ghost` 且 `showIcon={false}`,下面一条通栏 `border-border-hover`(和 [`Select`](#select) 的搜索行一样)。按 `label` 本地过滤,空结果是「没有匹配」。`width` 传给 Popover,不传则随内容。
 
 触发器由调用方传入,必须是单个元素(和 Popover 一样)。选中叶子行会关掉从这一层到根的菜单。Esc 和点外面由 Popover 处理。
 
-**视觉**:面板沿用 Popover(`rounded-lg`、`border-border-hover`、`bg-sidebar`),内边距 `p-1`。行高 30、`rounded-sm`,悬停 `bg-surface-hover`。勾用 `CheckIcon`,子菜单箭头用 `ChevronRightIcon`。分组名是 `text-xs text-fg-3`,组与组之间一条 `border-border`。
+**视觉**:面板沿用 Popover(`rounded-lg`、`border-border-hover`、`bg-sidebar`),内边距 `p-1`。行高 30、`rounded-sm`,悬停 `bg-surface-hover`。行首图标槽 14px、`text-fg-3`,图标由调用方传入。勾用 `CheckIcon`,子菜单箭头用 `ChevronRightIcon`。分组名是 `text-xs text-fg-3`,组与组之间一条 `border-border`。`disabled` 整行 `opacity-50`,悬停不变色。
 
 **踩坑备忘**:
 
 - 子菜单挂在 body 上,能点到是因为 Popover 把嵌套浮层放进同一棵 `FloatingTree`。不要在 Dropdown 里再包一层会挡住外部点击的浮层。
 - 搜索只看行的 `label`,不看分组名,也不走接口。
 - `disabled` 的行不会触发 `onSelect`,菜单也不因此关闭。
+
+## ContextMenu
+
+单文件 `ui/ContextMenu.tsx`。菜单内容和 [`Dropdown`](#dropdown) 是同一套(`DropdownPanel`:行首图标、行尾文字、勾、禁用、分组、向右子菜单、可搜索)。锚点不是元素,是右键落下的点。一行可以只有左边的文字。
+
+**查阅时机**:给一块区域加右键菜单,或核对菜单该贴元素还是贴指针。
+
+**何时用**:
+
+- 在某个区域上右键,菜单从光标的右下角长出来
+- 行数据和 Dropdown 一样,包括子菜单和搜索
+
+**何时不用**:
+
+- 菜单贴着一个按钮或当前值 → [`Dropdown`](#dropdown)
+- 只是一块自定义浮层 → [`Popover`](#popover)
+
+**API**:
+
+```tsx
+<ContextMenu panel={panel} className? >
+  <div>右键这块区域</div>
+</ContextMenu>
+```
+
+`panel` 就是 [`Dropdown`](#dropdown) 的 `DropdownPanel`。`children` 必须是单个 React 元素,并且要把 `onContextMenu` 留在这个元素上(DOM 节点天然可以)。调用方自己的 `onContextMenu` 会先跑;已经 `preventDefault` 时不再打开。否则吃掉系统菜单,在 `clientX` / `clientY` 打开。
+
+没有 `placement`。参考点是 0×0,`bottom-start` 让菜单左上角落在光标上,向右下展开。主轴偏移 6px。放不下时 `flip()` 换到对侧,对齐不够再改 start/end,`shift({ padding: 4 })` 与视口留 4px。坐标是视口坐标,定位用 `fixed`。再次右键会挪到新的点,菜单保持打开。
+
+选中叶子行关掉整棵菜单(含子菜单)。Esc 和点外面关闭。子菜单仍是 Dropdown 那一层,向右展开;点在子菜单上不算外部点击,Esc 先关最里层。
+
+**视觉**:外壳与 Popover 相同(`rounded-lg`、`border-border-hover`、`bg-sidebar`、`shadow-lg`、`z-[99]`),内容区与 Dropdown 相同(`p-1`、`max-h-80`)。`panel.width` 固定宽度,不传则随内容。
+
+**踩坑备忘**:
+
+- 不要把虚拟元素传给 Popover。Popover 的锚点必须是真实元素,触发也只有 click / hover。
+- 子菜单能点到,是因为这一层和 Popover 进同一棵 `FloatingTree`。
+- 右键菜单本身再右键不会弹出系统菜单。
 
 ## Tooltip
 
@@ -1564,7 +1605,7 @@ ui/MonacoEditor     ← extensions/plugins/files/viewers
 ui/MessageSurface   ← components/conversation/UserMessage
 ui/PaneHeader       ← extensions/plugins/terminal/TerminalView, extensions/plugins/files/FilesView
 ui/Popover          ← ui/Tooltip, ui/Dropdown, components/* (按需)
-ui/Dropdown         ← components/ModelPicker
+ui/Dropdown         ← ui/ContextMenu, components/ModelPicker
 ui/Modal            ← components/AddProjectDialog
 ui/Tooltip          ← ui/IconButton, ui/Heading, ui/Paragraph（Hint 经 Paragraph）
 ui/Paragraph        ← ui/Hint

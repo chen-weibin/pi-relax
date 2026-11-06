@@ -1,5 +1,5 @@
 import classNames from 'classnames'
-import { createContext, useContext, useState, type ReactElement } from 'react'
+import { createContext, useContext, useState, type ReactElement, type ReactNode } from 'react'
 import type { Placement } from '@floating-ui/react'
 import { CheckIcon, ChevronRightIcon } from '../icons'
 import { Popover, type PopoverTrigger } from './Popover'
@@ -8,6 +8,9 @@ import { SearchInput } from './SearchInput'
 export type DropdownRow = {
 	id: string
 	label: string
+	/** 行首图标。不传就只有文字。 */
+	icon?: ReactNode
+	/** 行尾补充，比如快捷键或当前值。 */
 	detail?: string
 	checked?: boolean
 	disabled?: boolean
@@ -35,7 +38,7 @@ export type DropdownProps = {
 	className?: string
 }
 
-const CloseMenu = createContext<() => void>(() => {})
+export const CloseMenu = createContext<() => void>(() => {})
 
 const rowClass =
 	'flex h-[30px] w-full cursor-pointer items-center gap-2 rounded-sm px-2.5 text-left text-sm text-fg outline-none hover:bg-surface-hover disabled:cursor-default disabled:opacity-50 disabled:hover:bg-transparent'
@@ -67,7 +70,7 @@ export function Dropdown({ children, panel, placement = 'bottom-start', trigger 
 	)
 }
 
-function DropdownList({ panel }: { panel: DropdownPanel }) {
+export function DropdownList({ panel }: { panel: DropdownPanel }) {
 	const [query, setQuery] = useState('')
 	const needle = query.trim().toLowerCase()
 	const groups = panel.searchable
@@ -116,8 +119,7 @@ function DropdownEntry({ row }: { row: DropdownRow }) {
 		return (
 			<Dropdown panel={row.panel} placement="right-start" trigger={['hover', 'click']}>
 				<button type="button" className={rowClass} disabled={row.disabled}>
-					<span className="min-w-0 flex-1 truncate">{row.label}</span>
-					{row.detail ? <span className="shrink-0 truncate text-fg-3">{row.detail}</span> : null}
+					<RowBody row={row} />
 					<span className="shrink-0 text-fg-3 [&_svg]:h-3 [&_svg]:w-3">
 						<ChevronRightIcon />
 					</span>
@@ -136,12 +138,22 @@ function DropdownEntry({ row }: { row: DropdownRow }) {
 				closeAll()
 			}}
 		>
-			<span className="min-w-0 flex-1 truncate">{row.label}</span>
+			<RowBody row={row} />
 			{row.checked ? (
 				<span className="shrink-0 text-fg [&_svg]:h-3 [&_svg]:w-3">
 					<CheckIcon />
 				</span>
 			) : null}
 		</button>
+	)
+}
+
+function RowBody({ row }: { row: DropdownRow }) {
+	return (
+		<>
+			{row.icon ? <span className="shrink-0 text-fg-3 [&_svg]:h-3.5 [&_svg]:w-3.5">{row.icon}</span> : null}
+			<span className="min-w-0 flex-1 truncate">{row.label}</span>
+			{row.detail ? <span className="shrink-0 truncate text-fg-3">{row.detail}</span> : null}
+		</>
 	)
 }
