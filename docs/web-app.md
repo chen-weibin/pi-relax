@@ -19,7 +19,7 @@ SSE / HTTP  →  按 sessionId 分流
 
 三份状态分开存。目录 store 不放正文，侧栏不订阅当前会话的块。
 
-- **目录**。侧栏一行：`id`、`cwd`、`name`、`firstMessage`、`created`、`modified`、`status`。`status` 只有 `idle` | `running`，与服务端一致。侧栏 mock 里的 success / failure 不进目录。展示标题：`name` 非空用 `name`，否则用 `firstMessage`。
+- **目录**。侧栏一行：`id`、`cwd`、`name`、`created`、`modified`、`status`。`status` 只有 `idle` | `running`，与服务端一致。侧栏 mock 里的 success / failure 不进目录。展示标题用 `name`。
 - **当前会话**。现有 `ConversationSnapshot`。同一时刻 React 只挂这一份全文。切走就丢掉块树，再打开用历史重建。
 - **草稿**。还没发送的新对话没有 sessionId，草稿只在内存里，按「当前这次新对话」存。刷新丢失可以接受。不写进会话文件。
 
@@ -73,7 +73,7 @@ Store 继续按字段切片订阅。做法见 [web-zustand-store-design.md](supe
 
 新建对话只是空草稿，出现在目标项目会话列的最前，标题为「新对话」，状态点用现有的 `normal`（`--fg-disabled`）。目标是当前选中会话所在的项目；没有选中则用默认工作区。每个项目最多一条，再点只是选中。选中草稿会清掉当前真实会话，不拉历史。刷新即丢。第一次发送才 `POST /api/sessions`。不先造空会话文件。
 
-删除走 `DELETE /api/sessions/:id`。改名走 `POST /api/sessions/:id/name`，空字符串清空标题，界面回到 `firstMessage`。
+删除走 `DELETE /api/sessions/:id`。改名走 `POST /api/sessions/:id/name`。侧栏标题只看 `name`。双击会话，或在会话行右键选「重命名」，中间标题变成输入框，状态点和时间不动。回车或失去焦点保存。输入为空，或与点编辑前相同，不发请求，标题仍是点编辑前的文字。接口仍接受空字符串把 `name` 清空，这个入口不发。
 
 ## 打开历史
 

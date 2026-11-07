@@ -9,6 +9,7 @@ export {
 	releaseOpenSession,
 	selectOpenSession,
 	promptConversation,
+	renameConversation,
 	sendConversation,
 	startSessionTransport,
 	subscribeOpenSessionEvents,
