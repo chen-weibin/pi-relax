@@ -57,6 +57,10 @@ export async function abortSession(id: string): Promise<SessionRecord> {
 	return data
 }
 
+export async function deleteSession(id: string): Promise<void> {
+	await http.delete(`/api/sessions/${encodeURIComponent(id)}`)
+}
+
 export async function renameSession(id: string, name: string): Promise<SessionRecord> {
 	const { data } = await http.post<SessionRecord>(`/api/sessions/${encodeURIComponent(id)}/name`, { name })
 	return data

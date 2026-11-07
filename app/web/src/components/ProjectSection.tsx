@@ -8,6 +8,7 @@ import {
 	loadMoreProjects,
 	loadProjectSessions,
 	openProjectDraft,
+	deleteConversation,
 	renameConversation,
 	selectOpenSession,
 	subscribeTransport,
@@ -142,6 +143,7 @@ export function ProjectSection({ className }: ProjectSectionProps) {
 										active: session.id === openSessionId,
 										onClick: () => selectOpenSession(session.id),
 										onRename: (name: string) => renameConversation(session.id, name),
+										onDelete: () => deleteConversation(session.id),
 										...(status ? { status } : {}),
 									}
 								}),

@@ -10,7 +10,7 @@ import { IconButton } from '../ui/IconButton'
 import { SessionItem, type SessionItemProps } from './SessionItem'
 
 export interface ProjectItemSession
-	extends Pick<SessionItemProps, 'title' | 'createdAt' | 'active' | 'onClick' | 'onRename' | 'status'> {
+	extends Pick<SessionItemProps, 'title' | 'createdAt' | 'active' | 'onClick' | 'onRename' | 'onDelete' | 'status'> {
 	id: string
 }
 
@@ -92,6 +92,7 @@ export function ProjectItem({
 								{...(s.active !== undefined ? { active: s.active } : {})}
 								{...(s.onClick ? { onClick: s.onClick } : {})}
 								{...(s.onRename ? { onRename: s.onRename } : {})}
+								{...(s.onDelete ? { onDelete: s.onDelete } : {})}
 							/>
 						))}
 						{sessionNote ? <p className="px-3 py-1 text-xs text-fg-3">{sessionNote}</p> : null}

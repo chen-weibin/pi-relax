@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import classNames from 'classnames'
-import { RenameIcon } from '../icons'
+import { useModal } from '../hooks/useModal'
+import { RenameIcon, TrashIcon } from '../icons'
 import { nextSessionName } from '../session/rename'
 import { ContextMenu } from '../ui/ContextMenu'
 import type { DropdownPanel } from '../ui/Dropdown'
@@ -16,6 +17,7 @@ export interface SessionItemProps {
 	active?: boolean
 	onClick?: () => void
 	onRename?: (name: string) => void | Promise<void>
+	onDelete?: () => void | Promise<void>
 	status?: SessionStatus
 }
 
@@ -32,7 +34,7 @@ function renderStatus(status: SessionStatus): ReactNode {
 	}
 }
 
-export function SessionItem({ title, createdAt, active = false, onClick, onRename, status }: SessionItemProps) {
+export function SessionItem({ title, createdAt, active = false, onClick, onRename, onDelete, status }: SessionItemProps) {
 	const [editing, setEditing] = useState(false)
 	const [draft, setDraft] = useState(title)
 	const [pending, setPending] = useState<string | null>(null)
@@ -73,6 +75,8 @@ export function SessionItem({ title, createdAt, active = false, onClick, onRenam
 		})
 	}
 
+	const { confirm, holder } = useModal()
+
 	const rowClass = classNames(
 		'flex h-[30px] w-full items-center gap-2.5 rounded-md pl-2.5 pr-2.5 text-left text-sm transition-colors duration-100 select-none',
 		active ? 'bg-surface-active text-fg-bright' : 'text-fg-2 hover:bg-surface-hover hover:text-fg-bright',
@@ -111,14 +115,39 @@ export function SessionItem({ title, createdAt, active = false, onClick, onRenam
 		</button>
 	)
 
-	if (!onRename) return row
+	if (!onRename && !onDelete) return row
 
 	const panel: DropdownPanel = {
 		groups: [
 			{
-				rows: [{ id: 'rename', label: '重命名', icon: <RenameIcon />, onSelect: begin }],
+				rows: [
+					...(onRename ? [{ id: 'rename', label: '重命名', icon: <RenameIcon />, onSelect: begin }] : []),
+					...(onDelete
+						? [
+								{
+									id: 'delete',
+									label: '删除',
+									icon: <TrashIcon />,
+									onSelect: () => {
+										void confirm({
+											title: '删除会话',
+											body: '删除后，这条会话会从列表里消失。',
+											onOk: () => onDelete(),
+										})
+									},
+								},
+							]
+						: []),
+				],
 			},
 		],
 	}
-	return <ContextMenu panel={panel}>{row}</ContextMenu>
+	return (
+		<>
+			{holder}
+			<ContextMenu panel={panel} className="min-w-[200px]">
+				{row}
+			</ContextMenu>
+		</>
+	)
 }

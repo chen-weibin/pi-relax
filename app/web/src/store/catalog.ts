@@ -42,6 +42,7 @@ interface CatalogState {
 	removeDraft: (cwd: string) => void
 	noteSentSession: (session: CatalogSession) => void
 	patchSession: (id: string, patch: { status?: CatalogSession['status']; name?: string; modified?: string }) => void
+	dropSession: (id: string) => void
 	setUnseenRun: (id: string, outcome: UnseenRun | null) => void
 	setSseStatus: (status: SseStatus) => void
 }
@@ -172,6 +173,16 @@ export const useCatalogStore = create<CatalogState>()(
 					if (patch.status !== undefined && row.status !== patch.status) row.status = patch.status
 					if (patch.name !== undefined && row.name !== patch.name) row.name = patch.name
 					if (patch.modified !== undefined && row.modified !== patch.modified) row.modified = patch.modified
+				}
+			}),
+		dropSession: (id) =>
+			set((state) => {
+				if (state.unseenRuns[id] !== undefined) delete state.unseenRuns[id]
+				for (const page of Object.values(state.sessionPages)) {
+					const next = page.sessions.filter((session) => session.id !== id)
+					if (next.length === page.sessions.length) continue
+					page.sessions = next
+					page.total = Math.max(0, page.total - 1)
 				}
 			}),
 		setUnseenRun: (id, outcome) =>
