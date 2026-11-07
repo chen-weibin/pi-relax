@@ -1,0 +1,28 @@
+.spinner {
+	border-radius: 9999px;
+	background: conic-gradient(
+		from 0deg,
+		transparent 0deg,
+		color-mix(in srgb, currentColor 15%, transparent) 20deg,
+		color-mix(in srgb, currentColor 40%, transparent) 60deg,
+		color-mix(in srgb, currentColor 70%, transparent) 120deg,
+		currentColor 180deg,
+		currentColor 200deg,
+		transparent 201deg
+	);
+	-webkit-mask: radial-gradient(circle, transparent 56%, #000 58%);
+	mask: radial-gradient(circle, transparent 56%, #000 58%);
+	animation: spinner-spin 1s linear infinite;
+}
+
+@keyframes spinner-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.spinner {
+		animation: none;
+	}
+}

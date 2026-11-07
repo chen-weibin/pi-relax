@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { CloseIcon, PlusIcon } from '../icons'
 import { Button, type ButtonVariant } from '../ui/Button'
 import { Preview } from './frame'
@@ -6,6 +7,7 @@ const variants: ButtonVariant[] = ['solid', 'outline', 'ghost', 'text']
 const sizes = ['sm', 'md', 'lg'] as const
 
 function ButtonDemo() {
+	const [waiting, setWaiting] = useState(false)
 	return (
 		<div className="flex flex-col gap-6">
 			{variants.map((variant) => (
@@ -37,6 +39,33 @@ function ButtonDemo() {
 				<Preview label="禁用">
 					<Button disabled>禁用</Button>
 				</Preview>
+				<Preview label="loading">
+					<Button tone="inverse" loading>
+						确认
+					</Button>
+				</Preview>
+				<Preview label="loading 在 prefix 前">
+					<Button tone="inverse" loading prefix={<PlusIcon />}>
+						新建
+					</Button>
+				</Preview>
+				<Preview label="自定义 loading 图标">
+					<Button loading loadingIcon={<CloseIcon />}>
+						关闭
+					</Button>
+				</Preview>
+				<Preview label="点一下等 2 秒">
+					<Button
+						tone="inverse"
+						loading={waiting}
+						onClick={() => {
+							setWaiting(true)
+							window.setTimeout(() => setWaiting(false), 2000)
+						}}
+					>
+						提交
+					</Button>
+				</Preview>
 				<Preview label="accent">
 					<Button className="bg-accent! text-fg! hover:bg-[color-mix(in_srgb,var(--accent),black_10%)]! active:bg-[color-mix(in_srgb,var(--accent),black_18%)]!">
 						绿色
@@ -57,7 +86,7 @@ function ButtonDemo() {
 export const buttonDoc = {
 	id: 'button',
 	heading: 'Button',
-	description: '带文字的按钮。变体、尺寸（圆角随尺寸变）、neutral / inverse，以及前后图标和整行。accent 是用 className 盖上的主题绿。',
+	description: '带文字的按钮。变体、尺寸（圆角随尺寸变）、neutral / inverse，前后图标、loading 和整行。loading 时不可点，转圈在 prefix 前面。accent 是用 className 盖上的主题绿。',
 	nav: ['Button'],
 	Demo: ButtonDemo,
 }
