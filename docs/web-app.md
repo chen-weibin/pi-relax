@@ -87,7 +87,7 @@ Store 继续按字段切片订阅。做法见 [web-zustand-store-design.md](supe
 
 通知仍是一帧一次。流式 Markdown 按 `defaultFeed` 交前缀，结束立刻画最终文本。快照只换正在写的那一块。
 
-同一条正在生成时，再发的文字留在前端队列，不调用 `streamingBehavior`。当前回复结束（含停止）后，按顺序把队首当作普通消息发出去，成功才从队列拿走。停止不删这个队列。队列里悬停可「取消」或「立刻发送」。立刻发送会先中止当前回复，再发那一条；这次中止不会把队首也自动发出去。取消只从队列去掉这一条。服务端的 `steer` / `followUp` 仍在接口上，输入框不再使用。
+同一条正在生成时，再发的文字留在前端队列，不调用 `streamingBehavior`。当前回复结束（含停止）后，按顺序把队首当作普通消息发出去，这条会话不在眼前也发，成功才从队列拿走。停止不删这个队列。队列里悬停可「取消」或「立刻发送」。立刻发送会先中止当前回复，再发那一条；这次中止不会把队首也自动发出去。取消只从队列去掉这一条。服务端的 `steer` / `followUp` 仍在接口上，输入框不再使用。
 
 中止走 `POST /api/sessions/:id/abort`。策略由服务端 `abortPolicy` 决定，前端不在本地猜服务端队列清没清，以响应为准。前端这条队列不受该策略影响。
 
@@ -147,7 +147,7 @@ Store 继续按字段切片订阅。做法见 [web-zustand-store-design.md](supe
 
 此块不做：后台会话的全文、模型选择器、工具块 UI。
 
-当前实现：`Composer` 在没有打开的会话时 `POST /api/sessions`（带草稿或默认工作区的 `cwd`），有会话则 `POST /api/sessions/:id/prompt`。创建返回前先按 sessionId 留下事件，选中后再放进短队列。202 后把会话插到该目录列表最前，标题先用刚发送的那句，并清掉草稿。忙时输入框仍可用。生成中再发不请求接口，按会话 id 留在 `src/session/pendingQueue.ts` 的内存队列里，刷新即丢，切走再回来还在。回复结束（含停止）后把队首按普通续发发出去，成功才删掉。输入框上方的「消息队列」浮层里，立刻发送会先中止，并且这次中止不顺带发出队首，只发点中的那一条；取消只删这一条。输入为空时圆按钮走 `POST /api/sessions/:id/abort`，有字时仍是发送。发送和中止的响应也会把这一行写成 `running` / `idle`。其它会话的行首在模块 5。`adaptAgentSession` 把 `thinking_*` / `text_*`、工具和用户 `message_end` 译成 `BlockFeedEvent`，压缩丢掉。工具怎么画见模块 7。`replace` 之后才 `apply`。delta 不换 `order` / 分组引用，只换正在写的那一块。开着的块按 `defaultFeed` 把前缀交给 Markdown，流式期挂代码外壳、不算 Mermaid；`complete` 的那一帧用最终文本并恢复 Mermaid。`run_end` 把还开着的块收成 `complete`。
+当前实现：`Composer` 在没有打开的会话时 `POST /api/sessions`（带草稿或默认工作区的 `cwd`），有会话则 `POST /api/sessions/:id/prompt`。创建返回前先按 sessionId 留下事件，选中后再放进短队列。202 后把会话插到该目录列表最前，标题先用刚发送的那句，并清掉草稿。忙时输入框仍可用。生成中再发不请求接口，按会话 id 留在 `src/session/pendingQueue.ts` 的内存队列里，刷新即丢，切走再回来还在。回复结束（含停止）后把队首按普通续发发出去，不在看这条也发，成功才删掉。每条 SSE 经 `projectAgentEvent` 读一次，同时得到块、输入框错误和目录备注。输入框上方的「消息队列」浮层里，立刻发送会先中止，并且这次中止不顺带发出队首，只发点中的那一条；取消只删这一条。输入为空时圆按钮走 `POST /api/sessions/:id/abort`，有字时仍是发送。发送和中止的响应也会把这一行写成 `running` / `idle`。其它会话的行首在模块 5。`adaptAgentSession` 把 `thinking_*` / `text_*`、工具和用户 `message_end` 译成 `BlockFeedEvent`，压缩丢掉。工具怎么画见模块 7。`replace` 之后才 `apply`。delta 不换 `order` / 分组引用，只换正在写的那一块。开着的块按 `defaultFeed` 把前缀交给 Markdown，流式期挂代码外壳、不算 Mermaid；`complete` 的那一帧用最终文本并恢复 Mermaid。`run_end` 把还开着的块收成 `complete`。
 
 ### 5. 后台状态
 
@@ -167,7 +167,7 @@ Store 继续按字段切片订阅。做法见 [web-zustand-store-design.md](supe
 
 此块不做：新的块类型。
 
-当前实现：输入框底栏右侧、发送钮左边是一个 `ghost` 按钮，文案是模型名加思考档位。点开用 `Dropdown`：一行「思考强度」，子菜单是该模型的 `thinkingLevels`，原文显示；一行「模型」，按 provider 分组，顶部可搜索。没有可用模型时按钮禁用。没打开会话时显示全局默认，改选走 `PUT /api/models/default`。打开会话且还没有本地覆盖时，显示 history 里的模型和 `thinkingLevel`；改模型走 `POST /api/sessions/:id/model`，只写全局默认，不改这条会话的上次模型。换会话或回到草稿会丢掉覆盖。新模型不支持当前档位时，落到接口给的 `defaultThinkingLevel`，再不成就列表第一项。创建和续发都带上当时的 `provider`、`model`、`thinkingLevel`。队列仍只存文本，自动发出和立刻发送在请求时读当前选择。切换失败把选择弹回去，错误显示在输入框下。设置页的模型分类仍是占位。
+当前实现：输入框底栏右侧、发送钮左边是一个 `ghost` 按钮，文案是模型名加思考档位。点开用 `Dropdown`：一行「思考强度」，子菜单是该模型的 `thinkingLevels`，原文显示；一行「模型」，按 provider 分组，顶部可搜索。没有可用模型时按钮禁用。没打开会话时显示全局默认，改选走 `PUT /api/models/default`。打开会话且还没有本地覆盖时，显示 history 里的模型和 `thinkingLevel`；改模型走 `POST /api/sessions/:id/model`，只写全局默认，不改这条会话的上次模型。换会话或回到草稿会丢掉覆盖。新模型不支持当前档位时，落到接口给的 `defaultThinkingLevel`，再不成就列表第一项。创建和续发都带上当时的 `provider`、`model`、`thinkingLevel`。队列仍只存文本。正看着这条时，自动发出和立刻发送读当前选择；人在别的会话上时，自动发出沿用这条自己的模型和思考档。切换失败把选择弹回去，错误显示在输入框下。设置页的模型分类仍是占位。
 
 ### 7. 工具与错误
 

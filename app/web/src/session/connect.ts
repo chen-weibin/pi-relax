@@ -8,7 +8,8 @@ import { ApiError } from '../api/http'
 import { useCatalogStore, useCommonStore, useLocalStore } from '../store'
 import { LIST_PAGE_SIZE } from './listPage'
 import { draftId, draftTarget } from './draft'
-import { noteCatalogEvent, type UnseenRun } from './catalogEvent'
+import { projectAgentEvent, type LiveFrame } from './projectEvent'
+import type { UnseenRun } from './catalogEvent'
 import { rekeyExtensionConversation, setExtensionConversation } from '../extensions/sessionTabs'
 import { toCatalogSession, toCatalogSessions } from './service'
 import {
@@ -27,11 +28,11 @@ import {
 
 type Snapshot = { openSessionId: string | null; phase: HistoryPhase }
 
-let state: TransportState<AgentSessionEvent> = createTransportState()
+let state: TransportState<LiveFrame> = createTransportState()
 let history: SessionContext | null = null
 let snapshot: Snapshot = { openSessionId: null, phase: 'idle' }
 const watchers = new Set<() => void>()
-const eventListeners = new Set<(event: AgentSessionEvent) => void>()
+const eventListeners = new Set<(frame: LiveFrame) => void>()
 
 function publish() {
 	if (snapshot.openSessionId === state.openSessionId && snapshot.phase === state.phase) return
@@ -39,7 +40,7 @@ function publish() {
 	for (const watcher of watchers) watcher()
 }
 
-function emitEvents(events: readonly AgentSessionEvent[]) {
+function emitEvents(events: readonly LiveFrame[]) {
 	if (events.length === 0) return
 	for (const event of events) {
 		for (const listener of eventListeners) listener(event)
@@ -65,7 +66,7 @@ export function getTransportGeneration(): number {
 	return state.generation
 }
 
-export function subscribeOpenSessionEvents(listener: (event: AgentSessionEvent) => void): () => void {
+export function subscribeOpenSessionEvents(listener: (frame: LiveFrame) => void): () => void {
 	eventListeners.add(listener)
 	return () => {
 		eventListeners.delete(listener)
@@ -84,11 +85,6 @@ let captured: { sessionId: string; event: AgentSessionEvent }[] = []
 const pendingRuns = new Map<string, UnseenRun>()
 const streamingDrafts = new Map<string, unknown>()
 
-function rememberDraft(sessionId: string, event: AgentSessionEvent) {
-	if (event.type === 'message_update' && event.message.role === 'assistant') streamingDrafts.set(sessionId, event.message)
-	else if (event.type === 'agent_settled') streamingDrafts.delete(sessionId)
-}
-
 export function getStreamingDraft(sessionId: string): unknown | null {
 	return streamingDrafts.get(sessionId) ?? null
 }
@@ -97,12 +93,18 @@ function rememberStatus(id: string, status: string | undefined) {
 	useCatalogStore.getState().patchSession(id, { status: status === 'running' ? 'running' : 'idle' })
 }
 
-function applyCatalogEvent(sessionId: string, event: AgentSessionEvent) {
-	const note = noteCatalogEvent(pendingRuns.get(sessionId) ?? null, event, sessionId === state.openSessionId)
+function ingest(sessionId: string, event: AgentSessionEvent) {
+	const read = projectAgentEvent(event, pendingRuns.get(sessionId) ?? null, sessionId === state.openSessionId)
+	if (read.draft === 'set') streamingDrafts.set(sessionId, read.message)
+	else if (read.draft === 'clear') streamingDrafts.delete(sessionId)
+	const note = read.catalog
 	if (note.pending) pendingRuns.set(sessionId, note.pending)
 	else pendingRuns.delete(sessionId)
 	if (note.patch) useCatalogStore.getState().patchSession(sessionId, note.patch)
 	if (note.unseen !== undefined) useCatalogStore.getState().setUnseenRun(sessionId, note.unseen)
+	const result = pushEvent(state, sessionId, { blocks: read.blocks, assistantError: read.assistantError })
+	state = result.state
+	if (result.forward) emitEvents([result.forward])
 }
 
 /** 创建请求还没返回 id 时，先按 sessionId 留下事件。选中后再放进短队列。 */
@@ -114,12 +116,15 @@ function takeCaptured(sessionId: string): AgentSessionEvent[] {
 }
 
 function queueCaptured(sessionId: string, events: readonly AgentSessionEvent[]) {
-	for (const event of events) {
-		applyCatalogEvent(sessionId, event)
-		const result = pushEvent(state, sessionId, event)
-		state = result.state
-		if (result.forward) emitEvents([result.forward])
-	}
+	for (const event of events) ingest(sessionId, event)
+}
+
+/** 续发指定会话。不看当前打开的是哪一条。`choice` 为假时沿用这条会话自己的模型和思考档。 */
+export async function promptConversation(sessionId: string, text: string, choice = true): Promise<void> {
+	const trimmed = text.trim()
+	if (!trimmed) return
+	const record = await promptSession(sessionId, trimmed, undefined, choice ? getSendChoice() : undefined)
+	rememberStatus(sessionId, record.status)
 }
 
 /** 没有打开的会话就创建并发送。已有则续发。忙时不带 behavior 会得到 BUSY。 */
@@ -128,8 +133,12 @@ export async function sendConversation(text: string, behavior?: StreamingBehavio
 	if (!trimmed) return
 	const openId = state.openSessionId
 	if (openId) {
-		const record = await promptSession(openId, trimmed, behavior, getSendChoice())
-		rememberStatus(openId, record.status)
+		if (behavior) {
+			const record = await promptSession(openId, trimmed, behavior, getSendChoice())
+			rememberStatus(openId, record.status)
+			return
+		}
+		await promptConversation(openId, trimmed)
 		return
 	}
 	const catalog = useCatalogStore.getState()
@@ -357,11 +366,7 @@ export function startSessionTransport(): () => void {
 		},
 		onEvent(sessionId, event) {
 			if (captureCreate) captured.push({ sessionId, event })
-			rememberDraft(sessionId, event)
-			applyCatalogEvent(sessionId, event)
-			const result = pushEvent(state, sessionId, event)
-			state = result.state
-			if (result.forward) emitEvents([result.forward])
+			ingest(sessionId, event)
 		},
 	}).catch(() => {
 		if (!controller.signal.aborted) useCatalogStore.getState().setSseStatus('reconnecting')

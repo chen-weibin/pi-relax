@@ -6,9 +6,8 @@ import { abortSession, createSession, getSessionHistory, listSessions, promptSes
 import type { SessionRecord } from '../api/sessions/types'
 import { parseSessionEvent, subscribeSessionEvents } from '../api/sse'
 import { getDefaultWorkspace } from '../api/workspace'
-import { adaptAgentSession } from '../conversation/adaptAgentSession'
-import { assistantErrorFromEvent } from '../conversation/assistantError'
 import { historyAssistantError } from '../conversation/historyMessages'
+import { projectAgentEvent, type LiveFrame } from '../session/projectEvent'
 import { createBlockRuntime, isRunBusy } from '../conversation'
 import { translateHistory } from '../conversation/translateHistory'
 import { LIST_PAGE_SIZE } from '../session/listPage'
@@ -57,8 +56,8 @@ export function ChatLab() {
 	const openId = useRef<string | null>(null)
 	const phase = useRef<'idle' | 'loading' | 'ready'>('ready')
 	const ticket = useRef(0)
-	const queue = useRef<AgentSessionEvent[]>([])
-	const captured = useRef<{ sessionId: string; event: AgentSessionEvent }[]>([])
+	const queue = useRef<LiveFrame[]>([])
+	const captured = useRef<{ sessionId: string; frame: LiveFrame }[]>([])
 	const creating = useRef(false)
 	const tapeRef = useRef<Tape>(createTape())
 	const tapePhaseRef = useRef<TapePhase>('idle')
@@ -110,10 +109,13 @@ export function ChatLab() {
 		rememberTape(next)
 	}
 
+	const applyFrame = (frame: LiveFrame) => {
+		for (const item of frame.blocks) runtime.apply(item)
+		if (frame.assistantError !== undefined) setAssistantError(frame.assistantError)
+	}
+
 	const applyEvent = (event: AgentSessionEvent) => {
-		for (const item of adaptAgentSession(event)) runtime.apply(item)
-		const next = assistantErrorFromEvent(event)
-		if (next !== undefined) setAssistantError(next)
+		applyFrame(projectAgentEvent(event, null, true))
 	}
 
 	const cancelReplay = () => {
@@ -136,22 +138,24 @@ export function ChatLab() {
 	}
 
 	const noteEvent = (sessionIdOfEvent: string, event: AgentSessionEvent) => {
-		if (event.type === 'agent_start' || event.type === 'agent_settled') {
-			const status = event.type === 'agent_start' ? 'running' : 'idle'
+		const read = projectAgentEvent(event, null, sessionIdOfEvent === openId.current)
+		const status = read.catalog.patch?.status
+		if (status) {
 			setSessions((rows) => rows.map((row) => (row.id === sessionIdOfEvent ? { ...row, status } : row)))
 			if (sessionIdOfEvent === openId.current) setRun(status)
 		}
+		const frame: LiveFrame = { blocks: read.blocks, assistantError: read.assistantError }
 		if (replaying.current) return
 		if (creating.current) {
-			captured.current.push({ sessionId: sessionIdOfEvent, event })
+			captured.current.push({ sessionId: sessionIdOfEvent, frame })
 			return
 		}
 		if (sessionIdOfEvent !== openId.current) return
 		if (phase.current !== 'ready') {
-			queue.current.push(event)
+			queue.current.push(frame)
 			return
 		}
-		applyEvent(event)
+		applyFrame(frame)
 	}
 
 	useEffect(() => {
@@ -206,7 +210,7 @@ export function ChatLab() {
 		const ticketNo = ++ticket.current
 		openId.current = id
 		phase.current = 'loading'
-		const preload = captured.current.filter((item) => item.sessionId === id).map((item) => item.event)
+		const preload = captured.current.filter((item) => item.sessionId === id).map((item) => item.frame)
 		captured.current = []
 		creating.current = false
 		queue.current = []
@@ -228,7 +232,7 @@ export function ChatLab() {
 			setAssistantError(historyAssistantError(history.messages))
 			const rest = queue.current.splice(0)
 			phase.current = 'ready'
-			for (const event of [...preload, ...rest]) applyEvent(event)
+			for (const frame of [...preload, ...rest]) applyFrame(frame)
 			if (runStatusRef.current === 'running' && !isRunBusy(runtime.getSnapshot().runPhase)) runtime.resumeLive()
 			setNotice(null)
 		} catch (error) {

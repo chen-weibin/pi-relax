@@ -8,6 +8,7 @@ export {
 	registerProjectDirectory,
 	releaseOpenSession,
 	selectOpenSession,
+	promptConversation,
 	sendConversation,
 	startSessionTransport,
 	subscribeOpenSessionEvents,
