@@ -1,5 +1,5 @@
 import type { AgentSessionEvent, SessionContext } from '@earendil-works/pi-coding-agent'
-import { createProject, listProjects } from '../api/projects'
+import { createProject, deleteProject, listProjects } from '../api/projects'
 import { getDefaultWorkspace } from '../api/workspace'
 import { abortSession, createSession, deleteSession, getSessionHistory, listSessions, promptSession, renameSession, type StreamingBehavior } from '../api/sessions'
 import { getSendChoice } from './modelPicker'
@@ -160,6 +160,11 @@ export async function sendConversation(text: string, behavior?: StreamingBehavio
 		captured = []
 		throw error
 	}
+}
+
+export async function removeProject(id: string): Promise<void> {
+	await deleteProject(id)
+	useCatalogStore.getState().dropProject(id)
 }
 
 export async function deleteConversation(id: string): Promise<void> {

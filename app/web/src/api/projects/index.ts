@@ -6,6 +6,10 @@ export async function createProject(cwd: string): Promise<ProjectRecord> {
 	return data
 }
 
+export async function deleteProject(id: string): Promise<void> {
+	await http.delete(`/api/projects/${encodeURIComponent(id)}`)
+}
+
 export async function listProjects(offset: number, limit: number): Promise<ProjectList> {
 	const { data } = await http.get<ProjectList>('/api/projects', { params: { offset, limit } })
 	return data

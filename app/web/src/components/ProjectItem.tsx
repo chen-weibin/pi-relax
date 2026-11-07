@@ -1,10 +1,14 @@
 import classNames from 'classnames'
+import { useModal } from '../hooks/useModal'
 import {
 	ChevronRightIcon,
 	FolderClosedIcon,
 	FolderOpenIcon,
 	PlusIcon,
+	TrashIcon,
 } from '../icons'
+import { ContextMenu } from '../ui/ContextMenu'
+import type { DropdownPanel } from '../ui/Dropdown'
 import { Expandable } from '../ui/Expandable'
 import { IconButton } from '../ui/IconButton'
 import { SessionItem, type SessionItemProps } from './SessionItem'
@@ -21,6 +25,7 @@ export interface ProjectItemProps {
 	active?: boolean
 	onToggle: () => void
 	onAddSession: () => void
+	onRemove?: () => void | Promise<void>
 	sessionNote?: string | null
 	onLoadMoreSessions?: () => void
 }
@@ -32,11 +37,12 @@ export function ProjectItem({
 	active = false,
 	onToggle,
 	onAddSession,
+	onRemove,
 	sessionNote,
 	onLoadMoreSessions,
 }: ProjectItemProps) {
-	return (
-		<div className="group/project flex flex-col select-none">
+	const { confirm, holder } = useModal()
+	const header = (
 			<div className="group/row relative h-[30px] rounded-md">
 				<button
 					type="button"
@@ -80,6 +86,38 @@ export function ProjectItem({
 					</IconButton>
 				</div>
 			</div>
+	)
+	const panel: DropdownPanel = {
+		groups: [
+			{
+				rows: [
+					{
+						id: 'remove',
+						label: '从侧边栏移除',
+						icon: <TrashIcon />,
+						onSelect: () => {
+							if (!onRemove) return
+							void confirm({
+								title: '从侧边栏移除',
+								body: '项目会从侧边栏消失，其中的会话还在。',
+								onOk: () => onRemove(),
+							})
+						},
+					},
+				],
+			},
+		],
+	}
+	return (
+		<div className="group/project flex flex-col select-none">
+			{holder}
+			{onRemove ? (
+				<ContextMenu panel={panel} className="min-w-[200px]">
+					{header}
+				</ContextMenu>
+			) : (
+				header
+			)}
 			<Expandable open={expanded} duration={200}>
 				{sessions.length > 0 || sessionNote || onLoadMoreSessions ? (
 					<div className="mt-0.5 flex flex-col gap-0.5">

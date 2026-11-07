@@ -43,6 +43,7 @@ interface CatalogState {
 	noteSentSession: (session: CatalogSession) => void
 	patchSession: (id: string, patch: { status?: CatalogSession['status']; name?: string; modified?: string }) => void
 	dropSession: (id: string) => void
+	dropProject: (id: string) => void
 	setUnseenRun: (id: string, outcome: UnseenRun | null) => void
 	setSseStatus: (status: SseStatus) => void
 }
@@ -184,6 +185,13 @@ export const useCatalogStore = create<CatalogState>()(
 					page.sessions = next
 					page.total = Math.max(0, page.total - 1)
 				}
+			}),
+		dropProject: (id) =>
+			set((state) => {
+				const next = state.projects.filter((project) => project.id !== id)
+				if (next.length === state.projects.length) return
+				state.projects = next
+				state.projectsTotal = Math.max(0, state.projectsTotal - 1)
 			}),
 		setUnseenRun: (id, outcome) =>
 			set((state) => {

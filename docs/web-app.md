@@ -67,7 +67,7 @@ Store 继续按字段切片订阅。做法见 [web-zustand-store-design.md](supe
 
 ## 目录与项目登记
 
-侧栏先拉 `GET /api/projects?offset=0&limit=20`，并另请求 `GET /api/workspace` 拿到默认工作区。前端把默认工作区固定在第一行，名字用接口返回的 `name`（目录名）；已登记的同一 `cwd` 不重复。项目没有收起记录时默认展开，并拉 `GET /api/sessions?cwd=`，同样每次 20 条；收起的不请求。收起名单在 `useLocalStore` 的 `projectsCollapsed`，并写入 `localStorage` 的 `relax`（见 [web.md](web.md) 的「持久化」，查阅时机：改侧栏展开或面板宽度的记住方式时）。项目列表底部、以及每个项目的会话底部，在还没拿完 `total` 时各有一个「更多」。收起不重新请求。新建会话会把还没有项目行的 cwd 补进项目表。已软删除的目录不会因此回来。更早留下、又从未登记的目录，要再在那里新建一条会话，或走登记接口，才会出现。登记入口是项目标题右侧的文件夹按钮：居中输入框，用户自己粘贴绝对路径，提交 `POST /api/projects`。目录不存在等 400 留在弹框里。`409` 则用已登记的那一行。
+侧栏先拉 `GET /api/projects?offset=0&limit=20`，并另请求 `GET /api/workspace` 拿到默认工作区。前端把默认工作区固定在第一行，名字用接口返回的 `name`（目录名）；已登记的同一 `cwd` 不重复。项目没有收起记录时默认展开，并拉 `GET /api/sessions?cwd=`，同样每次 20 条；收起的不请求。收起名单在 `useLocalStore` 的 `projectsCollapsed`，并写入 `localStorage` 的 `relax`（见 [web.md](web.md) 的「持久化」，查阅时机：改侧栏展开或面板宽度的记住方式时）。项目列表底部、以及每个项目的会话底部，在还没拿完 `total` 时各有一个「更多」。收起不重新请求。新建会话会把还没有项目行的 cwd 补进项目表。已软删除的目录不会因此回来。更早留下、又从未登记的目录，要再在那里新建一条会话，或走登记接口，才会出现。登记入口是项目标题右侧的文件夹按钮：居中输入框，用户自己粘贴绝对路径，提交 `POST /api/projects`。目录不存在等 400 留在弹框里。`409` 则用已登记的那一行。已登记项目的标题可右键「从侧边栏移除」，确认后才发 `DELETE /api/projects/:id`。默认工作区那一行没有这项。
 
 项目登记在服务端 `GET /api/projects`（见 [server-implemented.md](server-implemented.md)，查阅时机：接侧栏项目列表时）。未指定工作区时的目录是 `~/.relax/workspace`（随服务端 `home` 换走，见 [server.md](server.md)）。多根工作区不做。
 

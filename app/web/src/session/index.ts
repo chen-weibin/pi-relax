@@ -6,6 +6,7 @@ export {
 	openDraftForCurrentProject,
 	openProjectDraft,
 	registerProjectDirectory,
+	removeProject,
 	releaseOpenSession,
 	selectOpenSession,
 	promptConversation,

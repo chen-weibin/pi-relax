@@ -9,6 +9,7 @@ import {
 	loadProjectSessions,
 	openProjectDraft,
 	deleteConversation,
+	removeProject,
 	renameConversation,
 	selectOpenSession,
 	subscribeTransport,
@@ -156,6 +157,7 @@ export function ProjectSection({ className }: ProjectSectionProps) {
 									expanded={!projectsCollapsed.includes(row.id)}
 									onToggle={() => toggleProject(row.id, row.cwd)}
 									onAddSession={() => handleAddSession(row.cwd)}
+									{...(row.id === 'default' ? {} : { onRemove: () => removeProject(row.id) })}
 									sessionNote={projectsCollapsed.includes(row.id) ? null : sessionNote(page, Boolean(draft))}
 									{...(hasMore ? { onLoadMoreSessions: () => loadProjectSessions(row.cwd, true) } : {})}
 								/>
