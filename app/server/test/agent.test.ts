@@ -10,6 +10,7 @@ import { BusyError, HttpError } from '../src/utils/errors.js'
 import type { RuntimeFactory } from '../src/agent/factory.js'
 import { saveApiKey, writeDefault } from '../src/agent/models.js'
 import { listProjects, softDeleteProject } from '../src/projects/store.js'
+import { ensureSessionRow } from '../src/sessions/index-row.js'
 import { persistChat, removeHome, tempRelaxHome } from './home.js'
 
 function fakeFactory(): RuntimeFactory {
@@ -128,6 +129,42 @@ describe('agent', () => {
 		})
 		assert.equal(queuedRun.status, 'running')
 		assert.deepEqual(queued, ['steer'])
+		keep()
+	})
+
+	it('keeps the run going when steer fails between turns', async () => {
+		const agent = new Agent(async ({ sessionManager }) => {
+			const listeners = new Set<(event: AgentSessionEvent) => void>()
+			const session = {
+				sessionManager,
+				get isStreaming() {
+					return false
+				},
+				async prompt(_text: string, options?: { streamingBehavior?: string }) {
+					if (options?.streamingBehavior) throw new Error('steer failed')
+					for (const listener of listeners) listener({ type: 'agent_start' })
+				},
+				getAvailableThinkingLevels() {
+					return ['off', 'minimal', 'low', 'medium', 'high']
+				},
+				setThinkingLevel() {},
+				subscribe(listener: (event: AgentSessionEvent) => void) {
+					listeners.add(listener)
+					return () => listeners.delete(listener)
+				},
+				dispose() {},
+				clearQueue() {
+					return { steering: [] as string[], followUp: [] as string[] }
+				},
+				async abort() {},
+			}
+			return { session: session as unknown as AgentSession }
+		})
+		const keep = agent.subscribe(() => {})
+		const first = await agent.prompt({ text: 'hi', cwd: homedir() })
+		await agent.prompt({ text: 'now', sessionId: first.id, streamingBehavior: 'steer' })
+		await new Promise((resolve) => setImmediate(resolve))
+		assert.equal(agent.statusOf(first.id), 'running')
 		keep()
 	})
 
@@ -307,6 +344,7 @@ describe('agent', () => {
 
 	it('loads history from SessionManager.buildSessionContext', async () => {
 		const manager = persistChat(homedir(), 'q', 'a')
+		ensureSessionRow(manager)
 		const agent = new Agent(fakeFactory())
 		const history = await agent.history(manager.getSessionId())
 		assert.ok(history.messages.length >= 2)

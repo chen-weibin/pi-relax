@@ -1,6 +1,7 @@
-import { unlinkSync } from 'node:fs'
+import { existsSync, unlinkSync } from 'node:fs'
 import { SessionManager, type SessionInfo } from '@earendil-works/pi-coding-agent'
 import { ensureRelaxHome, getDefaultWorkspace } from '../config/home.js'
+import { sessionRow } from './rows.js'
 import type { SessionHistory, SessionRecord, SessionStatus } from './types.js'
 
 /** 磁盘扫描用。列表接口不走这里，modified 也不再在这里现算。 */
@@ -57,11 +58,11 @@ export function historyFrom(manager: SessionManager): SessionHistory {
 	return manager.buildSessionContext()
 }
 
-/** 按 id 读取历史；找不到则返回 undefined。 */
+/** 按表里的路径读历史。没有行、已逻辑删、或文件不在，则返回 undefined。不扫会话目录。 */
 export async function historyById(id: string): Promise<SessionHistory | undefined> {
-	const info = await findSessionInfo(id)
-	if (!info) return undefined
-	return historyFrom(openSession(info.path))
+	const row = sessionRow(id)
+	if (!row || row.deletedAt || !existsSync(row.path)) return undefined
+	return historyFrom(openSession(row.path))
 }
 
 /** 删除会话文件。找不到返回 false。 */

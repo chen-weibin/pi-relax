@@ -5,7 +5,8 @@ import { after, before, describe, it } from 'node:test'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { closeRelaxDb, relaxDb } from '../src/db/connection.js'
-import { defaultCwd, historyFrom, listSessions } from '../src/sessions/index.js'
+import { defaultCwd, historyById, historyFrom, listSessions } from '../src/sessions/index.js'
+import { insertSession } from '../src/sessions/rows.js'
 import { persistChat, removeHome, tempRelaxHome } from './home.js'
 
 describe('sessions files', () => {
@@ -51,6 +52,19 @@ describe('sessions files', () => {
 		const roles = history.messages.map((message) => (message as { role: string }).role)
 		assert.ok(roles.includes('user'))
 		assert.ok(roles.includes('assistant'))
+	})
+
+	it('reads cold history from the stored path and ignores a missing file', async () => {
+		const manager = persistChat(cwd, 'cold', 'reply')
+		const path = manager.getSessionFile()
+		assert.ok(path)
+		const id = manager.getSessionId()
+		const now = new Date().toISOString()
+		insertSession({ id, cwd, path, name: 'cold', created: now, modified: now, completed: false })
+		const history = await historyById(id)
+		assert.ok(history?.messages.some((message) => (message as { role: string }).role === 'user'))
+		relaxDb().prepare(`UPDATE sessions SET path = ? WHERE id = ?`).run(join(home, 'missing.jsonl'), id)
+		assert.equal(await historyById(id), undefined)
 	})
 })
 

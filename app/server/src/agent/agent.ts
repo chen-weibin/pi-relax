@@ -121,8 +121,8 @@ export class Agent {
 			slot.session.setThinkingLevel(input.thinkingLevel)
 		}
 		if (busy && input.streamingBehavior) {
-			void slot.session.prompt(text, { streamingBehavior: input.streamingBehavior }).catch(() => {
-				slot.running = false
+			void slot.session.prompt(text, { streamingBehavior: input.streamingBehavior }).catch((error: unknown) => {
+				console.error(error)
 			})
 			return this.record(slot.session.sessionManager.getSessionId(), 'running')
 		}

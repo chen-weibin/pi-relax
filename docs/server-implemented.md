@@ -15,9 +15,9 @@
 
 1. 第一次发送即创建会话并流式回复。不先写空文件，第一条 user 消息发出后落盘。
 2. 续发。同一条会话正在生成时，不带插队方式再发会返回 409 `BUSY`。
-3. 生成中可以继续发。`steer`：当前这次回复及其工具调用结束后、下一次模型调用前插入。`followUp`：这一轮全部结束后再发。两种都不打断正在吐的字。多条排队时怎么出队由全局 `~/.relax/agent/settings.json` 的 `steeringMode` / `followUpMode` 决定，各自为 `all`（到达出队点时一次注入全部）或 `one-at-a-time`（一次一条）。缺文件时都是 `one-at-a-time`。`PATCH /api/settings` 写入后，已经在内存里的会话会立刻改用新模式。新建会话仍由基座合并全局文件和该工作区 `.pi/settings.json`。
+3. 生成中可以继续发。`steer`：当前这次回复及其工具调用结束后、下一次模型调用前插入。`followUp`：这一轮全部结束后再发。两种都不打断正在吐的字。插队那次请求失败时，原来这一轮仍算正在生成，错误只打在服务端日志里。多条排队时怎么出队由全局 `~/.relax/agent/settings.json` 的 `steeringMode` / `followUpMode` 决定，各自为 `all`（到达出队点时一次注入全部）或 `one-at-a-time`（一次一条）。缺文件时都是 `one-at-a-time`。`PATCH /api/settings` 写入后，已经在内存里的会话会立刻改用新模式。新建会话仍由基座合并全局文件和该工作区 `.pi/settings.json`。
 4. 中止当前生成。没有在生成也成功。策略在同一份全局文件的 `relax.abortPolicy`：`clear-then-abort`（默认，先清空 steer / followUp 再停当前这一轮）或 `abort-only`（只停当前这一轮，队列留下，之后仍会发出去）。热会话中止时再读全局文件和该工作区 `.pi/settings.json`，项目层的 `relax.abortPolicy` 盖过全局。`clear-then-abort` 的响应在会话信息上多一个 `cleared`（`steering` 与 `followUp` 两条文本数组）；`abort-only` 时这两个数组为空。没有请求字段。
-5. 列会话读 `sessions` 表，不扫每份 JSONL 重算 `modified`。可按工作区过滤，也可按修改时间（`modifiedFrom`、`modifiedTo`）和 `completed=true|false` 过滤，并用成对的 `offset`、`limit` 截取（`limit` 至多 200）。响应多一个 `total`，每条带 `completed`。不返回 `firstMessage`。生成中的 `status` 用内存里的状态盖上去。单条信息同样读这张表。历史仍用 pi 的 `buildSessionContext()`，含消息、当前思考档位和模型。热会话在这份后面附上还没落盘的 `streamingMessage`；同一条引用，或相同角色和时间戳，不重复附。表结构见 [server-sqlite.md](server-sqlite.md)。
+5. 列会话读 `sessions` 表，不扫每份 JSONL 重算 `modified`。可按工作区过滤，也可按修改时间（`modifiedFrom`、`modifiedTo`）和 `completed=true|false` 过滤，并用成对的 `offset`、`limit` 截取（`limit` 至多 200）。响应多一个 `total`，每条带 `completed`。不返回 `firstMessage`。生成中的 `status` 用内存里的状态盖上去。单条信息同样读这张表。历史仍用 pi 的 `buildSessionContext()`，含消息、当前思考档位和模型。热会话在这份后面附上还没落盘的 `streamingMessage`；同一条引用，或相同角色和时间戳，不重复附。不在内存里的会话用表里的 `path` 打开，不扫全部会话文件。表结构见 [server-sqlite.md](server-sqlite.md)。
 6. 删除和清除都只写 `deleted_at`，并从内存卸掉。JSONL 先留在磁盘上。`POST /api/projects/:id/sessions/purge` 按 `modifiedBefore`（修改时间早于该时刻）或 `completed: true` 逻辑删掉一个项目下的一部分，两个都给则同时满足才删。`POST /api/projects/:id/purge` 逻辑删掉该项目下全部会话，再删掉项目行。
 6.1. `POST /api/sessions/:id/completed` 改 `sessions.completed`。`0` 就是未完成。文件已经不在则 404，并把这行逻辑删。
 6.2. `GET /api/sessions/storage` 返回 `sessions/` 下 `*.jsonl` 的个数和该目录树的字节数。逻辑删不减这个数。
