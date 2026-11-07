@@ -50,6 +50,7 @@
 | 数字步进器(- n + 圆角 pill) | [`NumberStepper`](#numberstepper) | 不要写裸 `<div flex><button>-</button><span>{n}</span><button>+</button></div>` 三段散落 |
 | 连续范围拖拽(0–100% / 任意区间,带 thumb + 槽位) | [`ProgressBar`](#progressbar) | 不要写裸 `<input type="range">`(样式无法走 token、a11y / 键盘 / pointer capture 都要自己粘) |
 | 轻量卡片外壳(无角色语义) | [`MessageSurface`](#messagesurface) | 不要在块组件里手写 `bg-surface rounded-md border-border` 之类的样式散落 |
+| 一列短横，点一条、悬停看说明 | [`DashRail`](#dashrail) | 不要手写一列短横再自己定位浮层；一句说明用 [`Tooltip`](#tooltip)，贴按钮的菜单用 [`Popover`](#popover) |
 | 「正在生成 / 思考中」的 3 点循环动效 | [`LoadingDots`](#loadingdots) | 不要写 3 个 `<span>` + 自写 `@keyframes`;不要用 `DotMatrix`(它是 3×3 / 4×4 点阵,语义/视觉不一样) |
 | 点阵 loading(3×3 / 4×4,多尺寸多形状) | [`DotMatrix`](#dotmatrix) | 不要为单个 loading 写一次性 `<div>` 网格 + 自写 CSS `@keyframes`(`motion/react` 已在依赖里) |
 | 单点状态指示(成功 / 失败 / 已读) | [`StatusDot`](#statusdot) | 不要为 `success` / `failure` 单独写 `<div>` + 内联颜色;统一走 `StatusDot` + 项目语义色 token |
@@ -87,6 +88,7 @@
 | 手写正文的字号、颜色、换行和省略 | 用 [`Paragraph`](#paragraph) |
 | 辅助说明用 `Paragraph` 再改成 `text-sm text-fg-3` | 用 [`Hint`](#hint)。输入框框下那一行仍用 [`Input`](#input) 的 `hint`,它有绝对定位和状态色 |
 | 空区域手写居中的 `text-sm text-fg-3`,或自己拼图标加文案 | 用 [`EmptyState`](#emptystate)。文案和图标由调用方传入 |
+| 手写一列短横，再自己定位 hover 卡片 | 用 [`DashRail`](#dashrail)。一句说明仍用 [`Tooltip`](#tooltip)，贴按钮的菜单仍用 [`Popover`](#popover) |
 
 ## Expandable
 
@@ -567,6 +569,58 @@
 | 背景 | `#1E1E1E`(比 `--app` 亮 9 阶,比 `--surface` 深) |
 | 内边距 | `12px` |
 | 文字色 | `text-fg`(14px,`text-base`) |
+
+## DashRail
+
+单文件 `ui/DashRail.tsx`。一列等距短横，左对齐。整列都可点：点击时取离指针更近的一条，只有这次点击才换当前项。当前项的亮色不跟鼠标走。指针在列上滑动时，离指针中心越近的线越长，正中那条明显向右拉长；说明跟这条走，不跟当前项走。说明由调用方传入，组件不认识消息、文件或会话。
+
+**查阅时机**:要一条可点的短横轨(例如以后贴在对话左侧，用来切到某一条)，或判断该用短横、短提示还是菜单。
+
+**何时用**:
+
+- 有一组并列项，每项在界面上只占一条短横
+- 需要在整列里点最近的一条，靠近时再看一块说明
+
+**何时不用**:
+
+- 一句悬停说明 → [`Tooltip`](#tooltip)
+- 贴着按钮的菜单或自定义浮层 → [`Popover`](#popover)
+- 短横要按滚动位置拉开距离 → 自己算位置；这里项与项等距
+
+**API**:
+
+```tsx
+<DashRail
+  items={[
+    { id: 'a', label: '第一条', preview: <p>说明</p> },
+    { id: 'b' },
+  ]}
+  activeId={activeId}             // 传入即受控；不传走内部 state
+  defaultActiveId="a"             // 仅非受控的初始项
+  onSelect={setActiveId}
+  ariaLabel="列表"                // 默认「列表」
+/>
+```
+
+`items[].preview` 是右侧说明。`null` / `undefined` / `false` / `''` 时没有浮层，靠近时仍会凸出，点击仍会选中。`label` 是按钮的无障碍名称，不传则用从 1 开始的序号。
+
+点击：受控时只调用 `onSelect`；非受控时内部记下当前 id，并同样调用 `onSelect`。点在两条之间时，选离点击位置更近的那条。
+
+**视觉**:
+
+| 项 | 值 |
+|---|---|
+| 排列 | 纵向、左对齐。每条热区 `h-3`，整列宽 `w-10`，列内空白也算命中 |
+| 线条 | 高 `2px`（`h-0.5`），左端对齐，向右变长 |
+| 静止 | `w-2.5`，`bg-fg-disabled`。当前项同样是这个长度，但是 `bg-fg-bright`，指针挪开也不换 |
+| 指针滑动 | 按离每条线中心的距离拉长，原点在左。正中约 `scaleX(2.7)` 且变亮，旁边一条略长。200ms 过渡。离开后长度收回，当前项仍亮 |
+| 说明卡 | 跟指针正中那条走，不是跟当前项。[`Popover`](#popover) 受控打开，`placement="right"`，宽 280，内容区 `p-3`。划过时约 80ms 才换卡 |
+| 卡片排版 | 由 `preview` 自己负责 |
+
+**踩坑备忘**:
+
+- 浮层定位和翻转走 Popover，打开与否由最近的一条决定。指针离开列之后约 160ms 才收，方便移进卡片。
+- `activeId` 传了(含空字符串)就是受控。想「没有当前项」就不要传 `activeId`，或传一个不在 `items` 里的 id。
 
 ## Editor
 

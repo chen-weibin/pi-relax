@@ -2,6 +2,7 @@ import type { ComponentType } from 'react'
 import { buttonDoc } from './Button'
 import { disclosureRowDoc } from './DisclosureRow'
 import { contextMenuDoc } from './ContextMenu'
+import { dashRailDoc } from './DashRail'
 import { dropdownDoc } from './Dropdown'
 import { dotMatrixDoc } from './DotMatrix'
 import { editorDoc } from './Editor'
@@ -56,7 +57,7 @@ export const uiDocGroups: { title: string; sections: UiDocSection[] }[] = [
 	},
 	{
 		title: '布局',
-		sections: [messageSurfaceDoc, paneHeaderDoc, settingDoc, expandableDoc, disclosureRowDoc, resizableDoc],
+		sections: [messageSurfaceDoc, paneHeaderDoc, settingDoc, expandableDoc, disclosureRowDoc, resizableDoc, dashRailDoc],
 	},
 	{
 		title: '文本',
