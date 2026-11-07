@@ -661,13 +661,13 @@ ${ERROR_BODY}`,
 						name: "读取运行配置",
 						method: "GET",
 						path: "/api/settings",
-						summary: "读取全局 ~/.relax/agent/settings.json 里的出队模式和中止策略。缺文件时返回默认值。不含项目 .pi/settings.json 的覆盖。",
+						summary: "读取全局 ~/.relax/agent/settings.json 里的出队模式、中止策略和两个删除方式。缺文件时返回默认值。不含项目 .pi/settings.json 的覆盖。",
 						queryParams: [],
 						bodyParams: [],
 						body: "",
 						requestType: `/** 无参数。 */
 type GetSettingsRequest = Record<string, never>`,
-						responseType: `/** HTTP 200。缺文件或非法值时用默认：出队 one-at-a-time，中止 clear-then-abort。 */
+						responseType: `/** HTTP 200。缺文件或非法值时用默认：出队 one-at-a-time，中止 clear-then-abort，删除 logical。 */
 type RuntimeSettings = {
 	/** 生成中 steer 的出队。all 为到达出队点时一次注入全部 */
 	steeringMode: "all" | "one-at-a-time"
@@ -675,6 +675,10 @@ type RuntimeSettings = {
 	followUpMode: "all" | "one-at-a-time"
 	/** clear-then-abort 先清队列再中止；abort-only 只中止当前轮，队列保留 */
 	abortPolicy: "clear-then-abort" | "abort-only"
+	/** 删会话。logical 写 deleted_at；physical 删 JSONL 和这一行 */
+	sessionDelete: "logical" | "physical"
+	/** 删项目。logical 写 deleted_at；physical 删掉项目行。都不改会话 */
+	projectDelete: "logical" | "physical"
 }
 
 ${ERROR_BODY}`,
@@ -684,15 +688,17 @@ ${ERROR_BODY}`,
 						name: "修改运行配置",
 						method: "PATCH",
 						path: "/api/settings",
-						summary: "改全局出队模式或中止策略。只写传入的字段。出队模式会立刻套到内存里的热会话。",
+						summary: "改全局出队模式、中止策略或删除方式。只写传入的字段。出队模式会立刻套到内存里的热会话。删除方式在下一次删除时读取。",
 						queryParams: [],
 						bodyParams: [
 							{ name: "steeringMode", type: "string", required: false, description: "all 或 one-at-a-time", example: "all" },
 							{ name: "followUpMode", type: "string", required: false, description: "all 或 one-at-a-time", example: "one-at-a-time" },
 							{ name: "abortPolicy", type: "string", required: false, description: "clear-then-abort 或 abort-only", example: "abort-only" },
+							{ name: "sessionDelete", type: "string", required: false, description: "logical 或 physical", example: "logical" },
+							{ name: "projectDelete", type: "string", required: false, description: "logical 或 physical", example: "logical" },
 						],
 						body: "{\n  \"steeringMode\": \"all\",\n  \"abortPolicy\": \"abort-only\"\n}",
-						requestType: `/** JSON body。三项至少传一项。空对象或未知字段 400 BAD_REQUEST。 */
+						requestType: `/** JSON body。五项至少传一项。空对象或未知字段 400 BAD_REQUEST。 */
 type PatchSettingsRequest = {
 	/** steer 出队。all 一次注入全部，one-at-a-time 一次一条 */
 	steeringMode?: "all" | "one-at-a-time"
@@ -700,8 +706,12 @@ type PatchSettingsRequest = {
 	followUpMode?: "all" | "one-at-a-time"
 	/** 中止时是否先清空队列 */
 	abortPolicy?: "clear-then-abort" | "abort-only"
+	/** 删会话。写入 relax.sessionDelete */
+	sessionDelete?: "logical" | "physical"
+	/** 删项目。写入 relax.projectDelete */
+	projectDelete?: "logical" | "physical"
 }`,
-						responseType: `/** HTTP 200。写入后的全局三项，不含项目层覆盖。 */
+						responseType: `/** HTTP 200。写入后的全局五项，不含项目层覆盖。 */
 type RuntimeSettings = {
 	/** steer 出队 */
 	steeringMode: "all" | "one-at-a-time"
@@ -709,6 +719,10 @@ type RuntimeSettings = {
 	followUpMode: "all" | "one-at-a-time"
 	/** 中止策略 */
 	abortPolicy: "clear-then-abort" | "abort-only"
+	/** 删会话 */
+	sessionDelete: "logical" | "physical"
+	/** 删项目 */
+	projectDelete: "logical" | "physical"
 }
 
 ${ERROR_BODY}`,
@@ -748,7 +762,7 @@ ${ERROR_BODY}`,
 						name: "删除",
 						method: "DELETE",
 						path: "/api/sessions/:id",
-						summary: "按 abortPolicy 停掉，再逻辑删。jsonl 留在磁盘上。返回 204。",
+						summary: "按 abortPolicy 停掉，再按 sessionDelete 删除。默认逻辑删，jsonl 留在磁盘上。physical 删掉 jsonl 和这一行。返回 204。",
 						queryParams: [],
 						bodyParams: [],
 						body: "",
@@ -757,7 +771,7 @@ type DeleteSessionRequest = {
 	/** 会话 id。内存和磁盘都没有时 404 NOT_FOUND */
 	id: string
 }`,
-						responseType: `/** HTTP 204，响应体为空。按 abortPolicy 停掉后写 deleted_at。不删 jsonl。 */
+						responseType: `/** HTTP 204，响应体为空。按 abortPolicy 停掉。logical 写 deleted_at。physical 删 jsonl 再删行；删文件失败则不删行。 */
 
 ${ERROR_BODY}`,
 					},
@@ -974,7 +988,7 @@ ${ERROR_BODY}`,
 						name: "从列表拿掉",
 						method: "DELETE",
 						path: "/api/projects/:id",
-						summary: "软删除。不删用户目录，不删会话文件。返回 204。",
+						summary: "按 projectDelete 删项目行。默认逻辑删。不改会话，不删用户目录。返回 204。",
 						queryParams: [],
 						bodyParams: [],
 						body: "",
@@ -991,7 +1005,7 @@ ${ERROR_BODY}`,
 						name: "清除项目和会话",
 						method: "POST",
 						path: "/api/projects/:id/purge",
-						summary: "删掉该工作区的会话文件和完成标记，再删掉项目行。不删用户目录。返回 204。",
+						summary: "与 DELETE 项目相同，按 projectDelete 只删项目行。不改会话，不删用户目录。返回 204。",
 						queryParams: [],
 						bodyParams: [],
 						body: "",
@@ -1008,7 +1022,7 @@ ${ERROR_BODY}`,
 						name: "清除一部分会话",
 						method: "POST",
 						path: "/api/projects/:id/sessions/purge",
-						summary: "按修改时间早于某时刻，或已完成，删掉这个项目下的一部分会话。两个都给则同时满足才删。",
+						summary: "按修改时间早于某时刻，或已完成，删掉这个项目下的一部分会话。两个都给则同时满足才删。每条按 sessionDelete 处理。",
 						queryParams: [],
 						bodyParams: [
 							{ name: "modifiedBefore", type: "string", required: false, description: "sessions.modified 早于该 ISO 时刻", example: "2026-01-01T00:00:00.000Z" },

@@ -148,12 +148,12 @@ pi 暴露的加载点都要能指定到 `.relax` 或配置里的路径，不默�
 - `GET /api/projects` 未软删除的项目，按 `position` 倒序。可按登记时间过滤，并按 `offset` 与 `limit` 截取
 - `GET /api/workspace` 未指定工作区时的目录，`{ cwd, name }`。`name` 是目录名。这个接口不写项目表。第一次在该目录新建会话时会写入
 - `POST /api/projects` 登记一个已存在的目录。同一路径再登记会恢复已软删除的行
-- `DELETE /api/projects/:id` 软删除，不删会话文件
-- `POST /api/projects/:id/purge` 删掉该工作区的会话文件和这一行
-- `POST /api/projects/:id/sessions/purge` 按修改时间早于某时刻，或已完成，删掉一部分会话文件
+- `DELETE /api/projects/:id` 按 `relax.projectDelete` 删项目行。默认 `logical` 写 `deleted_at`。`physical` 删掉这一行。都不改会话，不删用户目录
+- `POST /api/projects/:id/purge` 与上面同一套，只动项目行
+- `POST /api/projects/:id/sessions/purge` 按修改时间早于某时刻，或已完成，删掉这一个项目下的一部分会话。删除方式看 `relax.sessionDelete`
 - `GET /api/sessions/:id` 一条信息
 - `GET /api/sessions/:id/history` `buildSessionContext()`，热会话再附上 `streamingMessage`
-- `DELETE /api/sessions/:id` 中止并逻辑删，JSONL 留在磁盘上，204
+- `DELETE /api/sessions/:id` 中止后按 `relax.sessionDelete` 删除，204。默认 `logical`：写 `deleted_at`，JSONL 留下。`physical`：删掉这一份 JSONL，再删掉 `sessions` 行
 - `POST /api/sessions/:id/prompt` 续发，202。可选 `streamingBehavior`（`steer` | `followUp`）、`thinkingLevel`，以及一起出现的 `provider` 与 `model`。带了模型且与该会话上次不同时才写入会话
 - `POST /api/sessions/:id/model` 只把所选模型写成全局默认，不改这条会话的上次模型
 - `POST /api/sessions/:id/name` 手动设置 `name`，空字符串清空
@@ -167,8 +167,8 @@ pi 暴露的加载点都要能指定到 `.relax` 或配置里的路径，不默�
 - `PUT /api/models/default` 修改全局默认，不改已经打开的会话
 - `POST /api/models/refresh` 手动从 pi.dev 更新模型目录。测试不调用
 - `GET /api/models/thinking-levels?provider=&id=` 查询该模型可选思考档位和默认档位 `medium`。目录里没有 404
-- `GET /api/settings` 全局出队模式和中止策略。缺文件时返回默认值
-- `PATCH /api/settings` 改上述字段的子集。出队模式写入后套到热会话
+- `GET /api/settings` 全局出队模式、中止策略、会话删除方式和项目删除方式。缺文件时返回默认值
+- `PATCH /api/settings` 改上述字段的子集。出队模式写入后套到热会话。两个删除方式写在 `relax.sessionDelete` 与 `relax.projectDelete`，缺省都是 `logical`
 - `GET /api/sessions/events` 全局 SSE，不进 api.html。`data` 为 `{ sessionId, event }`，内层是 pi 的 `AgentSessionEvent`
 
 SSE 断线不补，客户端用历史对齐。发送和中止走 HTTP。本轮不接 `app/web`。
@@ -287,7 +287,7 @@ app/server/src/
   app.ts                组装应用，测试从这里创建
   config/server.ts      读 config.json，缺组、缺字段或类型不对用代码默认值
   config/home.ts        home、agentDir、PI_CODING_AGENT_DIR
-  config/settings.ts    全局 settings.json：出队模式与中止策略
+  config/settings.ts    全局 settings.json：出队模式、中止策略、会话与项目的删除方式
   utils/errors.ts       错误类型与 Express 错误中间件
   utils/text.ts         消息纯文本
   utils/request.ts      请求体 text / cwd

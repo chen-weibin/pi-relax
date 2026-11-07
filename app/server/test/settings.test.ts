@@ -29,6 +29,8 @@ describe('settings store', () => {
 			steeringMode: 'one-at-a-time',
 			followUpMode: 'one-at-a-time',
 			abortPolicy: 'clear-then-abort',
+			sessionDelete: 'logical',
+			projectDelete: 'logical',
 		})
 	})
 
@@ -43,6 +45,8 @@ describe('settings store', () => {
 			steeringMode: 'all',
 			followUpMode: 'one-at-a-time',
 			abortPolicy: 'abort-only',
+			sessionDelete: 'logical',
+			projectDelete: 'logical',
 		})
 		const file = JSON.parse(readFileSync(settingsPath(), 'utf8')) as {
 			theme: string
@@ -53,6 +57,10 @@ describe('settings store', () => {
 		assert.equal(file.steeringMode, 'all')
 		assert.equal(file.relax.keep, true)
 		assert.equal(file.relax.abortPolicy, 'abort-only')
+		const modes = patchSettings({ sessionDelete: 'physical', projectDelete: 'physical' })
+		assert.equal(modes.sessionDelete, 'physical')
+		assert.equal(modes.projectDelete, 'physical')
+		assert.equal(modes.abortPolicy, 'abort-only')
 	})
 
 	it('lets the project .pi/settings.json override abort policy', () => {
@@ -126,6 +134,8 @@ describe('settings http', () => {
 			steeringMode: 'one-at-a-time',
 			followUpMode: 'one-at-a-time',
 			abortPolicy: 'clear-then-abort',
+			sessionDelete: 'logical',
+			projectDelete: 'logical',
 		})
 	})
 

@@ -3,14 +3,13 @@ import type { Agent } from '../agent/agent.js'
 import {
 	countProjects,
 	createProject,
+	deleteProject,
 	getProject,
-	hardDeleteProject,
 	listProjects,
 	moveProject,
 	projectCwd,
 	renameProject,
 	resolveProjectCwd,
-	softDeleteProject,
 } from '../projects/store.js'
 import { matchesPurge, purgeBody, purgeSessions, sessionsForCwd } from '../sessions/query.js'
 import { asyncHandler, HttpError } from '../utils/errors.js'
@@ -80,10 +79,7 @@ export function projectsRouter(agent: Agent): Router {
 	router.post(
 		'/api/projects/:id/purge',
 		asyncHandler(async (req, res) => {
-			const cwd = requireCwd(req.params.id as string)
-			const sessions = await sessionsForCwd(agent, cwd)
-			await purgeSessions(agent, sessions)
-			hardDeleteProject(req.params.id as string)
+			deleteProject(req.params.id as string)
 			res.status(204).end()
 		}),
 	)
@@ -118,7 +114,7 @@ export function projectsRouter(agent: Agent): Router {
 	router.delete(
 		'/api/projects/:id',
 		asyncHandler(async (req, res) => {
-			softDeleteProject(req.params.id as string)
+			deleteProject(req.params.id as string)
 			res.status(204).end()
 		}),
 	)

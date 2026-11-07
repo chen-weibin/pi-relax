@@ -2,6 +2,7 @@ import { Router } from 'express'
 import type { Agent } from '../agent/agent.js'
 import {
 	ABORT_POLICIES,
+	DELETE_MODES,
 	QUEUE_MODES,
 	patchSettings,
 	readGlobalSettings,
@@ -9,7 +10,7 @@ import {
 } from '../config/settings.js'
 import { asyncHandler, HttpError } from '../utils/errors.js'
 
-const KEYS = ['steeringMode', 'followUpMode', 'abortPolicy'] as const
+const KEYS = ['steeringMode', 'followUpMode', 'abortPolicy', 'sessionDelete', 'projectDelete'] as const
 
 export function settingsRouter(agent: Agent): Router {
 	const router = Router()
@@ -47,6 +48,8 @@ function settingsPatch(body: unknown): SettingsPatch {
 	if ('steeringMode' in record) patch.steeringMode = oneOf(record.steeringMode, 'steeringMode', QUEUE_MODES)
 	if ('followUpMode' in record) patch.followUpMode = oneOf(record.followUpMode, 'followUpMode', QUEUE_MODES)
 	if ('abortPolicy' in record) patch.abortPolicy = oneOf(record.abortPolicy, 'abortPolicy', ABORT_POLICIES)
+	if ('sessionDelete' in record) patch.sessionDelete = oneOf(record.sessionDelete, 'sessionDelete', DELETE_MODES)
+	if ('projectDelete' in record) patch.projectDelete = oneOf(record.projectDelete, 'projectDelete', DELETE_MODES)
 	return patch
 }
 

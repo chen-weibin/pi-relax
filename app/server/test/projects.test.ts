@@ -5,6 +5,7 @@ import type { AddressInfo } from 'node:net'
 import { after, before, describe, it } from 'node:test'
 import { join } from 'node:path'
 import { createApp } from '../src/app.js'
+import { patchSettings } from '../src/config/settings.js'
 import { relaxDb } from '../src/db/connection.js'
 import { findSessionInfo } from '../src/sessions/index.js'
 import { persistChat, removeHome, tempRelaxHome } from './home.js'
@@ -221,8 +222,8 @@ describe('projects and session catalog', () => {
 		assert.equal(empty.total, 0)
 	})
 
-	it('purges the project row and its sessions', async () => {
-		persistChat(alphaCwd, 'gone', 'away')
+	it('purges the project row and leaves its sessions', async () => {
+		const manager = persistChat(alphaCwd, 'gone', 'away')
 		const listed = await read(await fetch(`${base}/api/projects`))
 		const alphaId = listed.projects.find((item: { cwd: string }) => item.cwd === alphaCwd).id
 		const storageBefore = await read(await fetch(`${base}/api/sessions/storage`))
@@ -232,10 +233,32 @@ describe('projects and session catalog', () => {
 		assert.equal(purged.status, 204)
 		assert.equal((await fetch(`${base}/api/projects/${alphaId}`)).status, 404)
 		const sessions = await read(await fetch(`${base}/api/sessions?cwd=${encodeURIComponent(alphaCwd)}`))
-		assert.equal(sessions.total, 0)
+		assert.equal(sessions.total, 1)
+		assert.equal(sessions.sessions[0].id, manager.getSessionId())
+		const again = await postProject(alpha)
+		assert.equal(again.status, 201)
+		assert.equal(again.body.id, alphaId)
+	})
+
+	it('physically drops the project row and keeps sessions', async () => {
+		patchSettings({ projectDelete: 'physical' })
+		const listed = await read(await fetch(`${base}/api/projects`))
+		const alphaId = listed.projects.find((item: { cwd: string }) => item.cwd === alphaCwd).id
+		const before = await read(await fetch(`${base}/api/sessions?cwd=${encodeURIComponent(alphaCwd)}`))
+		const removed = await fetch(`${base}/api/projects/${alphaId}`, { method: 'DELETE' })
+		assert.equal(removed.status, 204)
+		const row = relaxDb().prepare(`SELECT id FROM projects WHERE id = ?`).get(alphaId)
+		assert.equal(row, undefined)
+		const sessions = await read(await fetch(`${base}/api/sessions?cwd=${encodeURIComponent(alphaCwd)}`))
+		assert.equal(sessions.total, before.total)
 		const again = await postProject(alpha)
 		assert.equal(again.status, 201)
 		assert.notEqual(again.body.id, alphaId)
+		assert.equal(
+			(await read(await fetch(`${base}/api/sessions?cwd=${encodeURIComponent(alphaCwd)}`))).total,
+			before.total,
+		)
+		patchSettings({ projectDelete: 'logical' })
 	})
 
 	it('soft-deletes a single session and leaves the file', async () => {
@@ -254,5 +277,34 @@ describe('projects and session catalog', () => {
 		assert.equal(existsSync(file), true)
 		const row = relaxDb().prepare(`SELECT deleted_at FROM sessions WHERE id = ?`).get(id) as { deleted_at: string | null }
 		assert.ok(row.deleted_at)
+	})
+
+	it('physically deletes the session file and row', async () => {
+		patchSettings({ sessionDelete: 'physical' })
+		const manager = persistChat(betaCwd, 'wipe', 'gone')
+		const id = manager.getSessionId()
+		const file = manager.getSessionFile()
+		assert.ok(file)
+		assert.equal((await fetch(`${base}/api/sessions/${id}`)).status, 200)
+		const removed = await fetch(`${base}/api/sessions/${id}`, { method: 'DELETE' })
+		assert.equal(removed.status, 204)
+		assert.equal(existsSync(file), false)
+		assert.equal(relaxDb().prepare(`SELECT id FROM sessions WHERE id = ?`).get(id), undefined)
+		const kept = persistChat(betaCwd, 'stay', 'here')
+		const keptFile = kept.getSessionFile()
+		assert.ok(keptFile)
+		assert.equal((await fetch(`${base}/api/sessions/${kept.getSessionId()}`)).status, 200)
+		const listed = await read(await fetch(`${base}/api/projects`))
+		const betaId = listed.projects.find((item: { cwd: string }) => item.cwd === betaCwd).id
+		const future = new Date(Date.now() + 60_000).toISOString()
+		const purged = await fetch(`${base}/api/projects/${betaId}/sessions/purge`, {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ modifiedBefore: future }),
+		})
+		assert.equal((await read(purged)).deleted, 1)
+		assert.equal(existsSync(keptFile), false)
+		assert.equal(relaxDb().prepare(`SELECT id FROM sessions WHERE id = ?`).get(kept.getSessionId()), undefined)
+		patchSettings({ sessionDelete: 'logical' })
 	})
 })

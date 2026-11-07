@@ -108,6 +108,10 @@ export function softDeleteSession(id: string): void {
 		.run(new Date().toISOString(), id)
 }
 
+export function hardDeleteSession(id: string): void {
+	relaxDb().prepare(`DELETE FROM sessions WHERE id = ?`).run(id)
+}
+
 export function toSessionRecord(row: SessionRow, status: SessionStatus): SessionRecord {
 	return {
 		id: row.id,

@@ -37,7 +37,7 @@ export async function requireSession(agent: Agent, id: string): Promise<SessionR
 	return agent.get(id)
 }
 
-/** 停掉内存里的会话，只写 deleted_at。JSONL 留在磁盘上。 */
+/** 停掉内存里的会话，再按 relax.sessionDelete 逻辑删或物理删。 */
 export async function purgeSessions(agent: Agent, records: SessionRecord[]): Promise<number> {
 	for (const record of records) {
 		try {

@@ -6,16 +6,25 @@ import {
 	historyById,
 	historyFrom,
 	openSession,
+	removeSessionFile,
 	type SessionHistory,
 	type SessionRecord,
 	type SessionStatus,
 } from '../sessions/index.js'
 import { withStreamingMessage } from '../sessions/history.js'
 import { ensureSessionRow, fillUnsetSessionName, fillUnsetSessionNames } from '../sessions/index-row.js'
-import { listSessionRows, noteUserMessage, renameSession, sessionRow, softDeleteSession, toSessionRecord } from '../sessions/rows.js'
+import {
+	hardDeleteSession,
+	listSessionRows,
+	noteUserMessage,
+	renameSession,
+	sessionRow,
+	softDeleteSession,
+	toSessionRecord,
+} from '../sessions/rows.js'
 import { backfillSessions, dropMissingSessionFiles } from '../sessions/sync.js'
 import { messageText } from '../utils/text.js'
-import { abortPolicyFor, type SettingsPatch } from '../config/settings.js'
+import { abortPolicyFor, readGlobalSettings, type SettingsPatch } from '../config/settings.js'
 import { BusyError, HttpError, SessionNotFoundError } from '../utils/errors.js'
 import { getSupportedThinkingLevels } from '@earendil-works/pi-ai'
 import { ensureProject } from '../projects/store.js'
@@ -171,7 +180,13 @@ export class Agent {
 				this.slots.delete(id)
 			}
 		}
-		if (row && !row.deletedAt) softDeleteSession(id)
+		if (!row || row.deletedAt) return
+		if (readGlobalSettings().sessionDelete === 'physical') {
+			await removeSessionFile(row.path)
+			hardDeleteSession(id)
+			return
+		}
+		softDeleteSession(id)
 	}
 
 	private record(id: string, status: SessionStatus): SessionRecord {

@@ -11,39 +11,50 @@ const { lockSync } = require('proper-lockfile') as {
 
 export const QUEUE_MODES = ['all', 'one-at-a-time'] as const
 export const ABORT_POLICIES = ['clear-then-abort', 'abort-only'] as const
+export const DELETE_MODES = ['logical', 'physical'] as const
 
 export type QueueMode = (typeof QUEUE_MODES)[number]
 export type AbortPolicy = (typeof ABORT_POLICIES)[number]
+export type DeleteMode = (typeof DELETE_MODES)[number]
 
 export type RuntimeSettings = {
 	steeringMode: QueueMode
 	followUpMode: QueueMode
 	abortPolicy: AbortPolicy
+	sessionDelete: DeleteMode
+	projectDelete: DeleteMode
 }
 
 export type SettingsPatch = {
 	steeringMode?: QueueMode
 	followUpMode?: QueueMode
 	abortPolicy?: AbortPolicy
+	sessionDelete?: DeleteMode
+	projectDelete?: DeleteMode
 }
 
 const DEFAULTS: RuntimeSettings = {
 	steeringMode: 'one-at-a-time',
 	followUpMode: 'one-at-a-time',
 	abortPolicy: 'clear-then-abort',
+	sessionDelete: 'logical',
+	projectDelete: 'logical',
 }
 
 export function settingsPath(): string {
 	return join(getRelaxAgentDir(), 'settings.json')
 }
 
-/** 全局文件里的三项。缺文件或非法值用默认。不含项目层。 */
+/** 全局文件里的五项。缺文件或非法值用默认。不含项目层。 */
 export function readGlobalSettings(): RuntimeSettings {
 	const raw = readObject(settingsPath())
+	const relax = relaxOf(raw)
 	return {
 		steeringMode: queueMode(raw.steeringMode) ?? DEFAULTS.steeringMode,
 		followUpMode: queueMode(raw.followUpMode) ?? DEFAULTS.followUpMode,
-		abortPolicy: abortPolicy(relaxOf(raw)?.abortPolicy) ?? DEFAULTS.abortPolicy,
+		abortPolicy: abortPolicy(relax?.abortPolicy) ?? DEFAULTS.abortPolicy,
+		sessionDelete: deleteMode(relax?.sessionDelete) ?? DEFAULTS.sessionDelete,
+		projectDelete: deleteMode(relax?.projectDelete) ?? DEFAULTS.projectDelete,
 	}
 }
 
@@ -65,9 +76,11 @@ export function patchSettings(patch: SettingsPatch): RuntimeSettings {
 		const current = readObject(path)
 		if (patch.steeringMode) current.steeringMode = patch.steeringMode
 		if (patch.followUpMode) current.followUpMode = patch.followUpMode
-		if (patch.abortPolicy) {
+		if (patch.abortPolicy || patch.sessionDelete || patch.projectDelete) {
 			const relax = { ...relaxOf(current) }
-			relax.abortPolicy = patch.abortPolicy
+			if (patch.abortPolicy) relax.abortPolicy = patch.abortPolicy
+			if (patch.sessionDelete) relax.sessionDelete = patch.sessionDelete
+			if (patch.projectDelete) relax.projectDelete = patch.projectDelete
 			current.relax = relax
 		}
 		writeFileSync(path, `${JSON.stringify(current, null, 2)}\n`)
@@ -103,6 +116,10 @@ function queueMode(value: unknown): QueueMode | undefined {
 
 function abortPolicy(value: unknown): AbortPolicy | undefined {
 	return ABORT_POLICIES.find((policy) => policy === value)
+}
+
+function deleteMode(value: unknown): DeleteMode | undefined {
+	return DELETE_MODES.find((mode) => mode === value)
 }
 
 /** ponytail: 与基座 FileSettingsStorage 一样，锁冲突时同步空转。单进程几乎碰不到；跨进程最多等约 200ms。 */

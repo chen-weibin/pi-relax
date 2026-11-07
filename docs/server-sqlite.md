@@ -30,7 +30,7 @@ CREATE UNIQUE INDEX projects_position_active ON projects(position) WHERE deleted
 | `position` | 未删除时的序号。软删除置空 |
 | `created` | 登记时间，ISO |
 | `modified` | 最近一次改名、移动或恢复的时间，ISO |
-| `deleted_at` | 软删除时间。空表示仍在列表里 |
+| `deleted_at` | 逻辑删除时间。空表示仍在列表里。`projectDelete` 为 `physical` 时这一行被删掉，不留这个字段 |
 
 ## sessions
 
@@ -59,7 +59,7 @@ CREATE INDEX sessions_cwd_active ON sessions(cwd) WHERE deleted_at IS NULL;
 | `created` | 插入时写成文件头上的创建时间，ISO |
 | `modified` | 最近一条用户消息的时间，ISO。插入时等于 `created`。助手回复和拉列表都不改 |
 | `completed` | `1` 为已完成。没有单独的「未完成」行 |
-| `deleted_at` | 逻辑删除时间。空表示仍在列表里。接口删除不删 JSONL |
+| `deleted_at` | 逻辑删除时间。空表示仍在列表里。`sessionDelete` 为 `logical` 时接口只写这里，不删 JSONL。`physical` 时这一行被删掉，JSONL 也删掉 |
 
 第一次 `POST /api/sessions` 建出会话管理器时插入。用户消息写入 JSONL 之后，把 `modified` 改成这条消息自己的 `timestamp`；当时 `name` 仍是 `NULL` 就把这句文本写入 `name`。改名只改 `name`。
 

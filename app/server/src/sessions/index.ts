@@ -2,6 +2,7 @@ export {
 	createSessionManager,
 	defaultCwd,
 	deleteSessionFile,
+	removeSessionFile,
 	findSessionInfo,
 	historyById,
 	historyFrom,

@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { realpath, stat } from 'node:fs/promises'
 import { basename } from 'node:path'
+import { readGlobalSettings } from '../config/settings.js'
 import { relaxDb } from '../db/connection.js'
 import { requireAbsolutePath } from '../fs/ops.js'
 import { HttpError } from '../utils/errors.js'
@@ -201,4 +202,10 @@ export function hardDeleteProject(id: string): void {
 	const row = findById(id)
 	if (!row) throw new HttpError(404, 'NOT_FOUND', `Project not found: ${id}`)
 	relaxDb().prepare(`DELETE FROM projects WHERE id = ?`).run(id)
+}
+
+/** 按 relax.projectDelete 删项目行。不改会话。 */
+export function deleteProject(id: string): void {
+	if (readGlobalSettings().projectDelete === 'physical') hardDeleteProject(id)
+	else softDeleteProject(id)
 }

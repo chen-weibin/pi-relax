@@ -1,6 +1,8 @@
 import { existsSync, unlinkSync } from 'node:fs'
+import { unlink } from 'node:fs/promises'
 import { SessionManager, type SessionInfo } from '@earendil-works/pi-coding-agent'
 import { ensureRelaxHome, getDefaultWorkspace } from '../config/home.js'
+import { HttpError } from '../utils/errors.js'
 import { sessionRow } from './rows.js'
 import type { SessionHistory, SessionRecord, SessionStatus } from './types.js'
 
@@ -63,6 +65,17 @@ export async function historyById(id: string): Promise<SessionHistory | undefine
 	const row = sessionRow(id)
 	if (!row || row.deletedAt || !existsSync(row.path)) return undefined
 	return historyFrom(openSession(row.path))
+}
+
+/** 删掉这一份 JSONL。文件已经不在算成功。其它错误不把行当成已删。 */
+export async function removeSessionFile(path: string): Promise<void> {
+	try {
+		await unlink(path)
+	} catch (error) {
+		const code = error && typeof error === 'object' && 'code' in error ? String(error.code) : ''
+		if (code === 'ENOENT') return
+		throw new HttpError(500, 'DELETE_FAILED', `Could not delete session file: ${path}`)
+	}
 }
 
 /** 删除会话文件。找不到返回 false。 */
