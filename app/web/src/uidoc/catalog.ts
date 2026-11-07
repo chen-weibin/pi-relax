@@ -16,6 +16,7 @@ import { inputDoc } from './Input'
 import { loadingDotsDoc } from './LoadingDots'
 import { markdownViewDoc } from './MarkdownView'
 import { messageSurfaceDoc } from './MessageSurface'
+import { dialogDoc } from './Dialog'
 import { modalDoc } from './Modal'
 import { monacoEditorDoc } from './MonacoEditor'
 import { numberStepperDoc } from './NumberStepper'
@@ -28,6 +29,7 @@ import { searchInputDoc } from './SearchInput'
 import { selectDoc } from './Select'
 import { settingDoc } from './Setting'
 import { shinyTextDoc } from './ShinyText'
+import { spinnerDoc } from './Spinner'
 import { statusDotDoc } from './StatusDot'
 import { switchDoc } from './Switch'
 import { tooltipDoc } from './Tooltip'
@@ -49,11 +51,11 @@ export const uiDocGroups: { title: string; sections: UiDocSection[] }[] = [
 	},
 	{
 		title: '浮层',
-		sections: [tooltipDoc, popoverDoc, dropdownDoc, contextMenuDoc, modalDoc],
+		sections: [tooltipDoc, popoverDoc, dropdownDoc, contextMenuDoc, modalDoc, dialogDoc],
 	},
 	{
 		title: '反馈',
-		sections: [statusDotDoc, loadingDotsDoc, dotMatrixDoc, emptyStateDoc, shinyTextDoc, flipTextDoc, trailTextDoc],
+		sections: [statusDotDoc, spinnerDoc, loadingDotsDoc, dotMatrixDoc, emptyStateDoc, shinyTextDoc, flipTextDoc, trailTextDoc],
 	},
 	{
 		title: '布局',

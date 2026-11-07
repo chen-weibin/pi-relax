@@ -168,7 +168,7 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
 |---|---|---|
 | `ResizablePanelGroup` / `ResizablePanel` / `ResizableHandle` | 可拖布局三件套,封装 `react-resizable-panels` | [`ui.md#resizablepanels`](ui.md#resizablepanels) |
 | `PaneHeader` | 子面板顶栏(38px + 底部分割线,左右 slot) | [`ui.md#paneheader`](ui.md#paneheader) |
-| `Button` | 文字按钮:变体、随尺寸变化的圆角、neutral / inverse、整行、前后图标 | [`ui.md#button`](ui.md#button) |
+| `Button` | 文字按钮:变体、随尺寸变化的圆角、neutral / inverse、整行、前后图标、loading | [`ui.md#button`](ui.md#button) |
 | `IconButton` | 图标按钮,统一变体 / 尺寸 / 禁用态;`title` 走 Tooltip | [`ui.md#iconbutton`](ui.md#iconbutton) |
 | `Input` | 单行文本框:尺寸、清空、前后缀、框内字数、状态与框下提示 | [`ui.md#input`](ui.md#input) |
 | `Tooltip` | 短 hover 提示,包在 Popover 上 | [`ui.md#tooltip`](ui.md#tooltip) |
@@ -176,6 +176,8 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
 | `Dropdown` | 带子菜单的菜单,行尾当前值,子面板可搜索 | [`ui.md#dropdown`](ui.md#dropdown) |
 | `ContextMenu` | 右键菜单,从点击点向右下展开,靠边翻转;面板与 Dropdown 相同 | [`ui.md#contextmenu`](ui.md#contextmenu) |
 | `Modal` | 遮罩对话框壳,居中或距顶;内容自定义 | [`ui.md#modal`](ui.md#modal) |
+| `Dialog` | 标题、正文和右下角按钮;异步回调结束才关 | [`ui.md#dialog`](ui.md#dialog) |
+| `Spinner` | 圆锥渐变转圈,大小和颜色可改 | [`ui.md#spinner`](ui.md#spinner) |
 | `Editor` | ProseMirror 智能输入框 | [`ui.md#editor`](ui.md#editor) |
 | `MonacoEditor` | Monaco 代码/文本编辑器,主题走 CSS token | [`ui.md#monacoeditor`](ui.md#monacoeditor) |
 | `MarkdownView` | `streamdown` Markdown 渲染(static / streaming) | [`ui.md#markdownview`](ui.md#markdownview) |
@@ -311,7 +313,8 @@ src/
 ├── uidoc/                        # /ui 的说明和演示，仅开发构建引用
 ├── conversation/                 # 会话数据层:类型 + createBlockRuntime(详见 docs/web-conversation.md)
 ├── hooks/
-│   └── usePersistedPanelLayout.ts # 面板宽度读写 store/local.ts，不直接碰 localStorage
+│   ├── usePersistedPanelLayout.ts # 面板宽度读写 store/local.ts，不直接碰 localStorage
+│   └── useModal.tsx             # 打开 Dialog。confirm 传 onOk / onCancel
 ├── store/                        # 全局状态(详见下文 "状态管理 (store/)" 小节)
 │   ├── index.ts                 #   统一 re-export
 │   ├── common.ts                #   common store:shell 状态(toggles + mainView)
@@ -325,6 +328,8 @@ src/
 │   ├── EmptyState.tsx            # 空区域占位(可选图标,居中或贴顶)
 │   ├── Popover.tsx
 │   ├── Modal.tsx                 # 遮罩对话框壳,与 Popover 并列
+│   ├── Dialog.tsx                # 标题、正文和确认按钮,包在 Modal 上
+│   ├── Spinner.tsx               # 圆锥渐变转圈
 │   ├── Tooltip.tsx               # 短 hover 提示,包在 Popover 上
 │   ├── MarkdownView/             # streamdown 封装(static / streaming);index.tsx + index.css
 │   ├── TypewriterText.tsx        # grapheme 增量打字机

@@ -30,6 +30,8 @@
 | 短 hover 提示 | [`Tooltip`](#tooltip) | 不要在业务里手写 `<Popover role="tooltip">`,也不要再用原生 `title` 当气泡 |
 | 浮层 / 菜单 | [`Popover`](#popover) | 不要直接用 `@floating-ui/react`(定位/翻转/portal 都要自己粘) |
 | 遮罩对话框(居中或距顶) | [`Modal`](#modal) | 不要手写 `fixed inset-0` 遮罩;不要把 [`Popover`](#popover) 当成对话框 |
+| 带标题和确认按钮的对话框 | [`Dialog`](#dialog) | 不要在业务里用 [`Modal`](#modal) 再拼标题和按钮 |
+| 圆锥渐变转圈 | [`Spinner`](#spinner) | 不要再写一套 `conic-gradient` 转圈;三点跳动仍用 [`LoadingDots`](#loadingdots) |
 | 富文本输入(Enter 提交 / 多行展开) | [`Editor`](#editor) + 领域组件 `Composer` | 不要拿 `<textarea>`(无 IME 友好 / 无 history / 无 keymap) |
 | 渲染 Markdown(流式 / 静态) | [`MarkdownView`](#markdownview) | 不要直接 `<Streamdown>`(无项目样式封装) |
 | 只读/可编辑代码文本(Monaco) | [`MonacoEditor`](#monacoeditor) | 不要在业务里直接 `@monaco-editor/react` / 自配 worker |
@@ -78,7 +80,9 @@
 | 在业务模块里直接 `import Editor from '@monaco-editor/react'` | 用 [`MonacoEditor`](#monacoeditor),worker / 主题 token 已封装 |
 | 给 `IconButton` 再写原生 `title`,或在业务里手写 `<Popover role="tooltip">` | 图标按钮的 `title` 已走 [`Tooltip`](#tooltip);短提示用 Tooltip,菜单才用 [`Popover`](#popover) |
 | 在 `IconButton` 外包一层 `Tooltip` | [`IconButton`](#iconbutton) 已内置,配 `title` / `tooltipPlacement` / `tooltipDelay` 即可 |
-| 为对话框手写 `fixed inset-0` + 点遮罩关闭 | 用 [`Modal`](#modal)。Setting 那种整页覆盖仍自己写 |
+| 为对话框手写 `fixed inset-0` + 点遮罩关闭 | 用 [`Modal`](#modal)。有标题和确认按钮用 [`Dialog`](#dialog)。Setting 那种整页覆盖仍自己写 |
+| 确认框里自己拼标题、正文和右下角按钮 | 用 [`Dialog`](#dialog)。调用放在 `hooks/useModal` 的 `confirm` |
+| 按钮等待时手写 `border` 转圈或 `LoadingDots` 当图标 | 用 [`Spinner`](#spinner)。大小和颜色从外面传 |
 | 手写带清空、前后缀、字数或状态边框的 `<input>` | 用 [`Input`](#input)。搜索框仍用 [`SearchInput`](#searchinput) |
 | 手写实底 / 描边 / 幽灵 / 纯文字按钮 | 用 [`Button`](#button)。只显示图标用 [`IconButton`](#iconbutton) |
 | 手写多层 Popover 做「当前值 + 向右子菜单」 | 用 [`Dropdown`](#dropdown)。一层就能选完的列表仍用 [`Select`](#select) |
@@ -757,16 +761,20 @@
 - 列表行、Tab、开关、选择器触发器、输入框内的清空 / 搜索图标 → 各用对应组件,不要套 Button
 - 需要 accent / error 等彩色档 → 先不要加色调;一次性换色用 `className`
 
-**API**: `forwardRef`。`type` 默认 `button`。`className` 最后合并,可压过默认样式。`disabled` 降透明并禁交互。原生 `prefix`(字符串)让给前面的图标。其余原生属性透传。
+**API**: `forwardRef`。`type` 默认 `button`。`className` 最后合并,可压过默认样式。`disabled` 降透明并禁交互。`loading` 同样不能点,但不降透明,避免转圈变淡。原生 `prefix`(字符串)让给前面的图标。其余原生属性透传。
 
 | prop | 类型 | 默认 | 说明 |
 |---|---|---|---|
 | `variant` | `solid \| outline \| ghost \| text` | `solid` | 实底 / 描边 / 无底 / 纯文字 |
-| `size` | `sm \| md \| lg` | `md` | 高 24 / 30 / 36px,圆角 6 / 8 / 10px,图标 12 / 14 / 16px |
+| `size` | `sm \| md \| lg` | `md` | 高 24 / 30 / 36px,圆角 6 / 8 / 10px。同一档里文字、前后图标、转圈同为 12 / 14 / 16px |
 | `tone` | `neutral \| inverse` | `neutral` | `neutral` 走 surface / fg 灰阶。`inverse` 是浅色按钮:`bg-fg text-app`,与主题一起翻转 |
 | `block` | `boolean` | `false` | `w-full`,内容保持居中 |
 | `prefix` | `ReactNode` | — | 文字前的图标。空则不渲染 |
 | `suffix` | `ReactNode` | — | 文字后的图标。空则不渲染 |
+| `loading` | `boolean` | `false` | 在 `prefix` 前展开 [`Spinner`](#spinner)。为真时按钮 `disabled`,不响应点击 |
+| `loadingIcon` | `ReactNode` | `Spinner` | 换掉默认转圈。只在 `loading` 时看得见 |
+
+图标、文字、`suffix` 包在一组里,组内间距与原来的 `gap` 相同。转圈在这一组外面,空闲时宽度是 0,不占 `gap`,文字保持居中。`loading` 变为真时,这一格用 200ms 从 0 宽过渡到图标宽,间距放在格子内部,按钮变宽时整组仍居中。
 
 `neutral` + `solid` 为 `bg-surface`,hover `surface-hover`,按下 `surface-active`。`outline` 为透明底 + `border-border`。`ghost` 无底无边,hover 铺 `surface-hover`。`text` 无底无边,静止 `text-fg-2`,hover 只升到 `text-fg-bright`,不铺背景。`inverse` 的描边和幽灵 hover 用 `bg-fg/10`;`inverse` + `text` 静止 `text-fg`,hover 同样只升到 `text-fg-bright`。
 
@@ -1473,6 +1481,7 @@ const loadOptions = async ({ query, offset, limit }: Params): Promise<Result<V>>
 
 - 贴着按钮的菜单 / 信息卡 → [`Popover`](#popover)
 - 整页覆盖(Setting) → 自己写 `fixed inset-0`
+- 标题、正文和右下角按钮已经定好 → [`Dialog`](#dialog)
 
 **API**:
 
@@ -1509,6 +1518,70 @@ const loadOptions = async ({ query, offset, limit }: Params): Promise<Result<V>>
 | 过渡 | 出现 200ms `ease-out`,消失 220ms `ease-in`(先停住再收走)。遮罩只淡入淡出;内容盒同时动透明度、`scale` 和 8px 位移。过渡属性要含 `scale` / `translate`(Tailwind v4 不写进 `transform`)。`prefers-reduced-motion` 时无过渡 |
 
 `align="center"` 水平垂直都居中。`align="top"` 只水平居中,`top` 写在遮罩的 `paddingTop` 上。点遮罩用 `mousedown`,避免触摸事件穿透到后面。打开时焦点进入框内第一个可聚焦元素,关闭后回到之前的焦点。背景滚动锁定。`className` / `style` 不作用在遮罩上。
+
+## Dialog
+
+单文件 `ui/Dialog.tsx`。包在 [`Modal`](#modal) 上,带可选标题、正文和右下角按钮。没有输入框。
+
+**查阅时机**:做一个确认或关闭前要跑一段清除的框。
+
+**何时用**:
+
+- 左上角标题可有可无,中间是一段说明,右下角是一个或两个按钮
+- 确认或关闭要等一个异步任务结束再关
+
+**何时不用**:
+
+- 框里是表单或自定义布局 → [`Modal`](#modal)
+- 贴着按钮的菜单 → [`Popover`](#popover)
+
+**API**:
+
+```tsx
+<Dialog
+  open={open}
+  onOpenChange={setOpen}
+  title="删除会话"          // ReactNode,不传就不渲染
+  body="删除后会从列表消失" // ReactNode
+  closeOnBackdrop={true}   // 默认 true。任务进行中无效
+  closeOnEscape={true}     // 默认 true。任务进行中无效
+  showCancel={true}        // false 时只留确认
+  cancelText="取消"
+  confirmText="确认"
+  onOk={() => save()}      // 不传则点确认立刻关
+  onCancel={() => cleanup()} // 取消、Esc、点遮罩都走这里
+/>
+```
+
+`onOk` / `onCancel` 的返回值是 Promise 时,对应按钮 `loading`,等成功或失败后再关。转圈用 [`Button`](#button) 的 `loading`,排在 `prefix` 前面。没返回 Promise 的同步函数不转圈,调用完立刻关。有一边还在等时,另一边、Esc 和遮罩不再开始。
+
+调用处用 `hooks/useModal`:`const { confirm, holder } = useModal()`,渲染一次 `holder`,`confirm` 的参数与上面除 `open` / `onOpenChange` 外相同。同一个 hook 同时只开一个框。
+
+**视觉**:内容盒与添加工作目录相同,`w-full max-w-[360px] p-4`。标题用 [`Heading`](#heading),正文 `text-sm text-fg-3`。取消是 `ghost`,确认是 `tone="inverse"`。等待时走 [`Button`](#button) 的 `loading`,转圈在文字前展开,按钮跟着变宽。
+
+## Spinner
+
+单文件 `ui/Spinner.tsx`,样式在 `Spinner.css`。样式广场 spinner 第 6 个:圆锥渐变、尾巴淡出、中间挖空,1 秒转一圈。
+
+**查阅时机**:按钮或图标位需要一个转圈,并且要跟文字颜色、字号走。
+
+**何时用**:
+
+- 当图标放进按钮、行或标题旁
+- 要改大小或颜色
+
+**何时不用**:
+
+- 三个点的跳动 → [`LoadingDots`](#loadingdots)
+- 一块区域的点阵 → [`DotMatrix`](#dotmatrix)
+
+**API**:
+
+```tsx
+<Spinner size={14} color="currentColor" />
+```
+
+`size` 是数字(像素)或任意 CSS 长度,默认 `1em`。`color` 不传则用 `currentColor`。`prefers-reduced-motion` 时不旋转。
 
 ## ResizablePanels
 
@@ -1660,7 +1733,9 @@ ui/MessageSurface   ← components/conversation/UserMessage
 ui/PaneHeader       ← extensions/plugins/terminal/TerminalView, extensions/plugins/files/FilesView
 ui/Popover          ← ui/Tooltip, ui/Dropdown, components/* (按需)
 ui/Dropdown         ← ui/ContextMenu, components/ModelPicker
-ui/Modal            ← components/AddProjectDialog
+ui/Modal            ← ui/Dialog, components/AddProjectDialog
+ui/Dialog           ← hooks/useModal, components/SessionItem
+ui/Spinner          ← ui/Dialog
 ui/Tooltip          ← ui/IconButton, ui/Heading, ui/Paragraph（Hint 经 Paragraph）
 ui/Paragraph        ← ui/Hint
 ui/EmptyState       ← extensions/plugins/files/FilesView, extensions/plugins/files/FileTree
