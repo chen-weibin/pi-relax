@@ -229,6 +229,7 @@ export function ChatLab() {
 			const rest = queue.current.splice(0)
 			phase.current = 'ready'
 			for (const event of [...preload, ...rest]) applyEvent(event)
+			if (runStatusRef.current === 'running' && !isRunBusy(runtime.getSnapshot().runPhase)) runtime.resumeLive()
 			setNotice(null)
 		} catch (error) {
 			if (ticket.current !== ticketNo) return

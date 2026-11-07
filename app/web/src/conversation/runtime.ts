@@ -179,6 +179,8 @@ export function settledPartEvents(messageId: string, parts: readonly CompletedPa
 export type BlockRuntime = {
 	apply: (event: BlockFeedEvent) => void
 	replace: (messages: CompletedMessage[]) => void
+	/** 历史按已结束画完，但这条会话还在跑。末尾没出结果的那一块重新打开。 */
+	resumeLive: () => void
 	subscribe: (listener: () => void) => () => void
 	getSnapshot: () => ConversationSnapshot
 }
@@ -502,6 +504,22 @@ export function createBlockRuntime(): BlockRuntime {
 				for (const event of settledPartEvents(message.id, message.parts)) applyOne(event)
 			}
 			runPhase = 'idle'
+			emit()
+		},
+		resumeLive() {
+			resetTouch()
+			const block = blocks.get(order[order.length - 1] ?? '')
+			if (!block || block.kind === 'user-text') {
+				runPhase = 'awaiting'
+				emit()
+				return
+			}
+			const toolDone = block.kind === 'tool' && (block.data.resultText !== '' || block.data.isError)
+			if (!toolDone && block.contentPhase !== 'open') {
+				blocks.set(block.key, { ...block, contentPhase: 'open' })
+				noteUpdate(block.key)
+			}
+			runPhase = !toolDone && block.kind !== 'tool' ? 'running' : 'awaiting'
 			emit()
 		},
 		subscribe(listener) {

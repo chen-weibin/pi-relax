@@ -79,7 +79,7 @@ Store 继续按字段切片订阅。做法见 [web-zustand-store-design.md](supe
 
 选中已有会话时拉 history。Worker 译成一份快照（或译成现有 runtime 能 `replace` 的已完成消息）。主线程 `replace` 一次。此阶段不发送。
 
-正在生成的会话也可以打开：先落地历史，再把短队列里积下的事件放进 runtime，然后接上这条的实时事件。热会话的 history 在文件上下文后面附上还没落盘的那条（`streamingMessage`）；同一条引用，或相同角色和时间戳，不重复附。客户端另留着每条会话最近一次助手 `message_update`：历史画完、放行实时事件之前，若这份半截还没出现在 history 里，先用它补上。之后的正文或思考增量若带了截至目前的全文，没有对应的开头也能把块补上。历史响应到达时，若正文里已经有消息，响应前积下的增量丢掉（那些字已经在这份 history 里），只重放响应到手之后、画上屏之前的新事件。history 还是空的则整段重放。服务端没有事件序号，响应发出后、浏览器收到前的极短一段仍可能缺字，再打开会用 history 对齐。
+正在生成的会话也可以打开：先落地历史，再把短队列里积下的事件放进 runtime，然后接上这条的实时事件。放行后如果目录仍是 running、而 runtime 还是 idle，末尾还没有结果的那一块重新打开，活动行和标题闪烁留着；已经有结果的工具不重新打开，只把这一轮标回还在等下一步。热会话的 history 在文件上下文后面附上还没落盘的那条（`streamingMessage`）；同一条引用，或相同角色和时间戳，不重复附。客户端另留着每条会话最近一次助手 `message_update`：历史画完、放行实时事件之前，若这份半截还没出现在 history 里，先用它补上。之后的正文或思考增量若带了截至目前的全文，没有对应的开头也能把块补上。历史响应到达时，若正文里已经有消息，响应前积下的增量丢掉（那些字已经在这份 history 里），只重放响应到手之后、画上屏之前的新事件。history 还是空的则整段重放。服务端没有事件序号，响应发出后、浏览器收到前的极短一段仍可能缺字，再打开会用 history 对齐。
 
 ## 发送与中止
 
@@ -137,7 +137,7 @@ Store 继续按字段切片订阅。做法见 [web-zustand-store-design.md](supe
 
 此块不做：流式节流、结构共享改造。
 
-当前实现：`historyToMessages` 把 `SessionContext.messages` 收成 `CompletedMessage[]`，`Conversation` 在历史 `ready` 后 `replace` 一次，再放行这条会话的实时事件。有字符串 `id` 用它，否则用 `t` 加 `timestamp`，都没有才用 `m` 加输入下标。user 的字符串和 `text` 拼成一段；`image` 这一版不进文本块，后面单独做。assistant 保留 `thinking`、`text` 和 `toolCall`，`contentIndex` 用内容数组里的原下标；`toolResult` 按 `toolCallId` 写回那次调用。`errorMessage` 不进正文，显示在输入框上方。`system` 跳过。工具和探索组见模块 7。Worker 在 `conversation/history.worker.ts`，建不起来或译失败就在主线程跑同一函数。代际对不上的结果丢掉。`loading` 清空列，并在列内左右居中显示「加载中...」，`error` 显示「历史加载失败」，草稿和未选中是空列。对话区 mock 已删除。
+当前实现：`historyToMessages` 把 `SessionContext.messages` 收成 `CompletedMessage[]`，`Conversation` 在历史 `ready` 后 `replace` 一次，再放行这条会话的实时事件。目录仍是 running 而 `runPhase` 还是 idle 时 `resumeLive`。有字符串 `id` 用它，否则用 `t` 加 `timestamp`，都没有才用 `m` 加输入下标。user 的字符串和 `text` 拼成一段；`image` 这一版不进文本块，后面单独做。assistant 保留 `thinking`、`text` 和 `toolCall`，`contentIndex` 用内容数组里的原下标；`toolResult` 按 `toolCallId` 写回那次调用。`errorMessage` 不进正文，显示在输入框上方。`system` 跳过。工具和探索组见模块 7。Worker 在 `conversation/history.worker.ts`，建不起来或译失败就在主线程跑同一函数。代际对不上的结果丢掉。`loading` 清空列，并在列内左右居中显示「加载中...」，`error` 显示「历史加载失败」，草稿和未选中是空列。对话区 mock 已删除。
 
 ### 4. 发送与中止
 

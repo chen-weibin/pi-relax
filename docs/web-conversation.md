@@ -78,7 +78,7 @@ AgentSessionEvent → adaptAgentSession → BlockFeedEvent → runtime.apply
 
 ## 历史与实时
 
-打开会话：`SessionContext.messages`（热会话已含还没落盘的那条）→ `historyToMessages`（Worker，失败则主线程）→ `runtime.replace`。若客户端还留着最近一次助手 `message_update`，且 history 里没有这条，`replace` 之后先补上，再 `apply` 实时事件。正文或思考增量带了截至目前的全文时，缺块也按全文建出来。消息有字符串 `id` 用它，否则用 `t` 加 `timestamp`。用户消息里的 `image` 这一版不进文本块，后面单独做块。`toolCall` 成为 `tool` 块，随后的 `toolResult` 按 `toolCallId` 写回；`system` 跳过。助手 `errorMessage` 不进列，显示在输入框上方。见 [`web-app.md`](web-app.md) 模块 7。
+打开会话：`SessionContext.messages`（热会话已含还没落盘的那条）→ `historyToMessages`（Worker，失败则主线程）→ `runtime.replace`。若客户端还留着最近一次助手 `message_update`，且 history 里没有这条，`replace` 之后先补上，再 `apply` 实时事件。放行后目录仍是 running、runtime 却是 idle 时调用 `resumeLive`：末尾没结果的块重新打开，已有结果的工具保持结束。正文或思考增量带了截至目前的全文时，缺块也按全文建出来。消息有字符串 `id` 用它，否则用 `t` 加 `timestamp`。用户消息里的 `image` 这一版不进文本块，后面单独做块。`toolCall` 成为 `tool` 块，随后的 `toolResult` 按 `toolCallId` 写回；`system` 跳过。助手 `errorMessage` 不进列，显示在输入框上方。见 [`web-app.md`](web-app.md) 模块 7。
 
 实时：`AgentSessionEvent` → [`adaptAgentSession.ts`](../app/web/src/conversation/adaptAgentSession.ts) → `BlockFeedEvent` → `runtime.apply`。`agent_end` 不把这一轮收成结束，要等 `agent_settled`。
 

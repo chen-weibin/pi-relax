@@ -73,6 +73,54 @@ describe('block runtime', () => {
 		assert.equal(done.byKey['a:0:tool'], undefined)
 	})
 
+	it('reopens the unfinished tail when a painted history is still live', () => {
+		installFrame()
+		const runtime = createBlockRuntime()
+		runtime.replace([
+			{
+				role: 'assistant',
+				id: 'a',
+				parts: [
+					{
+						type: 'tool',
+						contentIndex: 0,
+						id: 'call',
+						name: 'bash',
+						argumentsText: 'sleep 8',
+						resultText: '',
+						isError: false,
+					},
+				],
+			},
+		])
+		assert.equal(runtime.getSnapshot().runPhase, 'idle')
+		assert.equal(runtime.getSnapshot().byKey.call?.contentPhase, 'complete')
+		runtime.resumeLive()
+		assert.equal(runtime.getSnapshot().runPhase, 'awaiting')
+		assert.equal(runtime.getSnapshot().byKey.call?.contentPhase, 'open')
+
+		runtime.replace([
+			{
+				role: 'assistant',
+				id: 'a',
+				parts: [
+					{
+						type: 'tool',
+						contentIndex: 0,
+						id: 'call',
+						name: 'bash',
+						argumentsText: 'sleep 8',
+						resultText: 'done',
+						isError: false,
+					},
+				],
+			},
+		])
+		runtime.resumeLive()
+		assert.equal(runtime.getSnapshot().byKey.call?.contentPhase, 'complete')
+		assert.equal(runtime.getSnapshot().runPhase, 'awaiting')
+	})
+
 	it('renames a provisional tool key onto the call id', () => {
 		installFrame()
 		const runtime = createBlockRuntime()

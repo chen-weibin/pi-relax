@@ -247,6 +247,8 @@ export function Conversation({ className }: Props) {
 			}
 			setAssistantError(historyAssistantError(history.messages))
 			releaseOpenSession(generation)
+			const openId = transport.openSessionId
+			if (openId && catalogRunning(openId) && !isRunBusy(runtime.getSnapshot().runPhase)) runtime.resumeLive()
 			setNotice(null)
 		})
 		return () => {
