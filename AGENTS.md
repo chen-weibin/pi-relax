@@ -43,3 +43,20 @@
 - [`docs/server-implemented.md`](docs/server-implemented.md) — `app/server` 当前已经能用的功能，标题加编号列表。查阅时机：想看服务端现在做到哪、对照联调页时。改服务端行为时和 [`docs/server.md`](docs/server.md) 一起改。
 - [`docs/server-fs.md`](docs/server-fs.md) — 后端文件系统按功能点写：列出、元信息、读、写、建目录、删除、监听。每点含功能说明、接口说明、使用说明。查阅时机：改 `/api/fs` 或 `/ws/fs`，或要核对某种请求会返回什么时。服务端总览仍看 [`docs/server.md`](docs/server.md)。
 - `app/agenttest/` — agent CLI 试验场，订阅 `AgentSessionEvent` 打到终端，用于研究事件流。需要 `MINIMAX_API_KEY` env。查阅时机：调试 `session.subscribe`、看 `message_update` 的 `text_delta`、或临时跑单次 prompt 验证 agent 输出时。
+- [`docs/agents/issue-tracker.md`](docs/agents/issue-tracker.md) — issue 以 markdown 放在 `.scratch/<feature>/`。查阅时机：创建或读取 ticket、spec，或 skill 说 publish / fetch issue 时。
+- [`docs/agents/triage-labels.md`](docs/agents/triage-labels.md) — 五个分诊角色到标签字符串的对照。查阅时机：给 issue 打分诊状态时。
+- [`docs/agents/domain.md`](docs/agents/domain.md) — 领域文档是单上下文：根目录 `GLOSSARY.md` 与 `docs/adr/`。查阅时机：探索代码前要读术语或 ADR，或 skill 要消费领域文档时。
+
+## Agent skills
+
+### Issue tracker
+
+Issues live as markdown files under `.scratch/<feature>/`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Five canonical roles, label string equals role name: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one `GLOSSARY.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
