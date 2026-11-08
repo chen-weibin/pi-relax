@@ -193,6 +193,7 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
 | `DotMatrix` | 点阵 loading(9/16 点,乱中有序 / 顺时针两种节奏) | [`ui.md#dotmatrix`](ui.md#dotmatrix) |
 | `StatusDot` | 6px 单点状态指示(success / failure / normal) | [`ui.md#statusdot`](ui.md#statusdot) |
 | `ProgressBar` | 水平拖拽滑块 + 数值槽位(thumb / track / 键盘 / pointer capture) | [`ui.md#progressbar`](ui.md#progressbar) |
+| `GlassIcons` | 液态玻璃图标组:WebGL 折射 + 视差 + 悬停动作,无 WebGL 自动降级 | [`ui.md#glassicons`](ui.md#glassicons) |
 
 > 用谁 / 别造轮子 → [`docs/ui.md` 决策表](ui.md#决策表该用哪个) + [反例表](ui.md#反例这些事不要做)。
 

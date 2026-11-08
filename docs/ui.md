@@ -56,6 +56,7 @@
 | 「正在生成 / 思考中」的 3 点循环动效 | [`LoadingDots`](#loadingdots) | 不要写 3 个 `<span>` + 自写 `@keyframes`;不要用 `DotMatrix`(它是 3×3 / 4×4 点阵,语义/视觉不一样) |
 | 点阵 loading(3×3 / 4×4,多尺寸多形状) | [`DotMatrix`](#dotmatrix) | 不要为单个 loading 写一次性 `<div>` 网格 + 自写 CSS `@keyframes`(`motion/react` 已在依赖里) |
 | 单点状态指示(成功 / 失败 / 已读) | [`StatusDot`](#statusdot) | 不要为 `success` / `failure` 单独写 `<div>` + 内联颜色;统一走 `StatusDot` + 项目语义色 token |
+| 一组会折射背后颜色的液态玻璃图标 | [`GlassIcons`](#glassicons) | 不要自己拼 `backdrop-filter` + `feDisplacementMap` 折射滤镜,也不要手写 WebGL 着色器 |
 | 插件 / 子面板顶栏(固定 38px + 底部分割线) | [`PaneHeader`](#paneheader) | 不要手写 `h-[38px] + border-b border-border` 顶栏三件套 |
 | 页面标题(级别、颜色、行高、整行、省略) | [`Heading`](#heading) | 不要手写 `h1`–`h4` 再拼 `text-*` / `truncate` |
 | 正文段落(字号、颜色、行高、换行或省略) | [`Paragraph`](#paragraph) | 不要手写 `<p>` 再拼字号、颜色和 `truncate` |
@@ -93,6 +94,7 @@
 | 辅助说明用 `Paragraph` 再改成 `text-sm text-fg-3` | 用 [`Hint`](#hint)。输入框框下那一行仍用 [`Input`](#input) 的 `hint`,它有绝对定位和状态色 |
 | 空区域手写居中的 `text-sm text-fg-3`,或自己拼图标加文案 | 用 [`EmptyState`](#emptystate)。文案和图标由调用方传入 |
 | 手写一列短横，再自己定位 hover 卡片 | 用 [`DashRail`](#dashrail)。一句说明仍用 [`Tooltip`](#tooltip)，贴按钮的菜单仍用 [`Popover`](#popover) |
+| 手写 SVG 滤镜 / WebGL 着色器做玻璃折射 | 用 [`GlassIcons`](#glassicons)。折射、视差、悬停动作、无 WebGL 降级都在组件里 |
 
 ## Expandable
 
@@ -541,6 +543,83 @@
 
 - `kind` 改变只是换颜色,不会重新挂载节点 — 不要假设组件内部会因为 `kind` 切换做动画;需要过渡自己加 `transition-colors`
 - 在亮色主题下 `--fg-3` 可能对比度不足,后续如发现可见性问题,要么换 token 要么允许 `kind` 加一个 `muted` 变体
+
+## GlassIcons
+
+单文件 `ui/GlassIcons.tsx`。液态玻璃图标组:玻璃折射背后的颜色,底板由 WebGL 着色器画,玻璃层和字形走 DOM。移植自 [react-bits](https://reactbits.dev/components/glass-icons)(MIT),颜色改成走项目 token。
+
+**查阅时机**:做应用宫格 / dock / 社交链接这类「一排浮在彩色背景上、会透出背后颜色的图标」,或评估要不要液态玻璃风格。
+
+**何时用**:
+
+- 一组图标要浮在彩色背景上,并透出背后的颜色
+- 想让玻璃随指针移动产生视差和高光
+
+**何时不用**:
+
+- 普通图标按钮 → [`IconButton`](#iconbutton)
+- 只要磨砂、不要折射 → [`MessageSurface`](#messagesurface) 加 `backdrop-blur` 就够
+- 一长串列表里的操作按钮 → 每帧一次 WebGL 绘制 + 每个图标一次 DOM 变换,几十个会明显掉帧
+
+**API**:
+
+```tsx
+<GlassIcons
+  items={[{ icon: <BlocksIcon />, label: '模块', color: 'blue' }]}
+  size="md"
+  plate="tilt"
+  hover="press"
+  labels="hover"
+/>
+```
+
+| prop | 类型 | 默认 | 说明 |
+|---|---|---|---|
+| `items` | `GlassIconsItem[]` | `[]` | 每项一个图标 |
+| `size` | `'sm' \| 'md' \| 'lg'` | `'md'` | 三档尺寸。间距和标签字号跟着档位一起缩放 |
+| `gap` | `number` | 按 `size` 档位 | 图标间距。`labels='always'` 时行距额外加一档给标签留位 |
+| `columns` | `number` | `3` | 每行几个,只决定容器最大宽度,不强制换行 |
+| `roundness` | `number` | `0.6` | 0 方形 → 1 圆形 |
+| `refraction` | `number` | `0.8` | 折射强度,0–1.5 |
+| `bevel` | `number` | `0.6` | 边缘倒角宽度占边长的比例 |
+| `dispersion` | `number` | `0` | 色散(边缘红蓝分离)强度,0–1 |
+| `frost` | `number` | `0.2` | 磨砂模糊 |
+| `shine` | `number` | `0.85` | 高光强度 |
+| `tint` | `string` | `'#dfdfdf'` | 玻璃染色色 |
+| `tintOpacity` | `number` | `0.2` | 染色透明度 |
+| `iconColor` | `string` | `var(--fg-bright)` | 字形颜色 |
+| `plate` | `'tilt' \| 'offset' \| 'none'` | `'tilt'` | 玻璃后面的彩色底板。`none` = 纯玻璃,改走 SVG 位移滤镜 |
+| `tilt` | `number` | `30` | `tilt` 底板的旋转角(deg) |
+| `spread` | `number` | `0.5` | `offset` 底板与玻璃的错位量 |
+| `hover` | `'lift' \| 'float' \| 'press' \| 'none'` | `'press'` | 悬停动作:`lift` 抬起、`float` 浮起、`press` 按下缩放 |
+| `parallax` | `number` | `1` | 指针视差强度,0–1 |
+| `labels` | `'hover' \| 'always' \| 'none'` | `'hover'` | 文字标签 |
+| `intro` | `boolean` | `true` | 进入视口时逐个淡入,每个间隔 70ms |
+| `className` | `string` | — | 透传到外层 |
+| `style` | `CSSProperties` | — | 透传到外层,可覆盖 `--glass-icons-*` 变量 |
+
+`GlassIconsItem`:`icon`(必填,`ReactNode`)、`label`、`color`、`href`、`target`、`onClick`、`id`、`className`。`label` 既是显示的标签也是无障碍名称,别省。`color` 可以写 `GLASS_ICONS_GRADIENTS` 里的名字(`blue` / `purple` / `pink` / …),也可以直接写一段 CSS 渐变。
+
+**视觉 / 行为**:
+
+| 项 | 值 |
+|---|---|
+| 颜色 | 标签 `--fg-2`,字形 `--fg-bright`,跟随 app 主题 |
+| 三档尺寸 | `sm` 56px / `md` 82px / `lg` 112px。间距按 0.8 倍边长走,标签字号 11 / 13 / 14px |
+| 玻璃 | `backdrop-filter: blur(4px) saturate(1.4)`(frost=0.2),叠一层 `--glass-icons-tint` |
+| 底板 | WebGL 画的渐变块:`tilt` 旋转偏移、`offset` 平移 |
+| `plate='none'` | 改用 SVG `feDisplacementMap` 位移滤镜折射,需要浏览器支持 `backdrop-filter: url(#id)` |
+| 无 WebGL | 退回 DOM:底板用渐变 span,高光 / 暗部用启动时生成的贴图 |
+| 悬停 | 指针位置驱动光源方向和视差;`press` 模式按下时缩小 8% |
+| 无障碍 | 每项是 `<button>` 或 `<a>`,`aria-label` 取 `label`;键盘 focus 也会触发悬停态 |
+
+**踩坑备忘**:
+
+- 上游 react-bits 版本自带 `theme` prop(一套自己的深浅色)。这里去掉,颜色直接走项目 token,跟着 app 的 `data-theme` 走。
+- `plate='none'` 的纯玻璃在 Safari / Firefox 上拿不到 `backdrop-filter: url()`,会退化成普通模糊,不是 bug。
+- `labels='always'` 时行距按档位额外加 22 / 26 / 30px;`labels='hover'` 时标签浮在图标下方 10px,容器高度别留太紧。
+- WebGL 上下文只在首次挂载时创建。图标增删会重画但不重建上下文;卸载时释放。
+- `prefers-reduced-motion` 下直接落到最终状态,不播入场和悬停动画。
 
 ## MessageSurface
 
@@ -1727,6 +1806,7 @@ ui/Expandable       ← ui/DisclosureRow
 ui/ShinyText        ← ui/DisclosureRow
 ui/MarkdownView     ← components/conversation/ThinkingMessage, AssistantMessage
 ui/TypewriterText   ← (目前无引用,保留供后续纯文本逐字场景)
+ui/GlassIcons       ← (目前无引用,保留供后续应用宫格场景)
 ui/Editor           ← components/Composer
 ui/MonacoEditor     ← extensions/plugins/files/viewers
 ui/MessageSurface   ← components/conversation/UserMessage

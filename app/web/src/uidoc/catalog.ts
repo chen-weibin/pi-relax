@@ -9,6 +9,7 @@ import { editorDoc } from './Editor'
 import { emptyStateDoc } from './EmptyState'
 import { expandableDoc } from './Expandable'
 import { flipTextDoc } from './FlipText'
+import { glassIconsDoc } from './GlassIcons'
 import { headingDoc } from './Heading'
 import { hintDoc } from './Hint'
 import { iconButtonDoc } from './IconButton'
@@ -55,7 +56,17 @@ export const uiDocGroups: { title: string; sections: UiDocSection[] }[] = [
 	},
 	{
 		title: '反馈',
-		sections: [statusDotDoc, spinnerDoc, loadingDotsDoc, dotMatrixDoc, emptyStateDoc, shinyTextDoc, flipTextDoc, trailTextDoc],
+		sections: [
+			statusDotDoc,
+			spinnerDoc,
+			loadingDotsDoc,
+			dotMatrixDoc,
+			emptyStateDoc,
+			shinyTextDoc,
+			flipTextDoc,
+			trailTextDoc,
+			glassIconsDoc,
+		],
 	},
 	{
 		title: '布局',
