@@ -1,4 +1,5 @@
 import type { ComponentType } from 'react'
+import { appIconDoc } from './AppIcon'
 import { buttonDoc } from './Button'
 import { disclosureRowDoc } from './DisclosureRow'
 import { contextMenuDoc } from './ContextMenu'
@@ -65,6 +66,7 @@ export const uiDocGroups: { title: string; sections: UiDocSection[] }[] = [
 			shinyTextDoc,
 			flipTextDoc,
 			trailTextDoc,
+			appIconDoc,
 			glassIconsDoc,
 		],
 	},

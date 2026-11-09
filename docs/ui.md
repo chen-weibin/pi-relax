@@ -57,6 +57,7 @@
 | 点阵 loading(3×3 / 4×4,多尺寸多形状) | [`DotMatrix`](#dotmatrix) | 不要为单个 loading 写一次性 `<div>` 网格 + 自写 CSS `@keyframes`(`motion/react` 已在依赖里) |
 | 单点状态指示(成功 / 失败 / 已读) | [`StatusDot`](#statusdot) | 不要为 `success` / `failure` 单独写 `<div>` + 内联颜色;统一走 `StatusDot` + 项目语义色 token |
 | 一组会折射背后颜色的液态玻璃图标 | [`GlassIcons`](#glassicons) | 不要自己拼 `backdrop-filter` + `feDisplacementMap` 折射滤镜,也不要手写 WebGL 着色器 |
+| 单个 App 图标底板(squircle、可配颜色 / 大小 / 内部图标) | [`AppIcon`](#appicon) | 不要自己拼 `rounded-2xl` + 内联 `background` + 居中 svg;整组玻璃图标仍用 [`GlassIcons`](#glassicons) |
 | 插件 / 子面板顶栏(固定 38px + 底部分割线) | [`PaneHeader`](#paneheader) | 不要手写 `h-[38px] + border-b border-border` 顶栏三件套 |
 | 页面标题(级别、颜色、行高、整行、省略) | [`Heading`](#heading) | 不要手写 `h1`–`h4` 再拼 `text-*` / `truncate` |
 | 正文段落(字号、颜色、行高、换行或省略) | [`Paragraph`](#paragraph) | 不要手写 `<p>` 再拼字号、颜色和 `truncate` |
@@ -543,6 +544,61 @@
 
 - `kind` 改变只是换颜色,不会重新挂载节点 — 不要假设组件内部会因为 `kind` 切换做动画;需要过渡自己加 `transition-colors`
 - 在亮色主题下 `--fg-3` 可能对比度不足,后续如发现可见性问题,要么换 token 要么允许 `kind` 加一个 `muted` 变体
+
+## AppIcon
+
+目录 `ui/AppIcon/`:`index.tsx` 是组件,`squirclePath.ts` 是轮廓 path 生成器(带同名测试)。iOS 风格的 App 图标底板:连续曲率 squircle 实色块,内部放一个字形。`icon` / `color` / `size` 三个都必填,没有内置图标,也不带默认颜色。
+
+**查阅时机**:做应用宫格、启动页、关于页、扩展入口这类「一张 App 图标」的展示,或需要按品牌色出图标时。
+
+**何时用**:
+
+- 需要一张独立图标(单色底板 + 一个居中字形)
+- 颜色、尺寸要按调用方变化(品牌色、宫格大小)
+
+**何时不用**:
+
+- 一段纯图标 + 文字的按钮 → [`Button`](#button) / [`IconButton`](#iconbutton)
+- 一组要折射背后颜色的玻璃图标 → [`GlassIcons`](#glassicons)
+- 需要渐变、描边、投影、多色叠加 → 这个组件只做纯色底板,别往里加层
+
+**API**:
+
+```tsx
+<AppIcon size="md" color="#34C759" icon={<CheckIcon />} label="完成" />
+<AppIcon size="lg" color="#007AFF" icon={<FileIcon />} />
+```
+
+| prop | 类型 | 默认 | 说明 |
+|---|---|---|---|
+| `icon` | `ReactNode` | — (必填) | 内部字形,组件不提供默认图标 |
+| `color` | `string` | — (必填) | 底板颜色,任意 CSS 颜色 |
+| `size` | `'sm' \| 'md' \| 'lg' \| number` | — (必填) | 预设名或像素数。预设最大 64px,需要更大直接传数字 |
+| `label` | `string` | — | 可访问名。不传时 `aria-hidden`,按装饰图标处理 |
+| `className` | `string` | — | 透传到外层 |
+
+尺寸预设(`appIconSizes` 也导出了这张表):
+
+| `size` | px |
+|---|---|
+| `sm` | 40 |
+| `md` | 52 |
+| `lg` | 64 |
+
+**视觉与行为**:
+
+- 轮廓是内联 SVG 的 `<path>`,不是 CSS 圆角。path 由 `ui/AppIcon/squirclePath.ts` 生成,算法移植自 [figma-squircle](https://github.com/phamfoo/figma-squircle)(MIT):按 Figma 的 iOS 预设取 corner smoothing 0.6、corner radius 22.37%,用 Bézier 拼出连续曲率转角。普通 `border-radius` 是圆弧 + 直线,曲率在切点突变,轮廓会更「硬」。
+- path 只在模块加载时按 100×100 viewBox 算一次,靠 SVG 缩放到任意尺寸。
+- 底板 SVG 绝对定位铺满外层;字形居中,被压到 `50% × 50%`,默认 `text-white`,所以 `currentColor` 的图标会自动变白。
+- 无阴影、无边框、无悬停反馈,纯展示。
+
+**踩坑**:
+
+- `icon` / `color` / `size` 没有默认值,漏传 `size` 会在编译期报错(不要指望有任何默认尺寸)。
+- 图标尺寸是硬约束,传进来的 svg 自带 `width/height` 也会被覆盖;想调整比例改组件里的 50%,不要在外面再包一层缩放。
+- 圆角比例(22.37%)和 smoothing(0.6)写死在 `AppIcon` 里,没有暴露 prop;要调就改那两个常量,顺手同步文档。
+- 图标颜色固定吃 `text-white`;要彩色字形就把颜色写进传入的 `icon` 本身,不要在 className 里和 `text-white` 抢。
+- 这是展示组件,不处理点击;需要可点击时外面包 [`IconButton`](#iconbutton) 或按钮,并补 `label`。
 
 ## GlassIcons
 
@@ -1807,6 +1863,7 @@ ui/ShinyText        ← ui/DisclosureRow
 ui/MarkdownView     ← components/conversation/ThinkingMessage, AssistantMessage
 ui/TypewriterText   ← (目前无引用,保留供后续纯文本逐字场景)
 ui/GlassIcons       ← (目前无引用,保留供后续应用宫格场景)
+ui/AppIcon          ← (目前无引用,保留供后续应用宫格 / 启动页场景)
 ui/Editor           ← components/Composer
 ui/MonacoEditor     ← extensions/plugins/files/viewers
 ui/MessageSurface   ← components/conversation/UserMessage
