@@ -28,6 +28,7 @@ import { popoverDoc } from './Popover'
 import { progressBarDoc } from './ProgressBar'
 import { resizableDoc } from './Resizable'
 import { searchInputDoc } from './SearchInput'
+import { segmentedDoc } from './Segmented'
 import { selectDoc } from './Select'
 import { settingDoc } from './Setting'
 import { shinyTextDoc } from './ShinyText'
@@ -49,7 +50,17 @@ export type UiDocSection = {
 export const uiDocGroups: { title: string; sections: UiDocSection[] }[] = [
 	{
 		title: '操作',
-		sections: [buttonDoc, iconButtonDoc, switchDoc, inputDoc, searchInputDoc, selectDoc, numberStepperDoc, progressBarDoc],
+		sections: [
+			buttonDoc,
+			iconButtonDoc,
+			switchDoc,
+			segmentedDoc,
+			inputDoc,
+			searchInputDoc,
+			selectDoc,
+			numberStepperDoc,
+			progressBarDoc,
+		],
 	},
 	{
 		title: '浮层',

@@ -46,6 +46,7 @@
 | 设置面板里的分组卡片(可选小标题) | [`SettingGroup`](#settinggroup) | 不要在 Setting 页里写裸 `<section rounded-xl bg-surface>` + `<h2>` 三件套 |
 | 设置面板里的一行(左 label + 描述,右控制区) | [`SettingRow`](#settingrow) | 不要写裸 `<div flex justify-between><div>{label}<div>{desc}</div></div><div>...</div></div>` 三层嵌套 |
 | 开关(on/off,绿色 + 灰色态) | [`Switch`](#switch) | 不要写裸 `<button role="switch">` + `translate-x-*` 自己拼 thumb 位移 |
+| 分段控件(选项互斥、胶囊滑动指示、三档尺寸) | [`Segmented`](#segmented) | 不要手写一排 button + 绝对定位指示器自己算偏移;选项多于 5 个用 [`Select`](#select) |
 | 选择器(静态 / 懒加载 / 搜索三合一) | [`Select`](#select) | 不要写裸 `<select>`(样式难统一),也不要在 Setting 里再写 `<Popover>` + 自己造 listbox |
 | 带子菜单的菜单(行尾当前值,向右再展开,子面板可搜索) | [`Dropdown`](#dropdown) | 不要用 [`Select`](#select) 套两层,也不要在业务里手写多层 [`Popover`](#popover)。锚点是指针时用 [`ContextMenu`](#contextmenu) |
 | 右键菜单(从点击点向右下展开,靠边翻转) | [`ContextMenu`](#contextmenu) | 不要自己监听 `contextmenu` 再绝对定位一块菜单;锚点是元素时用 [`Dropdown`](#dropdown) |
@@ -87,6 +88,7 @@
 | 按钮等待时手写 `border` 转圈或 `LoadingDots` 当图标 | 用 [`Spinner`](#spinner)。大小和颜色从外面传 |
 | 手写带清空、前后缀、字数或状态边框的 `<input>` | 用 [`Input`](#input)。搜索框仍用 [`SearchInput`](#searchinput) |
 | 手写实底 / 描边 / 幽灵 / 纯文字按钮 | 用 [`Button`](#button)。只显示图标用 [`IconButton`](#iconbutton) |
+| 手写一排互斥 button,再用绝对定位 div 当选中指示器 | 用 [`Segmented`](#segmented)。胶囊位移、宽度、过渡缓动都在组件里 |
 | 手写多层 Popover 做「当前值 + 向右子菜单」 | 用 [`Dropdown`](#dropdown)。一层就能选完的列表仍用 [`Select`](#select) |
 | 自己监听 `contextmenu`,再用 `fixed` / `absolute` 把菜单摆到光标旁 | 用 [`ContextMenu`](#contextmenu)。定位、翻转、子菜单和关掉整棵菜单都已经接好 |
 | 给 `Button` 加任意颜色 prop | 色调只有 `neutral` / `inverse`,走 token;一次性换色用 `className` |
@@ -1215,6 +1217,76 @@ const [q, setQ] = useState('')
 - 点击后主动 `blur()` 避免 switch 抢焦点,保持表单焦点流自然。
 - thumb 位移 `translate-x-4` (16px,pill 32 - thumb 14 - 左右各 2px padding = 16),左右对称,跟 input 同步缩放后的尺寸对齐。
 
+## Segmented
+
+单文件 `ui/Segmented.tsx`。分段控件:一排互斥选项 + 一个**滑动的胶囊指示器**。胶囊位置由选中项实测得到,用 `motion/react` 的 tween 驱动:平滑减速到位即停,**不过冲、不回弹**。三档尺寸对齐 [`Button`](#button) 的 sm / md / lg,两种胶囊样式:`default`(灰胶囊)和 `inverse`(白胶囊)。
+
+**查阅时机**:想在几个互斥选项间切换、又不想要一个下拉(选项 ≤ 5 个、想一直看得见全部选项),或评估是否手写「一排 button + 绝对定位指示器」。
+
+**何时用**:
+
+- 2–5 个互斥选项,选项文案短、全部都要一直可见(如视图切换、密度切换)
+- 想要「选中项会滑过去」的连续感,而不是瞬间换色
+- 想直接拿到 `(value: T) => void` 的简洁回调
+
+**何时不用**:
+
+- 选项多到一行放不下(> 5 个)→ 用 [`Select`](#select)
+- 选项内容需要搜索 / 懒加载 → 用 [`Select`](#select)
+- 需要多选 → 自己写 checkbox 组,Segmented 只管单选
+- 需要表单原生集成(name / value 提交)→ 用原生 radio + 视觉包装
+
+**API**:
+
+| prop | 类型 | 说明 |
+|---|---|---|
+| `value` | `T` | 当前选中(受控);**传了就走受控**;`T extends string` |
+| `defaultValue` | `T` | 非受控初始值;`value` 没传才生效 |
+| `options` | `readonly T[]` | 选项,按展示顺序;文案就是字符串本身 |
+| `onChange` | `(next: T) => void` | 选中项变化;非受控模式下可不传 |
+| `size` | `'sm' \| 'md' \| 'lg'` | 默认 `md`;档位对齐 Button(24 / 30 / 36px) |
+| `variant` | `'default' \| 'inverse'` | 默认 `default`;`inverse` 是白胶囊 + 深色选中字 |
+| `disabled` | `boolean` | 整体禁用 |
+| `className` | `string` | 透传到外层 track |
+
+```tsx
+// 受控
+const [placement, setPlacement] = useState<Placement>('top')
+
+<Segmented
+  value={placement}
+  options={['top', 'bottom', 'left', 'right']}
+  onChange={setPlacement}
+/>
+
+// 非受控
+<Segmented defaultValue="top" options={['top', 'bottom', 'left', 'right']} />
+```
+
+**视觉**:
+
+| 项 | 值 |
+|---|---|
+| 轨道 | `border border-border` + `p-0.5`,圆角 `rounded-sm / md / lg`(随尺寸) |
+| 选项 | `h-6 / h-[30px] / h-9`,`px-2 / 2.5 / 3`,字号 `text-sm / base / lg` |
+| 胶囊 `default` | `bg-surface-hover`,圆角比轨道小一档(`rounded-xs / sm / md`) |
+| 胶囊 `inverse` | `bg-fg`(白),选中项文字改 `text-app`(深色)—— 与 `Button tone="inverse" variant="solid"` 同语义 |
+| 选中 / 未选中文字 | 选中 `text-fg`;未选中 `text-fg-3 hover:text-fg-2` |
+| 缓动 | tween `240ms` + `cubic-bezier(0.22, 1, 0.36, 1)`(平滑减速,不过冲) |
+
+**实现**:外层 track(`relative inline-flex` + `p-0.5`)+ 一个绝对定位的胶囊 + 一排 `<button aria-pressed>`。布局期量一次选中按钮相对 track **内边距框**的 `x`(`rect.left - trackRect.left - track.clientLeft`)和 `width`,写进两个 MotionValue,再用 `animate(value, target, TWEEN)` 驱动;胶囊 `left-0 top-0.5 bottom-0.5`,所以它的盒子正好等于按钮的盒子。受控 / 非受控的判定与 `Switch` / `Select` 一致:`value !== undefined` 即受控。
+
+**踩坑备忘**:
+
+- 首次挂载用 `duration: 0` 直接落位(不从 0 滑出来);`prefers-reduced-motion` 下全程瞬移。
+- 过渡是 tween 不是 spring:**到位即停,没有回弹**。要改成带过冲的弹性,改 `ui/Segmented.tsx` 里的 `TWEEN`。
+- 连点时 `animate` 作用于同一个 MotionValue 会接管上一次动画,胶囊从当前位置接着走,不会跳。
+- `ResizeObserver` 盯着 track 和当前选中按钮:窗口缩放、选中项文案变长时会重新测量并跟上。
+- `className` **不要覆盖 track 的 `p-0.5`**,胶囊几何依赖这块内边距。
+- `options` 里没有 `value` 时不渲染胶囊(不会错位到第一个选项上)。
+- 受控模式:若 `onChange` 内部没更新 `value`,控件看起来"按了没反应"——这是 React 受控组件语义,不是 bug。
+- 无障碍:原生 `<button>` + `aria-pressed`,Tab 可逐个聚焦、Enter / Space 选中;**没有方向键切换**,也没做 `radiogroup` 语义。
+
 ## NumberStepper
 
 单文件 `ui/NumberStepper.tsx`。数字步进器:圆角 pill 容器,内三段(`-` / 数字 / `+`),**只外层有边框,内部不分隔**;两端的按钮复用 [`IconButton`](#iconbutton)(ghost,sm,`px-2`,图标缩到 12px),图标用项目 `MinusIcon` / `PlusIcon`。中间数字 `min-w-[3rem]` 防位数变化挤压,`aria-live="polite"` 让屏幕阅读器感知变化。
@@ -1873,6 +1945,7 @@ ui/Dropdown         ← ui/ContextMenu, components/ModelPicker
 ui/Modal            ← ui/Dialog, components/AddProjectDialog
 ui/Dialog           ← hooks/useModal, components/SessionItem
 ui/Spinner          ← ui/Dialog
+ui/Segmented        ← uidoc/Segmented(演示页)
 ui/Tooltip          ← ui/IconButton, ui/Heading, ui/Paragraph（Hint 经 Paragraph）
 ui/Paragraph        ← ui/Hint
 ui/EmptyState       ← extensions/plugins/files/FilesView, extensions/plugins/files/FileTree
