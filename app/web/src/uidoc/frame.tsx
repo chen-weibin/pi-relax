@@ -20,34 +20,6 @@ export function Preview({
 	)
 }
 
-export function Segmented<T extends string>({
-	value,
-	options,
-	onChange,
-}: {
-	value: T
-	options: readonly T[]
-	onChange: (next: T) => void
-}) {
-	return (
-		<div className="inline-flex rounded-md border border-border p-0.5">
-			{options.map((option) => (
-				<button
-					key={option}
-					type="button"
-					onClick={() => onChange(option)}
-					className={classNames(
-						'rounded px-2 py-1 text-sm',
-						option === value ? 'bg-surface-hover text-fg' : 'text-fg-3 hover:text-fg-2',
-					)}
-				>
-					{option}
-				</button>
-			))}
-		</div>
-	)
-}
-
 export const DemoButton = forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLButtonElement>>(
 	function DemoButton({ className, type = 'button', ...rest }, ref) {
 		return (

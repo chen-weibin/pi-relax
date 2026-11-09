@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { MarkdownView } from '../ui/MarkdownView'
-import { Preview, Segmented } from './frame'
+import { Segmented } from '../ui/Segmented'
+import { Preview } from './frame'
 
 const modes = ['static', 'streaming'] as const
 const sample = `# 标题
@@ -14,7 +15,7 @@ function MarkdownViewDemo() {
 	const [mode, setMode] = useState<(typeof modes)[number]>('static')
 	return (
 		<Preview label="Markdown" bodyClassName="flex-col items-stretch gap-4">
-			<Segmented value={mode} options={modes} onChange={setMode} />
+			<Segmented size="sm" value={mode} options={modes} onChange={setMode} />
 			<MarkdownView key={mode} text={sample} mode={mode} isAnimating={mode === 'streaming'} />
 		</Preview>
 	)

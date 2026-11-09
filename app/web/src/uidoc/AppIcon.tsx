@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { CheckIcon, FileIcon, SettingsIcon, TerminalIcon } from '../icons'
 import { AppIcon, appIconSizes, type AppIconSize } from '../ui/AppIcon'
-import { Preview, Segmented } from './frame'
+import { Segmented } from '../ui/Segmented'
+import { Preview } from './frame'
 
 const sizes = ['sm', 'md', 'lg'] as const
 const glyphs = ['check', 'file', 'terminal', 'settings'] as const
@@ -30,8 +31,8 @@ function AppIconDemo() {
 	return (
 		<div className="flex flex-col items-center gap-6">
 			<div className="flex flex-wrap items-center justify-center gap-2">
-				<Segmented value={size} options={sizes} onChange={setSize} />
-				<Segmented value={glyph} options={glyphs} onChange={setGlyph} />
+				<Segmented size="sm" value={size} options={sizes} onChange={setSize} />
+				<Segmented size="sm" value={glyph} options={glyphs} onChange={setGlyph} />
 			</div>
 			<div className="flex flex-wrap items-center justify-center gap-2">
 				{colors.map((item) => (

@@ -1,6 +1,7 @@
 import { useState } from 'react'
+import { Segmented } from '../ui/Segmented'
 import { TypewriterText } from '../ui/TypewriterText'
-import { Preview, Segmented } from './frame'
+import { Preview } from './frame'
 
 const modes = ['播放', '停'] as const
 const sample = '逐字出现的一段说明，用来看打字机速度。'
@@ -11,6 +12,7 @@ function TypewriterTextDemo() {
 	return (
 		<Preview label="纯文本" bodyClassName="flex-col gap-4">
 			<Segmented
+				size="sm"
 				value={mode}
 				options={modes}
 				onChange={(next) => {

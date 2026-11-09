@@ -6,7 +6,8 @@ import {
 	type DotMatrixShape,
 	type DotMatrixSize,
 } from '../ui/DotMatrix'
-import { Preview, Segmented } from './frame'
+import { Segmented } from '../ui/Segmented'
+import { Preview } from './frame'
 
 const sizes = ['xs', 'sm', 'md', 'lg'] as const
 const grids = ['3x3', '4x4'] as const
@@ -21,10 +22,10 @@ function DotMatrixDemo() {
 	return (
 		<div className="flex flex-col items-center gap-4">
 			<div className="flex flex-wrap gap-2">
-				<Segmented value={size} options={sizes} onChange={setSize} />
-				<Segmented value={grid} options={grids} onChange={setGrid} />
-				<Segmented value={shape} options={shapes} onChange={setShape} />
-				<Segmented value={algorithm} options={algorithms} onChange={setAlgorithm} />
+				<Segmented size="sm" value={size} options={sizes} onChange={setSize} />
+				<Segmented size="sm" value={grid} options={grids} onChange={setGrid} />
+				<Segmented size="sm" value={shape} options={shapes} onChange={setShape} />
+				<Segmented size="sm" value={algorithm} options={algorithms} onChange={setAlgorithm} />
 			</div>
 			<Preview label={`${size} / ${grid} / ${shape} / ${algorithm}`} className="w-full">
 				<DotMatrix size={size} grid={grid} shape={shape} algorithm={algorithm} />

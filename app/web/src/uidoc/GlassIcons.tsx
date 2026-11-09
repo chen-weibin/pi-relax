@@ -7,7 +7,8 @@ import {
 	type GlassIconsPlate,
 	type GlassIconsSize,
 } from '../ui/GlassIcons'
-import { Preview, Segmented } from './frame'
+import { Segmented } from '../ui/Segmented'
+import { Preview } from './frame'
 
 const sizes = ['sm', 'md', 'lg'] as const
 const plates = ['tilt', 'offset', 'none'] as const
@@ -38,10 +39,10 @@ function GlassIconsDemo() {
 	return (
 		<div className="flex flex-col items-center gap-4">
 			<div className="flex flex-wrap justify-center gap-2">
-				<Segmented value={size} options={sizes} onChange={setSize} />
-				<Segmented value={plate} options={plates} onChange={setPlate} />
-				<Segmented value={hover} options={hovers} onChange={setHover} />
-				<Segmented value={labelMode} options={labels} onChange={setLabelMode} />
+				<Segmented size="sm" value={size} options={sizes} onChange={setSize} />
+				<Segmented size="sm" value={plate} options={plates} onChange={setPlate} />
+				<Segmented size="sm" value={hover} options={hovers} onChange={setHover} />
+				<Segmented size="sm" value={labelMode} options={labels} onChange={setLabelMode} />
 			</div>
 			<Preview label={`${size} / ${plate} / ${hover} / ${labelMode}`} className="w-full">
 				<div

@@ -1945,7 +1945,7 @@ ui/Dropdown         ← ui/ContextMenu, components/ModelPicker
 ui/Modal            ← ui/Dialog, components/AddProjectDialog
 ui/Dialog           ← hooks/useModal, components/SessionItem
 ui/Spinner          ← ui/Dialog
-ui/Segmented        ← uidoc/Segmented(演示页)
+ui/Segmented        ← uidoc/*(各演示页,统一 size="sm")
 ui/Tooltip          ← ui/IconButton, ui/Heading, ui/Paragraph（Hint 经 Paragraph）
 ui/Paragraph        ← ui/Hint
 ui/EmptyState       ← extensions/plugins/files/FilesView, extensions/plugins/files/FileTree

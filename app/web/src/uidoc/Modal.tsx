@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Modal, type ModalAlign } from '../ui/Modal'
-import { DemoButton, Segmented } from './frame'
+import { Segmented } from '../ui/Segmented'
+import { DemoButton } from './frame'
 
 const aligns = ['center', 'top'] as const
 
@@ -9,7 +10,7 @@ function ModalDemo() {
 	const [align, setAlign] = useState<ModalAlign>('center')
 	return (
 		<div className="flex flex-col items-center gap-3">
-			<Segmented value={align} options={aligns} onChange={setAlign} />
+			<Segmented size="sm" value={align} options={aligns} onChange={setAlign} />
 			<DemoButton onClick={() => setOpen(true)}>打开</DemoButton>
 			<Modal open={open} onOpenChange={setOpen} align={align}>
 				<div className="w-72 p-4">
