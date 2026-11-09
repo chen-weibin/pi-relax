@@ -64,6 +64,7 @@
 | 正文段落(字号、颜色、行高、换行或省略) | [`Paragraph`](#paragraph) | 不要手写 `<p>` 再拼字号、颜色和 `truncate` |
 | 辅助说明(更浅、更小) | [`Hint`](#hint) | 不要把 [`Paragraph`](#paragraph) 改成 `text-sm text-fg-3`;输入框框下那一行仍用 [`Input`](#input) 的 `hint` |
 | 一块区域还没有内容(可选图标,居中或贴顶) | [`EmptyState`](#emptystate) | 不要手写 `flex h-full items-center justify-center text-sm text-fg-3` |
+| 顶部居中的短提示(成功 / 失败 / 警告 / 信息,自动消失) | [`Message`](#message) | 不要直接调 `sonner` 的 `toast()`;不要在业务里写 `fixed` 浮层 + `setTimeout` |
 
 ## 反例:这些事不要做
 
@@ -98,6 +99,7 @@
 | 空区域手写居中的 `text-sm text-fg-3`,或自己拼图标加文案 | 用 [`EmptyState`](#emptystate)。文案和图标由调用方传入 |
 | 手写一列短横，再自己定位 hover 卡片 | 用 [`DashRail`](#dashrail)。一句说明仍用 [`Tooltip`](#tooltip)，贴按钮的菜单仍用 [`Popover`](#popover) |
 | 手写 SVG 滤镜 / WebGL 着色器做玻璃折射 | 用 [`GlassIcons`](#glassicons)。折射、视差、悬停动作、无 WebGL 降级都在组件里 |
+| 在业务里用 `setTimeout` + `fixed` 浮层自己弹一条提示 | 用 [`Message`](#message)。调用放 `hooks/useMessage` 的 `show`;容器(`holder`)全局只挂一次 |
 
 ## Expandable
 
@@ -1927,6 +1929,64 @@ const loadOptions = async ({ query, offset, limit }: Params): Promise<Result<V>>
 
 **视觉**:`text-sm text-fg-3`,`text-center`。居中时图标与文案间距 `gap-2`。贴顶时 `pt-3`。
 
+## Message
+
+单文件 `ui/Message.tsx`。顶部居中的一条短消息:左侧圆形状态图标 + 右侧一行文字,默认 2 秒后自动消失。封装 `sonner`(队列 / 堆叠 / 计时 / `aria-live`),卡片外壳自己画。
+
+**查阅时机**:要提示一句「已保存 / 失败 / 空间不足」,或者要改消息的图标、停留时间。
+
+**何时用**:
+
+- 操作结果的一句话反馈(成功 / 失败 / 警告 / 信息)
+- 不打断操作、不需要用户确认
+
+**何时不用**:
+
+- 需要用户确认 → [`Dialog`](#dialog)
+- 错误要一直挂在某条消息上 → [`AssistantErrorNotice`](../app/web/src/components/AssistantErrorNotice.tsx) 那类就地提示
+- 表单字段旁的错误 → 输入框自己的 `hint`
+
+**API**:
+
+```tsx
+// 组件里:hook
+const { show, holder } = useMessage()
+show('已保存', { type: 'success' })
+show('删除失败', { type: 'error', duration: 5000 })
+
+// 组件外(事件回调、SSE 处理):全局 API
+message('已保存')
+message.success('已保存')
+message.error('删除失败')
+message.dismiss(id)
+```
+
+| prop / 选项 | 类型 | 默认 | 说明 |
+|---|---|---|---|
+| `text` | `ReactNode` | — | 一行文字,过长截断 |
+| `type` | `'success' \| 'error' \| 'warning' \| 'info' \| 'normal'` | `'info'` | 决定图标和它的颜色 |
+| `duration` | `number` | `2000` | 自动消失时间(毫秒) |
+| `icon` | `ReactNode` | 类型默认图标 | 覆盖图标 |
+
+`show` 返回消息 id。`message.dismiss(id)` 手动关掉某一条;`message.dismiss()` 全关。
+
+**时长**:默认 2000,来自 `MessageToaster` 的 `duration`。全局改:挂容器时写 `<MessageToaster duration={3000} />`;单条改:`show('…', { duration: 5000 })`。
+
+**容器**:`holder` 就是 `<MessageToaster />`,由使用方渲染,全局只需要一个(容器重复挂载只有第一个生效,不会出现两条一样的消息)。位置固定在视口顶部居中,挂在哪棵树上都不影响位置 —— 它 portal 到 `body`。非 React 的地方(事件回调、SSE)直接用 `ui/Message` 导出的全局 `message`。
+
+**视觉**:卡片宽度**固定 320px**(视口更窄时按 `100vw - 32px` 收),长文本单行截断出省略号。宽度必须一致 —— 收起堆叠时后面几条要靠同宽互相遮住,只露一条底边;宽度一旦自适应,后面那张就会以自己的宽度露出来,看着像一张空卡。底色 `bg-surface`,squircle 裁切 + 1px 内边线(`stroke-white/10`),阴影走 `drop-shadow`(clip-path 会切掉 box-shadow)。左侧 24px 圆形状态图标,文字 `text-md text-fg`。位置固定在视口顶部居中,距顶 24px。
+
+**图标**:实心圆 + 白色符号,两个 path 叠在一起(圆取 `currentColor`,符号固定 `#fff`),在 `icons/index.tsx`:`SuccessCircleIcon` / `ErrorCircleIcon` / `WarningCircleIcon` / `InfoCircleIcon`。四条原始路径的圆大小不一(半径 458.8 / 414.5 / 416.9 / 448),图标内部各自做了缩放,统一成半径 456,放在 24px 的框里都是约 21px 的圆。
+
+**配色**:图标本身不带颜色(和其它图标一样走 `currentColor`),颜色写在 `ui/Message.tsx` 的 `TONES` 里由外部控制 —— `success #34C759` / `error #FF3B30` / `warning #FF9500` / `info #007AFF` / `normal #8E8E93`。要换色只改 `TONES`,别往图标里塞颜色,也别去动 `index.css` 的 token(会波及 StatusDot、Input 状态色)。
+
+**堆叠**:同时有多条时,后面的卡片压到前面下面(间距 10px、每层再缩 5%),只露出底边,内容隐藏;鼠标移上去整摞展开。收起时隐藏的是卡片里的内容行,底色留着 —— 这层边就是靠它露出来的。
+
+**踩坑**:
+
+- 图标:`success` → `SuccessCircleIcon`,`error` → `ErrorCircleIcon`,`warning` → `WarningCircleIcon`,`info` / `normal` → `InfoCircleIcon`。要换就改 `ui/Message.tsx` 里的 `TONES`,别在调用方传 `icon` 绕过去。
+- 卡片高度 44px,靠 `ResizeObserver` 量出来再生成 squircle 路径;首帧还没量到尺寸,那一帧是普通圆角。
+
 ## 引用关系(避免循环 import)
 
 ```
@@ -1944,6 +2004,7 @@ ui/Popover          ← ui/Tooltip, ui/Dropdown, components/* (按需)
 ui/Dropdown         ← ui/ContextMenu, components/ModelPicker
 ui/Modal            ← ui/Dialog, components/AddProjectDialog
 ui/Dialog           ← hooks/useModal, components/SessionItem
+ui/Message          ← hooks/useMessage, uidoc/Message
 ui/Spinner          ← ui/Dialog
 ui/Segmented        ← uidoc/*(各演示页,统一 size="sm")
 ui/Tooltip          ← ui/IconButton, ui/Heading, ui/Paragraph（Hint 经 Paragraph）

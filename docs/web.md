@@ -179,6 +179,7 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
 | `Modal` | 遮罩对话框壳,居中或距顶;内容自定义 | [`ui.md#modal`](ui.md#modal) |
 | `Dialog` | 标题、正文和右下角按钮;异步回调结束才关 | [`ui.md#dialog`](ui.md#dialog) |
 | `Spinner` | 圆锥渐变转圈,大小和颜色可改 | [`ui.md#spinner`](ui.md#spinner) |
+| `Message` | 顶部居中短消息:彩色图标块 + 单行文字,默认 2 秒自动消失 | [`ui.md#message`](ui.md#message) |
 | `Editor` | ProseMirror 智能输入框 | [`ui.md#editor`](ui.md#editor) |
 | `MonacoEditor` | Monaco 代码/文本编辑器,主题走 CSS token | [`ui.md#monacoeditor`](ui.md#monacoeditor) |
 | `MarkdownView` | `streamdown` Markdown 渲染(static / streaming) | [`ui.md#markdownview`](ui.md#markdownview) |

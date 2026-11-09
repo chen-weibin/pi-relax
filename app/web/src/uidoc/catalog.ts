@@ -17,6 +17,7 @@ import { iconButtonDoc } from './IconButton'
 import { inputDoc } from './Input'
 import { loadingDotsDoc } from './LoadingDots'
 import { markdownViewDoc } from './MarkdownView'
+import { messageDoc } from './Message'
 import { messageSurfaceDoc } from './MessageSurface'
 import { dialogDoc } from './Dialog'
 import { modalDoc } from './Modal'
@@ -79,6 +80,7 @@ export const uiDocGroups: { title: string; sections: UiDocSection[] }[] = [
 			trailTextDoc,
 			appIconDoc,
 			glassIconsDoc,
+			messageDoc,
 		],
 	},
 	{
