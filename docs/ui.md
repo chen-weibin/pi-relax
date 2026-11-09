@@ -381,7 +381,7 @@
 
 ## LoadingDots
 
-单文件 `ui/LoadingDots.tsx` + `ui/LoadingDots.css`(CSS 放同目录,Vite 注入)。3 个 6×6 圆点循环动效,3 种变体共享一套组件,只换 keyframes。
+目录 `ui/LoadingDots/`(`index.tsx` + `index.css`)。3 个 6×6 圆点循环动效,3 种变体共享一套组件,只换 keyframes。
 
 **查阅时机**:需要「正在生成 / 思考中 / 流式等待」的轻量视觉占位时使用。
 
@@ -1696,7 +1696,7 @@ const loadOptions = async ({ query, offset, limit }: Params): Promise<Result<V>>
 
 ## Spinner
 
-单文件 `ui/Spinner.tsx`,样式在 `Spinner.css`。样式广场 spinner 第 6 个:圆锥渐变、尾巴淡出、中间挖空,1 秒转一圈。
+目录 `ui/Spinner/`(`index.tsx` + `index.css`)。样式广场 spinner 第 6 个:圆锥渐变、尾巴淡出、中间挖空,1 秒转一圈。
 
 **查阅时机**:按钮或图标位需要一个转圈,并且要跟文字颜色、字号走。
 

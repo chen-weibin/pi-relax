@@ -1,5 +1,5 @@
 import classNames from 'classnames'
-import './LoadingDots.css'
+import './index.css'
 
 export type LoadingDotsVariant = 'bounce' | 'fade' | 'pulse'
 export type LoadingDotsColor = 'muted' | 'accent' | (string & {})

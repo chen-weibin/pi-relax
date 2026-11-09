@@ -330,11 +330,11 @@ src/
 │   ├── Popover.tsx
 │   ├── Modal.tsx                 # 遮罩对话框壳,与 Popover 并列
 │   ├── Dialog.tsx                # 标题、正文和确认按钮,包在 Modal 上
-│   ├── Spinner.tsx               # 圆锥渐变转圈
+│   ├── Spinner/                  # 圆锥渐变转圈;index.tsx + index.css
 │   ├── Tooltip.tsx               # 短 hover 提示,包在 Popover 上
 │   ├── MarkdownView/             # streamdown 封装(static / streaming);index.tsx + index.css
 │   ├── TypewriterText.tsx        # grapheme 增量打字机
-│   ├── DisclosureRow/            # 折叠行 + 标题 blink;index.tsx + index.css
+│   ├── DisclosureRow.tsx         # 折叠行 + 标题 blink
 │   ├── MessageSurface/           # 轻量 Surface 卡片外壳(无角色语义);index.tsx + index.css
 │   ├── Editor/                   # ProseMirror 智能输入框(paragraph + text)
 │   └── MonacoEditor/             # monaco-editor 封装(worker + Shiki aurora-x)

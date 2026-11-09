@@ -1,6 +1,6 @@
 import classNames from 'classnames'
 import type { CSSProperties } from 'react'
-import './Spinner.css'
+import './index.css'
 
 export type SpinnerProps = {
 	/** Pixel number or any CSS length. Default `1em`. */
