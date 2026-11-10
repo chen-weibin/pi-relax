@@ -69,7 +69,12 @@ function Segments({
 		let node: ReactNode
 		if (segment.type === 'user') {
 			node = (
-				<article key={segment.id} className="sticky top-0 z-10 flex w-full flex-col gap-2" data-message-id={segment.id} data-role="user">
+				<article
+					key={segment.id}
+					className={classNames('sticky top-0 z-10 flex w-full flex-col gap-2', !last && 'mb-2.5')}
+					data-message-id={segment.id}
+					data-role="user"
+				>
 					{segment.blocks.map((block) => (
 						<BlockRow key={block.key} block={block} />
 					))}
@@ -92,7 +97,7 @@ function Segments({
 		}
 		if (!last) return node
 		return (
-			<div key={segment.id} className={classNames('flex flex-col gap-4', segment.type === 'user' && 'sticky top-0 z-10')}>
+			<div key={segment.id} className={classNames('flex flex-col gap-2.5', segment.type === 'user' && 'sticky top-0 z-10')}>
 				{node}
 				{activity}
 			</div>
@@ -109,7 +114,7 @@ function Turn({ turn, last, busy, awaiting }: { turn: TurnLayout; last: boolean;
 	const activity = activityForTail(turn.segments, live, awaiting)
 	const showActivity = activity != null && !(groupOpen && activity.focusKey)
 	return (
-		<div className={classNames('flex flex-col gap-4', last && 'min-h-[100cqh] pb-[40cqh]')}>
+		<div className={classNames('flex flex-col gap-2.5', last && 'min-h-[100cqh] pb-[40cqh]')}>
 			<Segments
 				segments={turn.segments}
 				liveTail={live}
@@ -147,8 +152,12 @@ export function ConversationView({ snapshot, className }: ConversationViewProps)
 	const last = laid.turns.length - 1
 
 	return (
-		<div className={classNames('flex flex-col gap-4 py-3', className)}>
-			<Segments segments={laid.leading} liveTail={false} focusKey={null} focusTick={0} />
+		<div className={classNames('flex flex-col gap-5 py-3', className)}>
+			{laid.leading.length > 0 ? (
+				<div className="flex flex-col gap-2.5">
+					<Segments segments={laid.leading} liveTail={false} focusKey={null} focusTick={0} />
+				</div>
+			) : null}
 			{laid.turns.map((turn, index) => (
 				<Turn key={turn.id} turn={turn} last={index === last} busy={busy} awaiting={index === last && awaiting} />
 			))}
