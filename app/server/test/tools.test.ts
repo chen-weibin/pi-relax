@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { after, before, describe, it } from 'node:test'
 import { join } from 'node:path'
+import { validateToolArguments } from '@earendil-works/pi-ai/utils/validation'
 import { ACTIVE_TOOLS, createPiRuntime } from '../src/agent/factory.js'
 import { modelForNewSession, saveApiKey } from '../src/agent/models.js'
 import { createSessionManager } from '../src/sessions/index.js'
@@ -40,6 +41,37 @@ describe('active tools', () => {
 			const names = new Set(session.getActiveToolNames())
 			assert.deepEqual([...names].sort(), [...ACTIVE_TOOLS].sort())
 			for (const name of HIDDEN) assert.equal(names.has(name), false)
+		} finally {
+			session.dispose()
+		}
+	})
+
+	it('declares bash with a required description', async () => {
+		const { session } = await createPiRuntime({
+			cwd: join(home, 'workspace'),
+			sessionManager: createSessionManager(join(home, 'workspace')),
+			model: await modelForNewSession(),
+		})
+		try {
+			const bash = session.getAllTools().find((tool) => tool.name === 'bash')
+			assert.ok(bash, 'bash tool is registered')
+			const schema = bash.parameters as unknown as {
+				required?: string[]
+				properties?: Record<string, { type?: string }>
+			}
+			assert.deepEqual(schema.required, ['command', 'description'])
+			assert.equal(schema.properties?.description?.type, 'string')
+
+			const call = (args: Record<string, string>) =>
+				validateToolArguments(
+					{ name: 'bash', description: bash.description, parameters: bash.parameters },
+					{ type: 'toolCall', id: 'call-1', name: 'bash', arguments: args },
+				)
+			assert.deepEqual(call({ command: 'ls', description: '列出目录' }), {
+				command: 'ls',
+				description: '列出目录',
+			})
+			assert.throws(() => call({ command: 'ls' }), /description/)
 		} finally {
 			session.dispose()
 		}

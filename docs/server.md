@@ -65,7 +65,7 @@ pi 没有会话索引。`list(cwd)` 扫该编码目录下的 `*.jsonl`，`listAl
 - **切换当前这一条**。`createAgentSessionRuntime` 得到 `AgentSessionRuntime`，里面始终只有 `runtime.session`。`newSession`、`switchSession`、`fork`、`importFromJsonl` 会先中止并 `dispose` 旧会话，再换上新的。订阅绑在旧对象上，换完要重新 `subscribe`。
 - **模型**。`ModelRuntime.create` 管密钥、`models.json` 和供应商。白名单里的内置提供商可以填 key、选模型。自定义提供商和 OAuth 不做。
 - **提示词、技能、规则、扩展从哪读**。`DefaultResourceLoader`，或自己实现 `ResourceLoader` 传进 `createAgentSession`。`loadSkills` / `loadSkillsFromDir` 是单独扫技能目录。
-- **工具**。`createAgentSession` 的 `tools` / `noTools` / `customTools` 控制启用哪些。`createReadTool`、`createCodingTools` 等工厂是要换工作目录或换文件操作实现时用的。
+- **工具**。`createAgentSession` 的 `tools` / `noTools` / `customTools` 控制启用哪些。`createReadTool`、`createCodingTools` 等工厂是要换工作目录或换文件操作实现时用的。我们自己写的工具在 `app/server/src/tools/`，走 `customTools` 传进去；同名会盖掉内置的，基座把 customTools 和扩展注册的工具合成一份，后写的赢。
 - **设置**。`SettingsManager` 读 pi 的 `settings.json`。我们要可控的项优先走自己的 `.relax` 和 loader，不默默吃 `~/.pi`。
 - **整段 CLI**。`main`、`runPrintMode`、`runRpcMode`、`InteractiveMode`、`RpcClient` 是终端和子进程模式。嵌入服务不用这些。
 
@@ -80,7 +80,7 @@ pi 暴露的加载点都要能指定到 `.relax` 或配置里的路径，不默�
 当前只定范围：
 
 - 系统提示词、规则、扩展都要可控。技能已按基座默认目录加载，路径见「技能」。扩展能执行代码，磁盘扫描默认关掉。当前显式挂 Langfuse 官方插件和 `pi-web-access`，见下文「追踪」。找官方或社区插件时看 [https://pi.dev/packages](https://pi.dev/packages)（查阅时机：要加扩展、避免自己再写一份已有能力时）。
-- 工具白名单写在会话工厂：八个内置（`read`、`bash`、`edit`、`write`、`grep`、`find`、`ls`、`powershell`）、`codemode`，以及 `pi-web-access` 的 `web_search`、`fetch_content`、`get_search_content`、`source_check`。`tool_search` 和 `web_enable` 不开。`powershell` 在非 Windows 上调用会由基座报错。模式以后再按这份名单切换。路径仍是该会话的 cwd。
+- 工具白名单写在会话工厂：八个内置（`read`、`bash`、`edit`、`write`、`grep`、`find`、`ls`、`powershell`）、`codemode`，以及 `pi-web-access` 的 `web_search`、`fetch_content`、`get_search_content`、`source_check`。`tool_search` 和 `web_enable` 不开。`powershell` 在非 Windows 上调用会由基座报错。模式以后再按这份名单切换。路径仍是该会话的 cwd。其中 `bash` 是 `app/server/src/tools/` 里的覆盖版：只换模型侧 schema，多一个必填的 `description`，执行逻辑沿用内置。
 - 模型走 pi 的 `ModelRuntime`，不另建配置文件。白名单在 `app/server/src/agent/models.ts` 的 `KEY_PROVIDERS`，只收一把 key 就能对话的内置提供商（`pi-ai@1.5.0`）。升 `@earendil-works/pi-ai` 后对照 `providers/*.ts` 的 `auth` 再核一次。名单外的 id，包括 `models.json` 里自造的提供商，接口拒绝。同时带 OAuth 的只走 `api_key` 登录。密钥写入 `~/.relax/agent/auth.json`，同一 id 再提交是修改。不删除环境变量：基座认为可用就算可用，包括 `auth.json`、环境变量和该提供商会读的本机凭证。不向厂商发请求试 key。可用对话模型至少有一个、但全局还没有一对仍可用的默认时，按基座 `defaultModelPerProvider` 的顺序补写 `settings.json` 的 `defaultProvider` / `defaultModel`（该常量未从包入口导出，顺序抄在 `DEFAULT_MODEL_ORDER`）。新建会话用这一对；请求里带了 `provider` 和 `model` 时这次用它，并写成新的默认。打开旧会话仍恢复该文件自己的 `model_change`。对话框里改模型只写全局默认，不改当前会话文件。续发带了 `provider` 和 `model`、且与该会话上次记录不同时，才追加 `model_change`，不改默认。没带则继续用该会话已恢复的模型。模型目录的底表在 npm 包里；手动更新是 `POST /api/models/refresh`，转调 `refresh({ allowNetwork: true, force: true })`，结果进 `~/.relax/agent/models-store.json`。不在启动或列模型时自动刷新。
 - 上下文压缩沿用 pi 的自动行为，不单独做接口。它是上下文体积的安全阀。
 - 分支、fork、从某一条消息重开是高级能力。JSONL 里的树先留着，当前不设计接口。文件快照式的回滚也不做。
@@ -129,7 +129,7 @@ pi 暴露的加载点都要能指定到 `.relax` 或配置里的路径，不默�
 
 `app/server/src/agent/` 是唯一调用 pi 会话 API 的目录。类内部按 sessionId 缓存 `{ session: AgentSession }`，同一套工厂（内部 `createAgentSessionRuntime`，对外只返回 session）。对外 `prompt`（可无 id，可带 `thinkingLevel` 与 `streamingBehavior`）、`rename`、`abort`、`applyQueueModes`、`status`、`subscribe`。HTTP 和 SSE 只订这个类。档位查询和运行配置不经过这个类的模型调用；出队模式的热更新走 `applyQueueModes`。
 
-剖面本轮：`tools` 为八个内置工具、`codemode` 和四个联网工具。loader 不传 `noSkills`，技能走基座默认发现。`noExtensions` / `noContextFiles` / `noPromptTemplates` / `noThemes` 仍关。`noExtensions` 只停磁盘扫描；`additionalExtensionPaths` 指向 Langfuse 和 `pi-web-access`；`extensionFactories` 来自 `app/server/src/extensions/`，含 `createCodemodeExtension()`。模型用白名单里的内置提供商，`agentDir` 指向 `~/.relax/agent`。
+剖面本轮：`tools` 为八个内置工具、`codemode` 和四个联网工具。`customTools` 来自 `app/server/src/tools/`，目前只有覆盖版的 `bash`。loader 不传 `noSkills`，技能走基座默认发现。`noExtensions` / `noContextFiles` / `noPromptTemplates` / `noThemes` 仍关。`noExtensions` 只停磁盘扫描；`additionalExtensionPaths` 指向 Langfuse 和 `pi-web-access`；`extensionFactories` 来自 `app/server/src/extensions/`，含 `createCodemodeExtension()`。模型用白名单里的内置提供商，`agentDir` 指向 `~/.relax/agent`。
 
 新对话：`SessionManager.create(cwd)` 后，用这条会话的 cwd 补项目行（没有行才插入），再立刻 `prompt`。文件等第一条 user 消息。思考档位默认 `medium`。正在回复时，不带 `streamingBehavior` 再 `prompt` 得 `BUSY`；`steer` 在当前回复及其工具结束后、下一次模型调用前插入，`followUp` 在本轮结束后再发。两者都不打断正在吐的字。插队失败不把这一轮标成空闲。多条排队的出队读全局 `~/.relax/agent/settings.json` 的 `steeringMode` / `followUpMode`（各自 `all` 或 `one-at-a-time`，缺省 `one-at-a-time`）。新建会话由基座 `SettingsManager` 合并该文件与工作区 `.pi/settings.json`，工厂里不调用 setter。`PATCH /api/settings` 之后，内存里的会话用 `setSteeringMode` / `setFollowUpMode` 立刻换模式。
 
@@ -203,7 +203,7 @@ SSE 断线不补，客户端用历史对齐。发送和中止走 HTTP。本轮�
 - **事件循环**。请求路径上不同步读大目录或大文件。订阅回调里的异常记到该会话，不让进程退出。中止按 `relax.abortPolicy`，默认先清空排队文本，再传到模型请求。
 - **文件监听**。客户端订一个根目录，服务端递归监听这棵树，防抖后推这棵树上的变化路径，不推整棵目录表。同时存在的根由 `config.json` 的 `fs.watchMax` 限制，默认 16。同一根的多条连接只占 1。服务端不过滤名字。
 - **终端**（做到才启用）。PTY 个数有上限，回放缓冲约 100KB，关闭时必须释放文件描述符。
-- **工具**。已启用八个内置工具（含 `bash`）和 `codemode`，以及 `pi-web-access` 的四个联网工具。`bash` 这一步没有另加超时或路径限制，范围是该会话的 cwd。`powershell` 非 Windows 上由基座在调用时报错。
+- **工具**。已启用八个内置工具（含 `bash`）和 `codemode`，以及 `pi-web-access` 的四个联网工具。`bash` 这一步没有另加超时或路径限制，范围是该会话的 cwd。只多了一个必填的 `description` 参数，用来让界面显示「这条命令要干什么」。`powershell` 非 Windows 上由基座在调用时报错。
 - **技能**。已按基座默认目录加载，见「技能」。这一轮没有另加条数或正文大小上限。规则仍未做。
 
 ## 优先级

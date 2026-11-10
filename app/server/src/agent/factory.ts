@@ -9,6 +9,7 @@ import {
 } from '@earendil-works/pi-coding-agent'
 import { getRelaxAgentDir } from '../config/home.js'
 import { extensionFactories } from '../extensions/index.js'
+import { customTools } from '../tools/index.js'
 import { DEFAULT_THINKING_LEVEL, modelRuntime } from './models.js'
 
 const require = createRequire(import.meta.url)
@@ -72,6 +73,8 @@ async function piFactory(): Promise<CreateAgentSessionRuntimeFactory> {
 			...(model ? { model } : {}),
 			thinkingLevel: DEFAULT_THINKING_LEVEL,
 			tools: ACTIVE_TOOLS,
+			// 同名的 bash 覆盖内建 bash，只多一个必填的 description。
+			customTools: customTools(cwd, services.settingsManager),
 		})
 		return {
 			...created,
