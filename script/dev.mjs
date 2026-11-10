@@ -6,6 +6,8 @@ const root = fileURLToPath(new URL('..', import.meta.url))
 const serverPort = Number(process.env.PORT ?? 3001)
 const webPort = Number(process.env.WEB_PORT ?? 5173)
 const healthTimeoutMs = 60_000
+/** 收尾时等进程组退干净的上限。超了就 SIGKILL。 */
+const drainTimeoutMs = 3_000
 
 function listening(port) {
 	return new Promise((resolve) => {
@@ -32,32 +34,62 @@ async function healthy() {
 const owned = new Set()
 let stopping = false
 
-function killGroup(child, signal) {
+/** 子进程用 detached 起的，自己是一个会话，pid 就是进程组 id。 */
+function groups() {
+	return [...owned].map((child) => child.pid).filter((pid) => typeof pid === 'number')
+}
+
+/** 进程组里还有没有活人。 */
+function groupAlive(pgid) {
 	try {
-		process.kill(-child.pid, signal)
+		process.kill(-pgid, 0)
+		return true
 	} catch {
-		child.kill(signal)
+		return false
+	}
+}
+
+/** 砍掉整个进程组。组已经没了就是 ESRCH，不用补刀。 */
+function killGroup(pgid, signal) {
+	try {
+		process.kill(-pgid, signal)
+	} catch (err) {
+		if (err?.code === 'EPERM') {
+			try {
+				process.kill(pgid, signal)
+			} catch {}
+		}
 	}
 }
 
 function stop(code) {
-	if (stopping) return
-	stopping = true
-	const pending = [...owned].filter((child) => child.exitCode === null)
-	if (pending.length === 0) process.exit(code)
-	const timer = setTimeout(() => {
-		for (const child of pending) killGroup(child, 'SIGKILL')
-	}, 2000)
-	let left = pending.length
-	for (const child of pending) {
-		killGroup(child, 'SIGTERM')
-		child.on('exit', () => {
-			left -= 1
-			if (left > 0) return
-			clearTimeout(timer)
-			process.exit(code)
-		})
+	// 第二次 Ctrl+C：不再等，直接砍干净。
+	if (stopping) {
+		for (const pgid of groups()) killGroup(pgid, 'SIGKILL')
+		process.exit(code || 1)
 	}
+	stopping = true
+	const pgids = groups()
+	if (pgids.length === 0) process.exit(code)
+
+	for (const pgid of pgids) killGroup(pgid, 'SIGTERM')
+
+	// leader 退出不代表孙子也退了。等组里真的空了才算退干净。
+	let poll
+	let deadline
+	const done = () => {
+		clearInterval(poll)
+		clearTimeout(deadline)
+		process.exit(code)
+	}
+	poll = setInterval(() => {
+		if (pgids.some(groupAlive)) return
+		done()
+	}, 100)
+	deadline = setTimeout(() => {
+		for (const pgid of pgids) killGroup(pgid, 'SIGKILL')
+		done()
+	}, drainTimeoutMs)
 }
 
 function run(script) {
@@ -74,8 +106,11 @@ function run(script) {
 	return child
 }
 
+// SIGHUP 也要接。终端一关、SSH 一断就是它，不接的话这里直接被默认行为杀掉，
+// stop() 不会跑，detached 起的子进程会永远留着占着端口。
 process.on('SIGINT', () => stop(0))
 process.on('SIGTERM', () => stop(0))
+process.on('SIGHUP', () => stop(0))
 
 if (await listening(serverPort)) {
 	if (!(await healthy())) {
