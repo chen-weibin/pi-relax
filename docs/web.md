@@ -180,6 +180,7 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
 | `Dialog` | 标题、正文和右下角按钮;异步回调结束才关 | [`ui.md#dialog`](ui.md#dialog) |
 | `Spinner` | 圆锥渐变转圈,大小和颜色可改 | [`ui.md#spinner`](ui.md#spinner) |
 | `Message` | 顶部居中短消息:彩色图标块 + 单行文字,默认 2 秒自动消失 | [`ui.md#message`](ui.md#message) |
+| `SwipeToast` | 可下滑关闭的浮层提示:倒计时引信、甩动关闭、可撤销 | [`ui.md#swipetoast`](ui.md#swipetoast) |
 | `Editor` | ProseMirror 智能输入框 | [`ui.md#editor`](ui.md#editor) |
 | `MonacoEditor` | Monaco 代码/文本编辑器,主题走 CSS token | [`ui.md#monacoeditor`](ui.md#monacoeditor) |
 | `MarkdownView` | `streamdown` Markdown 渲染(static / streaming) | [`ui.md#markdownview`](ui.md#markdownview) |
@@ -317,7 +318,8 @@ src/
 ├── conversation/                 # 会话数据层:类型 + createBlockRuntime(详见 docs/web-conversation.md)
 ├── hooks/
 │   ├── usePersistedPanelLayout.ts # 面板宽度读写 store/local.ts，不直接碰 localStorage
-│   └── useModal.tsx             # 打开 Dialog。confirm 传 onOk / onCancel
+│   ├── useModal.tsx             # 打开 Dialog。confirm 传 onOk / onCancel
+│   └── useToast.tsx             # 打开 SwipeToast。show 弹一条，可叠多条；holder 挂一次
 ├── store/                        # 全局状态(详见下文 "状态管理 (store/)" 小节)
 │   ├── index.ts                 #   统一 re-export
 │   ├── common.ts                #   common store:shell 状态(toggles + mainView)

@@ -35,6 +35,7 @@ import { settingDoc } from './Setting'
 import { shinyTextDoc } from './ShinyText'
 import { spinnerDoc } from './Spinner'
 import { statusDotDoc } from './StatusDot'
+import { swipeToastDoc } from './SwipeToast'
 import { switchDoc } from './Switch'
 import { tooltipDoc } from './Tooltip'
 import { trailTextDoc } from './TrailText'
@@ -81,6 +82,7 @@ export const uiDocGroups: { title: string; sections: UiDocSection[] }[] = [
 			appIconDoc,
 			glassIconsDoc,
 			messageDoc,
+			swipeToastDoc,
 		],
 	},
 	{

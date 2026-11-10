@@ -65,6 +65,7 @@
 | 辅助说明(更浅、更小) | [`Hint`](#hint) | 不要把 [`Paragraph`](#paragraph) 改成 `text-sm text-fg-3`;输入框框下那一行仍用 [`Input`](#input) 的 `hint` |
 | 一块区域还没有内容(可选图标,居中或贴顶) | [`EmptyState`](#emptystate) | 不要手写 `flex h-full items-center justify-center text-sm text-fg-3` |
 | 顶部居中的短提示(成功 / 失败 / 警告 / 信息,自动消失) | [`Message`](#message) | 不要直接调 `sonner` 的 `toast()`;不要在业务里写 `fixed` 浮层 + `setTimeout` |
+| 可下滑关闭的浮层提示(带倒计时引信、能撤销) | [`SwipeToast`](#swipetoast) | 不要为了「能手动关掉」去改 [`Message`](#message) 的堆叠逻辑;不要手写 `pointerdown` + `translateY` |
 
 ## 反例:这些事不要做
 
@@ -100,6 +101,7 @@
 | 手写一列短横，再自己定位 hover 卡片 | 用 [`DashRail`](#dashrail)。一句说明仍用 [`Tooltip`](#tooltip)，贴按钮的菜单仍用 [`Popover`](#popover) |
 | 手写 SVG 滤镜 / WebGL 着色器做玻璃折射 | 用 [`GlassIcons`](#glassicons)。折射、视差、悬停动作、无 WebGL 降级都在组件里 |
 | 在业务里用 `setTimeout` + `fixed` 浮层自己弹一条提示 | 用 [`Message`](#message)。调用放 `hooks/useMessage` 的 `show`;容器(`holder`)全局只挂一次 |
+| 自己监听 `pointerdown` + `pointermove` 拖一张卡片来关掉它 | 用 [`SwipeToast`](#swipetoast)。甩动判定、阻尼、引信暂停都在组件里 |
 
 ## Expandable
 
@@ -1987,6 +1989,116 @@ message.dismiss(id)
 - 图标:`success` → `SuccessCircleIcon`,`error` → `ErrorCircleIcon`,`warning` → `WarningCircleIcon`,`info` / `normal` → `InfoCircleIcon`。要换就改 `ui/Message.tsx` 里的 `TONES`,别在调用方传 `icon` 绕过去。
 - 卡片高度 44px,靠 `ResizeObserver` 量出来再生成 squircle 路径;首帧还没量到尺寸,那一帧是普通圆角。
 
+## SwipeToast
+
+单文件 `ui/SwipeToast.tsx`。**可下滑关闭的浮层提示**:卡片下沿烧一根引信表示剩余时间,烧完自动消失;按住卡片往下拖可以提前关掉它。移植自 [react-bits](https://reactbits.dev/micro/swipe-toast)(MIT)的 Swipe Toast,配色改成走项目 token。
+
+**查阅时机**:要一条「用户可以自己划掉」的提示(带撤销动作、能拖走的通知),或评估是否该用 [`Message`](#message)。
+
+**何时用**:
+
+- 需要用户**主动划掉**的提示(操作结果 + 撤销入口)
+- 想让「还剩多久消失」可见,而不是突然消失
+- 要一条**独立可控**的浮层(不走 `sonner` 队列)
+
+**何时不用**:
+
+- 只要一句「已保存」这种不打断的反馈 → [`Message`](#message)(顶部居中、自动消失)
+- 需要用户确认 → [`Dialog`](#dialog)
+- 要多条堆叠排队 → [`Message`](#message) 的堆叠已经解决
+
+**API**:
+
+```tsx
+<SwipeToast
+  title="文件已归档"
+  description="按住卡片往下拖可以提前关掉它"
+  icon={<CheckIcon />}
+  actionLabel="撤销"
+  onAction={() => undo()}
+  duration={4000}
+  placement="inline"        // 'inline' | 'bottom-right'
+  onClose={(reason) => { /* 'timeout' | 'swipe' | 'action' | 'close' | 'escape' | 'programmatic' */ }}
+/>
+```
+
+| prop | 类型 | 默认 | 说明 |
+|---|---|---|---|
+| `title` | `ReactNode` | `'已归档'` | 主标题,单行截断 |
+| `description` | `ReactNode` | — | 副描述,最多两行 |
+| `icon` | `ReactNode` | — | 左侧图标,16px 见方 |
+| `actionLabel` | `ReactNode` | — | 动作按钮文案。不传就不渲染按钮 |
+| `onAction` | `() => void` | — | 动作按钮回调。点完自动关闭(`onClose('action')`) |
+| `open` | `boolean` | `true` | 受控开关。置 `false` 收起并回调 `onClose('programmatic')`;再置回 `true` 会重新打开 |
+| `onClose` | `(reason: SwipeToastCloseReason) => void` | — | 关闭回调,带关闭原因 |
+| `duration` | `number` | `4000` | 自动消失时间(毫秒)。`0` = 不自动消失,也不画引信 |
+| `fuse` | `'bottom' \| 'top' \| 'none'` | `'bottom'` | 引信位置。`none` = 不画引信(倒计时照跑) |
+| `fuseColor` | `string` | `var(--warning)` | 引信颜色 |
+| `swipeDistance` | `number` | `40` | 下滑多少 px 判定为关闭 |
+| `pauseOnHover` | `boolean` | `true` | 悬停 / 聚焦时暂停引信 |
+| `closeButton` | `boolean` | `false` | 显示右上角关闭按钮 |
+| `dismissible` | `boolean` | `true` | 能否下滑关闭 |
+| `placement` | `'inline' \| 'bottom-right'` | `'inline'` | 内联(在文档流里)还是固定在视口右下角 |
+| `width` | `number` | `356` | 卡片宽度(px)。**固定宽度**,文字再长也只截断、不撑宽卡片;同一摞里的 toast 必须同宽 |
+| `radius` | `number` | `12` | 圆角(px) |
+| `className` | `string` | — | 透传到外层容器 |
+
+**行为**:
+
+- **引信 = 倒计时**。卡片一条 2px 的渐变线用 WAAPI 从 `scaleX(1)` 烧到 `scaleX(0)`,烧完触发 `onClose('timeout')`。默认画在**下沿**。烧到一半悬停 / 聚焦 / 拖拽 / 标签页切走时**暂停**(四个暂停源:hover / focus / interacting / `document.hidden`)。
+- **下滑关闭**:按下后跟手移动,往上拖有阻尼(越拖越沉)。松手时满足「甩动速度 > 0.11 px/ms」或「位移 ≥ `swipeDistance`」就飞出去并淡出,否则弹回原位。
+- **入场是「让位」不是「瞬移」**:新 toast 的**槽位高度**从 `0fr` 动画到 `1fr`(`starting:` 变体 + `grid-template-rows` 过渡,200ms),卡片同时从自身高度滑入、淡入。叠成一摞时,容器是底部锚定的,槽位慢慢长出来会把上面的 toast **顶着平滑上移**,不会一帧跳 78px。
+- **关闭原因**:`timeout`(烧完) / `swipe`(划掉) / `action`(点了动作按钮) / `close`(点了关闭按钮) / `escape`(按 Esc) / `programmatic`(外部把 `open` 置 false)。
+- **键盘**:卡片可聚焦,`Esc` 关闭;焦点环走 `focus-visible:ring-accent`。
+- **内联模式**关闭时,外层 `grid-template-rows` 从 `1fr` 收到 `0fr`(200ms),行高不留空位。
+
+**视觉**:
+
+- 卡片:`bg-surface` + `border-border-hover` + 圆角 12px(`radius` 可改),阴影 `0 10px 28px rgba(0,0,0,0.32)`。边框跟 [`Popover`](#popover) / [`Modal`](#modal) / [`Dropdown`](#dropdown) 一档用 `border-border-hover`(`--border` 太暗,和 `--surface` 几乎分不开)。
+- **宽度固定**:`w-[var(--st-w)]`(默认 356px),外层 grid 的列写死 `minmax(0,1fr)` —— 不然 `nowrap` 的标题会把 grid 列撑到 max-content,卡片跟着变宽、溢出容器被切掉右边。文字超出只截断,不撑宽卡片。
+- 文字:标题 `text-base` + `text-fg` 单行截断;描述 `text-sm` + `text-fg-3`,最多两行(`line-clamp-2`),超出省略。
+- 卡片内容整体顶对齐(`items-start`):左侧图标、正文、右侧动作按钮都贴着内容区上沿,按钮不居中。
+- 动作按钮复用 [`Button`](#button)(`tone="inverse"`,白底深字),关闭按钮复用 [`IconButton`](#iconbutton)。
+- 引信颜色默认 `var(--warning)`,渐变两端透明、中间最亮,烧的方向是从右往左(`origin-left` + `scaleX`)。
+- 配色全部走 token,跟随 `data-theme` 切换;没有硬编码色值。
+
+**调用**:统一走 `hooks/useToast`,不要自己摆容器:
+
+```tsx
+const { show, dismiss, holder } = useToast()
+
+show({
+  title: '文件已归档',
+  description: '按住卡片往下拖可以提前关掉它',
+  actionLabel: '关闭',      // 手动关掉的入口
+  duration: 4000,
+  onClose: (reason) => console.log(reason),
+})
+
+// 渲染一次,通常挂在页面根部
+{holder}
+```
+
+| hook 返回 | 类型 | 说明 |
+|---|---|---|
+| `show` | `(options: ToastOptions) => number` | 弹一条,返回 id。`ToastOptions` = 组件 props 去掉 `placement`(位置由 holder 决定) |
+| `dismiss` | `(id: number) => void` | 手动关掉某一条(不等它自己烧完) |
+| `holder` | `ReactNode` | 固定在视口右下角的容器,叠着所有打开的 toast。新弹的一条排在下面(离屏幕角最近) |
+
+**引信颜色**:hook 里的 toast 引信默认是 `var(--fg)`(动作按钮 inverse 底的那个白),跟按钮一个色系;组件自己直接用时默认还是 `var(--warning)`。要换就传 `fuseColor`。
+
+**多条同时打开**:hook 内部是一个 id → options 的列表,`show` 追加、`onClose` 移除,不限条数。容器本身 `pointer-events-none`,每条 toast 自己 `pointer-events-auto`,所以空白处照样能点到页面。
+
+**踩坑备忘**:
+
+- 卡片上是 `touch-none` + `select-none`:手指落在卡片上时页面不会跟着滚,这是「跟手拖动」的前提;触摸设备上要滚动页面请避开卡片。
+- 入场靠 `starting:` 变体(编译成 `@starting-style`)。**Chrome 117 以下 / Safari 17.5 以下不支持**,这些浏览器上槽位会瞬间展开(叠着的旧 toast 会被瞬移顶上去),属于可接受的降级;`prefers-reduced-motion` 下过渡整个关掉(`motion-reduce:transition-none`)。
+- 关掉一条时,剩下的 toast 会随槽位塌陷平滑下移,但最后仍有 **8px 的 snap** —— 那是 flex `gap` 在元素卸载那一刻消失,不是动画问题。
+- `duration = 0` 时不画引信(也不会自动消失),别拿它当「常驻提示」用 —— 它仍然占着文档流的位置。
+- `open` 受控时,组件内部关闭也会回调 `onClose`;消费方要在回调里把 `open` 置回 `false`,否则会看到「关不掉又立刻回来」。
+- 组件**不管队列**。多条同时出现要自己管 key / 位置;统一用 `hooks/useToast`(它已经带了右下角堆叠容器)。
+- `placement='bottom-right'` 是 `position: fixed`,挂在任何树上都在视口右下角(right 24px / bottom 24px / `z-50`);同一时刻只能有一条,多条会叠在一起。
+
 ## 引用关系(避免循环 import)
 
 ```
@@ -2005,6 +2117,7 @@ ui/Dropdown         ← ui/ContextMenu, components/ModelPicker
 ui/Modal            ← ui/Dialog, components/AddProjectDialog
 ui/Dialog           ← hooks/useModal, components/SessionItem
 ui/Message          ← hooks/useMessage, uidoc/Message
+ui/SwipeToast       ← hooks/useToast, uidoc/SwipeToast
 ui/Spinner          ← ui/Dialog
 ui/Segmented        ← uidoc/*(各演示页,统一 size="sm")
 ui/Tooltip          ← ui/IconButton, ui/Heading, ui/Paragraph（Hint 经 Paragraph）
