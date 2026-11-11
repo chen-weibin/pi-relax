@@ -436,6 +436,32 @@ src/
 
 Setting 由 `settingOpen` 控制显隐(`{settingOpen && <Setting />}`),在 `pages/Workspace.tsx` 内挂载。Setting `z-50`,在四区上方全屏渲染。
 
+### Sidebar 动作区(SidebarActions)
+
+`Sidebar` 顶部三个动作(新对话 / 搜索 / 自定义)。`SidebarActions` 是领域组件,放 `components/` 不放 `ui/`。纯展示:父级给 `items` 数组和受控的 `activeKey`,组件内无 `useState`。
+
+| 项 | 值 |
+|---|---|
+| 容器 | `flex flex-col gap-0.5 px-1.5 py-2.5`,透明(透出 `bg-sidebar`) |
+| 行高 | `h-[30px]` |
+| 行 padding | `px-2.5 py-1.5` |
+| 圆角 | `rounded-md`(8px) |
+| 图标与文字间距 | `gap-2.5`(10px) |
+| 行间距 | `gap-0.5`(2px) |
+| 默认文字 | `text-fg-2` `text-md`(13px) |
+| hover | `bg-surface-hover` + `text-fg-bright` |
+| active | `bg-surface-active` + `text-fg-bright` |
+| 过渡 | `transition-colors duration-100` |
+
+图标 14×14(`icons/index.tsx` 自绘):新对话 `SendIcon`、搜索 `SearchIcon`、自定义 `BlocksIcon`。
+
+**约定**:
+
+- `activeKey` 受控,父级持有真相;组件只按 `item.key === activeKey` 上色,点击一律触发 `onClick`。
+- 「搜索永不 active」是**父级约定**:`Sidebar` 的 view→key 映射不产出 `search`,组件本身不拦。
+- `<button type="button">`:防止将来被放进 `<form>` 时误提交。
+- 视觉基线对齐 `docs/design-system.md` §6/§7(行高 30–34px、padding 6–8px、圆角 6px);实际取值以本文上文的 token 表为准。圆角取 8px 而非规范的 6px,为了和仓库既有 `rounded-md` 一致。
+
 ### 项目区块(ProjectSection)
 
 `Sidebar` 中部 `flex-1 overflow-y-auto` 容器内嵌 `ProjectSection`,结构自上而下:

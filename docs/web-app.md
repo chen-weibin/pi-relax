@@ -57,7 +57,7 @@ token 流不进 Worker。每条增量拷进 Worker 再拷回来，比在主线�
 
 对话列仍不上虚拟列表，这是 [web-conversation.md](web-conversation.md) 的现结论。块数先把主线程打满时再评估窗口化，本文不预做。侧栏行高一致，会话多到滚动卡住时再虚拟化这一列。
 
-Store 继续按字段切片订阅。做法见 [web-zustand-store-design.md](superpowers/specs/2026-09-11-web-zustand-store-design.md)（查阅时机：加 store、避免整店订阅时）。
+Store 继续按字段切片订阅。做法见 [web.md § 选择器约定](web.md#选择器约定)（查阅时机：加 store、避免整店订阅时）。
 
 ## 传输
 
