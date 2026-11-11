@@ -156,6 +156,7 @@
 - 有「一行标题 + 一段内容」的折叠结构
 - 想让标题在「流式 / 未完成」时自动有扫光效果(传 string title + `blinking`)
 - 想用项目默认的 chevron 旋转 + 高度过渡样式
+- 这一行没有内容可展开 → 传 `disabled`(不渲染箭头,也不可展开)
 
 **何时不用**:
 
@@ -172,7 +173,7 @@
   onOpenChange={setOpen}
   blinking={false}        // 仅 string title 生效;走 ShinyText 闪光
   chevron="always"        // 'always' | 'hover'。hover：收起时只有悬停这一行标题才显示，展开后常显；再收起且指针不在标题上时立刻消失
-  disabled={false}
+  disabled={false}        // 这一行不可展开：按钮禁用、不渲染 chevron（行尾不留空）、内容始终收起
   duration={200}          // 透传给内部 Expandable
 >
   {children}
@@ -185,12 +186,13 @@
 | header 文字色 | `text-fg-3`,hover → `text-fg-2` |
 | header 间距 | `gap-1.5`(标题 ↔ chevron) |
 | header 内边距 | `py-0.5` |
-| chevron 槽 | `h-2.5 w-2.5`(10×10),内部 svg 强制 `h-2.5 w-2.5`。隐藏时仍占位，标题不横移 |
+| chevron 槽 | `h-2.5 w-2.5`(10×10),内部 svg 强制 `h-2.5 w-2.5`。`hover` 隐藏时仍占位，标题不横移；`disabled` 时整块不渲染，行尾不留空 |
 | chevron 显示 | 默认 `always`。`hover`：收起时 `opacity-0`，只有悬停这一行的标题才显示，不看焦点，也不跟着外层那组一起亮。`open` 后常显。再收起且指针不在标题上时立刻隐藏，不淡出 |
 | chevron 旋转 | `transition-transform duration-100`,open=true 时 `rotate-90`。透明度不参与过渡 |
 | 折叠动画 | 内部 `<Expandable duration={duration}/>`,200ms `ease-out` |
 | `title` 类型 | `ReactNode`;string + `blinking` → `ShinyText`,否则原样渲染 |
 | `blinking` | 不写业务文案(不要传入 `'思考中'` 等流式状态字符串);状态语义由调用方决定 |
+| `disabled` | `boolean`,默认 `false`。为真时这一行不可展开：`<button>` 禁用(点不动)、不渲染 chevron(行尾不留空)、内容始终收起(即使外部 `open` 为 true)、`aria-expanded` 不写 |
 
 **为什么不再用 `disclosure-title-blink`**:之前的实现是 CSS `@keyframes` 把标题 opacity 在 1 ↔ 0.35 之间切。问题:整行闪,不够"高级",且没法利用 `--fg-bright` 高亮色做扫光。改为 string title + `blinking` 时挂 `ShinyText`(`color=var(--fg-3)`,`shineColor=var(--fg-bright)`),视觉一致但更克制。
 
