@@ -16,6 +16,23 @@ export function formatToolArguments(value: unknown, argumentsError?: unknown): s
 	}
 }
 
+/**
+ * `formatToolArguments` 的逆。参数是对象时才给值。
+ *
+ * 流式期的参数是半截 JSON，解析会失败。这种时候返回 null，调用方按「参数还没齐」处理。
+ */
+export function parseToolArguments(text: string): Record<string, unknown> | null {
+	if (!text) return null
+	let parsed: unknown
+	try {
+		parsed = JSON.parse(text)
+	} catch {
+		return null
+	}
+	if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return null
+	return parsed as Record<string, unknown>
+}
+
 /** 工具结果里的 text 拼起来。图片先跳过。 */
 export function toolResultText(result: unknown): string {
 	if (typeof result === 'string') return result

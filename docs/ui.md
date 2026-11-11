@@ -282,6 +282,7 @@
 **何时用**:
 
 - 标题保持不变，旁边的数字或短说明会更新
+- 标题后面挂一句短说明（工具行的「运行 + 描述」就是它）
 
 **何时不用**:
 
@@ -293,6 +294,8 @@
 ```tsx
 <TrailText text="2 个工具" />
 ```
+
+**踩坑**：`TrailText` 没有 `className`。要给它加宽度上限、省略号或换行，用外层 `span` 包（`inline-block min-w-0 max-w-[60%] truncate`），别改组件。
 
 ## MarkdownView
 
@@ -2104,7 +2107,7 @@ show({
 ```
 ui/Expandable       ← ui/DisclosureRow
 ui/ShinyText        ← ui/DisclosureRow
-ui/MarkdownView     ← components/conversation/ThinkingMessage, AssistantMessage
+ui/MarkdownView     ← components/conversation/ThinkingMessage, AssistantMessage, components/conversation/tools/DefaultTool
 ui/TypewriterText   ← (目前无引用,保留供后续纯文本逐字场景)
 ui/GlassIcons       ← (目前无引用,保留供后续应用宫格场景)
 ui/AppIcon          ← (目前无引用,保留供后续应用宫格 / 启动页场景)

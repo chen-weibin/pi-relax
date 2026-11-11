@@ -361,7 +361,7 @@ src/
     ├── MainContainer.tsx         # 中,内层 content Panel 容器;顶部挂 MainHeader + 按 mainView 渲染 view
     ├── MainHeader.tsx            # MainContainer 顶部统一 header(高 36px,无 border/bg;对话视图左侧为选中会话标题,右侧并排放 sidebar / extension toggle)
     ├── Composer.tsx              # 对话输入外壳(Editor + 右下发送)
-    ├── conversation/             # 对话 UI: Conversation 组装 + ConversationView + kind 渲染器
+    ├── conversation/             # 对话 UI: Conversation 组装 + ConversationView + kind 渲染器 + tools/(按工具名的专属渲染)
     ├── CustomizeView.tsx         # view: 自定义内容(占位)
     ├── Extension.tsx             # re-export extensions/shell/Extension；右栏可被内层 Group 收起
     ├── Setting.tsx               # 全屏 fixed inset-0 z-50 覆盖层
