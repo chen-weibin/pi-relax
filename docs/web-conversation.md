@@ -76,10 +76,12 @@ AgentSessionEvent → adaptAgentSession → BlockFeedEvent → runtime.apply
 | 文件 | 职责 |
 |---|---|
 | `types.ts` | `ToolRendererProps`：`block` + `expandTick` |
-| `registry.ts` | 工具名 → 渲染器。目前只有 `bash` |
+| `registry.ts` | 工具名 → 渲染器。目前有 `bash`、`ls` |
 | `ToolView.tsx` | 总入口。按 `block.data.name` 找专属渲染，找不到走 `DefaultTool` |
 | `DefaultTool.tsx` | 默认渲染：工具名当标题，参数纯文本，结果走 Markdown |
 | `bash/BashTool.tsx` | bash 专属 |
+| `ls/LsTool.tsx` | ls 专属 |
+| `ls/lsListing.ts` | ls 结果文本的解析：条目、截断提示、计数描述 |
 
 加一个工具的专属渲染：写 `tools/<name>/<Name>Tool.tsx`，在 `registry.ts` 加一行。没登记的工具走默认，不受影响。
 
@@ -92,6 +94,14 @@ AgentSessionEvent → adaptAgentSession → BlockFeedEvent → runtime.apply
 卡片沿用代码块那套：背景同页面（`bg-app`）+ `border-border` + 8px 圆角。别换成 `bg-surface`——`--surface`(#2b2b2b) 和 `--border`(#2a2a2a) 几乎同色，边框会看不见。
 
 主项目（`components/conversation/ToolMessage.tsx`）和 `/chat` 页都走 `ToolView`，bash 两边一致。
+
+### ls
+
+折叠时一行「查看资源 + 计数」：计数按条目后缀分文件与文件夹（目录带 `/`），写成「N 个文件，M 个文件夹」，某一类是 0 就不写那一段。计数挂 `TrailText`，整条标题 `max-w-[60%]` + `truncate`。展开后是一张卡片，同 bash 那套边框：上面一行路径，下面每行一个条目。路径取参数里的 `path` 原样（相对路径就显示相对路径），没传就写「当前工作路径」，不解析绝对路径。条目里目录带 `/` 后缀，颜色比文件亮一档。工具追加在结果末尾的截断提示（`[500 entries limit reached. Use limit=1000 for more]`）单独一行，黄色。
+
+没有条目就没有可展开的内容：这一行禁用（不展开、没箭头），描述用结果里的原文（空目录是 `(empty directory)`）。工具出错时描述不挂，展开看卡片里的错误文案。
+
+条目和计数都从结果文本推：数据层不透传工具的 `details`，所以用 `tools/ls/lsListing.ts` 的 `parseLsListing` 解析 —— 先剥掉末尾的 `\n\n[...]` 提示块（那不是条目），正文是 `(empty directory)` 就是空目录，否则按行拆。计数用同文件的 `describeLsEntries`。
 
 ## 滚动与流式出现
 
@@ -126,7 +136,7 @@ AgentSessionEvent → adaptAgentSession → BlockFeedEvent → runtime.apply
 
 消息间距（`/chat` 的 `chat/ChatView.tsx` 和正式页 `components/conversation/ConversationView.tsx` 同一套）：用户消息与其它块之间 20px（容器 `gap-5` + 用户段 `mb-2.5`），助手回复内部相邻块 10px（`gap-2.5`），末块到活动行也是 10px，回合之间 20px。`ExploreGroup` 组内行距仍 2px，不动共享组件。
 
-思考块：默认收起；历史与流式都可展开/收起；标题固定为「思考」，流式时仍走 `ShinyText`(由 `DisclosureRow.blinking` 控制);`isAnimating={open && streaming}`。正文用 `markdown-view--dim`（`--fg-disabled` 混 28% `--fg-3`，比纯禁用色略亮，仍暗于「思考」标题）。箭头 `chevron="hover"`：收起时只有悬停才显示，展开后常显；再收起且指针不在行上时立刻消失。连续的思考和工具在回合里收成一组「探索」（`conversation/explore.ts`），默认收起；展开后里面仍是思考行和每个工具行，工具行同样可展开：没有专属渲染的工具参数是纯文本，结果走 Markdown，`isError` 用 `text-error`；有专属渲染的按工具名走自己的形态（bash 见上文「工具专属渲染」）。正式页和 `/chat` 共用探索外壳（`components/conversation/ExploreGroup.tsx`、`ActivityLine.tsx`，规则在 `conversation/exploreChrome.ts`）。从第一块起就放进「探索」，标题固定为「探索」；两块及以上且工具数大于 0 时旁边写「N 个工具」。下面另有一行当前活动，与上一块的间距和块间距相同，替换「生成中」：还没有任何块、或当前块已经结束但下一步还不明时，是「正在规划下一步行动」；正在进行的那一块才显示「思考」或工具名，点它展开上面那组并滚到对应行。探索组展开时，外面不再重复组里正在进行的那一行。这一轮结束后活动行消失；只剩一块时不再包「探索」。正式页的行是 `ThinkingMessage` / `ToolMessage`，`/chat` 的行仍是 `ChatView` 自己的。`Composer` 的发送接到 `sendConversation`：没有会话就创建，已有则续发。生成中输入为空时圆按钮是停止；有字再发只进前端队列，当前回复结束后按顺序自动发。队列里的立刻发送会先停掉当前回复再发那一条，取消只删掉这一条。
+思考块：默认收起；历史与流式都可展开/收起；标题固定为「思考」，流式时仍走 `ShinyText`(由 `DisclosureRow.blinking` 控制);`isAnimating={open && streaming}`。正文用 `markdown-view--dim`（`--fg-disabled` 混 28% `--fg-3`，比纯禁用色略亮，仍暗于「思考」标题）。箭头 `chevron="hover"`：收起时只有悬停才显示，展开后常显；再收起且指针不在行上时立刻消失。连续的思考和工具在回合里收成一组「探索」（`conversation/explore.ts`），默认收起；展开后里面仍是思考行和每个工具行，工具行同样可展开：没有专属渲染的工具参数是纯文本，结果走 Markdown，`isError` 用 `text-error`；有专属渲染的按工具名走自己的形态（bash、ls 见上文「工具专属渲染」）。正式页和 `/chat` 共用探索外壳（`components/conversation/ExploreGroup.tsx`、`ActivityLine.tsx`，规则在 `conversation/exploreChrome.ts`）。从第一块起就放进「探索」，标题固定为「探索」；两块及以上且工具数大于 0 时旁边写「N 个工具」。下面另有一行当前活动，与上一块的间距和块间距相同，替换「生成中」：还没有任何块、或当前块已经结束但下一步还不明时，是「正在规划下一步行动」；正在进行的那一块才显示「思考」或工具名，点它展开上面那组并滚到对应行。探索组展开时，外面不再重复组里正在进行的那一行。这一轮结束后活动行消失；只剩一块时不再包「探索」。正式页的行是 `ThinkingMessage` / `ToolMessage`，`/chat` 的行仍是 `ChatView` 自己的。`Composer` 的发送接到 `sendConversation`：没有会话就创建，已有则续发。生成中输入为空时圆按钮是停止；有字再发只进前端队列，当前回复结束后按顺序自动发。队列里的立刻发送会先停掉当前回复再发那一条，取消只删掉这一条。
 
 ## 明确不做
 
