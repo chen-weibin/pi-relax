@@ -183,6 +183,7 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
 | `SwipeToast` | 可下滑关闭的浮层提示:倒计时引信、甩动关闭、可撤销 | [`ui.md#swipetoast`](ui.md#swipetoast) |
 | `Editor` | ProseMirror 智能输入框 | [`ui.md#editor`](ui.md#editor) |
 | `MonacoEditor` | Monaco 代码/文本编辑器,主题走 CSS token | [`ui.md#monacoeditor`](ui.md#monacoeditor) |
+| `DiffView` | diff / 两个版本 / 单份代码,封装 `@pierre/diffs` | [`ui.md#diffview`](ui.md#diffview) |
 | `MarkdownView` | `streamdown` Markdown 渲染(static / streaming) | [`ui.md#markdownview`](ui.md#markdownview) |
 | `Heading` | 标题:级别即字号、token 色、行高、整行或省略、溢出 Tooltip | [`ui.md#heading`](ui.md#heading) |
 | `Paragraph` | 正文:三种字号、token 色、行高、换行或省略、溢出 Tooltip | [`ui.md#paragraph`](ui.md#paragraph) |
@@ -274,7 +275,7 @@ streamdown 与插件的 Tailwind 类扫描写在 [`ui/MarkdownView/index.css`](.
 | 路径 | 页面 | 说明 |
 |---|---|---|
 | `/` | `pages/Workspace` | 现有四区壳。`startSessionTransport()` 在这里启动 |
-| `/ui` | `pages/Ui` | 只在 `import.meta.env.DEV` 注册。左侧目录宽固定 220px，可收起，默认展开，不拖拽、不写入本地存储；收起时分隔线一起去掉，主列顶栏的按钮再展开。按操作 / 浮层 / 反馈 / 布局 / 文本分组。当前节底色只包住文字；同一节有多项时只高亮离标题最近的一项。滚动条隐藏。右侧内容居中，每个组件一块圆角描边预览，组件之间一条与内容同宽的分隔线。点目录平滑滚到对应节。说明和演示在 `src/uidoc/`，页面不贴源码。`vite build` 不包含这条路由 |
+| `/ui` | `pages/Ui` | 只在 `import.meta.env.DEV` 注册。左侧目录宽固定 220px，可收起，默认展开，不拖拽、不写入本地存储；收起时分隔线一起去掉，主列顶栏的按钮再展开。按操作 / 浮层 / 反馈 / 布局 / 文本分组。当前节底色只包住文字；同一节有多项时只高亮离标题最近的一项。滚动条隐藏。右侧内容居中，每个组件一块圆角描边预览，组件之间一条与内容同宽的分隔线。内容区整列 `max-w-3xl`，每节都跟着这一列的宽度，不单独放宽。点目录平滑滚到对应节。说明和演示在 `src/uidoc/`，页面不贴源码。`vite build` 不包含这条路由 |
 | `/chat` | `pages/Chat` | 只在 `import.meta.env.DEV` 注册。流式渲染试验页。左侧会话栏固定 220px，可收起，默认展开；右侧节奏栏固定 240px，可收起，默认收起。两颗按钮都留在主区顶栏，不拖拽、不写入本地存储。侧栏只列默认工作区的会话；导入的模拟留在侧栏顶部，页面不刷新就能再点开重放。新建、录制、导出、模拟在主区顶栏左侧。对话视图在 `src/chat/`。露出节奏和正式对话共用 `defaultFeed`，右侧改动只影响这一页。可录制一轮原始 SSE、导出 JSON，再按到达间隔回放。`vite build`（含 `--mode test`）不包含这条路由 |
 | 其他 | — | `<Navigate to="/" replace />` |
 
@@ -341,7 +342,8 @@ src/
 │   ├── DisclosureRow.tsx         # 折叠行 + 标题 blink
 │   ├── MessageSurface/           # 轻量 Surface 卡片外壳(无角色语义);index.tsx + index.css
 │   ├── Editor/                   # ProseMirror 智能输入框(paragraph + text)
-│   └── MonacoEditor/             # monaco-editor 封装(worker + Shiki aurora-x)
+│   ├── MonacoEditor/             # monaco-editor 封装(worker + Shiki aurora-x)
+│   └── DiffView/                 # @pierre/diffs 封装(patch / 两个版本 / 单份文件)
 ├── extensions/                   # 右侧扩展区：插件注册、壳层 tab、Fs/Pty 契约（详见 docs/web-extension.md）
 │   ├── types.ts
 │   ├── store.ts                  #   壳层 tabs；终端快照按对话写入 local store

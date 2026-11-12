@@ -20,6 +20,7 @@
 5. 执行过程存在疑问应当及时提问，禁止主观假设。
 6. 未经用户明确指示，禁止主动 `git commit` / `push` / 创建 PR / `git tag` 等写入远程的操作。所有改动留在工作区，等用户确认后再提交。
 7. 每个项目的开发服务只启动一次，禁止同一服务再占一个新端口。需要跑服务时，先检查当前项目是否已在运行（看已有终端，或按该服务的固定端口查监听进程）。已在运行则直接复用，不要再执行启动命令。未运行时只给出对应命令（如 `pnpm dev`、`pnpm start`、`pnpm dev:web`、`pnpm dev:server`），由用户手动启动，代理不得自行拉起。`pnpm dev` 与 `pnpm start` 都会先起 server 再起 web。
+8. 验证界面用 `ego-browser`（`ego-browser nodejs` 跑脚本，Page API 不是 Playwright，细节先跑 `ego-browser skill`）。要看的页面在 dev server 上；服务没起就按上一条让用户起。
 
 ## 开发记录规范
 1. 所有实现必须配套对应文档。

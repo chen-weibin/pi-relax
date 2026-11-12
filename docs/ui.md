@@ -35,6 +35,7 @@
 | 富文本输入(Enter 提交 / 多行展开) | [`Editor`](#editor) + 领域组件 `Composer` | 不要拿 `<textarea>`(无 IME 友好 / 无 history / 无 keymap) |
 | 渲染 Markdown(流式 / 静态) | [`MarkdownView`](#markdownview) | 不要直接 `<Streamdown>`(无项目样式封装) |
 | 只读/可编辑代码文本(Monaco) | [`MonacoEditor`](#monacoeditor) | 不要在业务里直接 `@monaco-editor/react` / 自配 worker |
+| 渲染 diff / 两个版本对比 / 一份带行号的代码 | [`DiffView`](#diffview) | 不要在业务里直接用 `@pierre/diffs`;也不要自己写 patch 解析和行号槽 |
 | 逐字打字机(纯文本) | [`TypewriterText`](#typewritertext) | 不要自己写 `setInterval` / `requestAnimationFrame` 循环切字符串 |
 | 渐变扫光文字(标题 / CTA / loading) | [`ShinyText`](#shinytext) | 不要自己写 `linear-gradient` + `@keyframes`,也不要为单次使用装 `motion` |
 | 一行文字换成下一行时向上翻出 | [`FlipText`](#fliptext) | 不要在业务里手写 `AnimatePresence` 做同一行的进出 |
@@ -83,6 +84,7 @@
 | 给 `ProgressBar` 加 `color` / `trackColor` / `thumbColor` 等 per-instance 颜色 prop | 颜色走 token(`bg-fg-3` / `bg-border-hover`);想换色通过外层 `className` + 子选择器覆盖,不要把调色板塞进 API |
 | 在插件主区顶部手写 `h-[38px] flex border-b` | 用 [`PaneHeader`](#paneheader),高度和分割线已收敛 |
 | 在业务模块里直接 `import Editor from '@monaco-editor/react'` | 用 [`MonacoEditor`](#monacoeditor),worker / 主题 token 已封装 |
+| 在业务模块里直接 `import { FileDiff } from '@pierre/diffs/react'` | 用 [`DiffView`](#diffview),主题映射和三种来源已封装 |
 | 给 `IconButton` 再写原生 `title`,或在业务里手写 `<Popover role="tooltip">` | 图标按钮的 `title` 已走 [`Tooltip`](#tooltip);短提示用 Tooltip,菜单才用 [`Popover`](#popover) |
 | 在 `IconButton` 外包一层 `Tooltip` | [`IconButton`](#iconbutton) 已内置,配 `title` / `tooltipPlacement` / `tooltipDelay` 即可 |
 | 为对话框手写 `fixed inset-0` + 点遮罩关闭 | 用 [`Modal`](#modal)。有标题和确认按钮用 [`Dialog`](#dialog)。Setting 那种整页覆盖仍自己写 |
@@ -857,6 +859,89 @@
 | `className` | `string` | 铺满父级 | 外层容器 |
 
 文件插件通过 `fileKinds.viewer === 'monaco'` 消费本组件,不在插件内再配一份 Monaco。
+
+## DiffView
+
+目录 `ui/DiffView/`(`index.tsx` + `theme.ts` + `header.ts`)。封装 `@pierre/diffs`(React 入口 `@pierre/diffs/react`),和 `MonacoEditor` 一个套路:第三方库只在组件里出现,业务侧不直接 import。底层还是 shiki,主题和 `MarkdownView` 的代码块同一套(`github-light` / `github-dark`)。
+
+**查阅时机**:要展示改动内容、对比两个版本、或者显示一份带行号的代码,又要行号槽、增删标记、增删行底色、行内词级高亮的时候。
+
+**何时用**:
+
+- 展示 unified patch(`git diff`、`diff -u`、工具产出的 patch)
+- 展示同一文件的两个版本(旧版 / 新版),任一侧可以没有
+- 展示一份代码,不标 `+/-`(新建的文件、写进去的全文)
+
+**何时不用**:
+
+- 只是想在 Markdown 里贴一段代码 → [`MarkdownView`](#markdownview)
+- 要能改内容、能跳转、能搜索 → [`MonacoEditor`](#monacoeditor)
+- 只是想要几行纯文本 → 直接 `<pre>`,别开一整套 diff 渲染
+
+**API**:
+
+```tsx
+<DiffView
+  source={{ kind: 'patch', patch }}
+  headerIcon={<FileTsIcon />}
+  className="overflow-hidden rounded-lg border border-border"
+/>
+```
+
+| prop | 类型 | 默认 | 说明 |
+|---|---|---|---|
+| `source` | `DiffSource` | — | 三选一,见下 |
+| `options` | `DiffViewOptions` | 见下表 | 布局和显示开关;不传时用项目默认 |
+| `headerIcon` | `ReactNode` | — | 文件头左侧图标。**优先传**文件类型图标;传了就替掉库自带的改动类型图标 |
+| `className` | `string` | — | 落在宿主元素上(圆角、边框走这个) |
+| `style` | `CSSProperties` | — | 同上 |
+
+`DiffSource`:
+
+| kind | 字段 | 说明 |
+|---|---|---|
+| `patch` | `patch: string` | 标准 unified patch 文本。`git diff`(带 `diff --git` 头)和 `diff -u` 都吃 |
+| `versions` | `old` / `new`:`{ name, contents }` 或 `null` | 同一文件的两个版本。`null` 表示那边不存在(新增 / 删除) |
+| `file` | `name`、`contents` | 单份文件,不标 `+/-`。`name` 决定高亮语言 |
+
+`DiffViewOptions`(组件内 `DEFAULT_OPTIONS` 合并;调用方可覆盖)。库本身默认布局是分栏(`split`),项目改成堆叠:
+
+| 字段 | 取值 | 默认 | 说明 |
+|---|---|---|---|
+| `diffStyle` | `'unified' \| 'split'` | `'unified'` | 堆叠还是左右分栏 |
+| `diffIndicators` | `'bars' \| 'classic' \| 'none'` | `'bars'` | 增删标记:色调 / `+` `-` 字符 / 不要 |
+| `disableBackground` | `boolean` | `false` | 关掉增删行铺底色 |
+| `disableLineNumbers` | `boolean` | `false` | 关掉行号 |
+| `disableFileHeader` | `boolean` | `false` | 关掉文件头(文件名 + 增删统计) |
+| `hunkSeparators` | `'line-info' \| 'line-info-basic' \| 'metadata' \| 'simple'` | `'line-info'` | 未改动块之间的分隔样式 |
+| `lineDiffType` | `'word-alt' \| 'word-line' \| 'word' \| 'char' \| 'none'` | `'word-alt'` | 改动行内部的高亮粒度 |
+| `overflow` | `'scroll' \| 'wrap'` | `'scroll'` | 长行横向滚动还是折行 |
+| `collapsedContextThreshold` | `number` | 库默认 | 未改动块小于等于这个行数时不折叠 |
+| `expansionLineCount` | `number` | 库默认 | 每次展开露出多少行 |
+| `expandUnchanged` | `boolean` | `false` | 未改动块始终展开 |
+| `unsafeCSS` | `string` | — | 额外 CSS，注入 Shadow DOM 的 unsafe 层(优先级最高) |
+
+主题:跟着 `document.documentElement[data-theme]` 走(`useThemeType`,默认暗色)。颜色映射在 `theme.ts` 的 `diffThemeVars`:底色 `--app`、文字 `--fg`、增删色 `--success` / `--error`,通过宿主元素的 inline style 传进去 —— 库的 CSS 变量会继承进 Shadow DOM,inline 能盖住库 `:host` 里写死的值。
+
+文件头那一行(`src/plaza/mock.ts` + `-2 +3`)按项目的样子调过,在 `header.ts`:
+
+- 和下面内容之间有分割线(`--border`),左右正好接上卡片边框;分割线和代码之间留 6px,别贴着。
+- 头部高度收到 38px、左右留白 12px(库默认 44px / 16px),跟项目里 `PaneHeader` 一致。
+- `-2 +3` 紧跟路径,不在最右边;路径过长自动省略(库自带 `direction: rtl` 的省略技巧,省略号落在路径左边,保留尾部),统计始终完整。
+- 统计我们自己画(`ui/DiffView/index.tsx` 的 `diffCounts`),减号用 U+2212 而不是连字符:连字符比加号的横杠窄一截,`-2 +3` 看着像不在一条线上;藏掉库自带的两个计数 span。
+- **优先传** `headerIcon`(文件类型图标);传了就用它当左边的图标,库自带的改动类型图标(圆点)藏掉;不传就还是库那个(能看出 new / changed / deleted)。
+
+折叠起来的未改动块那一行("N unmodified lines")用库自己的展开按钮：只有 diff 能真的展开时它才给按钮 —— 从**两份完整文件**算出来的 diff(`isPartial: false`)会给，从 **patch 文本**解析出来的(`isPartial: true`)没有，因为库里只有 patch 里出现的那几行、藏起来的行它不知道。按钮形态也分三种：折叠段在最前只给向下箭头、在最后只给向上箭头、在中间给上下两个。我们不自己加图标。
+
+要改样式走 `options.unsafeCSS`(组件会把它和自己的 unsafe CSS 拼在一起)。
+
+**坑**:
+
+- 库渲染在 Shadow DOM 里,Tailwind 类进不去;要改样式走 `--diffs-*` 变量或 `unsafeCSS`。
+- 文件头那行的统计位置、分割线、外部图标都是我们用 CSS 改的(库不支持换这行的内容,只给了 `renderHeaderPrefix` / `renderHeaderMetadata` 这种往里塞东西的 slot);库默认把统计放在最右边。
+- 库吃的是**标准 unified patch**。带行号前缀的展示型 diff(pi 那种 `+190 xxx`)喂不进去,先转成 unified patch。
+- unified patch 里空上下文行是一个空格。写在模板字符串里容易被格式化工具吃掉,照 `uidoc/DiffView.tsx` 用数组 `join('\n')`。
+- 体积:`@pierre/diffs` 进包约 387 kB(gzip 101 kB),不含 shiki(项目已有)。`/ui` 演示页只在 dev 构建里,当前生产包还没带它。
 
 ## PaneHeader
 

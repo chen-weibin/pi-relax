@@ -20,6 +20,7 @@ import { markdownViewDoc } from './MarkdownView'
 import { messageDoc } from './Message'
 import { messageSurfaceDoc } from './MessageSurface'
 import { dialogDoc } from './Dialog'
+import { diffViewDoc } from './DiffView'
 import { modalDoc } from './Modal'
 import { monacoEditorDoc } from './MonacoEditor'
 import { numberStepperDoc } from './NumberStepper'
@@ -91,7 +92,7 @@ export const uiDocGroups: { title: string; sections: UiDocSection[] }[] = [
 	},
 	{
 		title: '文本',
-		sections: [headingDoc, paragraphDoc, hintDoc, editorDoc, typewriterTextDoc, markdownViewDoc, monacoEditorDoc],
+		sections: [headingDoc, paragraphDoc, hintDoc, editorDoc, typewriterTextDoc, markdownViewDoc, monacoEditorDoc, diffViewDoc],
 	},
 ]
 
