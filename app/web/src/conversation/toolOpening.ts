@@ -6,6 +6,8 @@ const OPENING: Record<string, string> = {
 	read: '查看文件',
 	write: '编辑',
 	edit: '编辑',
+	find: '搜索文件',
+	grep: '搜索内容',
 }
 
 export function toolOpeningTitle(name: string): string {
