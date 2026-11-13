@@ -66,7 +66,7 @@ export function layoutTurns(snapshot: ConversationSnapshot): { leading: Segment[
 export function blockTitle(block: BlockSnapshot): string {
 	if (block.kind === 'thinking') return '思考'
 	if (block.kind === 'tool') return block.data.name || '工具'
-	return '探索'
+	return '规划探索'
 }
 
 /** `live` 表示这一组还是当前回复的末尾，并且这一轮还在跑。 */
@@ -75,9 +75,9 @@ export function exploreHeading(blocks: readonly BlockSnapshot[], live: boolean):
 	if (open) return { title: blockTitle(open), blinking: true }
 	if (live) {
 		const last = blocks[blocks.length - 1]
-		return { title: last ? blockTitle(last) : '探索', blinking: true }
+		return { title: last ? blockTitle(last) : '规划探索', blinking: true }
 	}
-	return { title: '探索', blinking: false }
+	return { title: '规划探索', blinking: false }
 }
 
 /** 只在这一轮还忙、并且回复里还没有任何块的时候为真。 */

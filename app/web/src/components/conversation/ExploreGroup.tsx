@@ -34,7 +34,7 @@ export const ExploreGroup = forwardRef<
 
 	const title = (
 		<span className="inline-flex items-baseline gap-2">
-			探索
+			规划探索
 			{trail ? <TrailText text={trail} /> : null}
 		</span>
 	)

@@ -6,7 +6,7 @@ function TrailTextDemo() {
 		<div className="grid grid-cols-2 gap-4">
 			<Preview label="标题旁">
 				<span className="inline-flex items-baseline gap-2">
-					探索
+					规划探索
 					<TrailText text="2 个工具" />
 				</span>
 			</Preview>
