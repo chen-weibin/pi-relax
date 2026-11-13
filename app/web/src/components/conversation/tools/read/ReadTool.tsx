@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { toolOpeningTitle } from '../../../../conversation/toolOpening'
 import { parseToolArguments } from '../../../../conversation/toolText'
 import { TitleRow } from '../../../../ui/TitleRow'
 import type { ToolRendererProps } from '../types'
@@ -17,7 +18,7 @@ export function ReadTool({ block }: ToolRendererProps) {
 
 	return (
 		<TitleRow
-			title="查看文件"
+			title={toolOpeningTitle(block.data.name)}
 			desc={desc || undefined}
 			shimmer={streaming}
 			onClick={() => {

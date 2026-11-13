@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { toolOpeningTitle } from '../../../../conversation/toolOpening'
 import { parseToolArguments } from '../../../../conversation/toolText'
 import { DisclosureRow } from '../../../../ui/DisclosureRow'
 import { ShinyText } from '../../../../ui/ShinyText'
@@ -30,12 +31,13 @@ export function LsTool({ block, expandTick = 0 }: ToolRendererProps) {
 	// 没有条目又没有错误可看，这一行不可展开。
 	const disabled = !hasEntries && !isError
 
+	const opening = toolOpeningTitle(block.data.name)
 	const title = (
 		<span className="inline-block min-w-0 max-w-[60%] truncate">
 			{streaming ? (
-				<ShinyText text="查看资源" speed={2} color="var(--fg-3)" shineColor="var(--fg-bright)" />
+				<ShinyText text={opening} speed={2} color="var(--fg-3)" shineColor="var(--fg-bright)" />
 			) : (
-				'查看资源'
+				opening
 			)}
 			{description ? (
 				<span className="ml-2">

@@ -51,7 +51,7 @@ describe('explore chrome', () => {
 		const chrome = chromeForExplore(blocks, true)
 		assert.equal(chrome.mode, 'group')
 		if (chrome.mode !== 'group') return
-		assert.equal(chrome.activity, 'read')
+		assert.equal(chrome.activity, '查看文件')
 		assert.equal(chrome.focusKey, 'call')
 		assert.equal(chrome.trail, '1 个工具')
 	})
@@ -60,7 +60,7 @@ describe('explore chrome', () => {
 		assert.deepEqual(activityForTail([], true, true), { label: PLANNING_LABEL, focusKey: null })
 		const block = tool('call', 'bash', 'open')
 		assert.deepEqual(activityForTail([{ type: 'explore', id: 'e', blocks: [block] }], true, false), {
-			label: 'bash',
+			label: '运行',
 			focusKey: 'call',
 		})
 		assert.equal(activityForTail([{ type: 'text', id: 'x', block: thinking('t', 'open') }], true, false), null)

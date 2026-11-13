@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { toolOpeningTitle } from '../../../../conversation/toolOpening'
 import { parseToolArguments } from '../../../../conversation/toolText'
 import { DisclosureRow } from '../../../../ui/DisclosureRow'
 import { ShinyText } from '../../../../ui/ShinyText'
@@ -24,13 +25,14 @@ export function ShellTool({ block, expandTick = 0 }: ToolRendererProps) {
 	const description = typeof args?.description === 'string' ? args.description : ''
 	const { resultText } = block.data
 	const prompt = block.data.name === 'powershell' ? 'PS> ' : '$ '
+	const opening = toolOpeningTitle(block.data.name)
 
 	const title = (
 		<span className="inline-block min-w-0 max-w-[60%] truncate">
 			{streaming ? (
-				<ShinyText text="运行" speed={2} color="var(--fg-3)" shineColor="var(--fg-bright)" />
+				<ShinyText text={opening} speed={2} color="var(--fg-3)" shineColor="var(--fg-bright)" />
 			) : (
-				'运行'
+				opening
 			)}
 			{description ? (
 				<span className="ml-2">

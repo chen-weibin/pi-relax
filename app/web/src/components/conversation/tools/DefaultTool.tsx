@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { toolOpeningTitle } from '../../../conversation/toolOpening'
 import { DisclosureRow } from '../../../ui/DisclosureRow'
 import { MarkdownView } from '../../../ui/MarkdownView'
 import type { ToolRendererProps } from './types'
@@ -13,7 +14,7 @@ export function DefaultTool({ block, expandTick = 0 }: ToolRendererProps) {
 	const { name, argumentsText, resultText, isError } = block.data
 
 	return (
-		<DisclosureRow title={name || '工具'} open={open} blinking={streaming} chevron="hover" onOpenChange={setOpen}>
+		<DisclosureRow title={toolOpeningTitle(name)} open={open} blinking={streaming} chevron="hover" onOpenChange={setOpen}>
 			{argumentsText ? <pre className="whitespace-pre-wrap text-sm text-fg-3">{argumentsText}</pre> : null}
 			{resultText ? (
 				isError ? (

@@ -1,3 +1,4 @@
+import { toolOpeningTitle } from './toolOpening.ts'
 import { isRunBusy, type BlockSnapshot, type ConversationSnapshot } from './types.ts'
 
 export type Segment =
@@ -65,7 +66,7 @@ export function layoutTurns(snapshot: ConversationSnapshot): { leading: Segment[
 
 export function blockTitle(block: BlockSnapshot): string {
 	if (block.kind === 'thinking') return '思考'
-	if (block.kind === 'tool') return block.data.name || '工具'
+	if (block.kind === 'tool') return toolOpeningTitle(block.data.name)
 	return '规划探索'
 }
 

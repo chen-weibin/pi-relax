@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { toolOpeningTitle } from '../../../../conversation/toolOpening'
 import { parseToolArguments } from '../../../../conversation/toolText'
 import { DiffView } from '../../../../ui/DiffView'
 import { DisclosureRow } from '../../../../ui/DisclosureRow'
@@ -57,12 +58,13 @@ export function FileChangeTool({ block, expandTick = 0 }: ToolRendererProps) {
 	const hasDiff = canShowWrite || canShowEdit
 	const disabled = !hasDiff && !isError
 
+	const opening = toolOpeningTitle(toolName)
 	const title = (
 		<span className="inline-flex min-w-0 max-w-[60%] items-center truncate">
 			{streaming ? (
-				<ShinyText text="编辑" speed={2} color="var(--fg-3)" shineColor="var(--fg-bright)" />
+				<ShinyText text={opening} speed={2} color="var(--fg-3)" shineColor="var(--fg-bright)" />
 			) : (
-				'编辑'
+				opening
 			)}
 			{basename ? (
 				<span className="ml-2 min-w-0 truncate">
