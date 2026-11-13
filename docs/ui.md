@@ -42,6 +42,7 @@
 | 一行标题 + 说明（整行可点、说明省略、标题可扫光） | [`TitleRow`](#titlerow) | 不要手写整行 button，再给标题和说明各写一套 hover 色 |
 | 标题后面的小字辅文 | [`TrailText`](#trailtext) | 不要在标题旁另写一套 `text-sm text-fg-disabled` |
 | 标题旁可点的文件名 / 路径短名 | [`PathLink`](#pathlink) | 不要在标题旁手写 `hover:underline` + `stopPropagation`；不可点的辅文仍用 [`TrailText`](#trailtext) |
+| 单个网站小圆标(图片或首字) | [`SiteMark`](#sitemark) | 不要手写 `<img>` + `onError` 再拼字母圆 |
 | 标题 + 展开收起(chevron + 高度过渡 + 标题可扫光) | [`DisclosureRow`](#disclosurerow) | 不要写本地 `<button>` + `<svg>` + `useState` 三件套 |
 | 任意区域的高度过渡展开(无 header) | [`Expandable`](#expandable) | 不要自己写 `max-height` 凑数(无法适配动态内容高度);不要为单处使用装 `framer-motion` |
 | 单行文本输入(尺寸、清空、前后缀、字数、状态、提示) | [`Input`](#input) | 不要写裸 `<input>` 再拼清空、字数和状态边框;带搜索图标仍用 [`SearchInput`](#searchinput) |
@@ -76,6 +77,7 @@
 |---|---|
 | 把 `MessageSurface` 用作「用户气泡专用外壳」 | `MessageSurface` 无角色语义,user / assistant 都能用;对齐方式由消费方(`UserMessage` / `AssistantMessage`)决定 |
 | 手写一行「标题 + 说明」，自己拼 hover 两档颜色 | 用 [`TitleRow`](#titlerow)。说明过长的省略、不可点、标题扫光都在这个组件里 |
+| 手写 `<img>` + 字母圆标做网站图标 | 用 [`SiteMark`](#sitemark)，把图片地址传给 `src` |
 | 在 `DisclosureRow` 里写「思考 / 思考中」 | `DisclosureRow` 不写业务文案;文案的归属是 `ThinkingMessage`。换业务直接换调用方,不改组件 |
 | 给 `DisclosureRow` 加 `disabled` 之外的「流式 / 完成」状态 | 流式/完成状态属于业务(`ThinkingMessage` 内 `streaming = block.contentPhase === 'open'`)。`DisclosureRow` 只暴露 `blinking`,具体闪烁动画由 `ShinyText` 提供 |
 | 在 `ui/` 写引用 `Conversation` / store / `BlockSnapshot` 的组件 | 破坏「业务无关」约束,该放 `components/conversation/` |
@@ -373,6 +375,42 @@
 | `className` | `string` | 可选，落在宿主 `span` 上 |
 
 渲染成 `span role="link" tabIndex={0}`，Enter / Space 也可激活。不要在它外面再包一层会抢点击的 button。
+
+## SiteMark
+
+单文件 `ui/SiteMark.tsx`。圆标只做两件事：加载传入的图片地址，加载失败或没有地址时换成首字圆。图片从哪来由调用方决定，组件不拼地址。
+
+**查阅时机**:要画一个网站图标，或评估是否自己拼图片加载失败后的首字圆。
+
+**何时用**:
+
+- 只要一个圆标；站名可选
+- 业务里单独摆一个网站图标
+
+**何时不用**:
+
+- App 宫格 / 品牌底板 → [`AppIcon`](#appicon)
+
+**API**:
+
+```tsx
+<SiteMark name="GitHub" src="https://github.com/favicon.ico" />
+<SiteMark name="Pi" size="lg" color="#e11d48" src={null} />
+<SiteMark name="GitHub" clickable aria-label="GitHub" onClick={() => {}} />
+```
+
+| prop | 类型 | 说明 |
+|---|---|---|
+| `src` | `string \| null` | 图片地址。空或加载失败时走首字圆 |
+| `name` | `string` | 可选。失败态取首字，并参与默认色；不传显示 `?` |
+| `size` | `'sm' \| 'md' \| 'lg' \| number` | 默认 `md`。16 / 20 / 24，或自定义像素。宽高写在根节点 `style` 上 |
+| `color` | `string` | 可选。失败态圆底。不传则按 `name` 哈希进固定 6 色，无 `name` 用 `#3b82f6` |
+| `clickable` | `boolean` | 可选。为 `true`，或传入 `onClick` 时根节点是 `button` |
+| `className` | `string` | 可选，落在根节点 |
+| `style` | `CSSProperties` | 可选，落在根节点，可盖过 `size` 的宽高 |
+| 其余 | `button` 属性 | `id`、`title`、`aria-*`、`disabled`、`onClick`、`tabIndex` 等。非按钮时 `disabled` 不落到 DOM |
+
+图片加载失败由组件内部切到首字圆，不要在外层再包一层 `onError`。默认色是组件内固定 hex，不走主题 token。`style` 写在 `size` 之后，用来改单次尺寸或圆角。
 
 ## MarkdownView
 
@@ -2272,6 +2310,7 @@ ui/DiffView         ← components/conversation/tools/fileChange/FileChangeTool,
 ui/TypewriterText   ← (目前无引用,保留供后续纯文本逐字场景)
 ui/TitleRow         ← components/conversation/tools/read/ReadTool, uidoc/TitleRow
 ui/PathLink         ← components/conversation/tools/fileChange/FileChangeTool
+ui/SiteMark         ← uidoc/SiteMark
 ui/GlassIcons       ← (目前无引用,保留供后续应用宫格场景)
 ui/AppIcon          ← (目前无引用,保留供后续应用宫格 / 启动页场景)
 ui/Editor           ← components/Composer

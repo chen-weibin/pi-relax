@@ -197,6 +197,7 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
 | `MessageSurface` | 轻量卡片外壳,无角色语义 | [`ui.md#messagesurface`](ui.md#messagesurface) |
 | `DotMatrix` | 点阵 loading(9/16 点,乱中有序 / 顺时针两种节奏) | [`ui.md#dotmatrix`](ui.md#dotmatrix) |
 | `StatusDot` | 6px 单点状态指示(success / failure / normal) | [`ui.md#statusdot`](ui.md#statusdot) |
+| `SiteMark` | 圆标:加载图片，失败用首字；大小、颜色、点击可改 | [`ui.md#sitemark`](ui.md#sitemark) |
 | `ProgressBar` | 水平拖拽滑块 + 数值槽位(thumb / track / 键盘 / pointer capture) | [`ui.md#progressbar`](ui.md#progressbar) |
 | `GlassIcons` | 液态玻璃图标组:WebGL 折射 + 视差 + 悬停动作,无 WebGL 自动降级 | [`ui.md#glassicons`](ui.md#glassicons) |
 

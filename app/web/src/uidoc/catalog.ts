@@ -34,6 +34,7 @@ import { segmentedDoc } from './Segmented'
 import { selectDoc } from './Select'
 import { settingDoc } from './Setting'
 import { shinyTextDoc } from './ShinyText'
+import { siteMarkDoc } from './SiteMark'
 import { spinnerDoc } from './Spinner'
 import { statusDotDoc } from './StatusDot'
 import { swipeToastDoc } from './SwipeToast'
@@ -84,6 +85,7 @@ export const uiDocGroups: { title: string; sections: UiDocSection[] }[] = [
 			titleRowDoc,
 			trailTextDoc,
 			pathLinkDoc,
+			siteMarkDoc,
 			appIconDoc,
 			glassIconsDoc,
 			messageDoc,
