@@ -52,6 +52,50 @@ describe('adapt agent session', () => {
 		assert.deepEqual(result, [
 			{ type: 'tool_result', toolCallId: 'call', name: 'read', resultText: '文件', isError: false, done: true },
 		])
+		const withDetails = adaptAgentSession({
+			type: 'tool_execution_end',
+			toolCallId: 'edit1',
+			toolName: 'edit',
+			result: {
+				content: [{ type: 'text', text: 'ok' }],
+				details: { patch: '--- a\n+++ b\n@@\n-a\n+b\n', firstChangedLine: 1 },
+			},
+			isError: false,
+		} as AgentSessionEvent)
+		assert.deepEqual(withDetails, [
+			{
+				type: 'tool_result',
+				toolCallId: 'edit1',
+				name: 'edit',
+				resultText: 'ok',
+				isError: false,
+				done: true,
+				details: { patch: '--- a\n+++ b\n@@\n-a\n+b\n', firstChangedLine: 1 },
+			},
+		])
+		const fromMessage = adaptAgentSession({
+			type: 'message_end',
+			message: {
+				role: 'toolResult',
+				toolCallId: 'edit1',
+				toolName: 'edit',
+				content: [{ type: 'text', text: 'ok' }],
+				details: { patch: 'p' },
+				isError: false,
+				timestamp: 1,
+			},
+		} as AgentSessionEvent)
+		assert.deepEqual(fromMessage, [
+			{
+				type: 'tool_result',
+				toolCallId: 'edit1',
+				name: 'edit',
+				resultText: 'ok',
+				isError: false,
+				done: true,
+				details: { patch: 'p' },
+			},
+		])
 		assert.deepEqual(adaptAgentSession({ type: 'agent_start' }), [{ type: 'run_start' }])
 		assert.deepEqual(adaptAgentSession({ type: 'agent_settled', aborted: false }), [{ type: 'run_end' }])
 		assert.deepEqual(adaptAgentSession({ type: 'agent_end', messages: [], willRetry: false }), [])

@@ -13,6 +13,7 @@ import type {
 	ToolData,
 	UserTextBlock,
 } from './types'
+import { sameToolDetails } from './toolText.ts'
 
 const EMPTY_SNAPSHOT: ConversationSnapshot = {
 	revision: 0,
@@ -83,7 +84,8 @@ function sameBlock(prev: BlockSnapshot, next: BlockSnapshot): boolean {
 				prev.data.name === next.data.name &&
 				prev.data.argumentsText === next.data.argumentsText &&
 				prev.data.resultText === next.data.resultText &&
-				prev.data.isError === next.data.isError
+				prev.data.isError === next.data.isError &&
+				sameToolDetails(prev.data.details, next.data.details)
 			)
 		default: {
 			const _exhaustive: never = next
@@ -156,7 +158,7 @@ export function settledPartEvents(messageId: string, parts: readonly CompletedPa
 				argumentsText: part.argumentsText,
 				settled: true,
 			})
-			if (part.resultText !== '' || part.isError) {
+			if (part.resultText !== '' || part.isError || part.details !== undefined) {
 				events.push({
 					type: 'tool_result',
 					toolCallId: part.id,
@@ -164,6 +166,7 @@ export function settledPartEvents(messageId: string, parts: readonly CompletedPa
 					resultText: part.resultText,
 					isError: part.isError,
 					done: true,
+					...(part.details !== undefined ? { details: part.details } : {}),
 				})
 			}
 			continue
@@ -430,6 +433,8 @@ export function createBlockRuntime(): BlockRuntime {
 				const key = toolIds.get(event.toolCallId) ?? event.toolCallId
 				const prev = blocks.get(key)
 				const data: ToolData = prev?.kind === 'tool' ? prev.data : EMPTY_TOOL
+				const nextDetails =
+					event.type === 'tool_result' && 'details' in event ? event.details : data.details
 				const block: ToolBlock = {
 					key,
 					kind: 'tool',
@@ -438,6 +443,7 @@ export function createBlockRuntime(): BlockRuntime {
 						argumentsText: data.argumentsText,
 						resultText: event.type === 'tool_result' ? event.resultText : data.resultText,
 						isError: event.type === 'tool_result' && event.isError !== undefined ? event.isError : data.isError,
+						...(nextDetails !== undefined ? { details: nextDetails } : {}),
 					},
 					contentPhase:
 						event.type === 'tool_result' && (event.done || prev?.contentPhase === 'complete') ? 'complete' : 'open',

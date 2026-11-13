@@ -1,6 +1,6 @@
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent'
 import { messageKey, userMessageText } from './historyMessages.ts'
-import { formatToolArguments, toolResultText } from './toolText.ts'
+import { formatToolArguments, toolResultDetails, toolResultText } from './toolText.ts'
 import type { BlockFeedEvent } from './types'
 
 function partialText(
@@ -87,6 +87,7 @@ export function adaptAgentSession(event: AgentSessionEvent): BlockFeedEvent[] {
 		return [{ type: 'user', messageId: messageKey(event.message, 'live'), text }]
 	}
 	if (event.type === 'message_end' && event.message.role === 'toolResult') {
+		const details = toolResultDetails(event.message)
 		return [
 			{
 				type: 'tool_result',
@@ -95,6 +96,7 @@ export function adaptAgentSession(event: AgentSessionEvent): BlockFeedEvent[] {
 				resultText: toolResultText(event.message.content),
 				isError: event.message.isError,
 				done: true,
+				...(details !== undefined ? { details } : {}),
 			},
 		]
 	}
@@ -102,6 +104,7 @@ export function adaptAgentSession(event: AgentSessionEvent): BlockFeedEvent[] {
 		return [{ type: 'tool_run', toolCallId: event.toolCallId, name: event.toolName }]
 	}
 	if (event.type === 'tool_execution_update') {
+		const details = toolResultDetails(event.partialResult)
 		return [
 			{
 				type: 'tool_result',
@@ -109,10 +112,12 @@ export function adaptAgentSession(event: AgentSessionEvent): BlockFeedEvent[] {
 				name: event.toolName,
 				resultText: toolResultText(event.partialResult),
 				done: false,
+				...(details !== undefined ? { details } : {}),
 			},
 		]
 	}
 	if (event.type === 'tool_execution_end') {
+		const details = toolResultDetails(event.result)
 		return [
 			{
 				type: 'tool_result',
@@ -121,6 +126,7 @@ export function adaptAgentSession(event: AgentSessionEvent): BlockFeedEvent[] {
 				resultText: toolResultText(event.result),
 				isError: event.isError,
 				done: true,
+				...(details !== undefined ? { details } : {}),
 			},
 		]
 	}

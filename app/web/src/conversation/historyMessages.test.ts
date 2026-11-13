@@ -112,6 +112,30 @@ describe('history messages', () => {
 			},
 			{ role: 'assistant', id: 'm2', parts: [{ type: 'text', text: '有正文', contentIndex: 0 }] },
 		])
+		const withDetails = historyToMessages([
+			{
+				role: 'assistant',
+				content: [{ type: 'toolCall', id: 'e', name: 'edit', arguments: { path: 'a.ts', edits: [] } }],
+			},
+			{
+				role: 'toolResult',
+				toolCallId: 'e',
+				toolName: 'edit',
+				content: [{ type: 'text', text: 'ok' }],
+				isError: false,
+				details: { patch: '--- a\n+++ b\n' },
+			},
+		])
+		assert.deepEqual(withDetails[0]?.parts[0], {
+			type: 'tool',
+			contentIndex: 0,
+			id: 'e',
+			name: 'edit',
+			argumentsText: '{\n  "path": "a.ts",\n  "edits": []\n}',
+			resultText: 'ok',
+			isError: false,
+			details: { patch: '--- a\n+++ b\n' },
+		})
 		assert.equal(
 			historyAssistantError([
 				{ role: 'assistant', content: [], errorMessage: '失败了' },

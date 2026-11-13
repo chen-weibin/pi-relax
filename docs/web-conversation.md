@@ -76,16 +76,20 @@ AgentSessionEvent → adaptAgentSession → BlockFeedEvent → runtime.apply
 | 文件 | 职责 |
 |---|---|
 | `types.ts` | `ToolRendererProps`：`block` + `expandTick` |
-| `registry.ts` | 工具名 → 渲染器。目前有 `bash`、`ls` |
+| `registry.ts` | 工具名 → 渲染器。目前有 `bash`、`ls`、`write`、`edit` |
 | `ToolView.tsx` | 总入口。按 `block.data.name` 找专属渲染，找不到走 `DefaultTool` |
 | `DefaultTool.tsx` | 默认渲染：工具名当标题，参数纯文本，结果走 Markdown |
 | `bash/BashTool.tsx` | bash 专属 |
 | `ls/LsTool.tsx` | ls 专属 |
 | `ls/lsListing.ts` | ls 结果文本的解析：条目、截断提示、计数描述 |
+| `fileChange/FileChangeTool.tsx` | write / edit 共用 |
+| `fileChange/fileChange.ts` | 路径 basename、参数归一、+n/−n、从 details 取 patch |
 
 加一个工具的专属渲染：写 `tools/<name>/<Name>Tool.tsx`，在 `registry.ts` 加一行。没登记的工具走默认，不受影响。
 
-参数从 `block.data.argumentsText` 里拿，用 `conversation/toolText.ts` 的 `parseToolArguments`（`formatToolArguments` 的逆）。流式期参数是半截 JSON，解析失败返回 `null`，渲染器按「参数还没齐」处理。数据层不为此加字段。
+参数从 `block.data.argumentsText` 里拿，用 `conversation/toolText.ts` 的 `parseToolArguments`（`formatToolArguments` 的逆）。流式期参数是半截 JSON，解析失败返回 `null`，渲染器按「参数还没齐」处理。数据层不为参数单独加字段。
+
+工具结果的 `details`（如 edit 的 `patch`）会进 `ToolData.details`：实时事件从 `tool_execution_end.result.details` / `toolResult.details` 来，历史从 `toolResult.details` 来。没用到的工具有也只是存着。
 
 ### bash
 
@@ -101,7 +105,18 @@ AgentSessionEvent → adaptAgentSession → BlockFeedEvent → runtime.apply
 
 没有条目就没有可展开的内容：这一行禁用（不展开、没箭头），描述用结果里的原文（空目录是 `(empty directory)`）。工具出错时描述不挂，展开看卡片里的错误文案。
 
-条目和计数都从结果文本推：数据层不透传工具的 `details`，所以用 `tools/ls/lsListing.ts` 的 `parseLsListing` 解析 —— 先剥掉末尾的 `\n\n[...]` 提示块（那不是条目），正文是 `(empty directory)` 就是空目录，否则按行拆。计数用同文件的 `describeLsEntries`。
+条目和计数都从结果文本推：ls 不用 `details`，用 `tools/ls/lsListing.ts` 的 `parseLsListing` 解析 —— 先剥掉末尾的 `\n\n[...]` 提示块（那不是条目），正文是 `(empty directory)` 就是空目录，否则按行拆。计数用同文件的 `describeLsEntries`。
+
+### write / edit
+
+共用 `FileChangeTool`。折叠时一行「编辑 + 文件名 + +n/−n」：文件名是 path 的 basename，挂 [`PathLink`](ui.md#pathlink)（hover 下划线；点击目前 `console.log` 完整 path，打开文件以后再接）。整条标题 `max-w-[60%]` + `truncate`。`+n` / `−n` 用 success / error 色，减号 U+2212；某一侧是 0 且另一侧大于 0 就不画那一侧。
+
+展开后是 `bg-app` + `border-border` 卡片里的 [`DiffView`](ui.md#diffview)，关掉文件头（文件名和统计已在标题行）：
+
+- **write**：参数里的 `content` 当整文件新增（`versions`，`old: null`）。`+n` 按 content 行数算。流式期参数齐了就能预览。
+- **edit**：用 `details.patch`（标准 unified patch）。没有 patch 又没有错误时这一行禁用。基座还带 `details.diff`（带行号的展示串），不要喂给 DiffView。
+
+出错时展开看 `resultText`（`text-error`）。
 
 ## 滚动与流式出现
 
@@ -136,7 +151,7 @@ AgentSessionEvent → adaptAgentSession → BlockFeedEvent → runtime.apply
 
 消息间距（`/chat` 的 `chat/ChatView.tsx` 和正式页 `components/conversation/ConversationView.tsx` 同一套）：用户消息与其它块之间 20px（容器 `gap-5` + 用户段 `mb-2.5`），助手回复内部相邻块 10px（`gap-2.5`），末块到活动行也是 10px，回合之间 20px。`ExploreGroup` 组内行距仍 2px，不动共享组件。
 
-思考块：默认收起；历史与流式都可展开/收起；标题固定为「思考」，流式时仍走 `ShinyText`(由 `DisclosureRow.blinking` 控制);`isAnimating={open && streaming}`。正文用 `markdown-view--dim`（`--fg-disabled` 混 28% `--fg-3`，比纯禁用色略亮，仍暗于「思考」标题）。箭头 `chevron="hover"`：收起时只有悬停才显示，展开后常显；再收起且指针不在行上时立刻消失。连续的思考和工具在回合里收成一组「探索」（`conversation/explore.ts`），默认收起；展开后里面仍是思考行和每个工具行，工具行同样可展开：没有专属渲染的工具参数是纯文本，结果走 Markdown，`isError` 用 `text-error`；有专属渲染的按工具名走自己的形态（bash、ls 见上文「工具专属渲染」）。正式页和 `/chat` 共用探索外壳（`components/conversation/ExploreGroup.tsx`、`ActivityLine.tsx`，规则在 `conversation/exploreChrome.ts`）。从第一块起就放进「探索」，标题固定为「探索」；两块及以上且工具数大于 0 时旁边写「N 个工具」。下面另有一行当前活动，与上一块的间距和块间距相同，替换「生成中」：还没有任何块、或当前块已经结束但下一步还不明时，是「正在规划下一步行动」；正在进行的那一块才显示「思考」或工具名，点它展开上面那组并滚到对应行。探索组展开时，外面不再重复组里正在进行的那一行。这一轮结束后活动行消失；只剩一块时不再包「探索」。正式页的行是 `ThinkingMessage` / `ToolMessage`，`/chat` 的行仍是 `ChatView` 自己的。`Composer` 的发送接到 `sendConversation`：没有会话就创建，已有则续发。生成中输入为空时圆按钮是停止；有字再发只进前端队列，当前回复结束后按顺序自动发。队列里的立刻发送会先停掉当前回复再发那一条，取消只删掉这一条。
+思考块：默认收起；历史与流式都可展开/收起；标题固定为「思考」，流式时仍走 `ShinyText`(由 `DisclosureRow.blinking` 控制);`isAnimating={open && streaming}`。正文用 `markdown-view--dim`（`--fg-disabled` 混 28% `--fg-3`，比纯禁用色略亮，仍暗于「思考」标题）。箭头 `chevron="hover"`：收起时只有悬停才显示，展开后常显；再收起且指针不在行上时立刻消失。连续的思考和工具在回合里收成一组「探索」（`conversation/explore.ts`），默认收起；展开后里面仍是思考行和每个工具行，工具行同样可展开：没有专属渲染的工具参数是纯文本，结果走 Markdown，`isError` 用 `text-error`；有专属渲染的按工具名走自己的形态（bash、ls、write、edit 见上文「工具专属渲染」）。正式页和 `/chat` 共用探索外壳（`components/conversation/ExploreGroup.tsx`、`ActivityLine.tsx`，规则在 `conversation/exploreChrome.ts`）。从第一块起就放进「探索」，标题固定为「探索」；两块及以上且工具数大于 0 时旁边写「N 个工具」。下面另有一行当前活动，与上一块的间距和块间距相同，替换「生成中」：还没有任何块、或当前块已经结束但下一步还不明时，是「正在规划下一步行动」；正在进行的那一块才显示「思考」或工具名，点它展开上面那组并滚到对应行。探索组展开时，外面不再重复组里正在进行的那一行。这一轮结束后活动行消失；只剩一块时不再包「探索」。正式页的行是 `ThinkingMessage` / `ToolMessage`，`/chat` 的行仍是 `ChatView` 自己的。`Composer` 的发送接到 `sendConversation`：没有会话就创建，已有则续发。生成中输入为空时圆按钮是停止；有字再发只进前端队列，当前回复结束后按顺序自动发。队列里的立刻发送会先停掉当前回复再发那一条，取消只删掉这一条。
 
 ## 明确不做
 

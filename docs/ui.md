@@ -40,6 +40,7 @@
 | 渐变扫光文字(标题 / CTA / loading) | [`ShinyText`](#shinytext) | 不要自己写 `linear-gradient` + `@keyframes`,也不要为单次使用装 `motion` |
 | 一行文字换成下一行时向上翻出 | [`FlipText`](#fliptext) | 不要在业务里手写 `AnimatePresence` 做同一行的进出 |
 | 标题后面的小字辅文 | [`TrailText`](#trailtext) | 不要在标题旁另写一套 `text-sm text-fg-disabled` |
+| 标题旁可点的文件名 / 路径短名 | [`PathLink`](#pathlink) | 不要在标题旁手写 `hover:underline` + `stopPropagation`；不可点的辅文仍用 [`TrailText`](#trailtext) |
 | 标题 + 展开收起(chevron + 高度过渡 + 标题可扫光) | [`DisclosureRow`](#disclosurerow) | 不要写本地 `<button>` + `<svg>` + `useState` 三件套 |
 | 任意区域的高度过渡展开(无 header) | [`Expandable`](#expandable) | 不要自己写 `max-height` 凑数(无法适配动态内容高度);不要为单处使用装 `framer-motion` |
 | 单行文本输入(尺寸、清空、前后缀、字数、状态、提示) | [`Input`](#input) | 不要写裸 `<input>` 再拼清空、字数和状态边框;带搜索图标仍用 [`SearchInput`](#searchinput) |
@@ -300,6 +301,36 @@
 ```
 
 **踩坑**：`TrailText` 没有 `className`。要给它加宽度上限、省略号或换行，用外层 `span` 包（`inline-block min-w-0 max-w-[60%] truncate`），别改组件。
+
+## PathLink
+
+单文件 `ui/PathLink.tsx`。标题旁可点的短名（常见是文件 basename），`text-sm`、`text-fg-disabled`，hover 下划线并略提亮。
+
+**查阅时机**:折叠行 / 工具标题旁要挂一个可点的文件名，且点它不能带动整行展开。
+
+**何时用**:
+
+- 文件名可点，后面再接真正的打开逻辑
+- 嵌在 [`DisclosureRow`](#disclosurerow) 标题里，需要自己拦住冒泡
+
+**何时不用**:
+
+- 不可点的辅文 / 计数 → [`TrailText`](#trailtext)
+- 普通导航链接、按钮 → [`Button`](#button) / 原生 `<a>`
+
+**API**:
+
+```tsx
+<PathLink onClick={() => console.log(fullPath)}>{fileName}</PathLink>
+```
+
+| prop | 类型 | 说明 |
+|---|---|---|
+| `children` | `ReactNode` | 展示文案（通常是 basename） |
+| `onClick` | `() => void` | 激活回调；组件内已 `stopPropagation` |
+| `className` | `string` | 可选，落在宿主 `span` 上 |
+
+渲染成 `span role="link" tabIndex={0}`，Enter / Space 也可激活。不要在它外面再包一层会抢点击的 button。
 
 ## MarkdownView
 
@@ -2195,7 +2226,9 @@ show({
 ui/Expandable       ← ui/DisclosureRow
 ui/ShinyText        ← ui/DisclosureRow
 ui/MarkdownView     ← components/conversation/ThinkingMessage, AssistantMessage, components/conversation/tools/DefaultTool
+ui/DiffView         ← components/conversation/tools/fileChange/FileChangeTool, uidoc/DiffView
 ui/TypewriterText   ← (目前无引用,保留供后续纯文本逐字场景)
+ui/PathLink         ← components/conversation/tools/fileChange/FileChangeTool
 ui/GlassIcons       ← (目前无引用,保留供后续应用宫格场景)
 ui/AppIcon          ← (目前无引用,保留供后续应用宫格 / 启动页场景)
 ui/Editor           ← components/Composer

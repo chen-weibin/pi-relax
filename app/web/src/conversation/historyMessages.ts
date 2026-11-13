@@ -77,13 +77,21 @@ function one(message: unknown, id: string): CompletedMessage | null {
 
 type ToolHit = { messageIndex: number; partIndex: number }
 
-function attachResult(messages: CompletedMessage[], hit: ToolHit, resultText: string, isError: boolean) {
+function attachResult(
+	messages: CompletedMessage[],
+	hit: ToolHit,
+	resultText: string,
+	isError: boolean,
+	details?: unknown,
+) {
 	const message = messages[hit.messageIndex]
 	if (!message || message.role !== 'assistant') return
 	const part = message.parts[hit.partIndex]
 	if (!part || part.type !== 'tool') return
 	part.resultText = resultText
 	part.isError = isError
+	if (details !== undefined) part.details = details
+	else delete part.details
 }
 
 /** 最后一条助手消息的 errorMessage。后面有一条没有错误的助手消息时为空。不写进正文。 */
@@ -107,9 +115,10 @@ export function historyToMessages(input: readonly unknown[]): CompletedMessage[]
 			const id = typeof item.toolCallId === 'string' ? item.toolCallId : ''
 			const resultText = toolResultText(item.content)
 			const isError = item.isError === true
+			const details = item.details
 			const hit = id ? tools.get(id) : undefined
 			if (hit) {
-				attachResult(out, hit, resultText, isError)
+				attachResult(out, hit, resultText, isError, details)
 				return
 			}
 			const orphanId = id || `tool${index}`
@@ -125,6 +134,7 @@ export function historyToMessages(input: readonly unknown[]): CompletedMessage[]
 						argumentsText: '',
 						resultText,
 						isError,
+						...(details !== undefined ? { details } : {}),
 					},
 				],
 			})

@@ -51,3 +51,22 @@ export function toolResultText(result: unknown): string {
 	}
 	return text
 }
+
+/** 工具结果或 toolResult 消息上的 details。没有就不给。 */
+export function toolResultDetails(result: unknown): unknown | undefined {
+	if (typeof result !== 'object' || result === null || !('details' in result)) return undefined
+	const details = (result as { details?: unknown }).details
+	return details === undefined ? undefined : details
+}
+
+/** sameBlock 用：两边都没有算相等，有值就按 JSON 比。 */
+export function sameToolDetails(a: unknown, b: unknown): boolean {
+	if (a === undefined && b === undefined) return true
+	if (a === undefined || b === undefined) return false
+	if (Object.is(a, b)) return true
+	try {
+		return JSON.stringify(a) === JSON.stringify(b)
+	} catch {
+		return false
+	}
+}

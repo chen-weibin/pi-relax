@@ -39,6 +39,7 @@ import { statusDotDoc } from './StatusDot'
 import { swipeToastDoc } from './SwipeToast'
 import { switchDoc } from './Switch'
 import { tooltipDoc } from './Tooltip'
+import { pathLinkDoc } from './PathLink'
 import { trailTextDoc } from './TrailText'
 import { typewriterTextDoc } from './TypewriterText'
 
@@ -80,6 +81,7 @@ export const uiDocGroups: { title: string; sections: UiDocSection[] }[] = [
 			shinyTextDoc,
 			flipTextDoc,
 			trailTextDoc,
+			pathLinkDoc,
 			appIconDoc,
 			glassIconsDoc,
 			messageDoc,

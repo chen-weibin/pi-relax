@@ -73,6 +73,31 @@ describe('block runtime', () => {
 		assert.equal(done.byKey['a:0:tool'], undefined)
 	})
 
+	it('stores tool result details on the block', () => {
+		installFrame()
+		const runtime = createBlockRuntime()
+		runtime.apply({
+			type: 'tool_end',
+			messageId: 'a',
+			contentIndex: 0,
+			toolCallId: 'edit',
+			name: 'edit',
+			argumentsText: '{\n  "path": "a.ts"\n}',
+		})
+		runtime.apply({
+			type: 'tool_result',
+			toolCallId: 'edit',
+			name: 'edit',
+			resultText: 'ok',
+			isError: false,
+			done: true,
+			details: { patch: '--- a\n+++ b\n@@\n-x\n+y\n' },
+		})
+		assert.deepEqual(runtime.getSnapshot().byKey.edit?.data.details, {
+			patch: '--- a\n+++ b\n@@\n-x\n+y\n',
+		})
+	})
+
 	it('reopens the unfinished tail when a painted history is still live', () => {
 		installFrame()
 		const runtime = createBlockRuntime()

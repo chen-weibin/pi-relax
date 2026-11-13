@@ -17,6 +17,8 @@ export type ToolData = {
 	argumentsText: string
 	resultText: string
 	isError: boolean
+	/** 工具执行结果里的 details（如 edit 的 patch）。没有就不写。 */
+	details?: unknown
 }
 
 type BlockBase = {
@@ -84,6 +86,7 @@ export type CompletedPart =
 			argumentsText: string
 			resultText: string
 			isError: boolean
+			details?: unknown
 	  }
 
 export type CompletedMessage =
@@ -120,7 +123,15 @@ export type BlockFeedEvent =
 			settled?: boolean
 	  }
 	| { type: 'tool_run'; toolCallId: string; name?: string }
-	| { type: 'tool_result'; toolCallId: string; name?: string; resultText: string; isError?: boolean; done: boolean }
+	| {
+			type: 'tool_result'
+			toolCallId: string
+			name?: string
+			resultText: string
+			isError?: boolean
+			done: boolean
+			details?: unknown
+	  }
 
 export type Publication = 'immediate' | 'animation-frame'
 
