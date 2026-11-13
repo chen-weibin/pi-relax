@@ -39,6 +39,7 @@
 | 逐字打字机(纯文本) | [`TypewriterText`](#typewritertext) | 不要自己写 `setInterval` / `requestAnimationFrame` 循环切字符串 |
 | 渐变扫光文字(标题 / CTA / loading) | [`ShinyText`](#shinytext) | 不要自己写 `linear-gradient` + `@keyframes`,也不要为单次使用装 `motion` |
 | 一行文字换成下一行时向上翻出 | [`FlipText`](#fliptext) | 不要在业务里手写 `AnimatePresence` 做同一行的进出 |
+| 一行标题 + 说明（整行可点、说明省略、标题可扫光） | [`TitleRow`](#titlerow) | 不要手写整行 button，再给标题和说明各写一套 hover 色 |
 | 标题后面的小字辅文 | [`TrailText`](#trailtext) | 不要在标题旁另写一套 `text-sm text-fg-disabled` |
 | 标题旁可点的文件名 / 路径短名 | [`PathLink`](#pathlink) | 不要在标题旁手写 `hover:underline` + `stopPropagation`；不可点的辅文仍用 [`TrailText`](#trailtext) |
 | 标题 + 展开收起(chevron + 高度过渡 + 标题可扫光) | [`DisclosureRow`](#disclosurerow) | 不要写本地 `<button>` + `<svg>` + `useState` 三件套 |
@@ -74,6 +75,7 @@
 | 反例 | 为什么 |
 |---|---|
 | 把 `MessageSurface` 用作「用户气泡专用外壳」 | `MessageSurface` 无角色语义,user / assistant 都能用;对齐方式由消费方(`UserMessage` / `AssistantMessage`)决定 |
+| 手写一行「标题 + 说明」，自己拼 hover 两档颜色 | 用 [`TitleRow`](#titlerow)。说明过长的省略、不可点、标题扫光都在这个组件里 |
 | 在 `DisclosureRow` 里写「思考 / 思考中」 | `DisclosureRow` 不写业务文案;文案的归属是 `ThinkingMessage`。换业务直接换调用方,不改组件 |
 | 给 `DisclosureRow` 加 `disabled` 之外的「流式 / 完成」状态 | 流式/完成状态属于业务(`ThinkingMessage` 内 `streaming = block.contentPhase === 'open'`)。`DisclosureRow` 只暴露 `blinking`,具体闪烁动画由 `ShinyText` 提供 |
 | 在 `ui/` 写引用 `Conversation` / store / `BlockSnapshot` 的组件 | 破坏「业务无关」约束,该放 `components/conversation/` |
@@ -277,6 +279,46 @@
 
 - 不写业务词。文案由调用方传入。
 - `AnimatePresence` 的 `initial={false}` 保证第一次挂上不从下面滑入。历史回放不要靠它补播。
+
+## TitleRow
+
+单文件 `ui/TitleRow.tsx`。一行标题加可选说明。可点时整行是按钮，热区占满行宽。常态标题 `text-fg-3`、说明 `text-fg-disabled`；hover 标题到 `text-fg`、说明到 `text-fg-3`，说明仍比标题暗一档。不可点时没有 hover。
+
+**查阅时机**:要一行「标题 + 后面的说明」，整行可点或明确不可点，说明过长要省略。
+
+**何时用**:
+
+- 标题固定，后面跟文件名、行号或一句短说明
+- 整行都是点击热区，hover 时标题和说明一起变亮，但两者仍能分开
+- 流式时只要标题扫光，传 `shimmer`
+- 这一行不该点，传 `disabled`（或不传 `onClick`）
+
+**何时不用**:
+
+- 要展开收起 → [`DisclosureRow`](#disclosurerow)
+- 说明是不会随整行一起变色的小字计数 → [`TrailText`](#trailtext)
+- 说明自己单独可点、还要拦住冒泡 → [`PathLink`](#pathlink)
+
+**API**:
+
+```tsx
+<TitleRow
+  title="查看文件"
+  desc="index.ts L1-20"   // 可省。太长省略，标题不裁
+  shimmer={false}         // 标题走 ShinyText，扫光不跟着 hover 再变色
+  disabled={false}        // 不是按钮，点不动，hover 不变色
+  onClick={() => {}}      // 不传也不可点
+/>
+```
+
+| 项 | 值 |
+|---|---|
+| 行 | `w-full`，`whitespace-nowrap`，`py-0.5`，不换行 |
+| 标题 | `text-base` `text-fg-3`，可点时 hover → `text-fg`，`shrink-0` |
+| 说明 | `text-base` `text-fg-disabled`，可点时 hover → `text-fg-3`，`min-w-0 truncate` |
+| 间距 | 标题和说明 `ml-2` |
+| `shimmer` | 标题用 [`ShinyText`](#shinytext)，`color=var(--fg-3)`，`shineColor=var(--fg-bright)` |
+| 不可点 | `disabled` 或没传 `onClick`：渲染 `div`，`cursor-default`，不加 hover 色 |
 
 ## TrailText
 
@@ -2224,10 +2266,11 @@ show({
 
 ```
 ui/Expandable       ← ui/DisclosureRow
-ui/ShinyText        ← ui/DisclosureRow
+ui/ShinyText        ← ui/DisclosureRow, ui/TitleRow
 ui/MarkdownView     ← components/conversation/ThinkingMessage, AssistantMessage, components/conversation/tools/DefaultTool
 ui/DiffView         ← components/conversation/tools/fileChange/FileChangeTool, uidoc/DiffView
 ui/TypewriterText   ← (目前无引用,保留供后续纯文本逐字场景)
+ui/TitleRow         ← components/conversation/tools/read/ReadTool, uidoc/TitleRow
 ui/PathLink         ← components/conversation/tools/fileChange/FileChangeTool
 ui/GlassIcons       ← (目前无引用,保留供后续应用宫格场景)
 ui/AppIcon          ← (目前无引用,保留供后续应用宫格 / 启动页场景)

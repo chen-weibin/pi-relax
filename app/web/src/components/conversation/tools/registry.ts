@@ -1,6 +1,7 @@
 import type { ComponentType } from 'react'
 import { FileChangeTool } from './fileChange/FileChangeTool'
 import { LsTool } from './ls/LsTool'
+import { ReadTool } from './read/ReadTool'
 import { ShellTool } from './shell/ShellTool'
 import type { ToolRendererProps } from './types'
 
@@ -13,6 +14,7 @@ export const toolRenderers: Record<string, ComponentType<ToolRendererProps>> = {
 	bash: ShellTool,
 	powershell: ShellTool,
 	ls: LsTool,
+	read: ReadTool,
 	write: FileChangeTool,
 	edit: FileChangeTool,
 }

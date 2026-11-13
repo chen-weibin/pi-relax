@@ -192,6 +192,7 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
 | `TypewriterText` | rAF grapheme 逐字打字机 | [`ui.md#typewritertext`](ui.md#typewritertext) |
 | `ShinyText` | `motion/react` 渐变扫光文字 | [`ui.md#shinytext`](ui.md#shinytext) |
 | `DisclosureRow` | 标题 + chevron + 展开收起;标题可扫光 | [`ui.md#disclosurerow`](ui.md#disclosurerow) |
+| `TitleRow` | 一行标题 + 说明;可点、可扫光、说明省略 | [`ui.md#titlerow`](ui.md#titlerow) |
 | `Expandable` | 高度过渡的展开/收起容器(纯展示,无 header) | [`ui.md#expandable`](ui.md#expandable) |
 | `MessageSurface` | 轻量卡片外壳,无角色语义 | [`ui.md#messagesurface`](ui.md#messagesurface) |
 | `DotMatrix` | 点阵 loading(9/16 点,乱中有序 / 顺时针两种节奏) | [`ui.md#dotmatrix`](ui.md#dotmatrix) |
@@ -340,6 +341,7 @@ src/
 │   ├── MarkdownView/             # streamdown 封装(static / streaming);index.tsx + index.css
 │   ├── TypewriterText.tsx        # grapheme 增量打字机
 │   ├── DisclosureRow.tsx         # 折叠行 + 标题 blink
+│   ├── TitleRow.tsx              # 一行标题 + 说明（可点 / 扫光 / 省略）
 │   ├── MessageSurface/           # 轻量 Surface 卡片外壳(无角色语义);index.tsx + index.css
 │   ├── Editor/                   # ProseMirror 智能输入框(paragraph + text)
 │   ├── MonacoEditor/             # monaco-editor 封装(worker + Shiki aurora-x)
