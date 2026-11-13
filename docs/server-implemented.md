@@ -70,8 +70,8 @@
 ## 工具
 
 1. 白名单一次打开八个内置工具：`read`、`bash`、`edit`、`write`、`grep`、`find`、`ls`、`powershell`。`powershell` 在非 Windows 上可以注册，调用时基座报错。
-2. `bash` 是覆盖版，不是原样的内置工具。代码在 `app/server/src/tools/`，通过 `createAgentSession` 的 `customTools` 传进去，同名盖掉内置的。执行逻辑、输出结构、渲染全部沿用内置，只换模型侧 schema：多一个必填的 `description`，一句话说明这条命令要干什么。模型漏填时校验失败，基座把它变成一条错误结果让模型重试。旧会话里的 bash 调用不带 `description`，回放不重新校验，不受影响。
-3. 覆盖时透传了 `settingsManager` 的 `shellCommandPrefix` 和 `shellPath`，用户配的 shell 前缀和路径不丢。
+2. `bash` 与 `powershell` 是覆盖版，不是原样的内置工具。代码在 `app/server/src/tools/`，通过 `createAgentSession` 的 `customTools` 传进去，同名盖掉内置的。执行逻辑、输出结构、渲染全部沿用内置，只换模型侧 schema：多一个必填的 `description`，一句话说明这条命令要干什么。模型漏填时校验失败，基座把它变成一条错误结果让模型重试。旧会话里的调用不带 `description`，回放不重新校验，不受影响。
+3. `bash` 覆盖时透传了 `settingsManager` 的 `shellCommandPrefix` 和 `shellPath`，用户配的 shell 前缀和路径不丢。`powershell` 基座没有这两项选项，覆盖时不传。
 4. `codemode` 用 `createCodemodeExtension()` 挂上，并写进同一份白名单。`tool_search` 不开。
 5. `pi-web-access@0.38.0` 放进 `additionalExtensionPaths`（`dist/index.js`）。启用 `web_search`、`fetch_content`、`get_search_content`、`source_check`。`~/.relax/agent/web-search.json` 不存在时写入 `{ "toolActivation": "eager" }`，不注册 `web_enable`。已有文件不覆盖。
 6. 抓取全文缓存在 `~/.relax/agent/web-search-cache/`。插件读的是 `PI_CODING_AGENT_DIR`，启动时已指到 `~/.relax/agent`。

@@ -1,7 +1,7 @@
 import type { ComponentType } from 'react'
-import { BashTool } from './bash/BashTool'
 import { FileChangeTool } from './fileChange/FileChangeTool'
 import { LsTool } from './ls/LsTool'
+import { ShellTool } from './shell/ShellTool'
 import type { ToolRendererProps } from './types'
 
 /**
@@ -10,7 +10,8 @@ import type { ToolRendererProps } from './types'
  * 没登记的工具走 `DefaultTool`。加一个新工具专属渲染：写 `tools/<name>/<Name>Tool.tsx`，在这里加一行。
  */
 export const toolRenderers: Record<string, ComponentType<ToolRendererProps>> = {
-	bash: BashTool,
+	bash: ShellTool,
+	powershell: ShellTool,
 	ls: LsTool,
 	write: FileChangeTool,
 	edit: FileChangeTool,

@@ -1,12 +1,13 @@
 import type { SettingsManager } from '@earendil-works/pi-coding-agent'
 import { bashWithDescription } from './bash.js'
+import { powershellWithDescription } from './powershell.js'
 
 /**
  * 传给 createAgentSession 的 customTools。
  *
  * 同名工具会覆盖内建的：基座把 customTools 和扩展注册的工具合成一份，
  * 后写的盖掉先写的（agent-session.ts 里的 definitionRegistry 和 toolRegistry）。
- * 这里的 bash 因此替掉内建 bash，模型侧看到的是多一个 description 的版本。
+ * 这里的 bash / powershell 因此替掉内建同名工具，模型侧看到的是多一个 description 的版本。
  */
 export function customTools(cwd: string, settingsManager: SettingsManager) {
 	return [
@@ -15,5 +16,6 @@ export function customTools(cwd: string, settingsManager: SettingsManager) {
 			commandPrefix: settingsManager.getShellCommandPrefix(),
 			shellPath: settingsManager.getShellPath(),
 		}),
+		powershellWithDescription(cwd),
 	]
 }

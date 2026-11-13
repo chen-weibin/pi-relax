@@ -6,12 +6,13 @@ import { TrailText } from '../../../../ui/TrailText'
 import type { ToolRendererProps } from '../types'
 
 /**
- * bash 专属渲染。
+ * bash / powershell 共用渲染。
  *
  * 折叠时一行「运行 + description」，description 是灰的辅文，超宽截断。
  * 展开后是一张终端样式的卡片：上面命令，下面输出。不分成功失败。
+ * 提示符按工具名：powershell 用 `PS>`，其余用 `$`。
  */
-export function BashTool({ block, expandTick = 0 }: ToolRendererProps) {
+export function ShellTool({ block, expandTick = 0 }: ToolRendererProps) {
 	const streaming = block.contentPhase === 'open'
 	const [open, setOpen] = useState(false)
 	useEffect(() => {
@@ -22,6 +23,7 @@ export function BashTool({ block, expandTick = 0 }: ToolRendererProps) {
 	const command = typeof args?.command === 'string' ? args.command : ''
 	const description = typeof args?.description === 'string' ? args.description : ''
 	const { resultText } = block.data
+	const prompt = block.data.name === 'powershell' ? 'PS> ' : '$ '
 
 	const title = (
 		<span className="inline-block min-w-0 max-w-[60%] truncate">
@@ -44,7 +46,7 @@ export function BashTool({ block, expandTick = 0 }: ToolRendererProps) {
 			<div className="rounded-lg border border-border bg-app p-3">
 				{command ? (
 					<p className="font-mono text-sm text-fg">
-						<span className="text-fg-disabled">$ </span>
+						<span className="text-fg-disabled">{prompt}</span>
 						{command}
 					</p>
 				) : null}

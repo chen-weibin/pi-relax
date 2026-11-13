@@ -76,4 +76,39 @@ describe('active tools', () => {
 			session.dispose()
 		}
 	})
+
+	it('declares powershell with a required description', async () => {
+		const { session } = await createPiRuntime({
+			cwd: join(home, 'workspace'),
+			sessionManager: createSessionManager(join(home, 'workspace')),
+			model: await modelForNewSession(),
+		})
+		try {
+			const powershell = session.getAllTools().find((tool) => tool.name === 'powershell')
+			assert.ok(powershell, 'powershell tool is registered')
+			const schema = powershell.parameters as unknown as {
+				required?: string[]
+				properties?: Record<string, { type?: string }>
+			}
+			assert.deepEqual(schema.required, ['command', 'description'])
+			assert.equal(schema.properties?.description?.type, 'string')
+
+			const call = (args: Record<string, string>) =>
+				validateToolArguments(
+					{
+						name: 'powershell',
+						description: powershell.description,
+						parameters: powershell.parameters,
+					},
+					{ type: 'toolCall', id: 'call-1', name: 'powershell', arguments: args },
+				)
+			assert.deepEqual(call({ command: 'Get-Location', description: '查看当前目录' }), {
+				command: 'Get-Location',
+				description: '查看当前目录',
+			})
+			assert.throws(() => call({ command: 'Get-Location' }), /description/)
+		} finally {
+			session.dispose()
+		}
+	})
 })
