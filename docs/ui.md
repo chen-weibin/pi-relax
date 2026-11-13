@@ -42,7 +42,8 @@
 | 一行标题 + 说明（整行可点、说明省略、标题可扫光） | [`TitleRow`](#titlerow) | 不要手写整行 button，再给标题和说明各写一套 hover 色 |
 | 标题后面的小字辅文 | [`TrailText`](#trailtext) | 不要在标题旁另写一套 `text-sm text-fg-disabled` |
 | 标题旁可点的文件名 / 路径短名 | [`PathLink`](#pathlink) | 不要在标题旁手写 `hover:underline` + `stopPropagation`；不可点的辅文仍用 [`TrailText`](#trailtext) |
-| 单个网站小圆标(图片或首字) | [`SiteMark`](#sitemark) | 不要手写 `<img>` + `onError` 再拼字母圆 |
+| 单个网站小圆标(图片或首字) | [`SiteMark`](#sitemark) | 不要手写 `<img>` + `onError` 再拼字母圆；一排用 [`SiteIconRow`](#siteiconrow) |
+| 一排网站图标(重叠，悬停散开，超出收成数字) | [`SiteIconRow`](#siteiconrow) | 不要手写负 margin 叠图再自己做散开和 `+N`；单个圆标用 [`SiteMark`](#sitemark) |
 | 标题 + 展开收起(chevron + 高度过渡 + 标题可扫光) | [`DisclosureRow`](#disclosurerow) | 不要写本地 `<button>` + `<svg>` + `useState` 三件套 |
 | 任意区域的高度过渡展开(无 header) | [`Expandable`](#expandable) | 不要自己写 `max-height` 凑数(无法适配动态内容高度);不要为单处使用装 `framer-motion` |
 | 单行文本输入(尺寸、清空、前后缀、字数、状态、提示) | [`Input`](#input) | 不要写裸 `<input>` 再拼清空、字数和状态边框;带搜索图标仍用 [`SearchInput`](#searchinput) |
@@ -77,7 +78,7 @@
 |---|---|
 | 把 `MessageSurface` 用作「用户气泡专用外壳」 | `MessageSurface` 无角色语义,user / assistant 都能用;对齐方式由消费方(`UserMessage` / `AssistantMessage`)决定 |
 | 手写一行「标题 + 说明」，自己拼 hover 两档颜色 | 用 [`TitleRow`](#titlerow)。说明过长的省略、不可点、标题扫光都在这个组件里 |
-| 手写 `<img>` + 字母圆标做网站图标 | 用 [`SiteMark`](#sitemark)，把图片地址传给 `src` |
+| 手写 `<img>` + 字母圆标做网站图标，或负 margin 叠一排 | 单个用 [`SiteMark`](#sitemark)；一排用 [`SiteIconRow`](#siteiconrow) |
 | 在 `DisclosureRow` 里写「思考 / 思考中」 | `DisclosureRow` 不写业务文案;文案的归属是 `ThinkingMessage`。换业务直接换调用方,不改组件 |
 | 给 `DisclosureRow` 加 `disabled` 之外的「流式 / 完成」状态 | 流式/完成状态属于业务(`ThinkingMessage` 内 `streaming = block.contentPhase === 'open'`)。`DisclosureRow` 只暴露 `blinking`,具体闪烁动画由 `ShinyText` 提供 |
 | 在 `ui/` 写引用 `Conversation` / store / `BlockSnapshot` 的组件 | 破坏「业务无关」约束,该放 `components/conversation/` |
@@ -385,10 +386,11 @@
 **何时用**:
 
 - 只要一个圆标；站名可选
-- 业务里单独摆一个网站图标
+- 给 [`SiteIconRow`](#siteiconrow) 当内部图元之外，业务也要单独摆一个
 
 **何时不用**:
 
+- 一排可重叠的图标 → [`SiteIconRow`](#siteiconrow)
 - App 宫格 / 品牌底板 → [`AppIcon`](#appicon)
 
 **API**:
@@ -411,6 +413,62 @@
 | 其余 | `button` 属性 | `id`、`title`、`aria-*`、`disabled`、`onClick`、`tabIndex` 等。非按钮时 `disabled` 不落到 DOM |
 
 图片加载失败由组件内部切到首字圆，不要在外层再包一层 `onError`。默认色是组件内固定 hex，不走主题 token。`style` 写在 `size` 之后，用来改单次尺寸或圆角。
+
+## SiteIconRow
+
+单文件 `ui/SiteIconRow.tsx`，个数裁剪在 `ui/siteIconSlots.ts`。一排网站图标。默认单行重叠，靠后的圆盖在上面；鼠标悬停约 150ms 后沿横向散开，移出后再叠回去。散开时不展示名称。需要名字或链接时，给单个 `tooltip`。
+
+**查阅时机**:搜索结果标题行要挂一批来源站图标，或判断该不该自己写叠图、散开和 `+N`。
+
+**何时用**:
+
+- 标题旁展示多个来源站，空间紧时先叠起来
+- 超过 `max`，或单行放不下时，最后一个圆显示 `+N`
+- 需要多行时用 `wrap`，一行放不下才换行
+- 悬停 `+N` 要看剩余图标时打开 `overflowHover`
+- 某一颗需要单独可点，或单独悬停说明
+
+**何时不用**:
+
+- 只要一个圆标 → [`SiteMark`](#sitemark)
+
+**API**:
+
+```tsx
+<SiteIconRow
+	size="md"
+	max={4}
+	sites={[
+		{ name: 'Pi', url: 'https://pi.dev/', src: 'https://pi.dev/favicon.ico', tooltip: 'Pi', onClick: () => {} },
+		{ name: 'GitHub', url: 'https://github.com/', src: null },
+	]}
+/>
+<SiteIconRow sites={sites} wrap />
+<SiteIconRow sites={sites} max={4} overflowHover />
+```
+
+| prop | 类型 | 说明 |
+|---|---|---|
+| `sites` | `SiteIcon[]` | 空数组时组件返回 `null`。见下表 |
+| `size` | `'sm' \| 'md' \| 'lg' \| number` | 默认 `md`。传给每一颗 [`SiteMark`](#sitemark)，数字圆同一尺寸 |
+| `max` | `number` | 可选。这一排最多几个圆，含末尾数字。超出时前面留 `max - 1` 个图标，最后一个圆是 `+N`。不传则全部展示。小于 1 视为不限制 |
+| `wrap` | `boolean` | 默认 `false`。单行重叠，悬停散开；父级一行放不下时，末尾自动变成 `+N`，不必再传 `max`。为 `true` 时不重叠，根节点占满父级宽度，一行放不下才换到下一行，悬停不散开。两种都仍遵守 `max` |
+| `overflowHover` | `boolean` | 默认 `false`。为 `true` 时，悬停 `+N` 用浮窗把没展示的图标铺开，浮窗内多行自动换行 |
+| `className` | `string` | 可选，落在根节点 |
+| `style` | `CSSProperties` | 可选，落在根节点 |
+
+`SiteIcon`:
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `name` | `string` | 失败态首字，也可作可点圆的 `aria-label` |
+| `url` | `string` | 关联地址。组件不根据它去取图标 |
+| `src` | `string \| null` | 图片地址，由调用方传入，再交给 [`SiteMark`](#sitemark)。`null` 直接走首字圆。要从页面地址取源站图标时，调用方自己用 `faviconUrl` 算出再传入 |
+| `clickable` | `boolean` | 可选。为 `true`，或传入 `onClick` 时这一颗是按钮，点击 `stopPropagation` |
+| `onClick` | `() => void` | 可选 |
+| `tooltip` | `ReactNode` | 可选。有内容才包 [`Tooltip`](#tooltip)。空字符串不挂 |
+
+散开由组件内部指针进入 / 离开管，不提供受控 API。触控不散开，避免点一下停在展开态。`prefers-reduced-motion` 时位移没有过渡。数字圆的底比表面灰一档。超过 99 显示 `99+`。`overflowHover` 的浮窗只放没排出来的那些，按间距铺开，不重叠。单行能放下几个圆，按父级剩余宽度算；父级变窄会重新收成 `+N`。
 
 ## MarkdownView
 
@@ -2310,7 +2368,9 @@ ui/DiffView         ← components/conversation/tools/fileChange/FileChangeTool,
 ui/TypewriterText   ← (目前无引用,保留供后续纯文本逐字场景)
 ui/TitleRow         ← components/conversation/tools/read/ReadTool, uidoc/TitleRow
 ui/PathLink         ← components/conversation/tools/fileChange/FileChangeTool
-ui/SiteMark         ← uidoc/SiteMark
+ui/SiteMark         ← ui/SiteIconRow, uidoc/SiteMark
+ui/siteIconSlots    ← ui/SiteIconRow
+ui/SiteIconRow      ← uidoc/SiteIconRow
 ui/GlassIcons       ← (目前无引用,保留供后续应用宫格场景)
 ui/AppIcon          ← (目前无引用,保留供后续应用宫格 / 启动页场景)
 ui/Editor           ← components/Composer
@@ -2325,7 +2385,7 @@ ui/Message          ← hooks/useMessage, uidoc/Message
 ui/SwipeToast       ← hooks/useToast, uidoc/SwipeToast
 ui/Spinner          ← ui/Dialog
 ui/Segmented        ← uidoc/*(各演示页,统一 size="sm")
-ui/Tooltip          ← ui/IconButton, ui/Heading, ui/Paragraph（Hint 经 Paragraph）
+ui/Tooltip          ← ui/IconButton, ui/Heading, ui/Paragraph（Hint 经 Paragraph）, ui/SiteIconRow
 ui/Paragraph        ← ui/Hint
 ui/EmptyState       ← extensions/plugins/files/FilesView, extensions/plugins/files/FileTree
 ui/IconButton       ← components/SidebarActions, components/ProjectSectionHeader, ...
