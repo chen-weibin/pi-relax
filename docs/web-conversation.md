@@ -76,7 +76,7 @@ AgentSessionEvent → adaptAgentSession → BlockFeedEvent → runtime.apply
 | 文件 | 职责 |
 |---|---|
 | `types.ts` | `ToolRendererProps`：`block` + `expandTick` |
-| `registry.ts` | 工具名 → 渲染器。目前有 `bash`、`powershell`、`ls`、`read`、`write`、`edit`、`find`、`grep`、`codemode` |
+| `registry.ts` | 工具名 → 渲染器。目前有 `bash`、`powershell`、`ls`、`read`、`write`、`edit`、`find`、`grep`、`codemode`、`web_search` |
 | `ToolView.tsx` | 总入口。按 `block.data.name` 找专属渲染，找不到走 `DefaultTool` |
 | `DefaultTool.tsx` | 默认渲染：工具名当标题，参数纯文本，结果走 Markdown |
 | `shell/ShellTool.tsx` | bash / powershell 共用 |
@@ -90,6 +90,8 @@ AgentSessionEvent → adaptAgentSession → BlockFeedEvent → runtime.apply
 | `search/searchResult.ts` | find / grep 结果文本解析：剥截断提示、路径列表、grep 按文件聚合匹配数 |
 | `codemode/CodemodeTool.tsx` | codemode：折叠写调用次数，展开复用已有工具行 |
 | `codemode/codemodeCalls.ts` | 从 `details.calls` 取出工具名、截断参数、状态 |
+| `web/WebSearchTool.tsx` | web_search：可展开。收起是关键词数量和网站图标，展开是正文段落 |
+| `web/webResult.ts` | 搜索正文拆成段落、编号清单和关键词 |
 
 加一个工具的专属渲染：写 `tools/<name>/<Name>Tool.tsx`，在 `registry.ts` 加一行，开头标题写进 [`toolOpening.ts`](../app/web/src/conversation/toolOpening.ts)（活动行和折叠行共用）。没登记的工具走默认，不受影响。多个工具名共用同一渲染时（如 bash / powershell → `ShellTool`），在 registry 各挂一行即可。
 
@@ -143,6 +145,14 @@ AgentSessionEvent → adaptAgentSession → BlockFeedEvent → runtime.apply
 
 折叠时一行「编排 + N 个工具」，N 是 `details.calls` 的条数。没有调用时这一行禁用。展开后每个嵌套调用按工具名走已有专属渲染（没有的走 `DefaultTool`），参数用 `calls[].args`。`calls` 没有结果正文和 `details.patch`，所以 bash 输出、ls 条目、edit diff 对不齐直接调用。嵌套的 `codemode` 不再套一层编排。
 
+### web_search
+
+可展开。收起行是「搜索网络 + N 个关键词」，一个关键词也写成「1 个关键词」。关键词悬停出浮窗，每个关键词一行。参数还是半截 JSON 时只有标题，标题扫光。
+
+右侧是 [`SiteIconRow`](../app/web/src/ui/SiteIconRow.tsx)：来自正文 `**Sources:**` 编号清单（`1. 标题` 下一行 URL），一条结果一个图标，不去重。图片地址由调用方用 [`faviconUrl`](../app/web/src/utils/faviconUrl.ts) 从页面 URL 拼成源站 `/favicon.ico`，作为 `src` 传入；`src` 为 `null` 或加载失败时用名称首字的圆标。组件本身不拼图标地址。单行重叠，靠后的盖在上面，悬停散开，不在旁边写站名。`max={10}`，最多 10 个圆（含末尾数字），多出来的收进 `+N`，悬停 `+N` 在浮窗里铺开其余站点。箭头跟在这一排后面。行宽不够时仍会再收成 `+N`。每颗的 Tooltip 是站点名称。点击图标新标签打开对应 `http(s)` 地址，点击停在图标行上，不触发行的展开收起。
+
+展开后不渲染 `**Providers used:**`、`## Query:`、编号清单，以及文末的 `responseId` 取回指引。剩下的正文保持原有换行和围栏，整段交给 `MarkdownView`。每一条结果开头单独的 `#` 去掉，后面的字按普通文本画；下一条结果前面插入 `---`。单独一行的 `Source: 名称 (url)` 换成行内指令 `:source[名称]{url="https://..."}`（[`sourceDirective`](../app/web/src/ui/MarkdownView/plugins/source/remark.ts)）。MarkdownView 的 [`plugins/source`](../app/web/src/ui/MarkdownView/plugins/source/index.ts) 把它画成 [`SourceChip`](../app/web/src/ui/SourceChip.tsx) 的 `sm`：胶囊高度等于左侧圆图直径，圆图贴左，名称在右；悬停文案是这条 URL。点击默认新标签打开。围栏里的同一行不替换。执行中的进度句没有正文，这一行不可展开。
+
 ## 滚动与流式出现
 
 - 对话列贴底：[`use-stick-to-bottom`](https://www.npmjs.com/package/use-stick-to-bottom) 的 `StickToBottom`（在 `Conversation.tsx`）。滚动容器是 `container-type: size`。每一轮一层，最后一轮（用户消息到列表末尾，含后面的回复和活动行）`min-height: 100cqh`。短回复时贴底把这层顶对齐视口顶，回复在上半、下面留白。这层有 `padding-bottom: 40cqh`（算在 `min-height` 里）：回复超过一屏后，滚到底时末尾停在视口大约往上四成的位置，下面仍是空白，不贴输入框。没有用户消息时不包这层。初次载入、打开历史、流式增高用 `instant`。只在消息条数加一且末尾是用户消息时，`resize` / `initial` 用弹簧（`damping` 0.85、`stiffness` 0.04、`mass` 1.2），把这一轮顶上去，约 800ms 后恢复 `instant`（库里这次弹簧只保留 350ms，提前改回会把没滚完的距离瞬间补上）。用户上滑暂停、滚回底部恢复；发送时若已经不在底部，`scrollToBottom('instant')` 先拉回当前底部。不上虚拟列表。贴底时滚动视口底边有一条 `h-20`（80px）的渐隐，绝对定位、不占高度，从透明收到 `--app`，字滚过底边时变淡。空态输入框居中时没有这层。
@@ -176,7 +186,7 @@ AgentSessionEvent → adaptAgentSession → BlockFeedEvent → runtime.apply
 
 消息间距（`/chat` 的 `chat/ChatView.tsx` 和正式页 `components/conversation/ConversationView.tsx` 同一套）：用户消息与其它块之间 20px（容器 `gap-5` + 用户段 `mb-2.5`），助手回复内部相邻块 10px（`gap-2.5`），末块到活动行也是 10px，回合之间 20px。`ExploreGroup` 组内行距仍 2px，不动共享组件。
 
-思考块：默认收起；历史与流式都可展开/收起；标题固定为「思考」，流式时仍走 `ShinyText`(由 `DisclosureRow.blinking` 控制);`isAnimating={open && streaming}`。正文用 `markdown-view--dim`（`--fg-disabled` 混 28% `--fg-3`，比纯禁用色略亮，仍暗于「思考」标题）。箭头 `chevron="hover"`：收起时只有悬停才显示，展开后常显；再收起且指针不在行上时立刻消失。连续的思考和工具在回合里收成一组「探索」（`conversation/explore.ts`），默认收起；展开后里面仍是思考行和每个工具行，工具行同样可展开：没有专属渲染的工具参数是纯文本，结果走 Markdown，`isError` 用 `text-error`；有专属渲染的按工具名走自己的形态（bash、powershell、ls、read、write、edit、find、grep、codemode 见上文「工具专属渲染」；read / find / grep 这一行不能展开）。正式页和 `/chat` 共用探索外壳（`components/conversation/ExploreGroup.tsx`、`ActivityLine.tsx`，规则在 `conversation/exploreChrome.ts`）。从第一块起就放进「探索」，标题固定为「规划探索」；两块及以上且工具数大于 0 时旁边写「N 个工具」。下面另有一行当前活动，与上一块的间距和块间距相同，替换「生成中」：还没有任何块、或当前块已经结束但下一步还不明时，是「正在规划下一步行动」；正在进行的那一块才显示「思考」，或该工具专属行的开头标题（没有专属渲染的仍用工具名），点它展开上面那组并滚到对应行。探索组展开时，外面不再重复组里正在进行的那一行。这一轮结束后活动行消失；只剩一块时不再包「探索」。正式页的行是 `ThinkingMessage` / `ToolMessage`，`/chat` 的行仍是 `ChatView` 自己的。`Composer` 的发送接到 `sendConversation`：没有会话就创建，已有则续发。生成中输入为空时圆按钮是停止；有字再发只进前端队列，当前回复结束后按顺序自动发。队列里的立刻发送会先停掉当前回复再发那一条，取消只删掉这一条。
+思考块：默认收起；历史与流式都可展开/收起；标题固定为「思考」，流式时仍走 `ShinyText`(由 `DisclosureRow.blinking` 控制);`isAnimating={open && streaming}`。正文用 `markdown-view--dim`（`--fg-disabled` 混 28% `--fg-3`，比纯禁用色略亮，仍暗于「思考」标题）。箭头 `chevron="hover"`：收起时只有悬停才显示，展开后常显；再收起且指针不在行上时立刻消失。连续的思考和工具在回合里收成一组「探索」（`conversation/explore.ts`），默认收起；展开后里面仍是思考行和每个工具行，工具行同样可展开：没有专属渲染的工具参数是纯文本，结果走 Markdown，`isError` 用 `text-error`；有专属渲染的按工具名走自己的形态（bash、powershell、ls、read、write、edit、find、grep、codemode、web_search 见上文「工具专属渲染」；read / find / grep 这一行不能展开）。正式页和 `/chat` 共用探索外壳（`components/conversation/ExploreGroup.tsx`、`ActivityLine.tsx`，规则在 `conversation/exploreChrome.ts`）。从第一块起就放进「探索」，标题固定为「规划探索」；两块及以上且工具数大于 0 时旁边写「N 个工具」。下面另有一行当前活动，与上一块的间距和块间距相同，替换「生成中」：还没有任何块、或当前块已经结束但下一步还不明时，是「正在规划下一步行动」；正在进行的那一块才显示「思考」，或该工具专属行的开头标题（没有专属渲染的仍用工具名），点它展开上面那组并滚到对应行。探索组展开时，外面不再重复组里正在进行的那一行。这一轮结束后活动行消失；只剩一块时不再包「探索」。正式页的行是 `ThinkingMessage` / `ToolMessage`，`/chat` 的行仍是 `ChatView` 自己的。`Composer` 的发送接到 `sendConversation`：没有会话就创建，已有则续发。生成中输入为空时圆按钮是停止；有字再发只进前端队列，当前回复结束后按顺序自动发。队列里的立刻发送会先停掉当前回复再发那一条，取消只删掉这一条。
 
 ## 明确不做
 
