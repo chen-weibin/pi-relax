@@ -339,7 +339,7 @@ src/
 │   ├── Dialog.tsx                # 标题、正文和确认按钮,包在 Modal 上
 │   ├── Spinner/                  # 圆锥渐变转圈;index.tsx + index.css
 │   ├── Tooltip.tsx               # 短 hover 提示,包在 Popover 上
-│   ├── MarkdownView/             # streamdown 封装(static / streaming);index.tsx + index.css
+│   ├── MarkdownView/             # streamdown 封装(static / streaming);index.tsx + index.css；plugins/ 放行内扩展
 │   ├── TypewriterText.tsx        # grapheme 增量打字机
 │   ├── DisclosureRow.tsx         # 折叠行 + 标题 blink
 │   ├── TitleRow.tsx              # 一行标题 + 说明（可点 / 扫光 / 省略）

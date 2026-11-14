@@ -521,7 +521,9 @@
 
 ## MarkdownView
 
-目录 `ui/MarkdownView/`(`index.tsx` + `index.css`),封装 `streamdown` 与四个官方插件(`code` / `mermaid` / `math` / `cjk`)。`@source` 写在 `MarkdownView/index.css`(核心包 + 四个插件的 `dist/*.js`),由 `src/index.css` `@import` 进 Tailwind 入口;不要只在 TSX 里 import 这份 CSS,否则 `@source` 不生效。
+目录 `ui/MarkdownView/`。`index.tsx` 是视图，封装 `streamdown` 与四个官方插件(`code` / `mermaid` / `math` / `cjk`)。`index.css` 是样式。行内扩展放 `plugins/`，一个扩展一个目录；`plugins/index.ts` 汇总 `remarkPlugins`、`allowedTags`、`components`。视图只消费这份汇总，不写某个扩展的节点。新扩展写在自己的目录里，再并进汇总。
+
+`@source` 写在 `MarkdownView/index.css`(核心包 + 四个插件的 `dist/*.js`),由 `src/index.css` `@import` 进 Tailwind 入口;不要只在 TSX 里 import 这份 CSS,否则 `@source` 不生效。
 
 **查阅时机**:渲染用户/agent 输出的 Markdown(静态或流式),或在已有纯文本组件上加 Markdown 支持。
 
@@ -546,6 +548,10 @@
   mode="static"               // 'static' | 'streaming',默认 'static'
   isAnimating={false}         // 流式进行中：禁用复制、代码块内跟底、并播 animated
   highlight={true}            // false 时不挂 code / mermaid，围栏当普通文本
+  source={{                   // 行内来源的点击。不传则新标签打开
+    openInNewTab: true,       // false 时在当前页打开
+    onClick: ({ name, url }) => {}, // 传入后不再自动打开
+  }}
   className="…"
 />
 ```
@@ -561,6 +567,7 @@
 | `lineNumbers` | `true`(围栏代码块显示行号) |
 | `controls` | 代码块复制开、下载关;mermaid 下载关,全屏/复制走官方默认 |
 | `plugins` | `@streamdown/code`(Shiki)、`mermaid`、`math`(KaTeX,`$$` 定界)、`cjk` |
+| 行内来源 | `plugins/source`。调用方从 `remark.ts` 用 `sourceDirective` 拼 [`remark-directive`](https://github.com/remarkjs/remark-directive) 的行内形式 `:source[名称]{url="https://..."}`。remark 把它换成 `source-chip`，节点在 `node.tsx`，画成 [`SourceChip`](#sourcechip) 的 `sm`（16px）：胶囊高度等于圆图直径，圆图贴左，名称在右；悬停文案是这条 URL。点击默认新标签打开，`source.openInNewTab={false}` 改为当前页；传入 `source.onClick` 后不再自动打开，由函数处理 `{ name, url }`。只认 `http(s)` 的 `source`；其它指令还原成字面量，避免 `:单词` 被吃掉 |
 | `shikiTheme` | `['github-light', 'github-dark']`;html `color-scheme` 跟 `data-theme` 走 |
 | `codeBlockMaxHeight` | `0`(关掉 streamdown 打在 body 上的高度,改由外壳 `max-height: 400px`,header 固定、content 滚动) |
 | 视觉 | 见 `index.css`:行高 1.6、正文 `text-fg`、行内 code 圆角 4、`a` 用 `--info`、blockquote 左侧 2px `--border-hover`;代码块 / mermaid 外框 `--border`,header `--surface`,content `--app`。`className="markdown-view--dim"` 把正文、h1–h4、blockquote 改成 `color-mix(--fg-disabled 72%, --fg-3)`（思考块用，比 `--fg-disabled` 略亮，仍暗于标题 `--fg-3`） |
@@ -2417,10 +2424,11 @@ ui/DiffView         ← components/conversation/tools/fileChange/FileChangeTool,
 ui/TypewriterText   ← (目前无引用,保留供后续纯文本逐字场景)
 ui/TitleRow         ← components/conversation/tools/read/ReadTool, uidoc/TitleRow
 ui/PathLink         ← components/conversation/tools/fileChange/FileChangeTool
+utils/faviconUrl    ← ui/MarkdownView/plugins/source
 ui/SiteMark         ← ui/SiteIconRow, ui/SourceChip, uidoc/SiteMark
 ui/siteIconSlots    ← ui/SiteIconRow
 ui/SiteIconRow      ← uidoc/SiteIconRow
-ui/SourceChip       ← uidoc/SourceChip
+ui/SourceChip       ← ui/MarkdownView/plugins/source, uidoc/SourceChip
 ui/GlassIcons       ← (目前无引用,保留供后续应用宫格场景)
 ui/AppIcon          ← (目前无引用,保留供后续应用宫格 / 启动页场景)
 ui/Editor           ← components/Composer

@@ -6,6 +6,8 @@ import classNames from 'classnames'
 import { Streamdown } from 'streamdown'
 import 'katex/dist/katex.min.css'
 import 'streamdown/styles.css'
+import { markdownPlugins } from './plugins'
+import { SourceOptionsProvider, type SourceOptions } from './plugins/source'
 
 const settledPlugins = { code, mermaid, math, cjk } as const
 
@@ -40,6 +42,8 @@ export type MarkdownViewProps = {
 	streaming?: boolean
 	/** 非 live 的旧路径：流式中关掉 Shiki 和 Mermaid。 */
 	highlight?: boolean
+	/** 行内来源的点击。默认新标签打开 URL。 */
+	source?: SourceOptions
 	className?: string
 }
 
@@ -50,27 +54,33 @@ export function MarkdownView({
 	live = false,
 	streaming = false,
 	highlight = true,
+	source,
 	className,
 }: MarkdownViewProps) {
 	const flowing = live && streaming
 	const plugins = live ? (flowing ? streamingPlugins : settledPlugins) : highlight && !isAnimating ? settledPlugins : plainPlugins
 	const fade = live ? flowing && isAnimating : isAnimating
 	return (
-		<div className={classNames('markdown-view text-fg text-base', className)}>
-			<Streamdown
-				mode={live || mode === 'streaming' ? 'streaming' : 'static'}
-				isAnimating={fade}
-				animated={fade ? streamFade : false}
-				lineNumbers
-				codeBlockMaxHeight={0}
-				controls={controls}
-				plugins={plugins}
-				shikiTheme={['github-light', 'github-dark']}
-				mermaid={{ config: { theme: 'dark' } }}
-				parseIncompleteMarkdown={live ? flowing : mode === 'streaming'}
-			>
-				{text}
-			</Streamdown>
-		</div>
+		<SourceOptionsProvider options={source}>
+			<div className={classNames('markdown-view text-fg text-base', className)}>
+				<Streamdown
+					mode={live || mode === 'streaming' ? 'streaming' : 'static'}
+					isAnimating={fade}
+					animated={fade ? streamFade : false}
+					lineNumbers
+					codeBlockMaxHeight={0}
+					controls={controls}
+					remarkPlugins={markdownPlugins.remarkPlugins}
+					allowedTags={markdownPlugins.allowedTags}
+					components={markdownPlugins.components}
+					plugins={plugins}
+					shikiTheme={['github-light', 'github-dark']}
+					mermaid={{ config: { theme: 'dark' } }}
+					parseIncompleteMarkdown={live ? flowing : mode === 'streaming'}
+				>
+					{text}
+				</Streamdown>
+			</div>
+		</SourceOptionsProvider>
 	)
 }
