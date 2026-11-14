@@ -2,7 +2,7 @@
 
 `app/web/src/ui/` 是 `app/web` 的 UI 组件库目录,业务无关、可在多处复用。对内封装第三方库,对上提供与领域词无关的原子组件。
 
-> 集成层(Tailwind 接入、设计 token、`app/web` 四区布局、滚动条变体)在 [`docs/web.md`](web.md)。本文档回答「该用哪个 / 别自己写 / 组件细节」。要对着实机看形态时，本地开发服务器打开 `/ui/<组>`（如 `/ui/actions`；生产构建不含这些路由）。说明和演示在 `app/web/src/uidoc/`，API 仍看本文。
+> 集成层(Tailwind 接入、设计 token、`app/web` 四区布局、滚动条变体)在 [`docs/web.md`](web.md)。本文档回答「该用哪个 / 别自己写 / 组件细节」。要对着实机看形态时，本地开发服务器打开 `/ui/<组>`（如 `/ui/actions`；生产构建不含这些路由）。说明和演示在 `app/web/src/uidoc/`，API 仍看本文。浏览项目图标、复制组件名时打开 `/icons/color`（可着色）或 `/icons/files`（文件类型）；清单说明见 [`file-icons.md`](file-icons.md)。
 
 ## 何时放进 `ui/`
 
@@ -2293,7 +2293,7 @@ message.dismiss(id)
 
 **视觉**:卡片宽度**固定 320px**(视口更窄时按 `100vw - 32px` 收),长文本单行截断出省略号。宽度必须一致 —— 收起堆叠时后面几条要靠同宽互相遮住,只露一条底边;宽度一旦自适应,后面那张就会以自己的宽度露出来,看着像一张空卡。底色 `bg-surface`,squircle 裁切 + 1px 内边线(`stroke-white/10`),阴影走 `drop-shadow`(clip-path 会切掉 box-shadow)。左侧 24px 圆形状态图标,文字 `text-md text-fg`。位置固定在视口顶部居中,距顶 24px。
 
-**图标**:实心圆 + 白色符号,两个 path 叠在一起(圆取 `currentColor`,符号固定 `#fff`),在 `icons/index.tsx`:`SuccessCircleIcon` / `ErrorCircleIcon` / `WarningCircleIcon` / `InfoCircleIcon`。四条原始路径的圆大小不一(半径 458.8 / 414.5 / 416.9 / 448),图标内部各自做了缩放,统一成半径 456,放在 24px 的框里都是约 21px 的圆。
+**图标**:实心圆 + 中间符号,在 `icons/index.tsx`:`SuccessCircleIcon` / `ErrorCircleIcon` / `WarningCircleIcon` / `InfoCircleIcon`。默认 `filled`(省略即 true):圆 `currentColor`、符号固定 `#fff`,适合色底上的 Message;传 `filled={false}` 用 evenodd 镂空透底(图标展台 `/icons/color` 实心段这么用)。四条原始路径的圆大小不一(半径 458.8 / 414.5 / 416.9 / 448),图标内部各自做了缩放,统一成半径 456,放在 24px 的框里都是约 21px 的圆。
 
 **配色**:图标本身不带颜色(和其它图标一样走 `currentColor`),颜色写在 `ui/Message.tsx` 的 `TONES` 里由外部控制 —— `success #34C759` / `error #FF3B30` / `warning #FF9500` / `info #007AFF` / `normal #8E8E93`。要换色只改 `TONES`,别往图标里塞颜色,也别去动 `index.css` 的 token(会波及 StatusDot、Input 状态色)。
 

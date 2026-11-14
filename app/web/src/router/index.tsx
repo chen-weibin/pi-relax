@@ -10,12 +10,20 @@ export const routes: RouteObject[] = [
 
 if (import.meta.env.DEV) {
 	const UiPage = lazy(() => import('../pages/Ui').then((m) => ({ default: m.UiPage })))
+	const IconsPage = lazy(() => import('../pages/Icons').then((m) => ({ default: m.IconsPage })))
 	const ChatPage = lazy(() => import('../pages/Chat').then((m) => ({ default: m.ChatPage })))
 	routes.push({
 		path: '/ui',
 		children: [
 			{ index: true, element: <Navigate to="actions" replace /> },
 			{ path: ':groupId', element: <UiPage /> },
+		],
+	})
+	routes.push({
+		path: '/icons',
+		children: [
+			{ index: true, element: <Navigate to="color" replace /> },
+			{ path: ':groupId', element: <IconsPage /> },
 		],
 	})
 	routes.push({ path: '/chat', element: <ChatPage /> })

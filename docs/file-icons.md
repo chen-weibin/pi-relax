@@ -4,6 +4,8 @@
 
 查阅时机：补一张文件图标时。匹配顺序见 [`web.md`](web.md) 的图标节。
 
+要对着实机看已有图标、点格子复制组件名时，本地开发服务器打开 `/icons/files`（可着色单色图标在 `/icons/color`；生产构建不含这些路由）。
+
 补一张图：组件写进 [`fileTypes.tsx`](../app/web/src/icons/fileTypes.tsx)，从 [`icons/index.tsx`](../app/web/src/icons/index.tsx) 再导出，然后在 `fileKinds` 加一条 `names` 或 `extensions`。一行对应一张图，画好后把这一行的状态改成已有。
 
 目录不按名字换图，折叠用 `FolderClosedIcon`，展开用 `FolderOpenIcon`。
