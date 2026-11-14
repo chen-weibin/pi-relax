@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { parseSearchDocument, searchKeywords } from './webResult.ts'
+import { archiveDesc, parseSearchDocument, searchKeywords } from './webResult.ts'
 
 describe('searchKeywords', () => {
 	it('prefers the queries list and otherwise uses the single query', () => {
@@ -68,5 +68,12 @@ describe('parseSearchDocument', () => {
 
 	it('gives nothing for a progress line', () => {
 		assert.deepEqual(parseSearchDocument('Searching "pi" (1/2 complete)...'), { sites: [], markdown: '' })
+	})
+})
+
+describe('archiveDesc', () => {
+	it('uses the title, then the url, then a short response id', () => {
+		assert.deepEqual(archiveDesc({ url: 'https://pi.dev' }, { title: 'Pi' }), { desc: 'Pi', url: 'https://pi.dev' })
+		assert.equal(archiveDesc({ responseId: 'mwecutbn85nfds' }, undefined).desc, 'mwecutbn')
 	})
 })

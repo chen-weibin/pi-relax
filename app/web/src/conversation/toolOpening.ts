@@ -11,6 +11,7 @@ const OPENING: Record<string, string> = {
 	codemode: '编排',
 	web_search: '搜索网络',
 	fetch_content: '抓取网页',
+	get_search_content: '读取存档',
 }
 
 export function toolOpeningTitle(name: string): string {

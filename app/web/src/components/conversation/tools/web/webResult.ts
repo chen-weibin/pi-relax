@@ -1,5 +1,10 @@
 import { sourceDirective } from '../../../../ui/MarkdownView/plugins/source/remark.ts'
 
+function record(value: unknown): Record<string, unknown> | null {
+	if (typeof value !== 'object' || value === null || Array.isArray(value)) return null
+	return value as Record<string, unknown>
+}
+
 function text(value: unknown): string {
 	return typeof value === 'string' ? value.trim() : ''
 }
@@ -119,4 +124,14 @@ export function parseSearchDocument(resultText: string): { sites: SearchSite[]; 
 		kept.push(next)
 	}
 	return { sites, markdown: kept.join('\n').trim() }
+}
+
+/** 短描述：标题，否则 URL，否则查询词，否则 responseId 前 8 位。 */
+export function archiveDesc(args: Record<string, unknown> | null, details: unknown): { desc: string; url: string } {
+	const data = record(details)
+	const title = text(data?.title)
+	const url = text(args?.url) || text(data?.url)
+	const query = text(args?.query) || text(data?.query)
+	const responseId = text(args?.responseId) || text(data?.responseId)
+	return { desc: title || url || query || responseId.slice(0, 8), url }
 }
