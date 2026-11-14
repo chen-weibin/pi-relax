@@ -1,5 +1,15 @@
 import { sourceDirective } from '../../../../ui/MarkdownView/plugins/source/remark.ts'
 
+export type WebLink = { title: string; url: string }
+
+export type SourceRef = { rank: number; title: string; url: string }
+
+export type SourceCheckView = {
+	rationale: string
+	status: string
+	sources: SourceRef[]
+}
+
 function record(value: unknown): Record<string, unknown> | null {
 	if (typeof value !== 'object' || value === null || Array.isArray(value)) return null
 	return value as Record<string, unknown>
@@ -7,6 +17,57 @@ function record(value: unknown): Record<string, unknown> | null {
 
 function text(value: unknown): string {
 	return typeof value === 'string' ? value.trim() : ''
+}
+
+/** 搜索结果文本：`1. 标题` 下一行缩进的 URL。 */
+export function parseSearchSources(resultText: string): WebLink[] {
+	const lines = resultText.split('\n')
+	const links: WebLink[] = []
+	for (let i = 0; i < lines.length; i++) {
+		const title = lines[i]?.match(/^\d+\.\s+(.+)$/)?.[1]?.trim() ?? ''
+		if (!title) continue
+		const url = lines[i + 1]?.trim() ?? ''
+		if (!/^https?:\/\//.test(url)) continue
+		links.push({ title, url })
+		i += 1
+	}
+	return links
+}
+
+function curatedLinks(details: Record<string, unknown>): WebLink[] {
+	if (!Array.isArray(details.curatedQueries)) return []
+	const links: WebLink[] = []
+	for (const query of details.curatedQueries) {
+		const sources = record(query)?.sources
+		if (!Array.isArray(sources)) continue
+		for (const source of sources) {
+			const item = record(source)
+			const url = text(item?.url)
+			if (!url) continue
+			links.push({ title: text(item?.title) || url, url })
+		}
+	}
+	return links
+}
+
+function fetchUrlLinks(details: Record<string, unknown>): WebLink[] {
+	if (!Array.isArray(details.fetchUrls)) return []
+	return details.fetchUrls.flatMap((url) => {
+		const value = text(url)
+		return value ? [{ title: value, url: value }] : []
+	})
+}
+
+/** 来源优先用 details 里的精选结果，否则从结果文本拆。 */
+export function searchLinks(details: unknown, resultText: string): WebLink[] {
+	const data = record(details)
+	if (data) {
+		const curated = curatedLinks(data)
+		if (curated.length > 0) return curated
+		const fetching = fetchUrlLinks(data)
+		if (fetching.length > 0) return fetching
+	}
+	return parseSearchSources(resultText)
 }
 
 export function argumentUrls(args: Record<string, unknown> | null): string[] {
@@ -134,4 +195,23 @@ export function archiveDesc(args: Record<string, unknown> | null, details: unkno
 	const query = text(args?.query) || text(data?.query)
 	const responseId = text(args?.responseId) || text(data?.responseId)
 	return { desc: title || url || query || responseId.slice(0, 8), url }
+}
+
+export function readSourceCheck(details: unknown): SourceCheckView {
+	const artifact = record(record(details)?.artifact)
+	const claim = Array.isArray(artifact?.claims) ? record(artifact.claims[0]) : null
+	const sources = Array.isArray(artifact?.sources)
+		? artifact.sources.flatMap((source, index) => {
+				const item = record(source)
+				const url = text(item?.url)
+				if (!url) return []
+				const rank = typeof item?.rank === 'number' ? item.rank : index + 1
+				return [{ rank, title: text(item?.title) || url, url }]
+			})
+		: []
+	return {
+		rationale: text(claim?.rationale),
+		status: text(claim?.status),
+		sources,
+	}
 }

@@ -1,6 +1,26 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { archiveDesc, parseSearchDocument, searchKeywords } from './webResult.ts'
+import { archiveDesc, parseSearchDocument, parseSearchSources, readSourceCheck, searchKeywords, searchLinks } from './webResult.ts'
+
+describe('parseSearchSources', () => {
+	it('pairs a numbered title with the indented url on the next line', () => {
+		const text = '**Provider:** exa\n\n1. Pi docs\n   https://pi.dev/docs\n\n2. Repo\n   https://github.com/pi'
+		assert.deepEqual(parseSearchSources(text), [
+			{ title: 'Pi docs', url: 'https://pi.dev/docs' },
+			{ title: 'Repo', url: 'https://github.com/pi' },
+		])
+	})
+})
+
+describe('searchLinks', () => {
+	it('prefers curated sources over the result text', () => {
+		const links = searchLinks(
+			{ curatedQueries: [{ sources: [{ title: 'A', url: 'https://a.test' }] }] },
+			'1. Ignored\n   https://ignored.test',
+		)
+		assert.deepEqual(links, [{ title: 'A', url: 'https://a.test' }])
+	})
+})
 
 describe('searchKeywords', () => {
 	it('prefers the queries list and otherwise uses the single query', () => {
@@ -75,5 +95,18 @@ describe('archiveDesc', () => {
 	it('uses the title, then the url, then a short response id', () => {
 		assert.deepEqual(archiveDesc({ url: 'https://pi.dev' }, { title: 'Pi' }), { desc: 'Pi', url: 'https://pi.dev' })
 		assert.equal(archiveDesc({ responseId: 'mwecutbn85nfds' }, undefined).desc, 'mwecutbn')
+	})
+})
+
+describe('readSourceCheck', () => {
+	it('reads the rationale and source ranks', () => {
+		const view = readSourceCheck({
+			artifact: {
+				claims: [{ rationale: '证据不足', status: 'missing-evidence' }],
+				sources: [{ rank: 1, title: 'Docs', url: 'https://pi.dev' }],
+			},
+		})
+		assert.equal(view.rationale, '证据不足')
+		assert.deepEqual(view.sources, [{ rank: 1, title: 'Docs', url: 'https://pi.dev' }])
 	})
 })

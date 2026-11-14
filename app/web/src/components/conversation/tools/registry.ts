@@ -8,6 +8,7 @@ import { ShellTool } from './shell/ShellTool'
 import type { ToolRendererProps } from './types'
 import { FetchContentTool } from './web/FetchContentTool'
 import { GetSearchContentTool } from './web/GetSearchContentTool'
+import { SourceCheckTool } from './web/SourceCheckTool'
 import { WebSearchTool } from './web/WebSearchTool'
 
 /**
@@ -28,4 +29,5 @@ export const toolRenderers: Record<string, ComponentType<ToolRendererProps>> = {
 	web_search: WebSearchTool,
 	fetch_content: FetchContentTool,
 	get_search_content: GetSearchContentTool,
+	source_check: SourceCheckTool,
 }

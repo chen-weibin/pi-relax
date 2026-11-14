@@ -2424,11 +2424,11 @@ ui/DiffView         ← components/conversation/tools/fileChange/FileChangeTool,
 ui/TypewriterText   ← (目前无引用,保留供后续纯文本逐字场景)
 ui/TitleRow         ← components/conversation/tools/read/ReadTool, uidoc/TitleRow
 ui/PathLink         ← components/conversation/tools/fileChange/FileChangeTool
-utils/faviconUrl    ← components/conversation/tools/web/WebSearchTool, ui/MarkdownView/plugins/source
+utils/faviconUrl    ← components/conversation/tools/web/WebSearchTool, components/conversation/tools/web/SourceCheckTool, ui/MarkdownView/plugins/source
 ui/SiteMark         ← ui/SiteIconRow, ui/SourceChip, uidoc/SiteMark
 ui/siteIconSlots    ← ui/SiteIconRow
 ui/SiteIconRow      ← components/conversation/tools/web/WebSearchTool, uidoc/SiteIconRow
-ui/SourceChip       ← ui/MarkdownView/plugins/source, uidoc/SourceChip
+ui/SourceChip       ← ui/MarkdownView/plugins/source, components/conversation/tools/web/SourceCheckTool, uidoc/SourceChip
 ui/GlassIcons       ← (目前无引用,保留供后续应用宫格场景)
 ui/AppIcon          ← (目前无引用,保留供后续应用宫格 / 启动页场景)
 ui/Editor           ← components/Composer

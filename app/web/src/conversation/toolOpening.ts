@@ -12,6 +12,7 @@ const OPENING: Record<string, string> = {
 	web_search: '搜索网络',
 	fetch_content: '抓取网页',
 	get_search_content: '读取存档',
+	source_check: '核查',
 }
 
 export function toolOpeningTitle(name: string): string {
