@@ -36,6 +36,7 @@ import { settingDoc } from './Setting'
 import { shinyTextDoc } from './ShinyText'
 import { siteIconRowDoc } from './SiteIconRow'
 import { siteMarkDoc } from './SiteMark'
+import { sourceChipDoc } from './SourceChip'
 import { spinnerDoc } from './Spinner'
 import { statusDotDoc } from './StatusDot'
 import { swipeToastDoc } from './SwipeToast'
@@ -88,6 +89,7 @@ export const uiDocGroups: { title: string; sections: UiDocSection[] }[] = [
 			pathLinkDoc,
 			siteMarkDoc,
 			siteIconRowDoc,
+			sourceChipDoc,
 			appIconDoc,
 			glassIconsDoc,
 			messageDoc,

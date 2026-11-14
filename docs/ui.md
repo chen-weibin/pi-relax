@@ -42,8 +42,9 @@
 | 一行标题 + 说明（整行可点、说明省略、标题可扫光） | [`TitleRow`](#titlerow) | 不要手写整行 button，再给标题和说明各写一套 hover 色 |
 | 标题后面的小字辅文 | [`TrailText`](#trailtext) | 不要在标题旁另写一套 `text-sm text-fg-disabled` |
 | 标题旁可点的文件名 / 路径短名 | [`PathLink`](#pathlink) | 不要在标题旁手写 `hover:underline` + `stopPropagation`；不可点的辅文仍用 [`TrailText`](#trailtext) |
-| 单个网站小圆标(图片或首字) | [`SiteMark`](#sitemark) | 不要手写 `<img>` + `onError` 再拼字母圆；一排用 [`SiteIconRow`](#siteiconrow) |
+| 单个网站小圆标(图片或首字) | [`SiteMark`](#sitemark) | 不要手写 `<img>` + `onError` 再拼字母圆；一排用 [`SiteIconRow`](#siteiconrow)，带来源名用 [`SourceChip`](#sourcechip) |
 | 一排网站图标(重叠，悬停散开，超出收成数字) | [`SiteIconRow`](#siteiconrow) | 不要手写负 margin 叠图再自己做散开和 `+N`；单个圆标用 [`SiteMark`](#sitemark) |
+| 段落后面的来源胶囊(左圆图贴齐、右站名，可点、可设 tooltip) | [`SourceChip`](#sourcechip) | 不要手写胶囊 + 图片 + `Tooltip`；不可点的辅文仍用 [`TrailText`](#trailtext) |
 | 标题 + 展开收起(chevron + 高度过渡 + 标题可扫光) | [`DisclosureRow`](#disclosurerow) | 不要写本地 `<button>` + `<svg>` + `useState` 三件套 |
 | 任意区域的高度过渡展开(无 header) | [`Expandable`](#expandable) | 不要自己写 `max-height` 凑数(无法适配动态内容高度);不要为单处使用装 `framer-motion` |
 | 单行文本输入(尺寸、清空、前后缀、字数、状态、提示) | [`Input`](#input) | 不要写裸 `<input>` 再拼清空、字数和状态边框;带搜索图标仍用 [`SearchInput`](#searchinput) |
@@ -78,7 +79,7 @@
 |---|---|
 | 把 `MessageSurface` 用作「用户气泡专用外壳」 | `MessageSurface` 无角色语义,user / assistant 都能用;对齐方式由消费方(`UserMessage` / `AssistantMessage`)决定 |
 | 手写一行「标题 + 说明」，自己拼 hover 两档颜色 | 用 [`TitleRow`](#titlerow)。说明过长的省略、不可点、标题扫光都在这个组件里 |
-| 手写 `<img>` + 字母圆标做网站图标，或负 margin 叠一排 | 单个用 [`SiteMark`](#sitemark)；一排用 [`SiteIconRow`](#siteiconrow) |
+| 手写 `<img>` + 字母圆标做网站图标，或负 margin 叠一排 | 单个用 [`SiteMark`](#sitemark)；一排用 [`SiteIconRow`](#siteiconrow)；段落后面带来源名用 [`SourceChip`](#sourcechip) |
 | 在 `DisclosureRow` 里写「思考 / 思考中」 | `DisclosureRow` 不写业务文案;文案的归属是 `ThinkingMessage`。换业务直接换调用方,不改组件 |
 | 给 `DisclosureRow` 加 `disabled` 之外的「流式 / 完成」状态 | 流式/完成状态属于业务(`ThinkingMessage` 内 `streaming = block.contentPhase === 'open'`)。`DisclosureRow` 只暴露 `blinking`,具体闪烁动画由 `ShinyText` 提供 |
 | 在 `ui/` 写引用 `Conversation` / store / `BlockSnapshot` 的组件 | 破坏「业务无关」约束,该放 `components/conversation/` |
@@ -386,11 +387,12 @@
 **何时用**:
 
 - 只要一个圆标；站名可选
-- 给 [`SiteIconRow`](#siteiconrow) 当内部图元之外，业务也要单独摆一个
+- 给 [`SiteIconRow`](#siteiconrow) / [`SourceChip`](#sourcechip) 当内部图元之外，业务也要单独摆一个
 
 **何时不用**:
 
 - 一排可重叠的图标 → [`SiteIconRow`](#siteiconrow)
+- 段落后面「左圆图贴齐、右名称」的胶囊 → [`SourceChip`](#sourcechip)
 - App 宫格 / 品牌底板 → [`AppIcon`](#appicon)
 
 **API**:
@@ -431,6 +433,7 @@
 **何时不用**:
 
 - 只要一个圆标 → [`SiteMark`](#sitemark)
+- 段落后面「左圆图贴齐、右名称」的胶囊 → [`SourceChip`](#sourcechip)
 
 **API**:
 
@@ -469,6 +472,52 @@
 | `tooltip` | `ReactNode` | 可选。有内容才包 [`Tooltip`](#tooltip)。空字符串不挂 |
 
 散开由组件内部指针进入 / 离开管，不提供受控 API。触控不散开，避免点一下停在展开态。`prefers-reduced-motion` 时位移没有过渡。数字圆的底比表面灰一档。超过 99 显示 `99+`。`overflowHover` 的浮窗只放没排出来的那些，按间距铺开，不重叠。单行能放下几个圆，按父级剩余宽度算；父级变窄会重新收成 `+N`。
+
+## SourceChip
+
+单文件 `ui/SourceChip.tsx`。来源胶囊：左侧圆图贴齐整颗高度，右侧是名称。圆图走 [`SiteMark`](#sitemark)，图片地址由调用方传入。组件不根据页面地址去取图标。可点、tooltip、三档大小和自定义像素都由调用方决定。
+
+**查阅时机**:Markdown 段落后要挂一个来源胶囊，或评估是否手写胶囊、图片和 Tooltip。
+
+**何时用**:
+
+- 正文里要标「这条来自哪个站」。图片地址自己准备好再传入；要从页面地址取源站图标时，调用方用 `faviconUrl` 算出 `src`
+- 需要可点、或悬停说明时再打开对应能力
+
+**何时不用**:
+
+- 只要圆标 / 一排圆标 → [`SiteMark`](#sitemark) / [`SiteIconRow`](#siteiconrow)
+- 标题旁不可点的辅文 → [`TrailText`](#trailtext)
+- 文件名短链 → [`PathLink`](#pathlink)
+
+**API**:
+
+```tsx
+<SourceChip name="Notes" src={null} />
+<SourceChip
+	name="Pi"
+	src="https://pi.dev/favicon.ico"
+	size="lg"
+	tooltip="https://pi.dev/docs/latest"
+	onClick={() => {
+		console.log({ name: 'Pi', url: 'https://pi.dev/docs/latest' })
+	}}
+/>
+<SourceChip name="自定义" src="https://github.com/favicon.ico" size={32} className="ring-1 ring-fg-3" />
+```
+
+| prop | 类型 | 说明 |
+|---|---|---|
+| `name` | `string` | 右侧文案。过长在 `max-w-[240px]` 内省略。也作为圆图失败时的首字 |
+| `src` | `string \| null` | 图片地址，原样交给 [`SiteMark`](#sitemark)。空或加载失败时走首字圆。组件不拼地址 |
+| `size` | `'sm' \| 'md' \| 'lg' \| number` | 默认 `md`。与 [`SiteMark`](#sitemark) 同档：16 / 20 / 24，或自定义像素。这个值同时是胶囊高度和左侧圆图直径 |
+| `clickable` | `boolean` | 可选。为 `true`，或传入 `onClick` 时根节点是 `button`，点击 `stopPropagation`。否则是 `span`，没有指针和 hover 底 |
+| `onClick` | `() => void` | 可选。打开链接留给调用方 |
+| `tooltip` | `ReactNode` | 可选。有内容才包 [`Tooltip`](#tooltip)，默认出现在上方。空字符串不挂 |
+| `className` | `string` | 可选，落在根节点 |
+| `style` | `CSSProperties` | 可选，落在根节点，写在 `size` 的高度和字号之后，可盖过它们 |
+
+左侧圆图没有外边距，直径等于胶囊高度，贴在左缘；名称和右缘之间留出按尺寸比例算的内边距。圆图本身不可点，点击落在胶囊上。静止底色是 `surface-hover`，比页面再灰一档；可点时悬停到 `surface-active`。圆图根节点背景透明，四角露出同一层底色。不要在外面再包一层会抢点击的 button。
 
 ## MarkdownView
 
@@ -2368,9 +2417,10 @@ ui/DiffView         ← components/conversation/tools/fileChange/FileChangeTool,
 ui/TypewriterText   ← (目前无引用,保留供后续纯文本逐字场景)
 ui/TitleRow         ← components/conversation/tools/read/ReadTool, uidoc/TitleRow
 ui/PathLink         ← components/conversation/tools/fileChange/FileChangeTool
-ui/SiteMark         ← ui/SiteIconRow, uidoc/SiteMark
+ui/SiteMark         ← ui/SiteIconRow, ui/SourceChip, uidoc/SiteMark
 ui/siteIconSlots    ← ui/SiteIconRow
 ui/SiteIconRow      ← uidoc/SiteIconRow
+ui/SourceChip       ← uidoc/SourceChip
 ui/GlassIcons       ← (目前无引用,保留供后续应用宫格场景)
 ui/AppIcon          ← (目前无引用,保留供后续应用宫格 / 启动页场景)
 ui/Editor           ← components/Composer
@@ -2385,7 +2435,7 @@ ui/Message          ← hooks/useMessage, uidoc/Message
 ui/SwipeToast       ← hooks/useToast, uidoc/SwipeToast
 ui/Spinner          ← ui/Dialog
 ui/Segmented        ← uidoc/*(各演示页,统一 size="sm")
-ui/Tooltip          ← ui/IconButton, ui/Heading, ui/Paragraph（Hint 经 Paragraph）, ui/SiteIconRow
+ui/Tooltip          ← ui/IconButton, ui/Heading, ui/Paragraph（Hint 经 Paragraph）, ui/SiteIconRow, ui/SourceChip
 ui/Paragraph        ← ui/Hint
 ui/EmptyState       ← extensions/plugins/files/FilesView, extensions/plugins/files/FileTree
 ui/IconButton       ← components/SidebarActions, components/ProjectSectionHeader, ...
