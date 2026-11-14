@@ -4,6 +4,16 @@ function text(value: unknown): string {
 	return typeof value === 'string' ? value.trim() : ''
 }
 
+export function argumentUrls(args: Record<string, unknown> | null): string[] {
+	const many = args?.urls
+	if (Array.isArray(many)) {
+		const urls = many.map(text).filter(Boolean)
+		if (urls.length > 0) return urls
+	}
+	const one = text(args?.url)
+	return one ? [one] : []
+}
+
 export type SearchSite = { name: string; url: string }
 
 const SOURCE_LINE = /^Source:\s*(.+?)\s*\((https?:\/\/[^)]+)\)\s*$/

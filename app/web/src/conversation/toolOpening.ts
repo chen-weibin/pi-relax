@@ -10,6 +10,7 @@ const OPENING: Record<string, string> = {
 	grep: '搜索内容',
 	codemode: '编排',
 	web_search: '搜索网络',
+	fetch_content: '抓取网页',
 }
 
 export function toolOpeningTitle(name: string): string {

@@ -6,6 +6,7 @@ import { ReadTool } from './read/ReadTool'
 import { SearchTool } from './search/SearchTool'
 import { ShellTool } from './shell/ShellTool'
 import type { ToolRendererProps } from './types'
+import { FetchContentTool } from './web/FetchContentTool'
 import { WebSearchTool } from './web/WebSearchTool'
 
 /**
@@ -24,4 +25,5 @@ export const toolRenderers: Record<string, ComponentType<ToolRendererProps>> = {
 	grep: SearchTool,
 	codemode: CodemodeTool,
 	web_search: WebSearchTool,
+	fetch_content: FetchContentTool,
 }
