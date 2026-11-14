@@ -1,4 +1,5 @@
 import type { ComponentType } from 'react'
+import { CodemodeTool } from './codemode/CodemodeTool'
 import { FileChangeTool } from './fileChange/FileChangeTool'
 import { LsTool } from './ls/LsTool'
 import { ReadTool } from './read/ReadTool'
@@ -20,4 +21,5 @@ export const toolRenderers: Record<string, ComponentType<ToolRendererProps>> = {
 	edit: FileChangeTool,
 	find: SearchTool,
 	grep: SearchTool,
+	codemode: CodemodeTool,
 }

@@ -8,6 +8,7 @@ const OPENING: Record<string, string> = {
 	edit: '编辑',
 	find: '搜索文件',
 	grep: '搜索内容',
+	codemode: '编排',
 }
 
 export function toolOpeningTitle(name: string): string {
