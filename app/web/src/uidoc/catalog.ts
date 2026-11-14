@@ -55,8 +55,15 @@ export type UiDocSection = {
 	Demo: ComponentType
 }
 
-export const uiDocGroups: { title: string; sections: UiDocSection[] }[] = [
+export type UiDocGroup = {
+	id: string
+	title: string
+	sections: UiDocSection[]
+}
+
+export const uiDocGroups: UiDocGroup[] = [
 	{
+		id: 'actions',
 		title: '操作',
 		sections: [
 			buttonDoc,
@@ -71,10 +78,12 @@ export const uiDocGroups: { title: string; sections: UiDocSection[] }[] = [
 		],
 	},
 	{
+		id: 'overlays',
 		title: '浮层',
 		sections: [tooltipDoc, popoverDoc, dropdownDoc, contextMenuDoc, modalDoc, dialogDoc],
 	},
 	{
+		id: 'feedback',
 		title: '反馈',
 		sections: [
 			statusDotDoc,
@@ -97,13 +106,17 @@ export const uiDocGroups: { title: string; sections: UiDocSection[] }[] = [
 		],
 	},
 	{
+		id: 'layout',
 		title: '布局',
 		sections: [messageSurfaceDoc, paneHeaderDoc, settingDoc, expandableDoc, disclosureRowDoc, resizableDoc, dashRailDoc],
 	},
 	{
+		id: 'text',
 		title: '文本',
 		sections: [headingDoc, paragraphDoc, hintDoc, editorDoc, typewriterTextDoc, markdownViewDoc, monacoEditorDoc, diffViewDoc],
 	},
 ]
 
-export const uiDocSections = uiDocGroups.flatMap((group) => group.sections)
+export function getUiDocGroup(id: string | undefined): UiDocGroup | undefined {
+	return uiDocGroups.find((group) => group.id === id)
+}

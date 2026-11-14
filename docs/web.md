@@ -277,11 +277,12 @@ streamdown 与插件的 Tailwind 类扫描写在 [`ui/MarkdownView/index.css`](.
 | 路径 | 页面 | 说明 |
 |---|---|---|
 | `/` | `pages/Workspace` | 现有四区壳。`startSessionTransport()` 在这里启动 |
-| `/ui` | `pages/Ui` | 只在 `import.meta.env.DEV` 注册。左侧目录宽固定 220px，可收起，默认展开，不拖拽、不写入本地存储；收起时分隔线一起去掉，主列顶栏的按钮再展开。按操作 / 浮层 / 反馈 / 布局 / 文本分组。当前节底色只包住文字；同一节有多项时只高亮离标题最近的一项。滚动条隐藏。右侧内容居中，每个组件一块圆角描边预览，组件之间一条与内容同宽的分隔线。内容区整列 `max-w-3xl`，每节都跟着这一列的宽度，不单独放宽。点目录平滑滚到对应节。说明和演示在 `src/uidoc/`，页面不贴源码。`vite build` 不包含这条路由 |
+| `/ui` | — | 只在 `import.meta.env.DEV` 注册。index 重定向到第一组 `/ui/actions`。`vite build` 不含 `/ui` 及其子路由 |
+| `/ui/:groupId` | `pages/Ui` | 只在 DEV 注册。`groupId` 为 `actions` / `overlays` / `feedback` / `layout` / `text`（对应操作 / 浮层 / 反馈 / 布局 / 文本）。左侧目录宽固定 220px，宽度过渡收起（约 280ms，右边框随宽度收起），默认展开，不拖拽、不写入本地存储；主列顶栏按钮再展开。组标题 `text-lg`，组间距 `mt-2.5`；切组时子项用 `Expandable` 高度过渡。组标题链到 `/ui/:groupId`，仅当前组展开组件锚点；主区只挂载该组演示。当前节底色只包住文字；同一节有多项时只高亮离标题最近的一项。滚动条隐藏。右侧内容居中，每个组件一块圆角描边预览，组件之间一条与内容同宽的分隔线。内容区整列 `max-w-3xl`。点目录平滑滚到对应节（hash）。说明和演示在 `src/uidoc/`（`catalog` 按组 `id` + `sections`；新增组件进已有组或新开一组）。未知 `groupId` 回第一组。`vite build` 不包含 |
 | `/chat` | `pages/Chat` | 只在 `import.meta.env.DEV` 注册。流式渲染试验页。左侧会话栏固定 220px，可收起，默认展开；右侧节奏栏固定 240px，可收起，默认收起。两颗按钮都留在主区顶栏，不拖拽、不写入本地存储。侧栏只列默认工作区的会话；导入的模拟留在侧栏顶部，页面不刷新就能再点开重放。新建、录制、导出、模拟在主区顶栏左侧。对话视图在 `src/chat/`。露出节奏和正式对话共用 `defaultFeed`，右侧改动只影响这一页。可录制一轮原始 SSE、导出 JSON，再按到达间隔回放。`vite build`（含 `--mode test`）不包含这条路由 |
 | 其他 | — | `<Navigate to="/" replace />` |
 
-`Workspace` 用 `React.lazy` 动态 `import`，Vite 拆 chunk。`/ui` 和 `/chat` 的 `lazy` 都写在 `if (import.meta.env.DEV)` 里，生产构建和 `vite build --mode test` 把这些分支裁掉。路由级组件放 `src/pages/`，不要放进 `src/ui/`（那是组件库）。陈列页的文案和多种形态放 `src/uidoc/`，不要堆进 `pages/Ui.tsx`。`/chat` 的试验渲染放 `src/chat/`，确认观感后再迁回 `components/conversation/`。
+`Workspace` 用 `React.lazy` 动态 `import`，Vite 拆 chunk。`/ui`（含 `:groupId` 子路由）和 `/chat` 的 `lazy` 都写在 `if (import.meta.env.DEV)` 里，生产构建和 `vite build --mode test` 把这些分支裁掉。路由级组件放 `src/pages/`，不要放进 `src/ui/`（那是组件库）。陈列页的文案和多种形态放 `src/uidoc/`，不要堆进 `pages/Ui.tsx`。`/chat` 的试验渲染放 `src/chat/`，确认观感后再迁回 `components/conversation/`。
 
 `mainView`（对话 / 自定义）仍是壳内状态，不进 URL。
 
@@ -313,11 +314,11 @@ streamdown 与插件的 Tailwind 类扫描写在 [`ui/MarkdownView/index.css`](.
 src/
 ├── main.tsx                      # BrowserRouter，里面渲染 App
 ├── App.tsx                       # useRoutes(routes)；Suspense fallback 为空
-├── router/index.tsx              # 路由表：/ ；开发环境另有 /ui ，其余重定向到 /
+├── router/index.tsx              # 路由表：/ ；开发环境另有 /ui/:groupId 与 /chat ，其余重定向到 /
 ├── pages/
 │   ├── Workspace.tsx             # 四区壳；shell 状态从 common store 切片读取
-│   └── Ui.tsx                    # 开发环境陈列页壳：左侧目录 + 右侧分节
-├── uidoc/                        # /ui 的说明和演示，仅开发构建引用
+│   └── Ui.tsx                    # 开发环境陈列页壳：按组路由 + 左侧目录 + 右侧分节
+├── uidoc/                        # /ui 的说明和演示，仅开发构建引用；catalog 按组 id 聚合
 ├── conversation/                 # 会话数据层:类型 + createBlockRuntime(详见 docs/web-conversation.md)
 ├── hooks/
 │   ├── usePersistedPanelLayout.ts # 面板宽度读写 store/local.ts，不直接碰 localStorage
