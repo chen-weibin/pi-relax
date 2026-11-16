@@ -11,7 +11,7 @@
 - 设置内**纯前端搜索**：按关键词过滤可见行，不请求服务端。
 - 模块范围（本期规划）：
   1. **通用 / 用户展示**：手动配置用户名、头像 URL，供 `UserBar` 等展示；无账号体系。
-  2. **外观**：保留「主题」相关入口占位；**亮色主题禁用**，不实现切换。
+  2. **外观**：主题用 `ThemeSelector` 迷你预览卡片；暗色为当前选中，**亮色禁用**并提示「当前暂未实现」，不切换 `data-theme`。
   3. **模型**：展示并配置内置提供商 key、自定义提供商、已配置状态；全局默认模型与 Composer **同一数据源**。
   4. **代理**（对话全局策略）：出队模式、中止策略、会话/项目删除方式，对接已有 `GET/PATCH /api/settings`。
 
@@ -63,7 +63,7 @@ temperature、按工具开关、观测（Langfuse）、语言包、OAuth 登录�
 ### 模块顺序（侧栏自上而下）
 
 1. **通用** — 用户名、头像。
-2. **外观** — 主题占位（仅暗色生效说明 + 亮色禁用行）。
+2. **外观** — `ThemeSelector`（暗色选中 + 亮色禁用提示）。
 3. **模型** — 默认模型、内置提供商、自定义提供商列表/入口。
 4. **代理** — 出队、中止、删除策略。
 
@@ -114,24 +114,25 @@ temperature、按工具开关、观测（Langfuse）、语言包、OAuth 登录�
 
 ---
 
-### 2. 外观（占位，亮色禁用）
+### 2. 外观（ThemeSelector，亮色禁用）
 
 **做什么**
 
 - 展示当前产品事实：**仅暗色主题生效**（应用始终暗色 token，见 [web.md](web.md)）。
-- 保留一行「主题」或「外观模式」作为 Setting 入口，避免用户以为设置页漏项。
+- Setting「外观」用 [`ThemeSelector`](ui.md#themeselector)（RareUI 风格迷你应用预览卡片）选主题。
 
 **不做什么**
 
-- 亮色主题、`data-theme`、CSS 变量切换、持久化主题偏好。
+- 亮色主题实装、`data-theme` 写入、CSS 变量切换、持久化主题偏好。
 
 **UI 表现（必须按此实现）**
 
-- 一行 `SettingRow`：
-  - 左侧 label：`主题`；description：`当前仅支持暗色界面`。
-  - 右侧：`Select` 或分段控件显示「暗色（当前）」为**只读选中**；「亮色」选项 **`disabled`**，样式上用 `text-fg-3` / 降低不透明度，与 [`Switch` disabled 视觉](ui.md) 同级处理。
-  - 「亮色」禁用项或同行旁：`IconButton` / `title` **tooltip：`即将推出`**（与 `IconButton` `title` 一致即可，不引入新依赖）。
-- 可不接任何 store；若日后要做主题，再迁到 `local.ts`。
+- 主题块**特殊处理**：不包 `SettingGroup` 灰底卡片。
+- 顶行：label `主题` + description `在浅色、深色主题之间选择（当前仅支持暗色界面）`（括号内为临时提示，亮色实装后去掉）；不包灰底、无右侧独立提示。
+- 下方居中 [`ThemeSelector`](ui.md#themeselector)；与描述间距略大（`gap-8`），两卡间距同组件默认 `gap-8`。
+- 暗色：可选、受控 `value="dark"`、选中环。
+- 亮色：预览用 light 草稿 hex；`disabled`，悬停 [`Tooltip`](ui.md#tooltip) 文案 **`当前暂未实现`**；不可点、键盘跳过。
+- 不接 store；日后实装亮色再迁 `local.ts` 并写 `data-theme`。
 
 **建议顺序**：与侧栏壳层同一批或紧随通用之后（纯静态 UI）。
 
@@ -226,12 +227,12 @@ temperature、按工具开关、观测（Langfuse）、语言包、OAuth 登录�
 - [x] **S0 壳层**：侧栏去掉 `GROUPS` 两段成组，改为四项平级 nav + `activeKey` 切换主区；保留返回与 `UserBar`；搜索留 S1。
 - [ ] **S1 搜索骨架**：`SETTING_SEARCH_INDEX` + 过滤逻辑 + 空态文案（可先绑占位行，后换真实行）。
 - [ ] **S2 通用 / 用户**：扩展 `LocalDocument.profile` + `setProfile`；通用区块两行；`UserBar` 读 store。
-- [ ] **S3 外观占位**：主题行暗色只读 + 亮色 disabled + tooltip「即将推出」。
+- [x] **S3 外观**：`ThemeSelector` 暗色选中 + 亮色 disabled + tooltip「当前暂未实现」。
 - [ ] **S4 API 代理**：`app/web/src/api/settings.ts`（get + patch）；代理区块五行（或分组）接 API。
 - [ ] **S5 模型 · 默认**：默认模型行 + `putDefaultModel` + 刷新 `modelPicker`。
 - [ ] **S6 模型 · 内置 key**：`api/providers` + 列表 UI + PUT/DELETE。
 - [ ] **S7 模型 · 自定义**：`api/custom-providers` + 列表与表单（可分 S7a 只读列表、S7b CRUD）。
-- [ ] **S8 收尾**：删掉 `Setting.tsx` 占位 `FAKE_REMOTE_ITEMS` / 假数据；为每行补全搜索 keywords；必要时在 [web.md](web.md) 增一句 Setting 结构指向本文。
+- [ ] **S8 收尾**：删掉 `Setting/SectionPlaceholder.tsx` 占位假数据；为每行补全搜索 keywords；必要时在 [web.md](web.md) 增一句 Setting 结构指向本文。
 
 ---
 
@@ -239,13 +240,13 @@ temperature、按工具开关、观测（Langfuse）、语言包、OAuth 登录�
 
 | 类型 | 路径 |
 |------|------|
-| 设置页壳 | [`app/web/src/components/Setting.tsx`](../app/web/src/components/Setting.tsx) |
+| 设置页壳 | [`app/web/src/components/Setting/`](../app/web/src/components/Setting/)（`index.tsx` 壳层；`General` / `Appearance` / `Models` / `Agents` 各一块；未落地块暂用 `SectionPlaceholder`） |
 | 侧栏用户条 | [`app/web/src/components/UserBar.tsx`](../app/web/src/components/UserBar.tsx) |
 | 显隐 | [`app/web/src/store/common.ts`](../app/web/src/store/common.ts)（`settingOpen` / `toggleSetting`） |
 | 持久化 | [`app/web/src/store/local.ts`](../app/web/src/store/local.ts) |
 | 模型（Composer 同源） | [`app/web/src/session/modelPicker.ts`](../app/web/src/session/modelPicker.ts)、[`app/web/src/api/models/`](../app/web/src/api/models/) |
 | 服务端设置 | [`app/server/src/routes/settings.ts`](../app/server/src/routes/settings.ts)、[`app/server/src/config/settings.ts`](../app/server/src/config/settings.ts) |
-| UI 行与组 | [`docs/ui.md`](ui.md) — `SettingGroup`、`SettingRow`、`SearchInput`、`Select`、`Switch` |
+| UI 行与组 | [`docs/ui.md`](ui.md) — `SettingGroup`、`SettingRow`、`ThemeSelector`、`SearchInput`、`Select`、`Switch` |
 | 布局与挂载 | [`docs/web.md`](web.md) — Setting 全屏、localStorage 约定 |
 | 提供商 / 模型 API | [`docs/server-implemented.md`](server-implemented.md)、[`docs/server-custom-providers.md`](server-custom-providers.md) |
 

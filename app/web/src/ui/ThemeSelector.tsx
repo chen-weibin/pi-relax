@@ -222,7 +222,7 @@ export function ThemeSelector({
 			data-slot="theme-selector"
 			{...props}
 			className={classNames(
-				'flex min-w-0 gap-5',
+				'flex min-w-0 gap-8',
 				disabled && 'pointer-events-none opacity-50',
 				className,
 			)}

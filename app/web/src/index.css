@@ -3,8 +3,8 @@
 /* ============================================================
  * Theme switching
  * Default: dark. Light is a reserved hook (placeholder values
- * below). UI to switch themes is intentionally not provided
- * yet — see docs/web.md for the extension plan.
+ * below). Setting has ThemeSelector UI, but light stays disabled
+ * and does not write data-theme — see docs/web.md.
  *
  * Toggle from JS:
  *   document.documentElement.dataset.theme = "light" | "dark"
@@ -39,7 +39,8 @@
 
 /* Light theme — reserved hook. Values below are a starting
  * draft; treat as TODO until the light theme is actually
- * shipped. Unreachable today because no switcher UI exists.
+ * shipped. ThemeSelector shows a light preview but stays
+ * disabled; data-theme is not switched yet.
  *
  * Accent / success rule: dark=--accent 为品牌主色,light 端
  * 在同色相上提饱和、降亮度,保证白底 4.5:1 对比。当前:

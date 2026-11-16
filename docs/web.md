@@ -100,10 +100,10 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
 
 ### 亮色主题
 
-`[data-theme="light"]` 块在 `src/index.css` 里已有一套草稿色值（`--app` / `--sidebar` / `--fg*` / `--accent` 等），不是空占位。当前没有切换 UI，`index.html` 默认仍是 `data-theme="dark"`，这套亮色值平时不会被用到。要启用亮色时:
+`[data-theme="light"]` 块在 `src/index.css` 里已有一套草稿色值（`--app` / `--sidebar` / `--fg*` / `--accent` 等），不是空占位。Setting「外观」已有 [`ThemeSelector`](ui.md#themeselector) 选择 UI，但亮色项禁用（提示「当前暂未实现」），**不会**写入 `data-theme`；`index.html` 默认仍是 `data-theme="dark"`，亮色草稿平时不会被用到。要真正启用亮色时:
 
 1. 校对草稿值,逐项对齐 `docs/design-system.md` 中相应字段。
-2. 如要新增切换按钮,放 `Appearance` / `General` 区域(参考设计文档 §20-21),通过 `document.documentElement.dataset.theme` 写入。需配合 localStorage 与 `prefers-color-scheme` 决定初始值。
+2. 解开 Setting 里亮色禁用,通过 `document.documentElement.dataset.theme` 写入。需配合 localStorage 与 `prefers-color-scheme` 决定初始值。
 3. 可选:在 `<head>` 内联脚本,在首屏渲染前同步 `data-theme`,避免主题闪烁(FOUC)。
 
 ### 踩坑备忘
