@@ -53,6 +53,7 @@
 | 设置面板里的一行(左 label + 描述,右控制区) | [`SettingRow`](#settingrow) | 不要写裸 `<div flex justify-between><div>{label}<div>{desc}</div></div><div>...</div></div>` 三层嵌套 |
 | 开关(on/off,绿色 + 灰色态) | [`Switch`](#switch) | 不要写裸 `<button role="switch">` + `translate-x-*` 自己拼 thumb 位移 |
 | 分段控件(选项互斥、胶囊滑动指示、三档尺寸) | [`Segmented`](#segmented) | 不要手写一排 button + 绝对定位指示器自己算偏移;选项多于 5 个用 [`Select`](#select) |
+| 主题选择(迷你应用预览卡片 + 选中环) | [`ThemeSelector`](#themeselector) | 不要手写一排主题色块 / `Select` 伪装主题切换;宽卡片不要塞进 [`SettingRow`](#settingrow) 右槽 |
 | 选择器(静态 / 懒加载 / 搜索三合一) | [`Select`](#select) | 不要写裸 `<select>`(样式难统一),也不要在 Setting 里再写 `<Popover>` + 自己造 listbox |
 | 带子菜单的菜单(行尾当前值,向右再展开,子面板可搜索) | [`Dropdown`](#dropdown) | 不要用 [`Select`](#select) 套两层,也不要在业务里手写多层 [`Popover`](#popover)。锚点是指针时用 [`ContextMenu`](#contextmenu) |
 | 右键菜单(从点击点向右下展开,靠边翻转) | [`ContextMenu`](#contextmenu) | 不要自己监听 `contextmenu` 再绝对定位一块菜单;锚点是元素时用 [`Dropdown`](#dropdown) |
@@ -1605,6 +1606,67 @@ const [placement, setPlacement] = useState<Placement>('top')
 - `options` 里没有 `value` 时不渲染胶囊(不会错位到第一个选项上)。
 - 受控模式:若 `onChange` 内部没更新 `value`,控件看起来"按了没反应"——这是 React 受控组件语义,不是 bug。
 - 无障碍:原生 `<button>` + `aria-pressed`,Tab 可逐个聚焦、Enter / Space 选中;**没有方向键切换**,也没做 `radiogroup` 语义。
+
+## ThemeSelector
+
+单文件 `ui/ThemeSelector.tsx`。一排迷你应用预览卡片选主题(`role="radiogroup"`),交互参考 [RareUI ThemeSelector](https://www.rareui.com/components/themeselector);外框 / 环 / 标签走项目 token,不引 rare-ui 包。
+
+**查阅时机**:Setting「外观」换主题,或任何需要「看预览再选主题」的地方。
+
+**何时用**:
+
+- 主题选项少(通常 2 个)、需要视觉预览而不是纯文字下拉
+- 希望选中态是描边环,而不是 [`Segmented`](#segmented) 胶囊
+
+**何时不用**:
+
+- 选项多、无预览需求 → [`Select`](#select) / [`Segmented`](#segmented)
+- 要塞进 [`SettingRow`](#settingrow) 右槽 → 卡片太宽,改在 [`SettingGroup`](#settinggroup) 里单独放一行说明 + `ThemeSelector`
+
+**API**:
+
+| prop | 类型 | 说明 |
+|---|---|---|
+| `themes` | `ThemeOption[]` | 默认 `DEFAULT_THEMES`(暗色可选、亮色 `disabled` + hint「当前暂未实现」) |
+| `value` | `string \| null` | 受控选中;`undefined` 走非受控;`null` 表示尚未选中 |
+| `defaultValue` | `string` | 非受控初始值 |
+| `onChange` | `(value: string) => void` | 选中变化(不会对 `disabled` 项触发) |
+| `labels` | `boolean` | 默认 `true`,卡片下显示标签 |
+| `disabled` | `boolean` | 整组禁用 |
+| `itemClassName` | `string` | 合并到每张预览按钮 |
+| `className` | `string` | 透传到 radiogroup 外层 |
+
+`ThemeOption`:`value` / `label` / `colors`(sidebar / panel / border / strong / muted / tile 的 **hex**,迷你图不跟 `data-theme`)|`disabled?` / `disabledHint?`(默认「当前暂未实现」)。
+
+```tsx
+<ThemeSelector value="dark" />
+
+<ThemeSelector
+  value={theme}
+  onChange={setTheme}
+  themes={[
+    { value: 'dark', label: '暗色', colors: { /* ... */ } },
+    { value: 'light', label: '亮色', colors: { /* ... */ }, disabled: true },
+  ]}
+/>
+```
+
+**视觉**:
+
+| 项 | 值 |
+|---|---|
+| 卡片外框 | `bg-surface` / hover `bg-surface-hover`,`rounded-xl` |
+| 选中环 | `border-fg`;未选 hover `border-border-hover` |
+| focus | `border-accent/60` |
+| 标签 | 选中 `text-fg-bright`,未选 `text-fg-3` |
+| 禁用项 | 降透明 + `cursor-not-allowed`;悬停 [`Tooltip`](#tooltip) |
+
+**踩坑备忘**:
+
+- 禁用项用 `aria-disabled` + Tooltip,不用原生 `disabled`(否则悬停提示出不来)。
+- 键盘方向键 / Home / End **跳过** `disabled` 项。
+- 默认亮色禁用**不会**写 `document.documentElement.dataset.theme`;Setting 接入见 [web-setting.md](web-setting.md)。
+- 预览调色板是写死 hex,改 `index.css` token 后若要预览同步,需改 `DEFAULT_THEMES` 里的色值。
 
 ## NumberStepper
 

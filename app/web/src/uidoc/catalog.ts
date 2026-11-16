@@ -41,6 +41,7 @@ import { spinnerDoc } from './Spinner'
 import { statusDotDoc } from './StatusDot'
 import { swipeToastDoc } from './SwipeToast'
 import { switchDoc } from './Switch'
+import { themeSelectorDoc } from './ThemeSelector'
 import { tooltipDoc } from './Tooltip'
 import { pathLinkDoc } from './PathLink'
 import { titleRowDoc } from './TitleRow'
@@ -70,6 +71,7 @@ export const uiDocGroups: UiDocGroup[] = [
 			iconButtonDoc,
 			switchDoc,
 			segmentedDoc,
+			themeSelectorDoc,
 			inputDoc,
 			searchInputDoc,
 			selectDoc,
