@@ -63,7 +63,7 @@ pi 没有会话索引。`list(cwd)` 扫该编码目录下的 `*.jsonl`，`listAl
 - **一条对话**。`createAgentSession` 造出 `AgentSession`：`prompt` 发送，`subscribe` 收事件，`abort` 中止，`dispose` 释放。`steer` / `followUp` 是生成过程中插队。`compact` 是手动压缩。`navigateTree` 是同一份 JSONL 里换分支。
 - **会话文件**。`SessionManager` 管 JSONL，不跑模型。`create` 新建，`open` 打开路径，`continueRecent` 续最近一条，`inMemory` 不落盘，`list` / `listAll` 列目录，`forkFrom` 从旧文件分出新文件。
 - **切换当前这一条**。`createAgentSessionRuntime` 得到 `AgentSessionRuntime`，里面始终只有 `runtime.session`。`newSession`、`switchSession`、`fork`、`importFromJsonl` 会先中止并 `dispose` 旧会话，再换上新的。订阅绑在旧对象上，换完要重新 `subscribe`。
-- **模型**。`ModelRuntime.create` 管密钥、`models.json` 和供应商。白名单里的内置提供商可以填 key、选模型。自定义提供商和 OAuth 不做。
+- **模型**。`ModelRuntime.create` 管密钥、`models.json` 和供应商。白名单里的内置提供商可以填 key、选模型。自定义提供商走 `models.json` + `/api/custom-providers`（见 [server-custom-providers.md](server-custom-providers.md)）。OAuth 不做。
 - **提示词、技能、规则、扩展从哪读**。`DefaultResourceLoader`，或自己实现 `ResourceLoader` 传进 `createAgentSession`。`loadSkills` / `loadSkillsFromDir` 是单独扫技能目录。
 - **工具**。`createAgentSession` 的 `tools` / `noTools` / `customTools` 控制启用哪些。`createReadTool`、`createCodingTools` 等工厂是要换工作目录或换文件操作实现时用的。我们自己写的工具在 `app/server/src/tools/`，走 `customTools` 传进去；同名会盖掉内置的，基座把 customTools 和扩展注册的工具合成一份，后写的赢。
 - **设置**。`SettingsManager` 读 pi 的 `settings.json`。我们要可控的项优先走自己的 `.relax` 和 loader，不默默吃 `~/.pi`。
@@ -81,7 +81,7 @@ pi 暴露的加载点都要能指定到 `.relax` 或配置里的路径，不默�
 
 - 系统提示词、规则、扩展都要可控。技能已按基座默认目录加载，路径见「技能」。扩展能执行代码，磁盘扫描默认关掉。当前显式挂 Langfuse 官方插件和 `pi-web-access`，见下文「追踪」。找官方或社区插件时看 [https://pi.dev/packages](https://pi.dev/packages)（查阅时机：要加扩展、避免自己再写一份已有能力时）。
 - 工具白名单写在会话工厂：八个内置（`read`、`bash`、`edit`、`write`、`grep`、`find`、`ls`、`powershell`）、`codemode`，以及 `pi-web-access` 的 `web_search`、`fetch_content`、`get_search_content`、`source_check`。`tool_search` 和 `web_enable` 不开。`powershell` 在非 Windows 上调用会由基座报错。模式以后再按这份名单切换。路径仍是该会话的 cwd。其中 `bash` 与 `powershell` 是 `app/server/src/tools/` 里的覆盖版：只换模型侧 schema，多一个必填的 `description`，执行逻辑沿用内置。`bash` 覆盖时透传 shell 前缀和路径；`powershell` 基座没有这两项，不传。
-- 模型走 pi 的 `ModelRuntime`，不另建配置文件。白名单在 `app/server/src/agent/models.ts` 的 `KEY_PROVIDERS`，只收一把 key 就能对话的内置提供商（`pi-ai@1.5.0`）。升 `@earendil-works/pi-ai` 后对照 `providers/*.ts` 的 `auth` 再核一次。名单外的 id，包括 `models.json` 里自造的提供商，接口拒绝。同时带 OAuth 的只走 `api_key` 登录。密钥写入 `~/.relax/agent/auth.json`，同一 id 再提交是修改。不删除环境变量：基座认为可用就算可用，包括 `auth.json`、环境变量和该提供商会读的本机凭证。不向厂商发请求试 key。可用对话模型至少有一个、但全局还没有一对仍可用的默认时，按基座 `defaultModelPerProvider` 的顺序补写 `settings.json` 的 `defaultProvider` / `defaultModel`（该常量未从包入口导出，顺序抄在 `DEFAULT_MODEL_ORDER`）。新建会话用这一对；请求里带了 `provider` 和 `model` 时这次用它，并写成新的默认。打开旧会话仍恢复该文件自己的 `model_change`。对话框里改模型只写全局默认，不改当前会话文件。续发带了 `provider` 和 `model`、且与该会话上次记录不同时，才追加 `model_change`，不改默认。没带则继续用该会话已恢复的模型。模型目录的底表在 npm 包里；手动更新是 `POST /api/models/refresh`，转调 `refresh({ allowNetwork: true, force: true })`，结果进 `~/.relax/agent/models-store.json`。不在启动或列模型时自动刷新。
+- 模型走 pi 的 `ModelRuntime`，不另建配置文件。白名单在 `app/server/src/agent/models.ts` 的 `KEY_PROVIDERS`，只收一把 key 就能对话的内置提供商（`pi-ai@1.5.0`）。升 `@earendil-works/pi-ai` 后对照 `providers/*.ts` 的 `auth` 再核一次。内置密钥写入 `~/.relax/agent/auth.json`，同一 id 再提交是修改；`PUT/DELETE /api/providers/:id` 只服务白名单。自定义提供商写入 `~/.relax/agent/models.json`（`baseUrl` / `api` / `apiKey` / `models`），CRUD 见 `/api/custom-providers*`，详情 [server-custom-providers.md](server-custom-providers.md)。配置完成后，自定义与已填 key 的内置在可用列表、默认模型、新建/切换会话、thinking-levels 上行为一致（`GET /api/providers` 用 `kind` 区分）。同时带 OAuth 的内置只走 `api_key` 登录。不删除环境变量：基座认为可用就算可用，包括 `auth.json`、环境变量、`models.json` 的 `apiKey` 和该提供商会读的本机凭证。不向厂商发请求试 key。可用对话模型至少有一个、但全局还没有一对仍可用的默认时，按基座 `defaultModelPerProvider` 的顺序补写 `settings.json` 的 `defaultProvider` / `defaultModel`（该常量未从包入口导出，顺序抄在 `DEFAULT_MODEL_ORDER`；自定义不在表内时落到可用集的 `models[0]`）。新建会话用这一对；请求里带了 `provider` 和 `model` 时这次用它，并写成新的默认。打开旧会话仍恢复该文件自己的 `model_change`。对话框里改模型只写全局默认，不改当前会话文件。续发带了 `provider` 和 `model`、且与该会话上次记录不同时，才追加 `model_change`，不改默认。没带则继续用该会话已恢复的模型。模型目录的底表在 npm 包里；手动更新是 `POST /api/models/refresh`，只刷白名单提供商，转调 `refresh({ allowNetwork: true, force: true })`，结果进 `~/.relax/agent/models-store.json`。不在启动或列模型时自动刷新。
 - 上下文压缩沿用 pi 的自动行为，不单独做接口。它是上下文体积的安全阀。
 - 分支、fork、从某一条消息重开是高级能力。JSONL 里的树先留着，当前不设计接口。文件快照式的回滚也不做。
 
@@ -158,14 +158,15 @@ pi 暴露的加载点都要能指定到 `.relax` 或配置里的路径，不默�
 - `POST /api/sessions/:id/model` 只把所选模型写成全局默认，不改这条会话的上次模型
 - `POST /api/sessions/:id/name` 手动设置 `name`，空字符串清空
 - `POST /api/sessions/:id/abort` 中止。热会话按 `relax.abortPolicy`：`clear-then-abort`（默认）先 `clearQueue` 再 `abort`；`abort-only` 只 `abort`，队列留下。响应是会话信息加上 `cleared: { steering, followUp }`。没有清队列、会话不在内存里时两个数组为空，`status` 为 `idle`
-- `GET /api/providers` 白名单提供商。`configured` 表示基座认为该提供商已有凭证
-- `PUT /api/providers/:id` 写入或覆盖 api key。名单外 404
+- `GET /api/providers` 内置白名单 + 自定义。带 `kind`；`configured` 表示基座认为该提供商已有凭证
+- `PUT /api/providers/:id` 写入或覆盖内置 api key。名单外（含自定义 id）404；自定义改配置走 `/api/custom-providers`
 - `DELETE /api/providers/:id` 删除 `auth.json` 里的这一条。环境变量仍可让基座认为可用
-- `GET /api/providers/:id/models` 该提供商的对话模型目录，不要求已填 key
-- `GET /api/models` 当前可用对话模型。`available` 表示至少有一条。没有默认时会补写
+- `GET /api/providers/:id/models` 该提供商的对话模型目录（内置与自定义），不要求已填 key
+- `GET/POST/PUT/DELETE /api/custom-providers*` 自定义提供商 CRUD 与 meta，见 [server-custom-providers.md](server-custom-providers.md)
+- `GET /api/models` 当前可用对话模型（含已配置的自定义）。`available` 表示至少有一条。没有默认时会补写
 - `GET /api/models/default` 全局默认。没有可用模型时 `model` 为 null
 - `PUT /api/models/default` 修改全局默认，不改已经打开的会话
-- `POST /api/models/refresh` 手动从 pi.dev 更新模型目录。测试不调用
+- `POST /api/models/refresh` 手动从 pi.dev 更新白名单模型目录。测试不调用
 - `GET /api/models/thinking-levels?provider=&id=` 查询该模型可选思考档位和默认档位 `medium`。目录里没有 404
 - `GET /api/settings` 全局出队模式、中止策略、会话删除方式和项目删除方式。缺文件时返回默认值
 - `PATCH /api/settings` 改上述字段的子集。出队模式写入后套到热会话。两个删除方式写在 `relax.sessionDelete` 与 `relax.projectDelete`，缺省都是 `logical`
@@ -220,7 +221,7 @@ SSE 断线不补，客户端用历史对齐。发送和中止走 HTTP。本轮�
 8. 终端
 9. 用户名和头像
 
-分支、fork、附件、命令审批不在这个序列里。多提供商里「一把 key 就能对话」的已经接上，自定义提供商和 OAuth 没有。前端接入另行指定。
+分支、fork、附件、命令审批不在这个序列里。多提供商里「一把 key 就能对话」的内置和 `models.json` 自定义已经接上，OAuth 没有。前端自定义表单另行接入。
 
 ## 文件系统
 

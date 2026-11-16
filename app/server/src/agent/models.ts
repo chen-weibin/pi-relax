@@ -4,6 +4,16 @@ import { getSupportedThinkingLevels, type Model } from '@earendil-works/pi-ai'
 import { ModelRuntime, SettingsManager } from '@earendil-works/pi-coding-agent'
 import { getDefaultWorkspace, getRelaxAgentDir } from '../config/home.js'
 import { HttpError } from '../utils/errors.js'
+import {
+	customProviderMeta,
+	getModelsJsonProvider,
+	listModelsJsonProviders,
+	removeProviderFromFile,
+	writeNewProvider,
+	writeUpdatedProvider,
+	type CustomProviderDto,
+	type CustomProviderInput,
+} from './models-json.js'
 
 /**
  * 一把 key 就能对话的内置提供商。pi-ai@1.5.0。
@@ -114,6 +124,11 @@ export function isKeyProvider(id: string): boolean {
 	return KEY_PROVIDER_SET.has(id)
 }
 
+export function isCustomProvider(id: string): boolean {
+	if (isKeyProvider(id)) return false
+	return getModelsJsonProvider(id) !== undefined
+}
+
 export function modelRuntime(): Promise<ModelRuntime> {
 	const dir = getRelaxAgentDir()
 	let pending = runtimes.get(dir)
@@ -126,6 +141,12 @@ export function modelRuntime(): Promise<ModelRuntime> {
 		runtimes.set(dir, pending)
 	}
 	return pending
+}
+
+/** 磁盘 models.json 变更后重载 catalog（不拉 pi.dev）。 */
+export async function reloadModelRuntime(): Promise<void> {
+	const runtime = await modelRuntime()
+	await runtime.refresh({ allowNetwork: false })
 }
 
 function isChat(model: Model<any>): boolean {
@@ -146,7 +167,8 @@ function summarize(model: Model<any>): ModelSummary {
 async function availableChat(): Promise<Model<any>[]> {
 	const runtime = await modelRuntime()
 	const models = await runtime.getAvailable()
-	return models.filter((model) => isKeyProvider(model.provider) && isChat(model))
+	// 与内置填 key 一致：getAvailable 已按 hasConfiguredAuth 过滤；不再挡自定义。
+	return models.filter(isChat)
 }
 
 function readGlobalDefault(): { provider?: string; id?: string } {
@@ -197,14 +219,28 @@ export async function ensureDefault(): Promise<Model<any> | undefined> {
 	return picked
 }
 
-export async function listProviders(): Promise<Array<{ id: string; name: string; configured: boolean }>> {
+export async function listProviders(): Promise<
+	Array<{ id: string; name: string; configured: boolean; kind: 'builtin' | 'custom' }>
+> {
 	const runtime = await modelRuntime()
 	await runtime.getAvailable()
-	return KEY_PROVIDERS.flatMap((id) => {
+	const builtin = KEY_PROVIDERS.flatMap((id) => {
 		const provider = runtime.getProvider(id)
 		if (!provider) return []
-		return [{ id, name: provider.name, configured: runtime.hasConfiguredAuth(id) }]
+		return [{ id, name: provider.name, configured: runtime.hasConfiguredAuth(id), kind: 'builtin' as const }]
 	})
+	const custom = listModelsJsonProviders()
+		.filter((row) => !isKeyProvider(row.id))
+		.map((row) => {
+			const provider = runtime.getProvider(row.id)
+			return {
+				id: row.id,
+				name: provider?.name ?? row.name ?? row.id,
+				configured: runtime.hasConfiguredAuth(row.id),
+				kind: 'custom' as const,
+			}
+		})
+	return [...builtin, ...custom]
 }
 
 export async function saveApiKey(id: string, apiKey: string): Promise<void> {
@@ -227,7 +263,6 @@ export async function deleteApiKey(id: string): Promise<void> {
 }
 
 export async function providerModels(id: string): Promise<ModelSummary[]> {
-	if (!isKeyProvider(id)) throw new HttpError(404, 'NOT_FOUND', 'Provider not found')
 	const runtime = await modelRuntime()
 	if (!runtime.getProvider(id)) throw new HttpError(404, 'NOT_FOUND', 'Provider not found')
 	return runtime
@@ -272,7 +307,6 @@ export async function modelForSwitch(provider: string, id: string): Promise<Mode
 }
 
 async function requireModel(provider: string, id: string, unconfigured: 400 | 409): Promise<Model<any>> {
-	if (!isKeyProvider(provider)) throw new HttpError(404, 'NOT_FOUND', 'Model not found')
 	const runtime = await modelRuntime()
 	const model = runtime.getModel(provider, id)
 	if (!model || !isChat(model)) throw new HttpError(404, 'NOT_FOUND', 'Model not found')
@@ -299,7 +333,6 @@ export async function modelThinkingLevels(
 	  }
 	| undefined
 > {
-	if (!isKeyProvider(provider)) return undefined
 	const runtime = await modelRuntime()
 	const model = runtime.getModel(provider, id)
 	if (!model || !isChat(model)) return undefined
@@ -309,6 +342,50 @@ export async function modelThinkingLevels(
 		defaultThinkingLevel: DEFAULT_THINKING_LEVEL,
 		thinkingLevels: getSupportedThinkingLevels(model),
 	}
+}
+
+export function getCustomProviderMeta() {
+	return customProviderMeta()
+}
+
+export async function listCustomProviders(): Promise<CustomProviderDto[]> {
+	return listModelsJsonProviders().filter((row) => !isKeyProvider(row.id))
+}
+
+export async function getCustomProvider(id: string): Promise<CustomProviderDto> {
+	if (isKeyProvider(id)) throw new HttpError(404, 'NOT_FOUND', 'Custom provider not found')
+	const found = getModelsJsonProvider(id)
+	if (!found) throw new HttpError(404, 'NOT_FOUND', 'Custom provider not found')
+	return found
+}
+
+export async function createCustomProvider(input: CustomProviderInput): Promise<CustomProviderDto> {
+	if (typeof input.id === 'string' && isKeyProvider(input.id)) {
+		throw new HttpError(409, 'CONFLICT', 'Provider id collides with a builtin provider')
+	}
+	const created = writeNewProvider(input)
+	await reloadModelRuntime()
+	return created
+}
+
+export async function updateCustomProvider(
+	id: string,
+	input: Omit<CustomProviderInput, 'id'>,
+): Promise<CustomProviderDto> {
+	if (isKeyProvider(id) || !isCustomProvider(id)) {
+		throw new HttpError(404, 'NOT_FOUND', 'Custom provider not found')
+	}
+	const updated = writeUpdatedProvider(id, input)
+	await reloadModelRuntime()
+	return updated
+}
+
+export async function deleteCustomProvider(id: string): Promise<void> {
+	if (isKeyProvider(id) || !isCustomProvider(id)) {
+		throw new HttpError(404, 'NOT_FOUND', 'Custom provider not found')
+	}
+	removeProviderFromFile(id)
+	await reloadModelRuntime()
 }
 
 export async function refreshModels(): Promise<{

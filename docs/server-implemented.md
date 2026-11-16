@@ -51,14 +51,15 @@
 ## 模型与思考档位
 
 1. 白名单在 `app/server/src/agent/models.ts`。只收一把 key 就能对话的内置提供商。`azure`、`openai-codex`、Bedrock、Vertex、Cloudflare、`typesafe` 不在里面。升 `@earendil-works/pi-ai` 后要对照 `providers/*.ts` 再核一次。
-2. `PUT /api/providers/:id` 把 api key 写入 `~/.relax/agent/auth.json`。同一 id 再提交是修改。响应不带回 key。`DELETE` 只删这一条存储。
-3. 基座认为有凭证就算可用：`auth.json`、环境变量、本机凭证。不发请求试 key。`GET /api/models` 的 `available` 表示当前至少有一条可用对话模型。
-4. 全局默认是 `settings.json` 的 `defaultProvider` 和 `defaultModel`。还没有可用默认、但已经有可用模型时，查询可用列表或读取默认会按基座内置顺序补写。`PUT /api/models/default` 只改这一对，不改热会话。
-5. 新建会话用全局默认。请求里同时带 `provider` 和 `model` 时，这次用它，并写成新的默认。一个可用模型都没有时 409 `PROVIDER_REQUIRED`。
-6. `POST /api/sessions/:id/model` 只把所选模型写成全局默认，不改这条会话的上次模型。续发带了 `provider` 和 `model`，且与该会话上次记录不同时，才追加 `model_change`。没带则继续用该会话已恢复的模型。打开旧会话、只改默认不发送，记录保持不变。
-7. `POST /api/models/refresh` 手动更新目录，转调基座 `refresh({ allowNetwork: true, force: true })`，缓存进 `models-store.json`。
-8. 新会话思考档位默认 `medium`。创建和续发都可以指定档位；不在该模型支持列表里则 400。
-9. `GET /api/models/thinking-levels?provider=&id=` 查目录里的模型。没有则 404。
+2. `PUT /api/providers/:id` 把 api key 写入 `~/.relax/agent/auth.json`。同一 id 再提交是修改。响应不带回 key。`DELETE` 只删这一条存储。只服务白名单。
+3. 自定义提供商 CRUD：`/api/custom-providers*`，持久化 `~/.relax/agent/models.json`，写后 `refresh({ allowNetwork: false })`。响应用 `apiKeySet`，不回明文 key。字段与表单说明见 [server-custom-providers.md](server-custom-providers.md)。
+4. `GET /api/providers` 同时返回内置与自定义，带 `kind`。基座认为有凭证就算可用：`auth.json`、环境变量、本机凭证、`models.json` 的 `apiKey`。不发请求试 key。`GET /api/models` 的 `available` 表示当前至少有一条可用对话模型（含已配置自定义）。
+5. 全局默认是 `settings.json` 的 `defaultProvider` 和 `defaultModel`。还没有可用默认、但已经有可用模型时，查询可用列表或读取默认会按基座内置顺序补写。`PUT /api/models/default` 只改这一对，不改热会话。自定义也可设为默认。
+6. 新建会话用全局默认。请求里同时带 `provider` 和 `model` 时，这次用它，并写成新的默认。一个可用模型都没有时 409 `PROVIDER_REQUIRED`。
+7. `POST /api/sessions/:id/model` 只把所选模型写成全局默认，不改这条会话的上次模型。续发带了 `provider` 和 `model`，且与该会话上次记录不同时，才追加 `model_change`。没带则继续用该会话已恢复的模型。打开旧会话、只改默认不发送，记录保持不变。
+8. `POST /api/models/refresh` 手动更新白名单目录，转调基座 `refresh({ allowNetwork: true, force: true })`，缓存进 `models-store.json`。自定义不参与。
+9. 新会话思考档位默认 `medium`。创建和续发都可以指定档位；不在该模型支持列表里则 400。
+10. `GET /api/models/thinking-levels?provider=&id=` 查目录里的模型（含自定义）。没有则 404。
 
 ## 追踪
 

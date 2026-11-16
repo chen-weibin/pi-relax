@@ -1,13 +1,19 @@
 import { Router } from 'express'
 import {
 	availableModels,
+	createCustomProvider,
 	deleteApiKey,
+	deleteCustomProvider,
+	getCustomProvider,
+	getCustomProviderMeta,
+	listCustomProviders,
 	listProviders,
 	modelThinkingLevels,
 	providerModels,
 	readDefault,
 	refreshModels,
 	saveApiKey,
+	updateCustomProvider,
 	writeDefault,
 } from '../agent/models.js'
 import { asyncHandler, HttpError } from '../utils/errors.js'
@@ -21,6 +27,13 @@ function requiredPair(body: unknown): { provider: string; id: string } {
 	}
 	if (!provider || !model) throw new HttpError(400, 'BAD_REQUEST', 'provider and model are required')
 	return { provider, id: model }
+}
+
+function customBody(body: unknown): Record<string, unknown> {
+	if (!body || typeof body !== 'object' || Array.isArray(body)) {
+		throw new HttpError(400, 'BAD_REQUEST', 'body must be an object')
+	}
+	return body as Record<string, unknown>
 }
 
 export function modelsRouter(): Router {
@@ -56,6 +69,70 @@ export function modelsRouter(): Router {
 		'/api/providers/:id/models',
 		asyncHandler(async (req, res) => {
 			res.json({ models: await providerModels(req.params.id as string) })
+		}),
+	)
+
+	router.get(
+		'/api/custom-providers/meta',
+		asyncHandler(async (_req, res) => {
+			res.json(getCustomProviderMeta())
+		}),
+	)
+
+	router.get(
+		'/api/custom-providers',
+		asyncHandler(async (_req, res) => {
+			res.json({ providers: await listCustomProviders() })
+		}),
+	)
+
+	router.get(
+		'/api/custom-providers/:id',
+		asyncHandler(async (req, res) => {
+			res.json({ provider: await getCustomProvider(req.params.id as string) })
+		}),
+	)
+
+	router.post(
+		'/api/custom-providers',
+		asyncHandler(async (req, res) => {
+			const body = customBody(req.body)
+			const provider = await createCustomProvider({
+				id: body.id as string,
+				name: body.name as string | undefined,
+				baseUrl: body.baseUrl as string,
+				api: body.api as string,
+				apiKey: body.apiKey as string | undefined,
+				headers: body.headers as Record<string, string> | undefined,
+				authHeader: body.authHeader as boolean | undefined,
+				models: body.models as never,
+			})
+			res.status(201).json({ provider })
+		}),
+	)
+
+	router.put(
+		'/api/custom-providers/:id',
+		asyncHandler(async (req, res) => {
+			const body = customBody(req.body)
+			const provider = await updateCustomProvider(req.params.id as string, {
+				name: body.name as string | undefined,
+				baseUrl: body.baseUrl as string,
+				api: body.api as string,
+				apiKey: body.apiKey as string | undefined,
+				headers: body.headers as Record<string, string> | undefined,
+				authHeader: body.authHeader as boolean | undefined,
+				models: body.models as never,
+			})
+			res.json({ provider })
+		}),
+	)
+
+	router.delete(
+		'/api/custom-providers/:id',
+		asyncHandler(async (req, res) => {
+			await deleteCustomProvider(req.params.id as string)
+			res.status(204).end()
 		}),
 	)
 

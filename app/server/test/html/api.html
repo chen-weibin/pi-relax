@@ -415,7 +415,7 @@ ${ERROR_BODY}`,
 						name: "提供商",
 						method: "GET",
 						path: "/api/providers",
-						summary: "白名单提供商。configured 表示基座认为已有凭证，不含 key。",
+						summary: "内置白名单 + models.json 自定义。configured 表示基座认为已有凭证，不含 key。",
 						queryParams: [],
 						bodyParams: [],
 						body: "",
@@ -428,10 +428,180 @@ type ListProvidersResponse = {
 		id: string
 		/** 显示名 */
 		name: string
-		/** auth.json、环境变量或本机凭证任一让基座认为可用 */
+		/** auth.json、环境变量、本机凭证或 models.json apiKey 任一让基座认为可用 */
 		configured: boolean
+		/** builtin=白名单；custom=models.json 自造 */
+		kind: "builtin" | "custom"
 	}>
 }`,
+					},
+					{
+						group: "模型",
+						name: "自定义提供商 meta",
+						method: "GET",
+						path: "/api/custom-providers/meta",
+						summary: "表单下拉：可用 api 与默认 contextWindow/maxTokens。",
+						queryParams: [],
+						bodyParams: [],
+						body: "",
+						requestType: `/** 无参数。 */
+type CustomProvidersMetaRequest = Record<string, never>`,
+						responseType: `/** HTTP 200。 */
+type CustomProvidersMetaResponse = {
+	apis: string[]
+	defaults: { api: string; contextWindow: number; maxTokens: number }
+}`,
+					},
+					{
+						group: "模型",
+						name: "自定义提供商列表",
+						method: "GET",
+						path: "/api/custom-providers",
+						summary: "models.json 里的自定义提供商。不返回明文 apiKey，用 apiKeySet。",
+						queryParams: [],
+						bodyParams: [],
+						body: "",
+						requestType: `/** 无参数。 */
+type ListCustomProvidersRequest = Record<string, never>`,
+						responseType: `/** HTTP 200。 */
+type ListCustomProvidersResponse = {
+	providers: CustomProviderDto[]
+}`,
+					},
+					{
+						group: "模型",
+						name: "创建自定义提供商",
+						method: "POST",
+						path: "/api/custom-providers",
+						summary: "写入 ~/.relax/agent/models.json 并 reload。撞白名单或已存在 409。",
+						queryParams: [],
+						bodyParams: [
+							{ name: "id", type: "string", required: true, description: "提供商 id", example: "ollama" },
+							{ name: "name", type: "string", required: false, description: "显示名", example: "Ollama" },
+							{ name: "baseUrl", type: "string", required: true, description: "OpenAI 兼容基址", example: "http://localhost:11434/v1" },
+							{ name: "api", type: "string", required: true, description: "协议", example: "openai-completions" },
+							{ name: "apiKey", type: "string", required: true, description: "可占位", example: "ollama" },
+							{ name: "models", type: "array", required: true, description: "至少一个模型", example: "[{...}]" },
+						],
+						body: `{
+  "id": "ollama",
+  "name": "Ollama",
+  "baseUrl": "http://localhost:11434/v1",
+  "api": "openai-completions",
+  "apiKey": "ollama",
+  "models": [
+    {
+      "id": "gemma4:e4b",
+      "name": "Gemma 4 E4B",
+      "reasoning": false,
+      "contextWindow": 131072,
+      "maxTokens": 8192
+    }
+  ]
+}`,
+						requestType: `/** JSON body。 */
+type CreateCustomProviderRequest = {
+	id: string
+	name?: string
+	baseUrl: string
+	api: string
+	apiKey: string
+	headers?: Record<string, string>
+	authHeader?: boolean
+	models: Array<{
+		id: string
+		name?: string
+		reasoning?: boolean
+		contextWindow?: number
+		maxTokens?: number
+	}>
+}`,
+						responseType: `/** HTTP 201。 */
+type CreateCustomProviderResponse = {
+	provider: CustomProviderDto
+}
+
+${ERROR_BODY}`,
+					},
+					{
+						group: "模型",
+						name: "读取自定义提供商",
+						method: "GET",
+						path: "/api/custom-providers/:id",
+						summary: "单条配置，不含明文 apiKey。",
+						queryParams: [],
+						bodyParams: [],
+						body: "",
+						requestType: `/** 路径参数。 */
+type GetCustomProviderRequest = { id: string }`,
+						responseType: `/** HTTP 200。 */
+type GetCustomProviderResponse = { provider: CustomProviderDto }
+
+${ERROR_BODY}`,
+					},
+					{
+						group: "模型",
+						name: "更新自定义提供商",
+						method: "PUT",
+						path: "/api/custom-providers/:id",
+						summary: "整表替换。省略 apiKey 保留原值。",
+						queryParams: [],
+						bodyParams: [
+							{ name: "baseUrl", type: "string", required: true, description: "基址", example: "http://localhost:11434/v1" },
+							{ name: "api", type: "string", required: true, description: "协议", example: "openai-completions" },
+							{ name: "apiKey", type: "string", required: false, description: "省略则保留", example: "ollama" },
+							{ name: "models", type: "array", required: true, description: "模型列表", example: "[{...}]" },
+						],
+						body: `{
+  "name": "Ollama",
+  "baseUrl": "http://localhost:11434/v1",
+  "api": "openai-completions",
+  "models": [
+    {
+      "id": "gemma4:e4b",
+      "name": "Gemma 4 E4B",
+      "reasoning": false,
+      "contextWindow": 131072,
+      "maxTokens": 8192
+    }
+  ]
+}`,
+						requestType: `/** 路径 id + JSON body。不可改 id。 */
+type UpdateCustomProviderRequest = {
+	id: string
+	name?: string
+	baseUrl: string
+	api: string
+	apiKey?: string
+	headers?: Record<string, string>
+	authHeader?: boolean
+	models: Array<{
+		id: string
+		name?: string
+		reasoning?: boolean
+		contextWindow?: number
+		maxTokens?: number
+	}>
+}`,
+						responseType: `/** HTTP 200。 */
+type UpdateCustomProviderResponse = { provider: CustomProviderDto }
+
+${ERROR_BODY}`,
+					},
+					{
+						group: "模型",
+						name: "删除自定义提供商",
+						method: "DELETE",
+						path: "/api/custom-providers/:id",
+						summary: "从 models.json 删除并 reload。",
+						queryParams: [],
+						bodyParams: [],
+						body: "",
+						requestType: `/** 路径参数。 */
+type DeleteCustomProviderRequest = { id: string }`,
+						responseType: `/** HTTP 204。无 body。 */
+
+${ERROR_BODY}`,
 					},
 					{
 						group: "模型",
