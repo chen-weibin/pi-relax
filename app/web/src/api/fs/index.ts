@@ -40,3 +40,7 @@ export async function writePath(path: string, text: string): Promise<void> {
 		transformRequest: [(data) => data],
 	})
 }
+
+export async function mkdirPath(path: string): Promise<void> {
+	await http.post('/api/fs/dir', { path })
+}

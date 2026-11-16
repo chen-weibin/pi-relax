@@ -4,17 +4,33 @@ import { droppedCachePaths, listedParentsToRefresh, type FsChange } from '../../
 import { fsApi } from '../../contracts/adapters/fsHttp'
 import type { FsEntry } from '../../contracts/fs'
 
+export type CreateKind = 'file' | 'dir'
+
+export type CreatingState = {
+	parentPath: string
+	kind: CreateKind
+	/** When set, inline input sits above this sibling path; otherwise at the start of parent children. */
+	beforePath?: string
+}
+
 type FilesTreeState = {
 	root: string | null
 	rootError: string | null
 	navOpen: boolean
 	setNavOpen: (open: boolean | ((current: boolean) => boolean)) => void
+	selectedDir: string | null
+	setSelectedDir: (path: string | null) => void
+	creating: CreatingState | null
+	beginCreate: (parentPath: string, kind: CreateKind, beforePath?: string) => void
+	cancelCreate: () => void
 	expanded: Record<string, true>
 	childrenByPath: Record<string, FsEntry[]>
 	loading: Record<string, true>
 	syncRoot: (cwd: string | null) => void
 	toggleDir: (path: string) => void
+	expandDir: (path: string) => void
 	ensureChildren: (path: string) => void
+	reloadChildren: (path: string) => Promise<void>
 	refreshListed: (changes: readonly FsChange[]) => Promise<void>
 }
 
@@ -60,6 +76,31 @@ export async function resolveFileSize(path: string): Promise<number> {
 	return (await fsApi.stat(path)).size
 }
 
+export function parentDirPath(path: string): string | null {
+	const trimmed = path.replace(/\/+$/, '')
+	const idx = trimmed.lastIndexOf('/')
+	if (idx <= 0) return idx === 0 ? '/' : null
+	return trimmed.slice(0, idx)
+}
+
+export function joinFsPath(parent: string, name: string): string {
+	if (parent === '/') return `/${name}`
+	return `${parent}/${name}`
+}
+
+export function resolveCreateParent(
+	root: string | null,
+	selectedDir: string | null,
+	selectedFilePath: string | undefined,
+): string | null {
+	if (selectedDir) return selectedDir
+	if (selectedFilePath) {
+		const parent = parentDirPath(selectedFilePath)
+		if (parent) return parent
+	}
+	return root
+}
+
 export const useFilesTreeStore = create<FilesTreeState>()(
 	immer((set, get) => ({
 		root: null,
@@ -68,6 +109,29 @@ export const useFilesTreeStore = create<FilesTreeState>()(
 		setNavOpen: (open) =>
 			set((state) => {
 				state.navOpen = typeof open === 'function' ? open(state.navOpen) : open
+			}),
+		selectedDir: null,
+		setSelectedDir: (path) =>
+			set((state) => {
+				state.selectedDir = path
+			}),
+		creating: null,
+		beginCreate: (parentPath, kind, beforePath) => {
+			const { root } = get()
+			if (!root) return
+			if (parentPath !== root) {
+				set((state) => {
+					state.expanded[parentPath] = true
+				})
+			}
+			get().ensureChildren(parentPath)
+			set((state) => {
+				state.creating = beforePath ? { parentPath, kind, beforePath } : { parentPath, kind }
+			})
+		},
+		cancelCreate: () =>
+			set((state) => {
+				state.creating = null
 			}),
 		expanded: {},
 		childrenByPath: {},
@@ -83,6 +147,8 @@ export const useFilesTreeStore = create<FilesTreeState>()(
 				state.expanded = {}
 				state.childrenByPath = {}
 				state.loading = {}
+				state.selectedDir = null
+				state.creating = null
 			})
 			if (cwd) get().ensureChildren(cwd)
 		},
@@ -94,11 +160,22 @@ export const useFilesTreeStore = create<FilesTreeState>()(
 			})
 			if (!wasOpen) get().ensureChildren(path)
 		},
+		expandDir: (path) => {
+			if (get().expanded[path]) {
+				get().ensureChildren(path)
+				return
+			}
+			set((state) => {
+				state.expanded[path] = true
+			})
+			get().ensureChildren(path)
+		},
 		ensureChildren: (path) => {
 			const { childrenByPath, loading } = get()
 			if (childrenByPath[path] || loading[path]) return
 			load(path, set)
 		},
+		reloadChildren: (path) => load(path, set),
 		refreshListed: (changes) => {
 			const dead = new Set(droppedCachePaths(Object.keys(get().childrenByPath), changes))
 			if (dead.size > 0) {
@@ -107,6 +184,7 @@ export const useFilesTreeStore = create<FilesTreeState>()(
 						delete state.childrenByPath[key]
 						delete state.expanded[key]
 					}
+					if (state.selectedDir && dead.has(state.selectedDir)) state.selectedDir = null
 				})
 			}
 			const listed = new Set(Object.keys(get().childrenByPath))

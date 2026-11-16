@@ -1,4 +1,4 @@
-import { listDir, readPath, statPath, writePath } from '../../../api/fs'
+import { listDir, mkdirPath, readPath, statPath, writePath } from '../../../api/fs'
 import { ApiError } from '../../../api/http'
 import { FsError, type FsApi } from '../fs'
 
@@ -23,4 +23,5 @@ export const fsApi: FsApi = {
 	stat: (path) => wrap(() => statPath(path)),
 	read: (path) => wrap(() => readPath(path)),
 	write: (path, text) => wrap(() => writePath(path, text)),
+	mkdir: (path) => wrap(() => mkdirPath(path)),
 }

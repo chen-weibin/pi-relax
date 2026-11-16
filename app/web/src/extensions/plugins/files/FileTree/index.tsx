@@ -1,12 +1,168 @@
-import { useEffect, type MouseEvent } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react'
 import classNames from 'classnames'
-import { ChevronRightIcon, FolderClosedIcon, FolderOpenIcon } from '../../../../icons'
+import {
+	AddFileIcon,
+	AddFolderIcon,
+	ChevronRightIcon,
+	FileUnknownIcon,
+	FolderClosedIcon,
+	FolderOpenIcon,
+} from '../../../../icons'
+import { ContextMenu } from '../../../../ui/ContextMenu'
+import type { DropdownPanel } from '../../../../ui/Dropdown'
 import { DotMatrix } from '../../../../ui/DotMatrix'
 import { EmptyState } from '../../../../ui/EmptyState'
 import { Expandable } from '../../../../ui/Expandable'
+import { IconButton } from '../../../../ui/IconButton'
+import { fsApi } from '../../../contracts/adapters/fsHttp'
 import type { FsEntry } from '../../../contracts/fs'
 import { resolveFileKind } from '../fileKinds'
-import { useFilesTreeStore } from '../treeStore'
+import { joinFsPath, parentDirPath, useFilesTreeStore, type CreateKind } from '../treeStore'
+
+const CREATE_MENU_WIDTH = 160
+
+function createEntryPanel(onAddFile: () => void, onAddDir: () => void): DropdownPanel {
+	return {
+		width: CREATE_MENU_WIDTH,
+		groups: [
+			{
+				rows: [
+					{ id: 'add-file', label: '添加文件', onSelect: onAddFile },
+					{ id: 'add-dir', label: '添加目录', onSelect: onAddDir },
+				],
+			},
+		],
+	}
+}
+
+function CreateActions({
+	onCreateFile,
+	onCreateDir,
+	className,
+}: {
+	onCreateFile: () => void
+	onCreateDir: () => void
+	className?: string
+}) {
+	return (
+		<span
+			className={classNames('flex shrink-0 items-center gap-0.5', className)}
+			onClick={(e) => e.stopPropagation()}
+			onMouseDown={(e) => e.stopPropagation()}
+		>
+			<IconButton
+				size="sm"
+				title="新建文件"
+				aria-label="新建文件"
+				onClick={(e) => {
+					e.stopPropagation()
+					onCreateFile()
+				}}
+			>
+				<AddFileIcon />
+			</IconButton>
+			<IconButton
+				size="sm"
+				title="新建目录"
+				aria-label="新建目录"
+				onClick={(e) => {
+					e.stopPropagation()
+					onCreateDir()
+				}}
+			>
+				<AddFolderIcon />
+			</IconButton>
+		</span>
+	)
+}
+
+function CreateInputRow({
+	parentPath,
+	kind,
+	depth,
+	siblings,
+	onSelectFile,
+}: {
+	parentPath: string
+	kind: CreateKind
+	depth: number
+	siblings: FsEntry[]
+	onSelectFile: (path: string) => void
+}) {
+	const inputRef = useRef<HTMLInputElement>(null)
+	const closed = useRef(false)
+	const [draft, setDraft] = useState('')
+	const cancelCreate = useFilesTreeStore((s) => s.cancelCreate)
+	const setSelectedDir = useFilesTreeStore((s) => s.setSelectedDir)
+	const expandDir = useFilesTreeStore((s) => s.expandDir)
+	const reloadChildren = useFilesTreeStore((s) => s.reloadChildren)
+
+	useEffect(() => {
+		inputRef.current?.focus()
+	}, [])
+
+	function finish(save: boolean) {
+		if (closed.current) return
+		closed.current = true
+		const name = draft.trim()
+		if (!save || !name) {
+			cancelCreate()
+			return
+		}
+		if (siblings.some((entry) => entry.name === name)) {
+			cancelCreate()
+			return
+		}
+		const path = joinFsPath(parentPath, name)
+		const run =
+			kind === 'file'
+				? fsApi.write(path, '').then(() => {
+						onSelectFile(path)
+					})
+				: fsApi.mkdir(path).then(() => {
+						setSelectedDir(path)
+						expandDir(path)
+					})
+		void run
+			.then(() => reloadChildren(parentPath))
+			.catch((err: unknown) => {
+				console.error(err)
+			})
+			.finally(() => {
+				cancelCreate()
+			})
+	}
+
+	function onKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+		if (event.key === 'Enter') {
+			event.preventDefault()
+			finish(true)
+		} else if (event.key === 'Escape') {
+			event.preventDefault()
+			finish(false)
+		}
+	}
+
+	return (
+		<div
+			style={{ paddingLeft: 8 + depth * 12 }}
+			className="flex h-[30px] w-full items-center gap-2 rounded-md bg-surface-active pr-2.5 text-sm text-fg-bright"
+		>
+			<span className="relative inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center text-fg-3 [&_svg]:h-3.5 [&_svg]:w-3.5">
+				{kind === 'dir' ? <FolderClosedIcon /> : <FileUnknownIcon />}
+			</span>
+			<input
+				ref={inputRef}
+				value={draft}
+				onChange={(event) => setDraft(event.target.value)}
+				onBlur={() => finish(true)}
+				onKeyDown={onKeyDown}
+				className="min-w-0 flex-1 bg-transparent p-0 text-sm text-inherit outline-none"
+				aria-label={kind === 'dir' ? '新目录名' : '新文件名'}
+			/>
+		</div>
+	)
+}
 
 function FileTreeRow({
 	entry,
@@ -14,33 +170,52 @@ function FileTreeRow({
 	expanded,
 	loading,
 	selected,
+	showCreateActions,
 	onToggle,
 	onSelectFile,
+	onSelectDir,
+	onCreateFile,
+	onCreateDir,
 }: {
 	entry: FsEntry
 	depth: number
 	expanded?: boolean
 	loading?: boolean
 	selected?: boolean
+	showCreateActions?: boolean
 	onToggle?: () => void
 	onSelectFile?: (path: string) => void
+	onSelectDir?: (path: string) => void
+	onCreateFile?: () => void
+	onCreateDir?: () => void
 }) {
 	const isDir = entry.kind === 'dir'
 	const FileKindIcon = isDir ? undefined : resolveFileKind(entry.path).icon
 
 	const handleClick = (e: MouseEvent) => {
 		e.preventDefault()
-		if (isDir) onToggle?.()
-		else onSelectFile?.(entry.path)
+		if (isDir) {
+			onSelectDir?.(entry.path)
+			onToggle?.()
+		} else {
+			onSelectFile?.(entry.path)
+		}
 	}
 
-	return (
-		<button
-			type="button"
+	const row = (
+		<div
+			role="button"
+			tabIndex={0}
 			onClick={handleClick}
+			onKeyDown={(event) => {
+				if (event.key === 'Enter' || event.key === ' ') {
+					event.preventDefault()
+					handleClick(event as unknown as MouseEvent)
+				}
+			}}
 			style={{ paddingLeft: 8 + depth * 12 }}
 			className={classNames(
-				'group/row flex h-[30px] w-full cursor-pointer items-center gap-2 rounded-md pr-2.5 text-left text-sm transition-colors duration-100',
+				'group/row flex h-[30px] w-full cursor-pointer items-center gap-2 rounded-md pr-1 text-left text-sm transition-colors duration-100',
 				selected
 					? 'bg-surface-active text-fg-bright'
 					: 'text-fg-2 hover:bg-surface-hover hover:text-fg-bright',
@@ -71,9 +246,34 @@ function FileTreeRow({
 					</span>
 				)}
 			</span>
-			<span className="min-w-0 truncate">{entry.name}</span>
-		</button>
+			<span className="min-w-0 flex-1 truncate">{entry.name}</span>
+			{showCreateActions && onCreateFile && onCreateDir ? (
+				<CreateActions
+					className="opacity-0 group-hover/row:opacity-100 focus-within:opacity-100"
+					onCreateFile={onCreateFile}
+					onCreateDir={onCreateDir}
+				/>
+			) : null}
+		</div>
 	)
+
+	const beginCreate = useFilesTreeStore.getState().beginCreate
+	const panel = isDir
+		? createEntryPanel(
+				() => beginCreate(entry.path, 'file'),
+				() => beginCreate(entry.path, 'dir'),
+			)
+		: (() => {
+				const parent = parentDirPath(entry.path)
+				if (!parent) return null
+				return createEntryPanel(
+					() => beginCreate(parent, 'file', entry.path),
+					() => beginCreate(parent, 'dir', entry.path),
+				)
+			})()
+
+	if (!panel) return row
+	return <ContextMenu panel={panel}>{row}</ContextMenu>
 }
 
 function FileTreeDir({
@@ -90,12 +290,20 @@ function FileTreeDir({
 	const expanded = useFilesTreeStore((s) => Boolean(s.expanded[entry.path]))
 	const children = useFilesTreeStore((s) => s.childrenByPath[entry.path])
 	const loading = useFilesTreeStore((s) => Boolean(s.loading[entry.path]))
+	const selectedDir = useFilesTreeStore((s) => s.selectedDir)
 	const toggleDir = useFilesTreeStore((s) => s.toggleDir)
 	const ensureChildren = useFilesTreeStore((s) => s.ensureChildren)
+	const setSelectedDir = useFilesTreeStore((s) => s.setSelectedDir)
+	const beginCreate = useFilesTreeStore((s) => s.beginCreate)
 
 	useEffect(() => {
 		if (expanded) ensureChildren(entry.path)
 	}, [expanded, entry.path, ensureChildren])
+
+	function handleSelectFile(path: string) {
+		setSelectedDir(null)
+		onSelectFile(path)
+	}
 
 	return (
 		<div className="flex flex-col">
@@ -104,15 +312,21 @@ function FileTreeDir({
 				depth={depth}
 				expanded={expanded}
 				loading={loading}
+				selected={entry.path === selectedDir}
+				showCreateActions
 				onToggle={() => toggleDir(entry.path)}
+				onSelectDir={(path) => setSelectedDir(path)}
+				onCreateFile={() => beginCreate(entry.path, 'file')}
+				onCreateDir={() => beginCreate(entry.path, 'dir')}
 			/>
 			<Expandable open={expanded} duration={160}>
 				<div className="pt-[2px]">
 					<TreeChildren
+						parentPath={entry.path}
 						entries={children ?? []}
 						depth={depth + 1}
 						selectedPath={selectedPath}
-						onSelectFile={onSelectFile}
+						onSelectFile={handleSelectFile}
 					/>
 				</div>
 			</Expandable>
@@ -121,37 +335,61 @@ function FileTreeDir({
 }
 
 function TreeChildren({
+	parentPath,
 	entries,
 	depth,
 	selectedPath,
 	onSelectFile,
 }: {
+	parentPath: string
 	entries: FsEntry[]
 	depth: number
 	selectedPath?: string
 	onSelectFile: (path: string) => void
 }) {
+	const creating = useFilesTreeStore((s) => s.creating)
+	const creatingHere = creating?.parentPath === parentPath ? creating : null
+	const createAtStart = creatingHere && !creatingHere.beforePath
+
 	return (
 		<div className="flex flex-col gap-[2px]">
-			{entries.map((child) =>
-				child.kind === 'dir' ? (
-					<FileTreeDir
-						key={child.path}
-						entry={child}
-						depth={depth}
-						selectedPath={selectedPath}
-						onSelectFile={onSelectFile}
-					/>
-				) : (
-					<FileTreeRow
-						key={child.path}
-						entry={child}
-						depth={depth}
-						selected={child.path === selectedPath}
-						onSelectFile={onSelectFile}
-					/>
-				),
-			)}
+			{createAtStart ? (
+				<CreateInputRow
+					parentPath={parentPath}
+					kind={creatingHere.kind}
+					depth={depth}
+					siblings={entries}
+					onSelectFile={onSelectFile}
+				/>
+			) : null}
+			{entries.map((child) => (
+				<div key={child.path} className="flex flex-col gap-[2px]">
+					{creatingHere?.beforePath === child.path ? (
+						<CreateInputRow
+							parentPath={parentPath}
+							kind={creatingHere.kind}
+							depth={depth}
+							siblings={entries}
+							onSelectFile={onSelectFile}
+						/>
+					) : null}
+					{child.kind === 'dir' ? (
+						<FileTreeDir
+							entry={child}
+							depth={depth}
+							selectedPath={selectedPath}
+							onSelectFile={onSelectFile}
+						/>
+					) : (
+						<FileTreeRow
+							entry={child}
+							depth={depth}
+							selected={child.path === selectedPath}
+							onSelectFile={onSelectFile}
+						/>
+					)}
+				</div>
+			))}
 		</div>
 	)
 }
@@ -166,29 +404,42 @@ export function FileTree({ selectedPath, onSelectFile }: FileTreeProps) {
 	const children = useFilesTreeStore((s) => (root ? s.childrenByPath[root] : undefined))
 	const loading = useFilesTreeStore((s) => (root ? Boolean(s.loading[root]) : false))
 	const rootError = useFilesTreeStore((s) => s.rootError)
+	const setSelectedDir = useFilesTreeStore((s) => s.setSelectedDir)
+	const creating = useFilesTreeStore((s) => s.creating)
+
+	function handleSelectFile(path: string) {
+		setSelectedDir(null)
+		onSelectFile(path)
+	}
 
 	if (!root) return null
 	if (rootError && !children) {
 		return <div className="px-2.5 py-2 text-sm text-fg-3">{rootError}</div>
 	}
-	if (loading && !children) {
+	if (loading && !children && creating?.parentPath !== root) {
 		return (
 			<div className="flex h-[30px] items-center px-2">
 				<DotMatrix size="xs" label="加载中" />
 			</div>
 		)
 	}
-	if (children && children.length === 0) {
+	if (children && children.length === 0 && creating?.parentPath !== root) {
 		return <EmptyState placement="top">工作目录为空</EmptyState>
 	}
 
 	return (
-		<div className="flex flex-col gap-[2px] pb-2">
+		<div
+			className="flex min-h-full flex-col gap-[2px] pb-2"
+			onClick={(event) => {
+				if (event.target === event.currentTarget) setSelectedDir(null)
+			}}
+		>
 			<TreeChildren
+				parentPath={root}
 				entries={children ?? []}
 				depth={0}
 				selectedPath={selectedPath}
-				onSelectFile={onSelectFile}
+				onSelectFile={handleSelectFile}
 			/>
 		</div>
 	)

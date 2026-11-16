@@ -32,4 +32,5 @@ export type FsApi = {
 	stat(path: string): Promise<FsStat>
 	read(path: string): Promise<FsRead>
 	write(path: string, text: string): Promise<void>
+	mkdir(path: string): Promise<void>
 }

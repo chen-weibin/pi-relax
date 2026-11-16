@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import classNames from 'classnames'
-import { FileIcon, FolderIcon } from '../../../icons'
+import { AddFileIcon, AddFolderIcon, FileIcon, FolderIcon } from '../../../icons'
 import { useCatalogStore } from '../../../store/catalog'
 import '../../../styles/scrollbar.css'
 import { EmptyState } from '../../../ui/EmptyState'
@@ -15,25 +15,55 @@ import { applyRemote } from './drafts'
 import { FilePreview } from './FilePreview'
 import { FileTree } from './FileTree'
 import { fileNameFromPath, isFilesPayload, selectFile } from './open'
-import { useFilesTreeStore } from './treeStore'
+import { resolveCreateParent, useFilesTreeStore } from './treeStore'
 
 export const FILES_NAV_WIDTH = 240
 
 function FilesNav({ selectedPath }: { selectedPath?: string }) {
 	const root = useFilesTreeStore((s) => s.root)
+	const selectedDir = useFilesTreeStore((s) => s.selectedDir)
+	const beginCreate = useFilesTreeStore((s) => s.beginCreate)
 	const label = root ? fileNameFromPath(root) : ''
+	const createParent = resolveCreateParent(root, selectedDir, selectedPath)
 
 	return (
 		<div
-			className="flex h-full min-h-0 shrink-0 flex-col"
+			className="group/files-nav flex h-full min-h-0 shrink-0 flex-col"
 			style={{ width: FILES_NAV_WIDTH }}
 		>
-			<div className="flex h-9 shrink-0 items-center px-2.5">
-				<span className="min-w-0 truncate text-sm text-fg-2" title={root ?? undefined}>
+			<div className="flex h-9 shrink-0 items-center gap-1 px-2.5">
+				<span className="min-w-0 flex-1 truncate text-sm text-fg-2" title={root ?? undefined}>
 					{label}
 				</span>
+				{createParent ? (
+					<span className="flex shrink-0 items-center gap-0.5 opacity-0 group-hover/files-nav:opacity-100 focus-within:opacity-100">
+						<IconButton
+							size="sm"
+							title="新建文件"
+							aria-label="新建文件"
+							onClick={() => beginCreate(createParent, 'file')}
+						>
+							<AddFileIcon />
+						</IconButton>
+						<IconButton
+							size="sm"
+							title="新建目录"
+							aria-label="新建目录"
+							onClick={() => beginCreate(createParent, 'dir')}
+						>
+							<AddFolderIcon />
+						</IconButton>
+					</span>
+				) : null}
 			</div>
-			<div className="scrollbar-shallow min-h-0 flex-1 overflow-y-auto px-1">
+			<div
+				className="scrollbar-shallow min-h-0 flex-1 overflow-y-auto px-1"
+				onClick={(event) => {
+					if (event.target === event.currentTarget) {
+						useFilesTreeStore.getState().setSelectedDir(null)
+					}
+				}}
+			>
 				<FileTree selectedPath={selectedPath} onSelectFile={selectFile} />
 			</div>
 		</div>

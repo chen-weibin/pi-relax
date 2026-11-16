@@ -39,13 +39,15 @@ app/web/src/extensions/
 
 ### 文件 tab 绑定
 
-目录树是**一份**（`useFilesTreeStore`：展开 / children 缓存 / `navOpen`）。选中路径**不进树 store**，读当前 tab 的 `payload.path`。
+目录树是**一份**（`useFilesTreeStore`：展开 / children 缓存 / `navOpen` / `selectedDir` / 新建草稿）。**打开的文件路径不进树 store**，读当前 tab 的 `payload.path`，主区预览只跟文件。**选中的目录**在树 store（`selectedDir`），可与已打开文件同时高亮。点目录只改 `selectedDir` 并照常展开/折叠，不改打开的文件；点任意文件会清掉 `selectedDir`；点另一个目录则换选该目录；点树下方空白区域也清掉 `selectedDir`（不关已打开文件）。
 
 点文件走 `selectFile`：
 
 1. 已有 `file:<path>` tab → `activateTab`
 2. 当前 files tab 仍是 `explorer` → `updateTab` 改写成该文件（不新开 tab）
 3. 否则 `openTab` 新文件 tab
+
+新建入口与提交规则见 [web-fs.md](web-fs.md)（查阅时机：改文件树新建、目录选中或 header 目标解析时）。
 
 `openPlugin('files')`：已有 files tab（空探索器或已绑定文件）则激活**第一个**，不新开空 tab；没有才开 `explorer`（`FileIcon` +「文件」）。第一次点文件后该 tab 的 reuseKey 变成 `file:<path>`。终端仍每次新开会话。
 
