@@ -2,11 +2,11 @@
 
 查阅时机：改 `app/server`、定数据目录、接 pi 会话、文件同步或终端之前。某一块开工时以本文的能力剖面和性能上限为底。路径、接口、目录里实际有哪些文件，实现时写进本文，并和代码一起改。代码和本文不一致时，以改代码的同一次修改把本文补齐，不另开一轮补文档。
 
-本文是底座。对话模块已接：会话文件、智能体类、路由与全局 SSE。前端（`app/web`）本轮不接，适配器以后再写。
+本文是底座。对话、文件系统、终端均已接：会话文件、智能体类、路由与全局 SSE、`/api/fs` / `/ws/fs`、`/ws/pty`。`app/web` 已接会话 / SSE / 模型 / 项目 / FS / PTY；settings 与 custom-providers 前端尚未接。
 
 对接 pi 之前先读源码，不要只凭本文的 API 摘要选函数。本地克隆在仓库根的 `pi/`（已 git 忽略），会话相关源码在 `pi/packages/coding-agent/src/core/`，说明在 `pi/packages/coding-agent/docs/sdk.md`。运行时安装的是 `@earendil-works/pi-coding-agent@^1.5.0`（与 `pi-ai` 同版本）。类型或文档和源码不一致时，以源码为准，并把结论回写本文。
 
-相关文档：当前已经实现的能力清单见 [server-implemented.md](server-implemented.md)（查阅时机：想看服务端现在做到哪、对照联调页时）。文件系统按功能点的说明、接口和使用情况见 [server-fs.md](server-fs.md)（查阅时机：改 `/api/fs`、`/ws/fs`，或核对某种请求会返回什么时）。对话区现有块模型见 [web-conversation.md](web-conversation.md)（查阅时机：把服务端事件译成现有 UI 时）。前端怎么接会话、目录和 SSE 见 [web-app.md](web-app.md)（查阅时机：开始做 `app/web` 的对话与会话管理时）。文件与终端的前端契约见 [web-extension.md](web-extension.md)（查阅时机：做文件系统或 PTY 时）。`app/agenttest` 只是加载试验，不能当作已验证结论。
+相关文档：当前已经实现的能力清单见 [server-implemented.md](server-implemented.md)（查阅时机：想看服务端现在做到哪、对照联调页时）。会话索引与项目表见 [server-sqlite.md](server-sqlite.md)（查阅时机：改表、项目登记或会话索引时）。文件系统按功能点的说明、接口和使用情况见 [server-fs.md](server-fs.md)（查阅时机：改 `/api/fs`、`/ws/fs`，或核对某种请求会返回什么时）。对话区现有块模型见 [web-conversation.md](web-conversation.md)（查阅时机：把服务端事件译成现有 UI 时）。前端怎么接会话、目录和 SSE 见 [web-app.md](web-app.md)（查阅时机：改 `app/web` 的对话与会话管理时）。文件与终端的前端契约见 [web-extension.md](web-extension.md)（查阅时机：改文件系统或 PTY 前端时）。`app/agenttest` 只是加载试验，不能当作已验证结论。
 
 ## 产品形态
 
@@ -172,7 +172,7 @@ pi 暴露的加载点都要能指定到 `.relax` 或配置里的路径，不默�
 - `PATCH /api/settings` 改上述字段的子集。出队模式写入后套到热会话。两个删除方式写在 `relax.sessionDelete` 与 `relax.projectDelete`，缺省都是 `logical`
 - `GET /api/sessions/events` 全局 SSE，不进 api.html。`data` 为 `{ sessionId, event }`，内层是 pi 的 `AgentSessionEvent`
 
-SSE 断线不补，客户端用历史对齐。发送和中止走 HTTP。本轮不接 `app/web`。
+SSE 断线不补，客户端用历史对齐。发送和中止走 HTTP。`app/web` 已接会话 / SSE / 模型与思考档位；settings、custom-providers 前端尚未接。
 
 `name` 在第一条用户消息写入时，若还没标题，就用这句文本。之后不覆盖。列表只返回 `name`。空字符串是清空。
 
@@ -187,9 +187,9 @@ SSE 断线不补，客户端用历史对齐。发送和中止走 HTTP。本轮�
 后面的块只加不改，接缝有四条：
 
 - **能力剖面**。每次创建 `AgentSession` 都带一份显式剖面：工具、技能、扩展、规则和上下文文件、提示词，各自是关还是一组路径。关掉必须传给 pi（如 `noSkills`、`noExtensions`、不扫描上下文），不能靠这段代码还没写。工具用 `tools` 白名单。磁盘扩展仍关，只多给 `additionalExtensionPaths`（Langfuse、`pi-web-access`），再加上 `app/server/src/extensions/` 里的 factory。
-- **列表**。本轮无索引，走 `SessionManager.list` / `listAll` 全量扫描，并上智能体里尚未落盘的热会话。
+- **列表**。走 sqlite `sessions` 表（`listSessionRows`），不扫每份 JSONL。目录里还没有行的文件由 backfill 补一次；`SessionManager.list` / `listAll` 仅用于这类磁盘扫描 / 回填，不作为列表接口。热会话的 `status` 用内存盖上去。
 - **会话宿主**。智能体类持有多份 `AgentSession`（多工作目录可同时生成）。事件是 `(sessionId, AgentSessionEvent)`。SDK 会话默认不加载 CLI 的 `codemode` / MCP。`codemode` 由 `createCodemodeExtension()` 显式挂上。`tool_search` 和 MCP 当前不挂。
-- **未做到的子系统不启动**。文件监听在有 WebSocket 订阅时才 `watch`，启动时不订磁盘。PTY 仍不在启动时加载。技能在创建会话时按基座默认目录扫描。
+- **未做到的子系统不启动**。文件监听在有 WebSocket 订阅时才 `watch`，启动时不订磁盘。`listen` 后即 `attachPty` 挂上 `/ws/pty`，PTY 进程按连接创建，没有连接时不占进程。技能在创建会话时按基座默认目录扫描。
 
 ## 性能上限
 
@@ -203,7 +203,7 @@ SSE 断线不补，客户端用历史对齐。发送和中止走 HTTP。本轮�
 - **历史**。只在打开该会话时读。单文件读取有上限。上下文体积靠 pi 自带压缩兜住。
 - **事件循环**。请求路径上不同步读大目录或大文件。订阅回调里的异常记到该会话，不让进程退出。中止按 `relax.abortPolicy`，默认先清空排队文本，再传到模型请求。
 - **文件监听**。客户端订一个根目录，服务端递归监听这棵树，防抖后推这棵树上的变化路径，不推整棵目录表。同时存在的根由 `config.json` 的 `fs.watchMax` 限制，默认 16。同一根的多条连接只占 1。服务端不过滤名字。
-- **终端**（做到才启用）。PTY 个数有上限，回放缓冲约 100KB，关闭时必须释放文件描述符。
+- **终端**。`/ws/pty` 在 listen 后挂上。PTY 个数有上限，回放缓冲约 100KB，关闭时必须释放文件描述符。
 - **工具**。已启用八个内置工具（含 `bash`、`powershell`）和 `codemode`，以及 `pi-web-access` 的四个联网工具。`bash` / `powershell` 这一步没有另加超时或路径限制，范围是该会话的 cwd。两者都多了一个必填的 `description` 参数，用来让界面显示「这条命令要干什么」。`powershell` 非 Windows 上由基座在调用时报错。
 - **技能**。已按基座默认目录加载，见「技能」。这一轮没有另加条数或正文大小上限。规则仍未做。
 
@@ -245,7 +245,7 @@ SSE 断线不补，客户端用历史对齐。发送和中止走 HTTP。本轮�
 
 ## 终端
 
-一条 WebSocket `/ws/pty` 就是一台终端。同一目录连两次是两台。实现用 `node-pty`。`cwd` 必填，必须是已存在的绝对目录，放在查询参数里，由 `URLSearchParams` 编码一次；服务端用解码后的字符串，不展开 `~`，也没有默认目录。`cols` / `rows` 可省略，用 `config.json` 的 `pty.cols` / `pty.rows`（80 / 24）。shell 用 `SHELL`，没有则 `/bin/zsh`。
+`listen` 后 `attachPty` 挂上 WebSocket `/ws/pty`；一条连接一台终端，进程按连接创建，没有连接时不占进程。同一目录连两次是两台。实现用 `node-pty`。`cwd` 必填，必须是已存在的绝对目录，放在查询参数里，由 `URLSearchParams` 编码一次；服务端用解码后的字符串，不展开 `~`，也没有默认目录。`cols` / `rows` 可省略，用 `config.json` 的 `pty.cols` / `pty.rows`（80 / 24）。shell 用 `SHELL`，没有则 `/bin/zsh`。
 
 连上后服务端先发文本帧 `{ "type": "ready", "id" }`。`id` 只用于断线重连，由服务端生成。之后双向二进制帧是终端字节。文本帧 `{ "type": "resize", "cols", "rows" }` 改大小。`{ "type": "close" }` 是主动关闭，立刻杀掉进程。`node-pty` 的 `spawn-helper` 若没有执行位，进程会在第一次启动终端前补上。
 
@@ -275,17 +275,20 @@ SSE 断线不补，客户端用历史对齐。发送和中止走 HTTP。本轮�
 
 `/api`、`/ws/fs`、`/ws/pty` 是不同路径，前面加反向代理时可以按前缀分别转发。两条 WebSocket 共用同一次 HTTP upgrade 分发：`ws` 若各自监听，路径不匹配时会回 400，把另一条的握手拆掉。
 
-正在用的会话在内存里对应一份 `AgentSession`。列表来自 `SessionManager` 扫描，加上尚未落盘的热会话（`create` 之后、第一条 user 消息之前）。
+正在用的会话在内存里对应一份 `AgentSession`。列表来自 `sessions` 表（`listSessionRows`），热会话的 `status` 用内存盖上去；尚未落盘的热会话（`create` 之后、第一条 user 消息之前）仍留在内存里。
 
 ## 目录
 
 按职责分目录。入口文件只负责启动，不把路由、会话、文件监听堆在 `src/index.ts`。没做到的能力不建空目录，做到那一块再加对应目录，并在这里补上实际路径。
 
+树为摘要，只列职责关键项；完整文件以 `app/server/src/` 为准。
+
 ```
 app/server/config.json  代码逻辑可调参数，按 home、fs、http、pty 分组
 app/server/src/
-  index.ts              加载 .env（端口 PORT），确保 ~/.relax/agent，监听端口
+  index.ts              加载 .env（端口 PORT），确保 ~/.relax/agent，监听端口；listen 后 attachFs / attachPty
   app.ts                组装应用，测试从这里创建
+  upgrade.ts            HTTP upgrade 分发：/ws/fs 与 /ws/pty 共用同一次握手
   config/server.ts      读 config.json，缺组、缺字段或类型不对用代码默认值
   config/home.ts        home、agentDir、PI_CODING_AGENT_DIR
   config/settings.ts    全局 settings.json：出队模式、中止策略、会话与项目的删除方式
@@ -294,16 +297,19 @@ app/server/src/
   utils/request.ts      请求体 text / cwd
   db/connection.ts      打开 {home}/sqlite/relax.sqlite
   projects/store.ts     项目登记
-  sessions/             列、打开、历史、删、完成标记
+  sessions/             列、打开、历史、删、完成标记；listSessionRows / backfill
   agent/                智能体类、Runtime 工厂、模型白名单
+  tools/                bash / powershell 覆盖版（customTools）
+  extensions/           extensionFactories（providerRequestTrace、codemode）
   routes/health.ts      GET /health
-  routes/models.ts      提供商、可用模型、默认模型、手动刷新、思考档位
+  routes/models.ts      提供商、可用模型、默认模型、手动刷新、思考档位、custom-providers
   routes/settings.ts    GET / PATCH /api/settings
   routes/sessions.ts    会话路由与 SSE
   routes/projects.ts    项目登记、计数、清除
+  routes/workspace.ts   GET /api/workspace
   routes/fs.ts          文件列表、元信息、读写、建目录、删除
   fs/                   路径、读写、按根目录递归监听
-  pty/                  一台 PTY 对应一条连接，宽限重连与滚动缓冲
+  pty/                  attachPty；一台 PTY 对应一条连接，宽限重连与滚动缓冲
 app/server/test/
   health.test.ts
   sessions.test.ts
@@ -335,6 +341,6 @@ app/server/test/
 
 ## 和 Cursor / Codex 的差距
 
-多项目、多会话、不选项目也能聊，这一层对齐。流式正文、思考、中止、历史回放，pi 够用，线上格式跟 pi。工具已按白名单打开。技能按基座默认目录加载，见「技能」。规则的 loader 行为还没核对。模型用白名单里的内置提供商，密钥在 `auth.json`。文件变化按调用方给定的根目录递归监听，`app/web` 还没接。终端走 `/ws/pty`，不经过 pi。
+多项目、多会话、不选项目也能聊，这一层对齐。流式正文、思考、中止、历史回放，pi 够用，线上格式跟 pi。工具已按白名单打开。技能按基座默认目录加载，见「技能」。规则的 loader 行为还没核对。模型用白名单里的内置提供商，密钥在 `auth.json`。文件变化按调用方给定的根目录递归监听，`app/web` 的文件树与终端均已接。终端走 `/ws/pty`，不经过 pi。settings 与 custom-providers 前端尚未接。
 
 往后放的能力：分支和 fork、附件、检查点回滚、命令审批、多根工作区。用户名和头像优先级最低。

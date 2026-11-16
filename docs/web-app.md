@@ -19,7 +19,7 @@ SSE / HTTP  →  按 sessionId 分流
 
 三份状态分开存。目录 store 不放正文，侧栏不订阅当前会话的块。
 
-- **目录**。侧栏一行：`id`、`cwd`、`name`、`created`、`modified`、`status`。`status` 只有 `idle` | `running`，与服务端一致。侧栏 mock 里的 success / failure 不进目录。展示标题用 `name`。
+- **目录**。侧栏一行：`id`、`cwd`、`name`、`created`、`modified`、`status`。`status` 只有 `idle` | `running`，与服务端一致。没看过的成功 / 失败记在 `unseenRuns`，不进目录 `status`。展示标题用 `name`。
 - **当前会话**。现有 `ConversationSnapshot`。同一时刻 React 只挂这一份全文。切走就丢掉块树，再打开用历史重建。
 - **草稿**。还没发送的新对话没有 sessionId，草稿只在内存里，按「当前这次新对话」存。刷新丢失可以接受。不写进会话文件。
 
@@ -36,7 +36,7 @@ SSE / HTTP  →  按 sessionId 分流
 - **内存追加**。每个 delta 到达就拼进该块文本。留在主线程。
 - **通知 React**。下一帧，且一帧最多一次（约 16ms）。`user`、`*_start`、`*_end`、`run_*` 立刻 flush。流式结束的那一帧立刻把最终文本交给 `MarkdownView`，不吃下面的绘制节流，也不再补播淡入。
 - **流式 Markdown**。块的 `contentPhase` 仍是 `open` 时，不把已收到的全文一次交给 `MarkdownView`。默认每 96ms（6 × 16ms）交一截前缀：落后不超过 32 个字时每拍 2 个字素，落后上限每次 ×2、每拍字数每次 ×3。围栏按行。新露出的字一起做 200ms 透明度淡入，见 [web-conversation.md](web-conversation.md) 的「滚动与流式出现」。流式期就挂代码块外壳，Mermaid 等这段结束再挂。结束后立刻用全文，眼前流过的块仍走分块 DOM。只有正在开着的那一块换文本。
-- **结构共享**。接上真实流式时，`emit` 只替换正在写的那一块，不为它复制整份 `order` / `byKey`。现有 runtime 每次 flush 都新建整份 `byKey`，那是 mock 能用的写法，接 SSE 时要改。这比多等一帧更影响主线程。
+- **结构共享**。`emit` 只替换正在写的那一块：`order` 与未脏的块引用保持共享，仅对 dirty 的 key 浅拷贝 `byKey` 并换上新块。这比多等一帧更影响主线程。
 - **高亮**。流式期挂代码外壳（含 Shiki），不算 Mermaid。这段结束后再挂 Mermaid。
 
 上面是正式对话（`/`）和 `/chat` 共用的节奏，数在 `app/web/src/chat/pace.ts` 的 `defaultFeed`。`/chat` 右侧可以改第一档或改成「直接给」（跳过 `shown`，全文一到就进视图），改动只影响试验页。正式页固定用默认档。
@@ -115,9 +115,9 @@ Store 继续按字段切片订阅。做法见 [web.md § 选择器约定](web.md
 
 验收：页面能拉列表、能保持一条 SSE，断线重连后目录状态与一条打开中的会话能靠历史对上。侧栏项目列表来自真实接口。尚无发送。
 
-此块不做：改 runtime、解析 Markdown、删除、改名、新建项目、新对话草稿。对话 mock、文件和终端 mock 仍留着。
+此块不做：改 runtime、解析 Markdown、删除、改名、新建项目、新对话草稿。
 
-当前实现：接口根在 `app/web` 的 `.env.development`、`.env.test`、`.env.production`（都先是 `http://localhost:3001`），只由 `src/config/index.ts` 读出。JSON 走 axios，超时 5 分钟写在 config 里。SSE 用 `@microsoft/fetch-event-source`，不套这个超时。`src/api/sessions`、`src/api/projects`、`src/api/sse` 各自有 `index.ts`（请求）和 `types.ts`（线上形状）。有字段变换时另放 `service.ts`：SSE 信封解析在 `api/sse/service.ts`，列表行收成目录在 `src/session/service.ts`。目录在 `src/store/catalog.ts`，项目和每个目录的会话都按 20 条分页。打开的会话、历史阶段和 `SessionContext` 在 `src/session/connect.ts`，不进目录 store。事件类型用 `import type` 引用 `@earendil-works/pi-coding-agent`。各会话的行首（进行中、没看过的成功或失败）在模块 5。帧合并、Markdown 节流和历史 Worker 留给模块 3、模块 4。
+当前实现：接口根在 `app/web` 的 `.env.development`、`.env.test`、`.env.production`（都先是 `http://localhost:3001`），只由 `src/config/index.ts` 读出。JSON 走 axios，超时 5 分钟写在 config 里。SSE 用 `@microsoft/fetch-event-source`，不套这个超时。`src/api/sessions`、`src/api/projects`、`src/api/sse`、`src/api/fs`、`src/api/models`、`src/api/workspace` 各自有请求层。有字段变换时另放 `service.ts`：SSE 信封解析在 `api/sse/service.ts`，列表行收成目录在 `src/session/service.ts`。目录在 `src/store/catalog.ts`，项目和每个目录的会话都按 20 条分页。打开的会话、历史阶段和 `SessionContext` 在 `src/session/connect.ts`，不进目录 store。事件类型用 `import type` 引用 `@earendil-works/pi-coding-agent`。文件与终端走扩展区契约（`/api/fs`、`/ws/fs`、`/ws/pty`），对话区 mock 已删除（见模块 3）。各会话的行首（进行中、没看过的成功或失败）在模块 5。帧合并、Markdown 节流和历史 Worker 留给模块 3、模块 4。
 
 ### 2. 目录
 

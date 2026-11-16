@@ -53,7 +53,7 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
 }
 
 [data-theme="light"] {
-  /* TODO: light theme values */
+  /* 已有草稿色值；无切换 UI，默认仍是 dark */
 }
 
 @theme inline {
@@ -98,11 +98,11 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
 
 **间距**:不自定义,沿用 Tailwind 默认 4 倍数刻度(4/8/12/16/20/24/32/40/48px 已覆盖 §46 全部规格)。
 
-### 亮色主题预留
+### 亮色主题
 
-`[data-theme="light"]` 块已在 `src/index.css` 中预留,目前填的是占位值。当前没有切换 UI,所以这些值不会被使用。补齐亮色主题时:
+`[data-theme="light"]` 块在 `src/index.css` 里已有一套草稿色值（`--app` / `--sidebar` / `--fg*` / `--accent` 等），不是空占位。当前没有切换 UI，`index.html` 默认仍是 `data-theme="dark"`，这套亮色值平时不会被用到。要启用亮色时:
 
-1. 校对 `src/index.css` 中 `[data-theme="light"]` 块的值,逐项对齐 `docs/design-system.md` 中相应字段。
+1. 校对草稿值,逐项对齐 `docs/design-system.md` 中相应字段。
 2. 如要新增切换按钮,放 `Appearance` / `General` 区域(参考设计文档 §20-21),通过 `document.documentElement.dataset.theme` 写入。需配合 localStorage 与 `prefers-color-scheme` 决定初始值。
 3. 可选:在 `<head>` 内联脚本,在首屏渲染前同步 `data-theme`,避免主题闪烁(FOUC)。
 
@@ -125,18 +125,20 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
 | class | thumb | 适用 |
 |---|---|---|
 | `.scrollbar-deep` | `color-mix(--surface, black 40%)`(更深一档) | 比 `--surface` 更深的背景(留位) |
-| `.scrollbar-shallow` | `color-mix(--surface, white 5%)`(更浅一档) | 比 `--surface` 更浅的背景,例如 Sidebar |
+| `.scrollbar-shallow` | `color-mix(--surface, white 5%)`(更浅一档) | 比 `--surface` 更浅的背景,例如 Sidebar；默认可配 `--hover` |
+| `.scrollbar-shallow--static` | 同 shallow,但常显、不靠 hover | 对话列等需要滚动条常在的区域(`Conversation` / `/chat`)；`overflow-y: auto`,占用 gutter,避免内容增高时 8px 跳动 |
 | `.scrollbar-none` | 完全隐藏(`scrollbar-width: none` + `::-webkit-scrollbar { display: none }`) | 浮层 / 下拉 / 抽屉等自带视觉容器的场景,不要滚动条抢戏 |
 
-**不抖动 + hover 才显形(本文件全部变体的默认行为)**:
+**不抖动 + hover 才显形(`.scrollbar-shallow` 默认行为；`--static` 除外)**:
 
 - `overflow-y: overlay`(Chrome/Safari):滚动条叠加在内容之上,不占布局空间 → 内容宽度不变,无 layout shift。Firefox 不识别 `overlay`,整条声明作废,所以下面紧跟 `overflow-y: auto` 作为 fallback,避免 Firefox 上滚动功能失效。
 - `scrollbar-gutter: stable`:永远预留滚动条槽位宽度,即使 `overlay` 在 Chrome 上生效,gutter 也强制占用 → 内容区宽度始终是 `容器宽 - gutter`,不会因滚动条出现/消失而抖动。
 - thumb 默认 `transparent`,仅当容器带 `--hover` modifier 时显形。`--hover` 由 consumer 通过 `onMouseEnter`/`onMouseLeave` 切换 — 纯 CSS `parent:hover::-webkit-scrollbar-thumb` 不可靠(webkit 伪元素不参与 DOM 事件传播)。
+- `.scrollbar-shallow--static` 关掉 overlay、thumb 常显,仍继承 `scrollbar-gutter: stable`。
 
 参考: [SegmentFault](https://segmentfault.com/a/1190000017044563)、[张鑫旭](https://www.zhangxinxu.com/wordpress/2015/01/css-page-scrollbar-toggle-center-no-jumping/)。
 
-**用法**:consumer 在自己的 `.tsx` 顶部 `import '../styles/scrollbar.css'`,把对应 class 加到滚动容器上,并用 React state 切 `--hover` modifier。例:`Sidebar.tsx` 在 `ProjectSection` 的滚动容器上加 `scrollbar-shallow` + `scrollbar-shallow--hover`(后者由 `useState` 在 `mouseenter`/`mouseleave` 时切换)。
+**用法**:consumer 在自己的 `.tsx` 顶部 `import '../styles/scrollbar.css'`,把对应 class 加到滚动容器上。Sidebar 用 `scrollbar-shallow` + `scrollbar-shallow--hover`(后者由 `useState` 在 `mouseenter`/`mouseleave` 时切换)。对话列用 `scrollbar-shallow scrollbar-shallow--static`。
 
 新增变体直接在 `styles/scrollbar.css` 内追加,不要往 `index.css` 写 — 保持全局样式的纯净。
 
@@ -164,42 +166,21 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
 
 ### 当前组件(指针)
 
+完整「何时用 / API / 视觉」以 [`docs/ui.md`](ui.md) 为准；本节只列与四区 shell / Composer / 对话接入相关的常用项。新增或改 API 时改 `ui.md`，不必在此同步整表。
+
 | 组件 | 一句话 | 详细 |
 |---|---|---|
 | `ResizablePanelGroup` / `ResizablePanel` / `ResizableHandle` | 可拖布局三件套,封装 `react-resizable-panels` | [`ui.md#resizablepanels`](ui.md#resizablepanels) |
 | `PaneHeader` | 子面板顶栏(38px + 底部分割线,左右 slot) | [`ui.md#paneheader`](ui.md#paneheader) |
-| `Button` | 文字按钮:变体、随尺寸变化的圆角、neutral / inverse、整行、前后图标、loading | [`ui.md#button`](ui.md#button) |
-| `IconButton` | 图标按钮,统一变体 / 尺寸 / 禁用态;`title` 走 Tooltip | [`ui.md#iconbutton`](ui.md#iconbutton) |
-| `Segmented` | 分段控件:胶囊滑动指示、三档尺寸、default / inverse 两种样式 | [`ui.md#segmented`](ui.md#segmented) |
-| `Input` | 单行文本框:尺寸、清空、前后缀、框内字数、状态与框下提示 | [`ui.md#input`](ui.md#input) |
-| `Tooltip` | 短 hover 提示,包在 Popover 上 | [`ui.md#tooltip`](ui.md#tooltip) |
-| `Popover` | 浮层 / 菜单,封装 `@floating-ui/react` | [`ui.md#popover`](ui.md#popover) |
-| `Dropdown` | 带子菜单的菜单,行尾当前值,子面板可搜索 | [`ui.md#dropdown`](ui.md#dropdown) |
-| `ContextMenu` | 右键菜单,从点击点向右下展开,靠边翻转;面板与 Dropdown 相同 | [`ui.md#contextmenu`](ui.md#contextmenu) |
-| `Modal` | 遮罩对话框壳,居中或距顶;内容自定义 | [`ui.md#modal`](ui.md#modal) |
-| `Dialog` | 标题、正文和右下角按钮;异步回调结束才关 | [`ui.md#dialog`](ui.md#dialog) |
-| `Spinner` | 圆锥渐变转圈,大小和颜色可改 | [`ui.md#spinner`](ui.md#spinner) |
-| `Message` | 顶部居中短消息:彩色图标块 + 单行文字,默认 2 秒自动消失 | [`ui.md#message`](ui.md#message) |
-| `SwipeToast` | 可下滑关闭的浮层提示:倒计时引信、甩动关闭、可撤销 | [`ui.md#swipetoast`](ui.md#swipetoast) |
-| `Editor` | ProseMirror 智能输入框 | [`ui.md#editor`](ui.md#editor) |
-| `MonacoEditor` | Monaco 代码/文本编辑器,主题走 CSS token | [`ui.md#monacoeditor`](ui.md#monacoeditor) |
-| `DiffView` | diff / 两个版本 / 单份代码,封装 `@pierre/diffs` | [`ui.md#diffview`](ui.md#diffview) |
+| `Button` / `IconButton` | 文字按钮 / 图标按钮 | [`ui.md#button`](ui.md#button) · [`iconbutton`](ui.md#iconbutton) |
+| `Editor` | ProseMirror 智能输入框；对话外壳是 `Composer` | [`ui.md#editor`](ui.md#editor) |
 | `MarkdownView` | `streamdown` Markdown 渲染(static / streaming) | [`ui.md#markdownview`](ui.md#markdownview) |
-| `Heading` | 标题:级别即字号、token 色、行高、整行或省略、溢出 Tooltip | [`ui.md#heading`](ui.md#heading) |
-| `Paragraph` | 正文:三种字号、token 色、行高、换行或省略、溢出 Tooltip | [`ui.md#paragraph`](ui.md#paragraph) |
-| `Hint` | 辅助说明:12px、默认三级文字色,其余同 Paragraph | [`ui.md#hint`](ui.md#hint) |
-| `EmptyState` | 空区域占位:可选图标,居中或贴顶 | [`ui.md#emptystate`](ui.md#emptystate) |
-| `TypewriterText` | rAF grapheme 逐字打字机 | [`ui.md#typewritertext`](ui.md#typewritertext) |
-| `ShinyText` | `motion/react` 渐变扫光文字 | [`ui.md#shinytext`](ui.md#shinytext) |
-| `DisclosureRow` | 标题 + chevron + 展开收起;标题可扫光 | [`ui.md#disclosurerow`](ui.md#disclosurerow) |
-| `TitleRow` | 一行标题 + 说明;可点、可扫光、说明省略 | [`ui.md#titlerow`](ui.md#titlerow) |
-| `Expandable` | 高度过渡的展开/收起容器(纯展示,无 header) | [`ui.md#expandable`](ui.md#expandable) |
-| `MessageSurface` | 轻量卡片外壳,无角色语义 | [`ui.md#messagesurface`](ui.md#messagesurface) |
-| `DotMatrix` | 点阵 loading(9/16 点,乱中有序 / 顺时针两种节奏) | [`ui.md#dotmatrix`](ui.md#dotmatrix) |
-| `StatusDot` | 6px 单点状态指示(success / failure / normal) | [`ui.md#statusdot`](ui.md#statusdot) |
-| `SiteMark` | 圆标:加载图片，失败用首字；大小、颜色、点击可改 | [`ui.md#sitemark`](ui.md#sitemark) |
-| `ProgressBar` | 水平拖拽滑块 + 数值槽位(thumb / track / 键盘 / pointer capture) | [`ui.md#progressbar`](ui.md#progressbar) |
-| `GlassIcons` | 液态玻璃图标组:WebGL 折射 + 视差 + 悬停动作,无 WebGL 自动降级 | [`ui.md#glassicons`](ui.md#glassicons) |
+| `MonacoEditor` / `DiffView` | 代码编辑与 diff | [`ui.md#monacoeditor`](ui.md#monacoeditor) · [`diffview`](ui.md#diffview) |
+| `Popover` / `Dropdown` / `ContextMenu` / `Tooltip` | 浮层族 | [`ui.md#popover`](ui.md#popover) |
+| `Modal` / `Dialog` | 遮罩对话框 | [`ui.md#modal`](ui.md#modal) · [`dialog`](ui.md#dialog) |
+| `EmptyState` / `Spinner` / `Message` / `SwipeToast` | 空态与反馈 | [`ui.md#emptystate`](ui.md#emptystate) |
+| `DisclosureRow` / `TitleRow` / `Expandable` / `MessageSurface` | 对话行与折叠外壳 | [`ui.md#disclosurerow`](ui.md#disclosurerow) |
+| `TypewriterText` / `ShinyText` / `DotMatrix` / `StatusDot` | 流式与状态指示 | [`ui.md#typewritertext`](ui.md#typewritertext) |
 
 > 用谁 / 别造轮子 → [`docs/ui.md` 决策表](ui.md#决策表该用哪个) + [反例表](ui.md#反例这些事不要做)。
 
@@ -209,7 +190,7 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
 2. 在 `ui/` 下新建文件,导出 `{Name}` 与 `{Name}Props`。
 3. 若包装第三方库,类型从该库导出;不要二次发明同名 prop。
 4. 在使用方引入并实测一个具体场景(至少 typecheck + 浏览器手测)。
-5. 同步更新 [`docs/ui.md`](ui.md) 的组件小节 + 本节指针表;不要留单边。
+5. 同步更新 [`docs/ui.md`](ui.md) 的组件小节；本节指针表只在涉及 shell 常用项时顺带改。
 
 ### Editor / Composer / Popover
 
@@ -218,13 +199,20 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
 - **`Editor`**:见 [`ui.md#editor`](ui.md#editor)。对话输入的外壳 `Composer` 见下文。
 - **`Composer`**:领域组件 [`src/components/Composer.tsx`](../app/web/src/components/Composer.tsx),包装 `Editor` + 右下发送。不含消息列表 / agent 逻辑。
 
-  **API**:
+  **当前 API**（完整 props 以 [`Composer.tsx`](../app/web/src/components/Composer.tsx) 的 `ComposerProps` 为准）:
 
   ```tsx
   <Composer
     placeholder="发送消息…"
     disabled={false}
+    generating={false}                 // 生成中；输入为空时发送钮变停止
+    pending={[]}                       // 前端排队消息；有项时显示「消息队列」
+    notice={null}                      // 输入框下方短提示（发送失败等）
     onSubmit={(text) => { /* trim 后非空;内部会 clear + focus */ }}
+    onAbort={() => { /* 停止当前生成 */ }}
+    onSendNow={(id) => { /* 队列里立刻发送 */ }}
+    onRemove={(id) => { /* 从队列去掉 */ }}
+    accessory={<ModelPicker />}        // 底栏右侧、发送钮左边的附加区
   />
   ```
 
@@ -234,10 +222,10 @@ document.documentElement.dataset.theme = 'light' // | 'dark'
   |---|---|
   | 外壳 | `color-mix(--app 45%, --surface)`(暗色约 `#212121`,比 `--surface` 深) + `rounded-pill` + `border-border-hover` |
   | 聚焦边框 | `color-mix(--border-hover, --fg 12%)`,只比默认亮一档 |
-  | 发送 | 右下 28px 圆钮;可发送 `bg-fg text-app`,空内容 `bg-surface-active text-fg-disabled`。生成中且输入为空时换成同尺寸方块,点击停止 |
+  | 发送 | 右下 28px 圆钮;可发送 `bg-fg text-app`,空内容 `bg-surface-active text-fg-disabled`。生成中且输入为空时换成同尺寸方块,点击 `onAbort` |
   | 图标 | 复用 `SendIcon`(与侧栏「新对话」同一 glyph),视觉居中用 `-translate-x-[0.5px]` |
 
-  Enter 与点发送走同一 `onSubmit`。底栏右侧、发送钮左边是模型和思考强度,见 [web-app.md](web-app.md) 模块 6。附件本轮未做。
+  Enter 与点发送走同一 `onSubmit`。`accessory` 通常挂模型和思考强度,见 [web-app.md](web-app.md) 模块 6。附件本轮未做。
 
 - **`Popover`**:见 [`ui.md#popover`](ui.md#popover)。
 
@@ -255,12 +243,12 @@ streamdown 与插件的 Tailwind 类扫描写在 [`ui/MarkdownView/index.css`](.
 
 `app/web/src/icons/` 存放项目自绘的 SVG 图标组件,统一以 `*Icon` 命名导出。默认颜色走 `currentColor`,适配外层 `text-*` 工具类。
 
-目前两种风格:
+目前两种风格。完整清单以源码与开发展台为准，不在此手抄：
 
-| 风格 | 根属性 | 适用 | 现有图标 |
+| 风格 | 根属性 | 适用 | 查阅 |
 |---|---|---|---|
-| 实心单色 | `width=14 height=14 viewBox="<shape-bbox>" fill="currentColor"` | 来源是第三方/参考 SVG 的填充字形 | `PanelLeftIcon` / `PanelRightIcon` / `SendIcon` / `SearchIcon` / `BlocksIcon` / `SettingsIcon` / `ChevronRightIcon` / `FolderClosedIcon` / `FolderOpenIcon` / `FolderIcon` / `AddFolderIcon` / `FilterIcon` / `PlusIcon` / `FileIcon` / `TerminalIcon` / `CloseIcon` / `MinusIcon` / `TrashIcon` / `RenameIcon` / `RemoveProjectIcon` / `ListIcon` / `GlobeIcon` |
-| 彩色文件类型 | `width=14 height=14`,path 写死 `fill` hex | 扩展名图标,多色不能吃 `currentColor` | [`fileTypes.tsx`](../app/web/src/icons/fileTypes.tsx): `FileMarkdownIcon` / `FileReadmeIcon` / `FileChangelogIcon` / `FileLicenseIcon` / `FileAgentsIcon` / `FileTxtIcon` / `FileJsIcon` / `FileJsTestIcon` / `FileTsIcon` / `FileTsTestIcon` / `FileTsxIcon` / `FileTsxTestIcon` / `FileViteIcon` / `FileCssIcon` / `FileScssIcon` / `FileLessIcon` / `FileHtmlIcon` / `FileXmlIcon` / `FileVueIcon` / `FileSvelteIcon` / `FileJsonIcon` / `FilePackageJsonIcon` / `FileLockIcon` / `FileYamlIcon` / `FileTomlIcon` / `FileSvgIcon` / `FileImageIcon` / `FileShellIcon` / `FilePythonIcon` / `FileGoIcon` / `FileRustIcon` / `FilePhpIcon` / `FileJavaIcon` / `FileHIcon` / `FileCIcon` / `FileCppIcon` / `FileRubyIcon` / `FileSqlIcon` / `FileGraphqlIcon` / `FilePrismaIcon` / `FileWasmIcon` / `FilePdfIcon` / `FileZipIcon` / `FileFontIcon` / `FileVideoIcon` / `FileAudioIcon` / `FileGitIcon` / `FileEnvIcon` / `FileTsconfigIcon` / `FileEslintIcon` / `FileDockerIcon` / `FileUnknownIcon` |
+| 实心单色 | `width=14 height=14 viewBox="<shape-bbox>" fill="currentColor"` | 来源是第三方/参考 SVG 的填充字形 | [`icons/index.tsx`](../app/web/src/icons/index.tsx)；DEV 展台 `/icons` → `color` |
+| 彩色文件类型 | `width=14 height=14`,path 写死 `fill` hex | 扩展名图标,多色不能吃 `currentColor` | [`icons/fileTypes.tsx`](../app/web/src/icons/fileTypes.tsx)；DEV 展台 `/icons` → `files` |
 
 实心单色图标的关键:**`viewBox` 设成 path 实际可见形状的 bounding box**(不是固定的 `0 0 1024 1024`)。原因:不同来源 SVG 的 path 占据的 bbox 大小差异很大(如一个纸飞机可能只占 viewBox 的 70%,一个 Blocks 网格占 85%),直接用源 viewBox 会导致渲染出来大小不一致。按 bbox 裁切后每个图标都充满 14×14 渲染区,视觉大小一致。bbox 之外留约 3% 内边距(在 viewBox 内侧加 padding),避免图形贴边。
 
@@ -279,10 +267,12 @@ streamdown 与插件的 Tailwind 类扫描写在 [`ui/MarkdownView/index.css`](.
 | `/` | `pages/Workspace` | 现有四区壳。`startSessionTransport()` 在这里启动 |
 | `/ui` | — | 只在 `import.meta.env.DEV` 注册。index 重定向到第一组 `/ui/actions`。`vite build` 不含 `/ui` 及其子路由 |
 | `/ui/:groupId` | `pages/Ui` | 只在 DEV 注册。`groupId` 为 `actions` / `overlays` / `feedback` / `layout` / `text`（对应操作 / 浮层 / 反馈 / 布局 / 文本）。左侧目录宽固定 220px，宽度过渡收起（约 280ms，右边框随宽度收起），默认展开，不拖拽、不写入本地存储；主列顶栏按钮再展开。组标题 `text-lg`，组间距 `mt-2.5`；切组时子项用 `Expandable` 高度过渡。组标题链到 `/ui/:groupId`，仅当前组展开组件锚点；主区只挂载该组演示。当前节底色只包住文字；同一节有多项时只高亮离标题最近的一项。滚动条隐藏。右侧内容居中，每个组件一块圆角描边预览，组件之间一条与内容同宽的分隔线。内容区整列 `max-w-3xl`。点目录平滑滚到对应节（hash）。说明和演示在 `src/uidoc/`（`catalog` 按组 `id` + `sections`；新增组件进已有组或新开一组）。未知 `groupId` 回第一组。`vite build` 不包含 |
+| `/icons` | — | 只在 DEV 注册。index 重定向到 `/icons/color`。`vite build` 不含 |
+| `/icons/:groupId` | `pages/Icons` | 只在 DEV 注册。`groupId` 为 `color` / `files`。展台从 `icons/` 与 `fileTypes` 收集 `*Icon` 导出；说明在 `src/iconsdoc/`。未知 `groupId` 回 `color` |
 | `/chat` | `pages/Chat` | 只在 `import.meta.env.DEV` 注册。流式渲染试验页。左侧会话栏固定 220px，可收起，默认展开；右侧节奏栏固定 240px，可收起，默认收起。两颗按钮都留在主区顶栏，不拖拽、不写入本地存储。侧栏只列默认工作区的会话；导入的模拟留在侧栏顶部，页面不刷新就能再点开重放。新建、录制、导出、模拟在主区顶栏左侧。对话视图在 `src/chat/`。露出节奏和正式对话共用 `defaultFeed`，右侧改动只影响这一页。可录制一轮原始 SSE、导出 JSON，再按到达间隔回放。`vite build`（含 `--mode test`）不包含这条路由 |
 | 其他 | — | `<Navigate to="/" replace />` |
 
-`Workspace` 用 `React.lazy` 动态 `import`，Vite 拆 chunk。`/ui`（含 `:groupId` 子路由）和 `/chat` 的 `lazy` 都写在 `if (import.meta.env.DEV)` 里，生产构建和 `vite build --mode test` 把这些分支裁掉。路由级组件放 `src/pages/`，不要放进 `src/ui/`（那是组件库）。陈列页的文案和多种形态放 `src/uidoc/`，不要堆进 `pages/Ui.tsx`。`/chat` 的试验渲染放 `src/chat/`，确认观感后再迁回 `components/conversation/`。
+`Workspace` 用 `React.lazy` 动态 `import`，Vite 拆 chunk。`/ui`（含 `:groupId`）、`/icons`（含 `:groupId`）和 `/chat` 的 `lazy` 都写在 `if (import.meta.env.DEV)` 里，生产构建和 `vite build --mode test` 把这些分支裁掉。路由级组件放 `src/pages/`，不要放进 `src/ui/`（那是组件库）。陈列页的文案和多种形态放 `src/uidoc/`，不要堆进 `pages/Ui.tsx`。图标展台说明放 `src/iconsdoc/`。`/chat` 的试验渲染放 `src/chat/`，确认观感后再迁回 `components/conversation/`。
 
 `mainView`（对话 / 自定义）仍是壳内状态，不进 URL。
 
@@ -310,77 +300,50 @@ streamdown 与插件的 Tailwind 类扫描写在 [`ui/MarkdownView/index.css`](.
 
 ### 目录
 
+树为摘要；完整文件以 `app/web/src/` 为准。
+
 ```
 src/
 ├── main.tsx                      # BrowserRouter，里面渲染 App
 ├── App.tsx                       # useRoutes(routes)；Suspense fallback 为空
-├── router/index.tsx              # 路由表：/ ；开发环境另有 /ui/:groupId 与 /chat ，其余重定向到 /
+├── router/index.tsx              # 路由表：/ ；DEV 另有 /ui/:groupId、/icons/:groupId、/chat
 ├── pages/
 │   ├── Workspace.tsx             # 四区壳；shell 状态从 common store 切片读取
-│   └── Ui.tsx                    # 开发环境陈列页壳：按组路由 + 左侧目录 + 右侧分节
-├── uidoc/                        # /ui 的说明和演示，仅开发构建引用；catalog 按组 id 聚合
+│   ├── Ui.tsx                    # DEV：组件陈列页
+│   ├── Icons.tsx                 # DEV：图标展台
+│   └── Chat.tsx                  # DEV：流式试验页
+├── uidoc/                        # /ui 的说明和演示，仅开发构建引用
+├── iconsdoc/                     # /icons 展台 catalog + IconGrid
 ├── conversation/                 # 会话数据层:类型 + createBlockRuntime(详见 docs/web-conversation.md)
+├── chat/                         # /chat 试验渲染（与正式对话共用 defaultFeed）
+├── api/                          # HTTP / SSE 客户端：sessions、projects、sse、fs、models、workspace
+├── session/                      # 打开会话、传输、目录事件、pending 队列、模型选择
 ├── hooks/
-│   ├── usePersistedPanelLayout.ts # 面板宽度读写 store/local.ts，不直接碰 localStorage
-│   ├── useModal.tsx             # 打开 Dialog。confirm 传 onOk / onCancel
-│   └── useToast.tsx             # 打开 SwipeToast。show 弹一条，可叠多条；holder 挂一次
+│   ├── usePersistedPanelLayout.ts # 面板宽度读写 store/local.ts
+│   ├── useModal.tsx             # 打开 Dialog
+│   ├── useToast.tsx             # 打开 SwipeToast
+│   └── useMessage.tsx           # 打开顶部 Message
 ├── store/                        # 全局状态(详见下文 "状态管理 (store/)" 小节)
 │   ├── index.ts                 #   统一 re-export
-│   ├── common.ts                #   common store:shell 状态(toggles + mainView)
-│   └── local.ts                 #   local store:面板宽度、项目收起;key `relax`
-├── ui/                           # 业务无关的可复用 UI 组件(详见上文 "UI 组件库" 小节)
-│   ├── ResizablePanelGroup.tsx
-│   ├── ResizablePanel.tsx
-│   ├── ResizableHandle.tsx
-│   ├── IconButton.tsx
-│   ├── PaneHeader.tsx            # 子面板顶栏(38px + 底部分割线)
-│   ├── EmptyState.tsx            # 空区域占位(可选图标,居中或贴顶)
-│   ├── Popover.tsx
-│   ├── Modal.tsx                 # 遮罩对话框壳,与 Popover 并列
-│   ├── Dialog.tsx                # 标题、正文和确认按钮,包在 Modal 上
-│   ├── Spinner/                  # 圆锥渐变转圈;index.tsx + index.css
-│   ├── Tooltip.tsx               # 短 hover 提示,包在 Popover 上
-│   ├── MarkdownView/             # streamdown 封装(static / streaming);index.tsx + index.css；plugins/ 放行内扩展
-│   ├── TypewriterText.tsx        # grapheme 增量打字机
-│   ├── DisclosureRow.tsx         # 折叠行 + 标题 blink
-│   ├── TitleRow.tsx              # 一行标题 + 说明（可点 / 扫光 / 省略）
-│   ├── MessageSurface/           # 轻量 Surface 卡片外壳(无角色语义);index.tsx + index.css
-│   ├── Editor/                   # ProseMirror 智能输入框(paragraph + text)
-│   ├── MonacoEditor/             # monaco-editor 封装(worker + Shiki aurora-x)
-│   └── DiffView/                 # @pierre/diffs 封装(patch / 两个版本 / 单份文件)
-├── extensions/                   # 右侧扩展区：插件注册、壳层 tab、Fs/Pty 契约（详见 docs/web-extension.md）
-│   ├── types.ts
-│   ├── store.ts                  #   壳层 tabs；终端快照按对话写入 local store
-│   ├── registry.ts               #   编译期插件表
+│   ├── common.ts                #   shell 状态(toggles + mainView)
+│   ├── catalog.ts               #   项目 / 会话目录、草稿
+│   └── local.ts                 #   面板宽度、项目收起、扩展快照;key `relax`
+├── ui/                           # 业务无关的可复用 UI 组件(详见 docs/ui.md)
+├── extensions/                   # 右侧扩展区（详见 docs/web-extension.md）
+│   ├── types.ts / store.ts / registry.ts / commands.ts
 │   ├── shell/                    #   欢迎页 + 唯一 tab 条 + 添加菜单
 │   ├── contracts/                #   FsApi / PtyApi；文件 HTTP + /ws/fs，终端 /ws/pty
 │   └── plugins/                  #   files / terminal
-├── icons/                       # 自绘 SVG 图标(详见上文 "图标 (icons/)" 小节)
-│   └── index.tsx
-├── components/
-    ├── Sidebar.tsx               # 左,可被外层 Group 收起(整 Panel 移除);从 store 读 mainView
-    ├── SidebarActions.tsx        # Sidebar 顶部三个 action 按钮(新对话/搜索/自定义)
-    ├── ProjectSection.tsx        # Sidebar 中部"项目"区块(标题行 + 项目列表)
-    ├── ProjectSectionHeader.tsx  # "项目"区块标题行:标题 + hover-only chevron + 过滤 + 添加项目
-    ├── ProjectItem.tsx           # 单个项目行:folder/chevron icon + 名称 + hover-only +;展开后渲染 SessionItem 列表
-    ├── SessionItem.tsx           # 单个会话行:标题 + 相对时间
-    ├── MainContainer.tsx         # 中,内层 content Panel 容器;顶部挂 MainHeader + 按 mainView 渲染 view
-    ├── MainHeader.tsx            # MainContainer 顶部统一 header(高 36px,无 border/bg;对话视图左侧为选中会话标题,右侧并排放 sidebar / extension toggle)
-    ├── Composer.tsx              # 对话输入外壳(Editor + 右下发送)
-    ├── conversation/             # 对话 UI: Conversation 组装 + ConversationView + kind 渲染器 + tools/(按工具名的专属渲染)
-    ├── CustomizeView.tsx         # view: 自定义内容(占位)
-    ├── Extension.tsx             # re-export extensions/shell/Extension；右栏可被内层 Group 收起
-    ├── Setting.tsx               # 全屏 fixed inset-0 z-50 覆盖层
-    └── UserBar.tsx               # 用户信息条(头像 + 用户名 + 设置入口),固定高 48px,可在 Sidebar / Setting 左下复用
-└── utils/
-    └── relativeTime.ts           # formatRelativeTime(ms) — "Nm" / "Nh" / "Nd" / "Nw" / "Ny"
+├── icons/                       # 自绘 SVG；fileTypes.tsx / matchFileIcon.ts
+├── components/                   # Sidebar / Conversation / Composer / Setting …
+└── styles/scrollbar.css          # 非全局滚动条变体
 ```
 
 ### 区段尺寸
 
 | 区 | `defaultSize` | `minSize` | `maxSize` | `groupResizeBehavior` | 所在 Group |
 |---|---|---|---|---|---|
-| Sidebar | `260`px | 200px | 400px | `preserve-pixel-size` | 外层 |
+| Sidebar | `250`px | 200px | 400px | `preserve-pixel-size` | 外层 |
 | main | 剩余空间 | 630px(= 320 + 300 + 分隔条) | — | (默认) | 外层 |
 | content(MainContainer) | 剩余空间(无 `defaultSize`) | 320px | — | (默认) | 内层 |
 | Extension | `540`px | 300px | — | `preserve-pixel-size` | 内层 |
@@ -570,7 +533,9 @@ className={classNames(
 ```
 src/store/
 ├── index.ts          # 统一 re-export,对外只暴露这一个入口
-└── common.ts         # common store(shell 状态)
+├── common.ts         # shell 状态(toggles + mainView)
+├── catalog.ts        # 项目 / 会话目录、草稿
+└── local.ts          # 面板宽度、项目收起、扩展快照；key `relax`
 ```
 
 每个 store 一个文件,等文件膨胀再考虑子目录拆分。
