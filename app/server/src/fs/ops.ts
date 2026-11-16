@@ -346,3 +346,13 @@ export async function removeDir(path: string, recursive: boolean): Promise<void>
 		throw mapFsError(err, path)
 	}
 }
+
+export async function renamePath(from: string, to: string): Promise<void> {
+	await statOrThrow(from)
+	if (await existingFile(to)) throw new HttpError(400, 'BAD_REQUEST', `路径已存在：${to}`)
+	try {
+		await rename(from, to)
+	} catch (err) {
+		throw mapFsError(err, from)
+	}
+}

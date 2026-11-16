@@ -237,7 +237,7 @@ SSE 断线不补，客户端用历史对齐。发送和中止走 HTTP。`app/web
 - `stat` 查单个路径的类型、大小和修改时间。
 - `read` 的正文是原文，响应头 `X-Relax-Transfer` 为 `text` 或 `binary`。不带分段时，文件大于 `fs.maxBytes` 先 413，否则流式吐出整个文件。不传传输头时用开头 8 KiB 标类型；窗口末尾切在多字节字符中间时，这段残缺不算非法 UTF-8。请求头可以声明 `text`（整段必须是合法 UTF-8）或 `binary`（不探测）。`offset`+`length` 与请求头 `Range` 二选一，读一段并返回 206，这段的响应头固定是 `binary`。
 - `PUT /api/fs/file` 的正文也是原文，请求头标明 `text` 或 `binary`。不带 `offset` 时先写临时文件，成功后再替换，失败留下原文件。`text` 要整段都是合法 UTF-8。带 `offset` 只接受 `binary`：小于当前长度则覆盖该段，等于则追加，大于则拒绝。
-- `POST /api/fs/dir` 建目录。`DELETE /api/fs/file` 只删文件，`DELETE /api/fs/dir` 只删目录。目录默认必须为空，`recursive=true` 才连内容一起删。创建时 `recursive=true` 会把缺失的父目录一并建出。
+- `POST /api/fs/dir` 建目录。`POST /api/fs/rename` 用 `{ from, to }` 重命名，目标已存在则拒绝。`DELETE /api/fs/file` 只删文件，`DELETE /api/fs/dir` 只删目录。目录默认必须为空，`recursive=true` 才连内容一起删。创建时 `recursive=true` 会把缺失的父目录一并建出。
 
 `config.json` 的 `fs.maxBytes` 默认 16777216（16 MiB）。整文件、一次分段、一次写入都看这个上限。大于上限时 413，`code` 为 `PAYLOAD_TOO_LARGE`，`message` 写明当前字节数和上限，正文不会返回。等于上限仍可读、可写。偏移落在文件末尾之后为 416，`code` 为 `RANGE_NOT_SATISFIABLE`。其它失败的 `message` 也要写出具体原因。
 
@@ -307,7 +307,7 @@ app/server/src/
   routes/sessions.ts    会话路由与 SSE
   routes/projects.ts    项目登记、计数、清除
   routes/workspace.ts   GET /api/workspace
-  routes/fs.ts          文件列表、元信息、读写、建目录、删除
+  routes/fs.ts          文件列表、元信息、读写、建目录、重命名、删除
   fs/                   路径、读写、按根目录递归监听
   pty/                  attachPty；一台 PTY 对应一条连接，宽限重连与滚动缓冲
 app/server/test/

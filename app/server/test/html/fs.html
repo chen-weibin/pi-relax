@@ -39,6 +39,7 @@
 				<button id="new-file" class="rounded-md border border-zinc-200 px-2 py-1" type="button">新建文件</button>
 				<button id="new-dir" class="rounded-md border border-zinc-200 px-2 py-1" type="button">新建目录</button>
 				<label class="flex items-center gap-1 text-zinc-500"><input id="create-recursive" type="checkbox" /> 连带父目录</label>
+				<button id="rename" class="rounded-md border border-zinc-200 px-2 py-1" type="button">重命名</button>
 				<button id="remove" class="rounded-md border border-zinc-200 px-2 py-1 text-red-600" type="button">删除</button>
 				<label class="flex items-center gap-1 text-zinc-500"><input id="delete-recursive" type="checkbox" /> 递归删除目录</label>
 				<span id="hint" class="min-w-0 flex-1 truncate text-zinc-400"></span>
@@ -273,6 +274,32 @@
 				if (!response.ok) hint(await readError(response));
 			}
 
+			async function renameSelected() {
+				if (!selected || selected.path === rootPath) return;
+				const name = window.prompt("新名称", selected.name);
+				if (!name || name === selected.name) return;
+				const parent = parentOf(selected.path);
+				const to = `${parent === "/" ? "" : parent}/${name}`;
+				const from = selected.path;
+				const response = await fetch(apiUrl("/api/fs/rename", {}), {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ from, to }),
+				});
+				if (!response.ok) {
+					hint(await readError(response));
+					return;
+				}
+				selected = { ...selected, path: to, name };
+				if (selected.kind === "file") $("transfer").textContent = to;
+				else {
+					$("editor").value = "";
+					$("transfer").textContent = "未选择文件";
+					$("save").disabled = true;
+				}
+				hint("已重命名");
+			}
+
 			async function removeSelected() {
 				if (!selected) return;
 				const path = selected.path;
@@ -311,6 +338,7 @@
 			});
 			$("new-file").addEventListener("click", () => void createFile());
 			$("new-dir").addEventListener("click", () => void createDir());
+			$("rename").addEventListener("click", () => void renameSelected());
 			$("remove").addEventListener("click", () => void removeSelected());
 			$("save").addEventListener("click", () => void save());
 			$("editor").addEventListener("input", () => {

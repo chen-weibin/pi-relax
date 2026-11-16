@@ -100,7 +100,10 @@ export function DropdownList({ panel }: { panel: DropdownPanel }) {
 					<div className="px-2.5 py-2 text-center text-xs text-fg-3">没有匹配</div>
 				) : (
 					groups.map((group, index) => (
-						<div key={group.label ?? `group-${index}`} className={classNames(index > 0 && 'mt-1 border-t border-border pt-1')}>
+						<div key={group.label ?? `group-${index}`}>
+							{index > 0 ? (
+								<div role="separator" className="mx-1 my-1 h-px bg-border-hover" />
+							) : null}
 							{group.label ? <div className="px-2.5 py-1 text-xs text-fg-3">{group.label}</div> : null}
 							{group.rows.map((row) => (
 								<DropdownEntry key={row.id} row={row} />

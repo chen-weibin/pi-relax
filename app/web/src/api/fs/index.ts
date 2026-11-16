@@ -44,3 +44,17 @@ export async function writePath(path: string, text: string): Promise<void> {
 export async function mkdirPath(path: string): Promise<void> {
 	await http.post('/api/fs/dir', { path })
 }
+
+export async function deleteFile(path: string): Promise<void> {
+	await http.delete('/api/fs/file', { params: { path } })
+}
+
+export async function deleteDir(path: string, recursive = false): Promise<void> {
+	await http.delete('/api/fs/dir', {
+		params: recursive ? { path, recursive: 'true' } : { path },
+	})
+}
+
+export async function renamePath(from: string, to: string): Promise<void> {
+	await http.post('/api/fs/rename', { from, to })
+}

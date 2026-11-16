@@ -70,3 +70,41 @@ export function selectFile(path: string) {
 		payload,
 	})
 }
+
+function fileTabPath(tab: { pluginId: string; payload?: unknown }): string | null {
+	if (tab.pluginId !== 'files' || !isFilesPayload(tab.payload) || tab.payload.kind !== 'file') return null
+	return tab.payload.path
+}
+
+function remapFilePath(path: string, from: string, to: string): string | null {
+	if (path === from) return to
+	if (path.startsWith(`${from}/`)) return to + path.slice(from.length)
+	return null
+}
+
+export function remapOpenFiles(from: string, to: string) {
+	const store = useExtensionStore.getState()
+	for (const tab of store.tabs) {
+		const path = fileTabPath(tab)
+		if (!path) continue
+		const next = remapFilePath(path, from, to)
+		if (!next) continue
+		const kind = resolveFileKind(next)
+		store.updateTab(tab.id, {
+			title: fileNameFromPath(next),
+			icon: kind.icon,
+			reuseKey: fileReuseKey(next),
+			payload: { kind: 'file', path: next } satisfies FilesFilePayload,
+		})
+	}
+}
+
+export function closeOpenFilesUnder(root: string) {
+	const store = useExtensionStore.getState()
+	for (const tab of [...store.tabs]) {
+		const path = fileTabPath(tab)
+		if (!path) continue
+		if (path !== root && !path.startsWith(`${root}/`)) continue
+		store.closeTab(tab.id)
+	}
+}

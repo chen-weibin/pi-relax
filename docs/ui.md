@@ -1914,7 +1914,7 @@ const loadOptions = async ({ query, offset, limit }: Params): Promise<Result<V>>
 
 触发器由调用方传入,必须是单个元素(和 Popover 一样)。选中叶子行会关掉从这一层到根的菜单。Esc 和点外面由 Popover 处理。
 
-**视觉**:面板沿用 Popover(`rounded-lg`、`border-border-hover`、`bg-sidebar`),内边距 `p-1`。行高 30、`rounded-sm`,悬停 `bg-surface-hover`。行首图标槽 14px、`text-fg-3`,图标由调用方传入。勾用 `CheckIcon`,子菜单箭头用 `ChevronRightIcon`。分组名是 `text-xs text-fg-3`,组与组之间一条 `border-border`。`disabled` 整行 `opacity-50`,悬停不变色。
+**视觉**:面板沿用 Popover(`rounded-lg`、`border-border-hover`、`bg-sidebar`),内边距 `p-1`。行高 30、`rounded-sm`,悬停 `bg-surface-hover`。行首图标槽 14px、`text-fg-3`,图标由调用方传入。勾用 `CheckIcon`,子菜单箭头用 `ChevronRightIcon`。分组名是 `text-xs text-fg-3`,组与组之间一条与边框同色的分割线(`h-px bg-border-hover`),左右各缩 `mx-1`,不贴到菜单左右边。`disabled` 整行 `opacity-50`,悬停不变色。
 
 **踩坑备忘**:
 

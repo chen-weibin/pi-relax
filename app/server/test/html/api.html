@@ -1390,6 +1390,29 @@ ${ERROR_BODY}`,
 					},
 					{
 						group: "文件",
+						name: "重命名",
+						method: "POST",
+						path: "/api/fs/rename",
+						summary: "把 from 改到 to。文件和目录都可以。to 已存在则 400，不覆盖。",
+						queryParams: [],
+						bodyParams: [
+							{ name: "from", type: "string", required: true, description: "现有绝对路径", example: "" },
+							{ name: "to", type: "string", required: true, description: "新绝对路径，必须还不存在", example: "" },
+						],
+						body: "{\n  \"from\": \"\",\n  \"to\": \"\"\n}",
+						requestType: `/** JSON body。 */
+type RenameRequest = {
+	/** 已存在的绝对路径 */
+	from: string
+	/** 还不存在的绝对路径 */
+	to: string
+}`,
+						responseType: `/** HTTP 204，响应体为空。to 已存在为 400；from 不存在为 404。 */
+
+${ERROR_BODY}`,
+					},
+					{
+						group: "文件",
 						name: "删文件",
 						method: "DELETE",
 						path: "/api/fs/file",

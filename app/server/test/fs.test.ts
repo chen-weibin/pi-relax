@@ -232,6 +232,53 @@ describe('fs http', () => {
 		assert.match(((await asText.json()) as { error: { message: string } }).error.message, /binary/)
 	})
 
+	it('重命名文件和目录，目标已存在则拒绝', async () => {
+		const file = join(dir, 'rename-a.txt')
+		const renamed = join(dir, 'rename-b.txt')
+		const folder = join(dir, 'rename-dir')
+		const folderTo = join(dir, 'rename-dir-2')
+		writeFileSync(file, 'hi')
+		assert.equal(
+			(
+				await fetch(url('/api/fs/rename', {}), {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ from: file, to: renamed }),
+				})
+			).status,
+			204,
+		)
+		assert.equal(readFileSync(renamed, 'utf8'), 'hi')
+		assert.equal(
+			(
+				await fetch(url('/api/fs/dir', {}), {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ path: folder }),
+				})
+			).status,
+			204,
+		)
+		assert.equal(
+			(
+				await fetch(url('/api/fs/rename', {}), {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ from: folder, to: folderTo }),
+				})
+			).status,
+			204,
+		)
+		writeFileSync(file, 'again')
+		const clash = await fetch(url('/api/fs/rename', {}), {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ from: file, to: renamed }),
+		})
+		assert.equal(clash.status, 400)
+		assert.match(((await clash.json()) as { error: { message: string } }).error.message, /已存在/)
+	})
+
 	it('递归建父目录，空目录才能删，recursive 才能删非空目录', async () => {
 		const nested = join(dir, 'nest', 'deep', 'f.txt')
 		const created = await fetch(url('/api/fs/file', { path: nested, recursive: 'true' }), {

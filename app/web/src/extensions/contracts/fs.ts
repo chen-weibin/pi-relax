@@ -33,4 +33,7 @@ export type FsApi = {
 	read(path: string): Promise<FsRead>
 	write(path: string, text: string): Promise<void>
 	mkdir(path: string): Promise<void>
+	removeFile(path: string): Promise<void>
+	removeDir(path: string, recursive?: boolean): Promise<void>
+	rename(from: string, to: string): Promise<void>
 }

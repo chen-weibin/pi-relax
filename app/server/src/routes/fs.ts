@@ -7,6 +7,7 @@ import {
 	readFileResponse,
 	removeDir,
 	removeFile,
+	renamePath,
 	requireAbsolutePath,
 	sliceFromQuery,
 	sliceFromRange,
@@ -141,6 +142,15 @@ export function fsRouter(): Router {
 		'/api/fs/dir',
 		asyncHandler(async (req, res) => {
 			await removeDir(pathQuery(req.query.path), flag(one(req.query.recursive)))
+			res.status(204).end()
+		}),
+	)
+
+	router.post(
+		'/api/fs/rename',
+		asyncHandler(async (req, res) => {
+			const body = req.body as { from?: unknown; to?: unknown }
+			await renamePath(requireAbsolutePath(body?.from), requireAbsolutePath(body?.to))
 			res.status(204).end()
 		}),
 	)

@@ -266,3 +266,40 @@ export async function flushAndDrop(path: string) {
 	slots.delete(path)
 	emit()
 }
+
+function pathUnder(path: string, root: string) {
+	return path === root || path.startsWith(`${root}/`)
+}
+
+export function discardDraftsUnder(root: string) {
+	let changed = false
+	for (const path of [...slots.keys()]) {
+		if (!pathUnder(path, root)) continue
+		clearTimer(path)
+		slots.delete(path)
+		chains.delete(path)
+		changed = true
+	}
+	if (changed) emit()
+}
+
+export function remapDrafts(from: string, to: string) {
+	const moves: { from: string; to: string }[] = []
+	for (const path of slots.keys()) {
+		if (path === from) moves.push({ from: path, to })
+		else if (path.startsWith(`${from}/`)) moves.push({ from: path, to: to + path.slice(from.length) })
+	}
+	if (moves.length === 0) return
+	for (const move of moves) {
+		const slot = slots.get(move.from)
+		if (!slot) continue
+		clearTimer(move.from)
+		slots.delete(move.from)
+		const chain = chains.get(move.from)
+		chains.delete(move.from)
+		slots.set(move.to, slot)
+		if (chain) chains.set(move.to, chain)
+		arm(move.to)
+	}
+	emit()
+}

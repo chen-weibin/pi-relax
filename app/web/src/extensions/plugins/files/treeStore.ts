@@ -23,6 +23,10 @@ type FilesTreeState = {
 	creating: CreatingState | null
 	beginCreate: (parentPath: string, kind: CreateKind, beforePath?: string) => void
 	cancelCreate: () => void
+	renamingPath: string | null
+	beginRename: (path: string) => void
+	cancelRename: () => void
+	forgetSubtree: (path: string) => void
 	expanded: Record<string, true>
 	childrenByPath: Record<string, FsEntry[]>
 	loading: Record<string, true>
@@ -126,12 +130,41 @@ export const useFilesTreeStore = create<FilesTreeState>()(
 			}
 			get().ensureChildren(parentPath)
 			set((state) => {
+				state.renamingPath = null
 				state.creating = beforePath ? { parentPath, kind, beforePath } : { parentPath, kind }
 			})
 		},
 		cancelCreate: () =>
 			set((state) => {
 				state.creating = null
+			}),
+		renamingPath: null,
+		beginRename: (path) =>
+			set((state) => {
+				state.creating = null
+				state.renamingPath = path
+			}),
+		cancelRename: () =>
+			set((state) => {
+				state.renamingPath = null
+			}),
+		forgetSubtree: (path) =>
+			set((state) => {
+				for (const key of Object.keys(state.childrenByPath)) {
+					if (key === path || key.startsWith(`${path}/`)) delete state.childrenByPath[key]
+				}
+				for (const key of Object.keys(state.expanded)) {
+					if (key === path || key.startsWith(`${path}/`)) delete state.expanded[key]
+				}
+				for (const key of Object.keys(state.loading)) {
+					if (key === path || key.startsWith(`${path}/`)) delete state.loading[key]
+				}
+				if (state.selectedDir === path || state.selectedDir?.startsWith(`${path}/`)) {
+					state.selectedDir = null
+				}
+				if (state.renamingPath === path || state.renamingPath?.startsWith(`${path}/`)) {
+					state.renamingPath = null
+				}
 			}),
 		expanded: {},
 		childrenByPath: {},
@@ -149,6 +182,7 @@ export const useFilesTreeStore = create<FilesTreeState>()(
 				state.loading = {}
 				state.selectedDir = null
 				state.creating = null
+				state.renamingPath = null
 			})
 			if (cwd) get().ensureChildren(cwd)
 		},

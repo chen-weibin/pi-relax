@@ -1,4 +1,4 @@
-import { listDir, mkdirPath, readPath, statPath, writePath } from '../../../api/fs'
+import { deleteDir, deleteFile, listDir, mkdirPath, readPath, renamePath, statPath, writePath } from '../../../api/fs'
 import { ApiError } from '../../../api/http'
 import { FsError, type FsApi } from '../fs'
 
@@ -24,4 +24,7 @@ export const fsApi: FsApi = {
 	read: (path) => wrap(() => readPath(path)),
 	write: (path, text) => wrap(() => writePath(path, text)),
 	mkdir: (path) => wrap(() => mkdirPath(path)),
+	removeFile: (path) => wrap(() => deleteFile(path)),
+	removeDir: (path, recursive) => wrap(() => deleteDir(path, recursive)),
+	rename: (from, to) => wrap(() => renamePath(from, to)),
 }
