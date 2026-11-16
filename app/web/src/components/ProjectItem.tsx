@@ -137,10 +137,11 @@ export function ProjectItem({
 						{onLoadMoreSessions ? (
 							<button
 								type="button"
-								className="px-3 py-1 text-left text-xs text-fg-3 hover:text-fg-2"
+								className="flex h-[30px] w-full cursor-pointer items-center gap-2.5 rounded-md pl-2.5 pr-2.5 text-left text-sm text-fg-3 transition-colors duration-100 hover:bg-surface-hover hover:text-fg-2"
 								onClick={onLoadMoreSessions}
 							>
-								更多
+								<span className="h-full w-3.5 shrink-0" aria-hidden />
+								<span className="min-w-0 flex-1 truncate">更多</span>
 							</button>
 						) : null}
 					</div>

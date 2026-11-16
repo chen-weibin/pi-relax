@@ -6,7 +6,7 @@ import { getSendChoice } from './modelPicker'
 import { subscribeSessionEvents } from '../api/sse'
 import { ApiError } from '../api/http'
 import { useCatalogStore, useCommonStore, useLocalStore } from '../store'
-import { LIST_PAGE_SIZE } from './listPage'
+import { LIST_PAGE_SIZE, SESSION_LIST_PAGE_SIZE } from './listPage'
 import { draftId, draftTarget } from './draft'
 import { projectAgentEvent, type LiveFrame } from './projectEvent'
 import type { UnseenRun } from './catalogEvent'
@@ -325,7 +325,7 @@ export function loadProjectSessions(cwd: string, more = false) {
 	const offset = more && page ? page.sessions.length : 0
 	sessionInflight.add(cwd)
 	useCatalogStore.getState().beginSessionPage(cwd)
-	void listSessions(cwd, offset, LIST_PAGE_SIZE)
+	void listSessions(cwd, offset, SESSION_LIST_PAGE_SIZE)
 		.then((body) => {
 			useCatalogStore.getState().applySessionPage(cwd, toCatalogSessions(body.sessions), body.total, more)
 		})

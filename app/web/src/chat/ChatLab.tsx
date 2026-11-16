@@ -10,7 +10,7 @@ import { historyAssistantError } from '../conversation/historyMessages'
 import { projectAgentEvent, type LiveFrame } from '../session/projectEvent'
 import { createBlockRuntime, isRunBusy } from '../conversation'
 import { translateHistory } from '../conversation/translateHistory'
-import { LIST_PAGE_SIZE } from '../session/listPage'
+import { SESSION_LIST_PAGE_SIZE } from '../session/listPage'
 import { AssistantErrorNotice } from '../components/AssistantErrorNotice'
 import { PanelLeftIcon, PanelRightIcon } from '../icons'
 import { Button } from '../ui/Button'
@@ -178,7 +178,7 @@ export function ChatLab() {
 	}, [])
 
 	const reload = async (target: string) => {
-		const page = await listSessions(target, 0, LIST_PAGE_SIZE)
+		const page = await listSessions(target, 0, SESSION_LIST_PAGE_SIZE)
 		setSessions(page.sessions)
 		setTotal(page.total)
 	}
@@ -192,7 +192,7 @@ export function ChatLab() {
 				cwdRef.current = workspace.cwd
 				setCwd(workspace.cwd)
 				setWorkspaceName(workspace.name)
-				const page = await listSessions(workspace.cwd, 0, LIST_PAGE_SIZE)
+				const page = await listSessions(workspace.cwd, 0, SESSION_LIST_PAGE_SIZE)
 				if (cancel) return
 				setSessions(page.sessions)
 				setTotal(page.total)
@@ -363,7 +363,7 @@ export function ChatLab() {
 	const loadMore = () => {
 		const target = cwdRef.current
 		if (!target || sessions.length >= total) return
-		void listSessions(target, sessions.length, LIST_PAGE_SIZE)
+		void listSessions(target, sessions.length, SESSION_LIST_PAGE_SIZE)
 			.then((page) => {
 				setSessions((rows) => [...rows, ...page.sessions])
 				setTotal(page.total)
