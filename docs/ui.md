@@ -66,6 +66,8 @@
 | 单点状态指示(成功 / 失败 / 已读) | [`StatusDot`](#statusdot) | 不要为 `success` / `failure` 单独写 `<div>` + 内联颜色;统一走 `StatusDot` + 项目语义色 token |
 | 一组会折射背后颜色的液态玻璃图标 | [`GlassIcons`](#glassicons) | 不要自己拼 `backdrop-filter` + `feDisplacementMap` 折射滤镜,也不要手写 WebGL 着色器 |
 | 单个 App 图标底板(squircle、可配颜色 / 大小 / 内部图标) | [`AppIcon`](#appicon) | 不要自己拼 `rounded-2xl` + 内联 `background` + 居中 svg;整组玻璃图标仍用 [`GlassIcons`](#glassicons) |
+| 可配置卡通头像(形状 / 表情 / 色板 / 动画) | [`Avatar`](#avatar) | 不要把 playground `#avatar4` 再拷一份进业务;网站圆标用 [`SiteMark`](#sitemark),App 底板用 [`AppIcon`](#appicon) |
+| 一排环形色点选颜色(预设 + 可选取色器) | [`ColorSwatch`](#colorswatch) | 不要手写一排 `rounded-full` + `input[type=color]`;主题卡片用 [`ThemeSelector`](#themeselector) |
 | 插件 / 子面板顶栏(固定 38px + 底部分割线) | [`PaneHeader`](#paneheader) | 不要手写 `h-[38px] + border-b border-border` 顶栏三件套 |
 | 页面标题(级别、颜色、行高、整行、省略) | [`Heading`](#heading) | 不要手写 `h1`–`h4` 再拼 `text-*` / `truncate` |
 | 正文段落(字号、颜色、行高、换行或省略) | [`Paragraph`](#paragraph) | 不要手写 `<p>` 再拼字号、颜色和 `truncate` |
@@ -110,6 +112,8 @@
 | 空区域手写居中的 `text-sm text-fg-3`,或自己拼图标加文案 | 用 [`EmptyState`](#emptystate)。文案和图标由调用方传入 |
 | 手写一列短横，再自己定位 hover 卡片 | 用 [`DashRail`](#dashrail)。一句说明仍用 [`Tooltip`](#tooltip)，贴按钮的菜单仍用 [`Popover`](#popover) |
 | 手写 SVG 滤镜 / WebGL 着色器做玻璃折射 | 用 [`GlassIcons`](#glassicons)。折射、视差、悬停动作、无 WebGL 降级都在组件里 |
+| 在业务里重写一套卡通头像 SVG 路径 / rAF 循环 | 用 [`Avatar`](#avatar)。形状、表情、色板和动画已收敛;拖拽倾斜仍只在 playground `#avatar4` |
+| 手写一排圆点色板 + 原生 `input[type=color]` | 用 [`ColorSwatch`](#colorswatch)。选中环、键盘、自定义取色都在组件里 |
 | 在业务里用 `setTimeout` + `fixed` 浮层自己弹一条提示 | 用 [`Message`](#message)。调用放 `hooks/useMessage` 的 `show`;容器(`holder`)全局只挂一次 |
 | 自己监听 `pointerdown` + `pointermove` 拖一张卡片来关掉它 | 用 [`SwipeToast`](#swipetoast)。甩动判定、阻尼、引信暂停都在组件里 |
 
@@ -799,6 +803,7 @@
 
 - 一段纯图标 + 文字的按钮 → [`Button`](#button) / [`IconButton`](#iconbutton)
 - 一组要折射背后颜色的玻璃图标 → [`GlassIcons`](#glassicons)
+- 可配置卡通角色头像 → [`Avatar`](#avatar)
 - 需要渐变、描边、投影、多色叠加 → 这个组件只做纯色底板,别往里加层
 
 **API**:
@@ -838,6 +843,126 @@
 - 圆角比例(22.37%)和 smoothing(0.6)写死在 `AppIcon` 里,没有暴露 prop;要调就改那两个常量,顺手同步文档。
 - 图标颜色固定吃 `text-white`;要彩色字形就把颜色写进传入的 `icon` 本身,不要在 className 里和 `text-white` 抢。
 - 这是展示组件,不处理点击;需要可点击时外面包 [`IconButton`](#iconbutton) 或按钮,并补 `label`。
+
+## ColorSwatch
+
+单文件 `ui/ColorSwatch.tsx`。一排环形色点选颜色:外圈描边 + 色环(默认空心)或实心圆,选中时贴边浅色高亮环。默认 7 色(与 `avatarPalettes` 主体色对齐),末尾可跟一个原生取色器。
+
+**查阅时机**:头像 / 标签 / 主题色这类「从一小组色里挑一个」,或要接自定义 hex 时。
+
+**何时用**:
+
+- 需要一排可点的颜色预设
+- 可能还要一个「自定义」入口打开系统取色器
+
+**何时不用**:
+
+- 选整套主题(侧栏 / 面板多色预览) → [`ThemeSelector`](#themeselector)
+- 任意 CSS 颜色文本输入 → [`Input`](#input)
+
+**API**:
+
+```tsx
+<ColorSwatch value={color} onChange={setColor} />
+<ColorSwatch variant="solid" colors={['#ff3b30', '#34c759']} custom={false} size="lg" />
+```
+
+| prop | 类型 | 默认 | 说明 |
+|---|---|---|---|
+| `value` | `string` | — | 受控选中色,`#rrggbb` |
+| `defaultValue` | `string` | 第一项预设 | 非受控初值 |
+| `onChange` | `(color: string) => void` | — | 选中变化 |
+| `colors` | `readonly string[]` | `DEFAULT_SWATCH_COLORS`(7 色) | 覆盖默认色板 |
+| `custom` | `boolean` | `true` | 是否显示末尾取色器 |
+| `variant` | `'hollow' \| 'solid'` | `'hollow'` | 空心色环 / 实心圆 |
+| `size` | `'sm' \| 'md' \| 'lg' \| number` | `'md'` | 外径预设或像素 |
+| `disabled` | `boolean` | — | 整组禁用 |
+| `className` | `string` | — | 根节点 |
+| `style` | `CSSProperties` | — | 根节点 |
+| `itemClassName` | `string` | — | 每个色点按钮 |
+| `aria-label` | `string` | `'颜色'` | radiogroup 名 |
+
+尺寸预设(`colorSwatchSizes` 也导出了):
+
+| `size` | px |
+|---|---|
+| `sm` | 24 |
+| `md` | 28 |
+| `lg` | 32 |
+
+**视觉与行为**:
+
+- `hollow`(默认):外框描边 + 色环。色盘直径为外径 50%、中心孔约为色盘 43%(对齐 Avatar 色板 body/face 比例)。`solid`:外框描边 + 同径实心色圆。
+- 选中时不外扩光环,只把外圈 `border` 换成 `border-fg-2`(与未选同径)。
+- `custom` 开启时,当前值不在预设里则取色器格子显示该色并处于选中态;未选自定义时显示圆锥渐变。
+- `role="radiogroup"` / `radio`,方向键与 Home / End 移动焦点并选中。
+- 颜色比较前会规范成小写 `#rrggbb`;非法 hex 不会被写入。
+
+**踩坑**:
+
+- 只接受 6 位 hex。带 alpha 或 `rgb()` 不会生效。
+- 取色器依赖系统原生 `input[type=color]`,外观因平台而异;触发按钮的样式由组件控制。
+- 多色「色板」(body + face)不是这个组件的职责;头像整套色仍用 `avatarPalettes`。
+
+
+## Avatar
+
+目录 `ui/Avatar/`:`index.tsx` 是 React 壳,`config.ts` / `geometry.ts` / `renderer.ts` 从 playground `#avatar4`(纯 SVG 卡通头像)抽出。可配置形状、表情、五官尺寸、颜色、轮廓和循环动画。不引入 WebGL / CDN。v1 不做拖拽倾斜和滚轮缩放(那些仍留在 playground)。
+
+**查阅时机**:做用户 / Agent 头像、欢迎页伙伴、设置页预览,或要把 `#avatar4` 配置搬进 `app/web` 时。
+
+**何时用**:
+
+- 需要一张会眨眼 / 呼吸的卡通头像,而不是照片或字母圆标
+- 形状、表情、色板要按调用方切换,配置可序列化成 JSON
+
+**何时不用**:
+
+- 网站 favicon / 来源圆标 → [`SiteMark`](#sitemark)
+- App 宫格 / 品牌底板 → [`AppIcon`](#appicon)
+- 需要真实 3D 侧面 / 拖拽倾斜 → playground `#avatar3`(Three.js),不要往这个组件里加 WebGL
+
+**API**:
+
+```tsx
+<Avatar size="md" shape="circle" expression="happy" colors={avatarPalettes[0].colors} label="助手" />
+<Avatar size={64} shape="blob" faceSize="middle" outline={{ enabled: true, width: 0.05 }} />
+```
+
+| prop | 类型 | 默认 | 说明 |
+|---|---|---|---|
+| `size` | `'sm' \| 'md' \| 'lg' \| number` | `'md'` | 预设名或像素数 |
+| `shape` | `'circle' \| 'blob' \| 'roundedSquare'` | `'circle'` | 主体轮廓 |
+| `expression` | `'neutral' \| 'happy' \| …` | `'neutral'` | 八种表情之一 |
+| `faceSize` | `'small' \| 'middle' \| 'large'` | `'small'` | 五官尺寸档 |
+| `colors` | `{ body, face, outline, background? }` | 经典色板;`background` 省略为透明 | 只接受 `#rrggbb` |
+| `outline` | `{ enabled?, width? }` | `{ enabled: false, width: 0.05 }` | 轮廓开关与粗细 |
+| `animation` | `{ loop?, speed?, paused? }` | `{ loop: true, speed: 1, paused: false }` | 循环动画 |
+| `label` | `string` | — | 可访问名。不传时 `aria-hidden` |
+| `className` | `string` | — | 透传到外层 |
+
+尺寸预设(`avatarSizes` 也导出了这张表):
+
+| `size` | px |
+|---|---|
+| `sm` | 32 |
+| `md` | 40 |
+| `lg` | 52 |
+
+另导出 `avatarPalettes`(七套预设色)、`DEFAULT_CONFIG`、`SHAPES` / `EXPRESSIONS` / `ANIMATIONS`。挑主体色用 [`ColorSwatch`](#colorswatch)(默认色与 `avatarPalettes[].colors.body` 对齐),再映射到整套 `colors`。
+
+**视觉与行为**:
+
+- 纯 SVG:`body` + 右下背光月牙(`fill-rule="evenodd"`) + 三块五官粗曲线。viewBox 固定 `-1.45 -1.45 2.9 2.9`,靠外框像素缩放。
+- `background` 默认透明,方便嵌进 Sidebar / Composer;需要底色时显式传入 `colors.background`,或在外层铺色。
+- 页面隐藏时停 rAF;卸载 `dispose`。`prefers-reduced-motion: reduce` 时停循环,只画静态表情。
+- 数据层与 playground `#avatar4` 对齐;改表情 / 形状 / 动画时两边要一起改。
+
+**踩坑**:
+
+- 颜色只吃 `#rrggbb`,非法值会被 `setConfig` 忽略。
+- 多实例各自有 `clipPath` id,不要手改 SVG 内部结构。
+- 这是展示组件,不处理点击;需要可点时外包按钮并补 `label`。
 
 ## GlassIcons
 

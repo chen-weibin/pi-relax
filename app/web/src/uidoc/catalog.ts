@@ -1,5 +1,7 @@
 import type { ComponentType } from 'react'
 import { appIconDoc } from './AppIcon'
+import { avatarDoc } from './Avatar'
+import { colorSwatchDoc } from './ColorSwatch'
 import { buttonDoc } from './Button'
 import { disclosureRowDoc } from './DisclosureRow'
 import { contextMenuDoc } from './ContextMenu'
@@ -102,6 +104,8 @@ export const uiDocGroups: UiDocGroup[] = [
 			siteIconRowDoc,
 			sourceChipDoc,
 			appIconDoc,
+			avatarDoc,
+			colorSwatchDoc,
 			glassIconsDoc,
 			messageDoc,
 			swipeToastDoc,
