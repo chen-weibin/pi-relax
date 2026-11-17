@@ -41,7 +41,7 @@ export const DEFAULT_SWATCH_COLORS = [
 	'#dcd4ff',
 	'#cbe6ff',
 	'#fff1a6',
-	'#2c2c2e',
+	'#ffb3c6',
 ] as const
 
 export const colorSwatchSizes: Record<ColorSwatchSize, number> = {
@@ -125,7 +125,7 @@ function CustomGlyph({ px, variant }: { px: number; variant: ColorSwatchVariant 
 				borderWidth: ring,
 				borderStyle: 'solid',
 				borderColor: 'transparent',
-				background: `padding-box transparent, border-box ${gradient}`,
+				backgroundImage: `linear-gradient(transparent, transparent), ${gradient}`,
 				backgroundOrigin: 'border-box',
 				backgroundClip: 'padding-box, border-box',
 			}}

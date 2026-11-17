@@ -81,7 +81,7 @@ export const avatarPalettes = [
 	{ name: '丁香', colors: { body: '#dcd4ff', face: '#241b4d', outline: '#120d29', background: '#14121d' } },
 	{ name: '天空', colors: { body: '#cbe6ff', face: '#0f2a45', outline: '#081626', background: '#0f151d' } },
 	{ name: '柠檬', colors: { body: '#fff1a6', face: '#2e2a10', outline: '#181507', background: '#181712' } },
-	{ name: '夜', colors: { body: '#2c2c2e', face: '#f2f2f2', outline: '#000000', background: '#0d0d0d' } },
+	{ name: '珊瑚', colors: { body: '#ffb3c6', face: '#3d1824', outline: '#210d14', background: '#1a1014' } },
 ] as const
 
 export const FACE_SIZES: Record<AvatarFaceSize, string> = {

@@ -144,7 +144,7 @@ export class AvatarRenderer {
 		this.$outline.setAttribute('stroke', c.outline)
 		this.$outline.setAttribute('stroke-width', String(next.outline.width * 2))
 		this.$outline.style.display = next.outline.enabled ? '' : 'none'
-		this.svg.style.background = c.background
+		// colors.background 给外层容器（uidoc 预览底）。写到 svg 上会变成方形底，且 mergeConfig 不收 transparent。
 
 		if (this.reducedMotion && this._ready) {
 			this.cur = this.target.map((p) => ({ ...p }))
