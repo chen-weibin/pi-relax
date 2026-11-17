@@ -20,5 +20,7 @@ export {
 	getStreamingDraft,
 	getTransportGeneration,
 	getTransportSnapshot,
+	subscribeFollowUps,
+	followUpTexts,
 } from './connect'
 export type { StreamingBehavior } from '../api/sessions'

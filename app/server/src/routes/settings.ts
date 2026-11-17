@@ -2,15 +2,25 @@ import { Router } from 'express'
 import type { Agent } from '../agent/agent.js'
 import {
 	ABORT_POLICIES,
+	ABORT_QUEUES,
 	DELETE_MODES,
 	QUEUE_MODES,
+	SEND_WHILE_BUSY,
 	patchSettings,
 	readGlobalSettings,
 	type SettingsPatch,
 } from '../config/settings.js'
 import { asyncHandler, HttpError } from '../utils/errors.js'
 
-const KEYS = ['steeringMode', 'followUpMode', 'abortPolicy', 'sessionDelete', 'projectDelete'] as const
+const KEYS = [
+	'steeringMode',
+	'followUpMode',
+	'abortPolicy',
+	'sessionDelete',
+	'projectDelete',
+	'sendWhileBusy',
+	'abortQueue',
+] as const
 
 export function settingsRouter(agent: Agent): Router {
 	const router = Router()
@@ -50,6 +60,8 @@ function settingsPatch(body: unknown): SettingsPatch {
 	if ('abortPolicy' in record) patch.abortPolicy = oneOf(record.abortPolicy, 'abortPolicy', ABORT_POLICIES)
 	if ('sessionDelete' in record) patch.sessionDelete = oneOf(record.sessionDelete, 'sessionDelete', DELETE_MODES)
 	if ('projectDelete' in record) patch.projectDelete = oneOf(record.projectDelete, 'projectDelete', DELETE_MODES)
+	if ('sendWhileBusy' in record) patch.sendWhileBusy = oneOf(record.sendWhileBusy, 'sendWhileBusy', SEND_WHILE_BUSY)
+	if ('abortQueue' in record) patch.abortQueue = oneOf(record.abortQueue, 'abortQueue', ABORT_QUEUES)
 	return patch
 }
 

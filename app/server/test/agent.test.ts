@@ -13,6 +13,45 @@ import { listProjects, softDeleteProject } from '../src/projects/store.js'
 import { ensureSessionRow } from '../src/sessions/index-row.js'
 import { persistChat, removeHome, tempRelaxHome } from './home.js'
 
+function queueFactory(calls: string[], followUp: string[]): RuntimeFactory {
+	return async ({ sessionManager }) => {
+		const listeners = new Set<(event: AgentSessionEvent) => void>()
+		const session = {
+			sessionManager,
+			get isStreaming() {
+				return false
+			},
+			async prompt(text: string) {
+				calls.push(`prompt:${text}`)
+				for (const listener of listeners) listener({ type: 'agent_start' })
+			},
+			clearQueue() {
+				calls.push('clearQueue')
+				return { steering: [] as string[], followUp: [...followUp] }
+			},
+			getFollowUpMessages() {
+				return followUp
+			},
+			getSteeringMessages() {
+				return [] as string[]
+			},
+			async followUp(text: string) {
+				calls.push(`followUp:${text}`)
+			},
+			async steer() {},
+			async abort() {
+				calls.push('abort')
+			},
+			subscribe(listener: (event: AgentSessionEvent) => void) {
+				listeners.add(listener)
+				return () => listeners.delete(listener)
+			},
+			dispose() {},
+		}
+		return { session: session as unknown as AgentSession }
+	}
+}
+
 function fakeFactory(): RuntimeFactory {
 	return async ({ sessionManager }) => {
 		const listeners = new Set<(event: AgentSessionEvent) => void>()
@@ -47,6 +86,12 @@ function fakeFactory(): RuntimeFactory {
 			},
 			clearQueue() {
 				return { steering: [] as string[], followUp: [] as string[] }
+			},
+			getFollowUpMessages() {
+				return [] as string[]
+			},
+			getSteeringMessages() {
+				return [] as string[]
 			},
 			async abort() {
 				gate?.()
@@ -168,9 +213,9 @@ describe('agent', () => {
 		keep()
 	})
 
-	it('clears the queue before abort and returns the texts', async () => {
+	it('clears the queue before abort when abortQueue is clear', async () => {
 		const calls: string[] = []
-		patchSettings({ abortPolicy: 'clear-then-abort' })
+		patchSettings({ abortQueue: 'clear' })
 		const agent = new Agent(async ({ sessionManager }) => {
 			const listeners = new Set<(event: AgentSessionEvent) => void>()
 			const session = {
@@ -184,6 +229,12 @@ describe('agent', () => {
 				clearQueue() {
 					calls.push('clearQueue')
 					return { steering: ['cut in'], followUp: ['later'] }
+				},
+				getFollowUpMessages() {
+					return ['later']
+				},
+				getSteeringMessages() {
+					return ['cut in']
 				},
 				async abort() {
 					calls.push('abort')
@@ -206,40 +257,54 @@ describe('agent', () => {
 		keep()
 	})
 
-	it('abort-only stops the run and leaves the queue', async () => {
+	it('delivers follow-ups one at a time after abort, and joins them when the mode is all', async () => {
 		const calls: string[] = []
-		patchSettings({ abortPolicy: 'abort-only' })
-		const agent = new Agent(async ({ sessionManager }) => {
-			const listeners = new Set<(event: AgentSessionEvent) => void>()
-			const session = {
-				sessionManager,
-				get isStreaming() {
-					return false
-				},
-				async prompt() {
-					for (const listener of listeners) listener({ type: 'agent_start' })
-				},
-				clearQueue() {
-					calls.push('clearQueue')
-					return { steering: ['cut in'], followUp: ['later'] }
-				},
-				async abort() {
-					calls.push('abort')
-				},
-				subscribe(listener: (event: AgentSessionEvent) => void) {
-					listeners.add(listener)
-					return () => listeners.delete(listener)
-				},
-				dispose() {},
-			}
-			return { session: session as unknown as AgentSession }
-		})
+		patchSettings({ abortQueue: 'deliver', followUpMode: 'one-at-a-time' })
+		const agent = new Agent(queueFactory(calls, ['first', 'second']))
 		const keep = agent.subscribe(() => {})
 		const cwd = mkdtempSync(join(tmpdir(), 'relax-cwd-'))
 		const first = await agent.prompt({ text: 'hi', cwd })
+		calls.length = 0
 		const stopped = await agent.abort(first.id)
+		assert.deepEqual(calls, ['abort', 'clearQueue', 'followUp:second', 'prompt:first'])
+		assert.equal(stopped.status, 'running')
+		keep()
+
+		patchSettings({ abortQueue: 'deliver', followUpMode: 'all' })
+		const joined: string[] = []
+		const all = new Agent(queueFactory(joined, ['first', 'second']))
+		const hold = all.subscribe(() => {})
+		const created = await all.prompt({ text: 'hi', cwd })
+		joined.length = 0
+		await all.abort(created.id)
+		assert.deepEqual(joined, ['abort', 'clearQueue', 'prompt:first\n\nsecond'])
+		hold()
+	})
+
+	it('interrupt abort leaves the queue and does not send it', async () => {
+		const calls: string[] = []
+		patchSettings({ abortQueue: 'deliver' })
+		const agent = new Agent(queueFactory(calls, ['later']))
+		const keep = agent.subscribe(() => {})
+		const cwd = mkdtempSync(join(tmpdir(), 'relax-cwd-'))
+		const first = await agent.prompt({ text: 'hi', cwd })
+		calls.length = 0
+		const stopped = await agent.abort(first.id, 'interrupt')
 		assert.deepEqual(calls, ['abort'])
 		assert.deepEqual(stopped.cleared, { steering: [], followUp: [] })
+		keep()
+	})
+
+	it('drops one follow-up by index and keeps the rest in order', async () => {
+		const calls: string[] = []
+		const agent = new Agent(queueFactory(calls, ['a', 'b', 'c']))
+		const keep = agent.subscribe(() => {})
+		const cwd = mkdtempSync(join(tmpdir(), 'relax-cwd-'))
+		const first = await agent.prompt({ text: 'hi', cwd })
+		calls.length = 0
+		const left = await agent.dropFollowUp(first.id, 1)
+		assert.deepEqual(left, ['a', 'c'])
+		assert.deepEqual(calls, ['clearQueue', 'followUp:a', 'followUp:c'])
 		keep()
 	})
 

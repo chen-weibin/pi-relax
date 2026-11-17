@@ -31,6 +31,8 @@ describe('settings store', () => {
 			abortPolicy: 'clear-then-abort',
 			sessionDelete: 'logical',
 			projectDelete: 'logical',
+			sendWhileBusy: 'queue',
+			abortQueue: 'deliver',
 		})
 	})
 
@@ -47,6 +49,8 @@ describe('settings store', () => {
 			abortPolicy: 'abort-only',
 			sessionDelete: 'logical',
 			projectDelete: 'logical',
+			sendWhileBusy: 'queue',
+			abortQueue: 'deliver',
 		})
 		const file = JSON.parse(readFileSync(settingsPath(), 'utf8')) as {
 			theme: string
@@ -61,6 +65,10 @@ describe('settings store', () => {
 		assert.equal(modes.sessionDelete, 'physical')
 		assert.equal(modes.projectDelete, 'physical')
 		assert.equal(modes.abortPolicy, 'abort-only')
+		const web = patchSettings({ sendWhileBusy: 'interrupt', abortQueue: 'clear' })
+		assert.equal(web.sendWhileBusy, 'interrupt')
+		assert.equal(web.abortQueue, 'clear')
+		assert.equal(web.abortPolicy, 'abort-only')
 	})
 
 	it('lets the project .pi/settings.json override abort policy', () => {
@@ -136,6 +144,8 @@ describe('settings http', () => {
 			abortPolicy: 'clear-then-abort',
 			sessionDelete: 'logical',
 			projectDelete: 'logical',
+			sendWhileBusy: 'queue',
+			abortQueue: 'deliver',
 		})
 	})
 

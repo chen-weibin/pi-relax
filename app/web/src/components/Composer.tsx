@@ -1,7 +1,7 @@
 import classNames from 'classnames'
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { MinusIcon, SendIcon, TrashIcon } from '../icons'
-import type { PendingMessage } from '../session/pendingQueue'
+type PendingMessage = { id: string; text: string }
 import { Button } from '../ui/Button'
 import { IconButton } from '../ui/IconButton'
 import { Editor, type EditorHandle } from '../ui/Editor'

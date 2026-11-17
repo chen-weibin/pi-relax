@@ -12,10 +12,14 @@ const { lockSync } = require('proper-lockfile') as {
 export const QUEUE_MODES = ['all', 'one-at-a-time'] as const
 export const ABORT_POLICIES = ['clear-then-abort', 'abort-only'] as const
 export const DELETE_MODES = ['logical', 'physical'] as const
+export const SEND_WHILE_BUSY = ['queue', 'interrupt'] as const
+export const ABORT_QUEUES = ['clear', 'deliver'] as const
 
 export type QueueMode = (typeof QUEUE_MODES)[number]
 export type AbortPolicy = (typeof ABORT_POLICIES)[number]
 export type DeleteMode = (typeof DELETE_MODES)[number]
+export type SendWhileBusy = (typeof SEND_WHILE_BUSY)[number]
+export type AbortQueue = (typeof ABORT_QUEUES)[number]
 
 export type RuntimeSettings = {
 	steeringMode: QueueMode
@@ -23,6 +27,8 @@ export type RuntimeSettings = {
 	abortPolicy: AbortPolicy
 	sessionDelete: DeleteMode
 	projectDelete: DeleteMode
+	sendWhileBusy: SendWhileBusy
+	abortQueue: AbortQueue
 }
 
 export type SettingsPatch = {
@@ -31,6 +37,8 @@ export type SettingsPatch = {
 	abortPolicy?: AbortPolicy
 	sessionDelete?: DeleteMode
 	projectDelete?: DeleteMode
+	sendWhileBusy?: SendWhileBusy
+	abortQueue?: AbortQueue
 }
 
 const DEFAULTS: RuntimeSettings = {
@@ -39,13 +47,15 @@ const DEFAULTS: RuntimeSettings = {
 	abortPolicy: 'clear-then-abort',
 	sessionDelete: 'logical',
 	projectDelete: 'logical',
+	sendWhileBusy: 'queue',
+	abortQueue: 'deliver',
 }
 
 export function settingsPath(): string {
 	return join(getRelaxAgentDir(), 'settings.json')
 }
 
-/** 全局文件里的五项。缺文件或非法值用默认。不含项目层。 */
+/** 全局文件里的对话设置。缺文件或非法值用默认。不含项目层。 */
 export function readGlobalSettings(): RuntimeSettings {
 	const raw = readObject(settingsPath())
 	const relax = relaxOf(raw)
@@ -55,6 +65,8 @@ export function readGlobalSettings(): RuntimeSettings {
 		abortPolicy: abortPolicy(relax?.abortPolicy) ?? DEFAULTS.abortPolicy,
 		sessionDelete: deleteMode(relax?.sessionDelete) ?? DEFAULTS.sessionDelete,
 		projectDelete: deleteMode(relax?.projectDelete) ?? DEFAULTS.projectDelete,
+		sendWhileBusy: sendWhileBusyOf(relax?.sendWhileBusy) ?? DEFAULTS.sendWhileBusy,
+		abortQueue: abortQueueOf(relax?.abortQueue) ?? DEFAULTS.abortQueue,
 	}
 }
 
@@ -76,11 +88,13 @@ export function patchSettings(patch: SettingsPatch): RuntimeSettings {
 		const current = readObject(path)
 		if (patch.steeringMode) current.steeringMode = patch.steeringMode
 		if (patch.followUpMode) current.followUpMode = patch.followUpMode
-		if (patch.abortPolicy || patch.sessionDelete || patch.projectDelete) {
+		if (patch.abortPolicy || patch.sessionDelete || patch.projectDelete || patch.sendWhileBusy || patch.abortQueue) {
 			const relax = { ...relaxOf(current) }
 			if (patch.abortPolicy) relax.abortPolicy = patch.abortPolicy
 			if (patch.sessionDelete) relax.sessionDelete = patch.sessionDelete
 			if (patch.projectDelete) relax.projectDelete = patch.projectDelete
+			if (patch.sendWhileBusy) relax.sendWhileBusy = patch.sendWhileBusy
+			if (patch.abortQueue) relax.abortQueue = patch.abortQueue
 			current.relax = relax
 		}
 		writeFileSync(path, `${JSON.stringify(current, null, 2)}\n`)
@@ -120,6 +134,14 @@ function abortPolicy(value: unknown): AbortPolicy | undefined {
 
 function deleteMode(value: unknown): DeleteMode | undefined {
 	return DELETE_MODES.find((mode) => mode === value)
+}
+
+function sendWhileBusyOf(value: unknown): SendWhileBusy | undefined {
+	return SEND_WHILE_BUSY.find((mode) => mode === value)
+}
+
+function abortQueueOf(value: unknown): AbortQueue | undefined {
+	return ABORT_QUEUES.find((mode) => mode === value)
 }
 
 /** ponytail: 与基座 FileSettingsStorage 一样，锁冲突时同步空转。单进程几乎碰不到；跨进程最多等约 200ms。 */

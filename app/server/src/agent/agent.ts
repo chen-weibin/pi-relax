@@ -24,7 +24,7 @@ import {
 } from '../sessions/rows.js'
 import { backfillSessions, dropMissingSessionFiles } from '../sessions/sync.js'
 import { messageText } from '../utils/text.js'
-import { abortPolicyFor, readGlobalSettings, type SettingsPatch } from '../config/settings.js'
+import { readGlobalSettings, type SettingsPatch } from '../config/settings.js'
 import { BusyError, HttpError, SessionNotFoundError } from '../utils/errors.js'
 import { getSupportedThinkingLevels } from '@earendil-works/pi-ai'
 import { ensureProject } from '../projects/store.js'
@@ -157,14 +157,61 @@ export class Agent {
 		}
 	}
 
-	async abort(id: string): Promise<AbortResult> {
+	async abort(id: string, intent: 'stop' | 'interrupt' = 'stop'): Promise<AbortResult> {
 		const slot = this.slots.get(id)
 		if (!slot) {
 			const record = await this.get(id)
 			return { ...record, status: 'idle', cleared: { steering: [], followUp: [] } }
 		}
-		const cleared = await this.stop(slot)
-		return { ...this.record(id, 'idle'), cleared }
+		if (intent === 'interrupt') {
+			await this.halt(slot, 'keep')
+			return { ...this.record(id, this.statusOf(id) ?? 'idle'), cleared: { steering: [], followUp: [] } }
+		}
+		const settings = readGlobalSettings()
+		if (settings.abortQueue === 'clear') {
+			const cleared = await this.halt(slot, 'clear')
+			return { ...this.record(id, 'idle'), cleared }
+		}
+		await this.halt(slot, 'keep')
+		const followUp = [...slot.session.getFollowUpMessages()]
+		if (followUp.length === 0) {
+			return { ...this.record(id, this.statusOf(id) ?? 'idle'), cleared: { steering: [], followUp: [] } }
+		}
+		const steering = [...slot.session.getSteeringMessages()]
+		slot.session.clearQueue()
+		for (const text of steering) await slot.session.steer(text)
+		if (settings.followUpMode === 'all') {
+			const record = await this.prompt({ text: followUp.join('\n\n'), sessionId: id })
+			return { ...record, cleared: { steering: [], followUp: [] } }
+		}
+		const [head, ...rest] = followUp
+		for (const text of rest) await slot.session.followUp(text)
+		const record = await this.prompt({ text: head ?? '', sessionId: id })
+		return { ...record, cleared: { steering: [], followUp: [] } }
+	}
+
+	async followUps(id: string): Promise<string[]> {
+		await this.get(id)
+		const slot = this.slots.get(id)
+		if (!slot) return []
+		return [...slot.session.getFollowUpMessages()]
+	}
+
+	/** 按序号拿掉一条 followUp。基座只能整表清空，所以清空后按原顺序把留下的再入队。 */
+	async dropFollowUp(id: string, index: number): Promise<string[]> {
+		await this.get(id)
+		const slot = this.slots.get(id)
+		if (!slot) throw new HttpError(400, 'BAD_REQUEST', 'queue is empty')
+		const followUp = [...slot.session.getFollowUpMessages()]
+		if (!Number.isInteger(index) || index < 0 || index >= followUp.length) {
+			throw new HttpError(400, 'BAD_REQUEST', 'queue index out of range')
+		}
+		const steering = [...slot.session.getSteeringMessages()]
+		const next = followUp.filter((_, item) => item !== index)
+		slot.session.clearQueue()
+		for (const text of steering) await slot.session.steer(text)
+		for (const text of next) await slot.session.followUp(text)
+		return next
 	}
 
 	async remove(id: string): Promise<void> {
@@ -172,7 +219,7 @@ export class Agent {
 		const row = sessionRow(id)
 		if (!slot && (!row || row.deletedAt)) throw new SessionNotFoundError(id)
 		if (slot) {
-			await this.stop(slot)
+			await this.halt(slot, 'clear')
 			const current = this.slots.get(id)
 			if (current) {
 				current.unsubscribe()
@@ -286,9 +333,9 @@ export class Agent {
 		return slot
 	}
 
-	private async stop(slot: Slot): Promise<ClearedQueue> {
-		const policy = abortPolicyFor(slot.session.sessionManager.getCwd())
-		if (policy === 'abort-only') {
+	/** 删会话时清空队列。网页停止走 `abort`，读全局 `abortQueue`，不看项目层 abortPolicy。 */
+	private async halt(slot: Slot, policy: 'clear' | 'keep'): Promise<ClearedQueue> {
+		if (policy === 'keep') {
 			await slot.session.abort()
 			slot.running = false
 			return { steering: [], followUp: [] }

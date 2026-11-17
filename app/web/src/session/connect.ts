@@ -1,7 +1,7 @@
 import type { AgentSessionEvent, SessionContext } from '@earendil-works/pi-coding-agent'
 import { createProject, deleteProject, listProjects } from '../api/projects'
 import { getDefaultWorkspace } from '../api/workspace'
-import { abortSession, createSession, deleteSession, getSessionHistory, listSessions, promptSession, renameSession, type StreamingBehavior } from '../api/sessions'
+import { abortSession, createSession, deleteSession, getSessionHistory, getSessionQueue, listSessions, promptSession, renameSession, type StreamingBehavior } from '../api/sessions'
 import { getSendChoice } from './modelPicker'
 import { subscribeSessionEvents } from '../api/sse'
 import { ApiError } from '../api/http'
@@ -84,6 +84,46 @@ let captureCreate = false
 let captured: { sessionId: string; event: AgentSessionEvent }[] = []
 const pendingRuns = new Map<string, UnseenRun>()
 const streamingDrafts = new Map<string, unknown>()
+const EMPTY_FOLLOW_UPS: string[] = []
+let followUps: Record<string, string[]> = {}
+const followUpEpoch = new Map<string, number>()
+const followUpWatchers = new Set<() => void>()
+
+function sameTexts(left: string[] | undefined, right: readonly string[]): boolean {
+	return !!left && left.length === right.length && left.every((item, index) => item === right[index])
+}
+
+function noteFollowUps(id: string, texts: readonly string[]) {
+	followUpEpoch.set(id, (followUpEpoch.get(id) ?? 0) + 1)
+	if (sameTexts(followUps[id], texts)) return
+	followUps = { ...followUps, [id]: texts.slice() }
+	for (const watcher of followUpWatchers) watcher()
+}
+
+export function subscribeFollowUps(listener: () => void): () => void {
+	followUpWatchers.add(listener)
+	return () => {
+		followUpWatchers.delete(listener)
+	}
+}
+
+export function followUpTexts(sessionId: string | null): string[] {
+	if (!sessionId) return EMPTY_FOLLOW_UPS
+	return followUps[sessionId] ?? EMPTY_FOLLOW_UPS
+}
+
+export async function refreshFollowUps(id: string): Promise<void> {
+	const seen = followUpEpoch.get(id) ?? 0
+	try {
+		const texts = await getSessionQueue(id)
+		if ((followUpEpoch.get(id) ?? 0) !== seen) return
+		if (sameTexts(followUps[id], texts)) return
+		followUps = { ...followUps, [id]: texts.slice() }
+		for (const watcher of followUpWatchers) watcher()
+	} catch {
+		// 打开时拉不到就留着已经收到的列表。
+	}
+}
 
 export function getStreamingDraft(sessionId: string): unknown | null {
 	return streamingDrafts.get(sessionId) ?? null
@@ -94,6 +134,10 @@ function rememberStatus(id: string, status: string | undefined) {
 }
 
 function ingest(sessionId: string, event: AgentSessionEvent) {
+	if (event.type === 'queue_update') {
+		noteFollowUps(sessionId, event.followUp)
+		return
+	}
 	const read = projectAgentEvent(event, pendingRuns.get(sessionId) ?? null, sessionId === state.openSessionId)
 	if (read.draft === 'set') streamingDrafts.set(sessionId, read.message)
 	else if (read.draft === 'clear') streamingDrafts.delete(sessionId)
@@ -183,10 +227,10 @@ export async function renameConversation(id: string, name: string): Promise<void
 	useCatalogStore.getState().patchSession(id, { name: record.name ?? '' })
 }
 
-export async function abortConversation(): Promise<void> {
+export async function abortConversation(intent?: 'interrupt'): Promise<void> {
 	const id = state.openSessionId
 	if (!id) return
-	const record = await abortSession(id)
+	const record = await abortSession(id, intent)
 	rememberStatus(id, record.status)
 }
 
@@ -199,6 +243,7 @@ export function selectOpenSession(sessionId: string) {
 	publish()
 	void runEffects(next.effects)
 	setExtensionConversation(sessionId, cwdOfSession(sessionId))
+	void refreshFollowUps(sessionId)
 }
 
 function dismissOpenSession() {

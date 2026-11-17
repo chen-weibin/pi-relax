@@ -13,13 +13,13 @@
   1. **通用 / 用户展示**：用户名与头像（内置 `Avatar` 或上传图），服务端 `/api/profile*` 持久化，供 `UserBar` 等展示；无账号体系。
   2. **外观**：主题用 `ThemeSelector` 迷你预览卡片；暗色为当前选中，**亮色禁用**并提示「当前暂未实现」，不切换 `data-theme`。
   3. **模型**：展示并配置内置提供商 key、自定义提供商、已配置状态；全局默认模型与 Composer **同一数据源**。
-  4. **代理**（对话全局策略）：出队模式、中止策略、会话/项目删除方式，对接已有 `GET/PATCH /api/settings`。
+  4. **代理**（对话全局策略）：对话中发送、followUp 出队、停止时队列怎么处理、会话/项目删除方式，对接 `GET/PATCH /api/settings`。
 
 ### 非目标（本期不写进实现范围）
 
 - 复杂鉴权、多用户、OAuth、真实账号同步。
 - 主题切换（含亮色）、i18n、Langfuse、工具开关、temperature 等生成参数。
-- 项目级 `.pi/settings.json` 编辑（服务端仍会在新建会话/中止时合并项目层；Setting 只暴露**全局**文件，见 [server-implemented.md](server-implemented.md) §设置）。
+- 项目级 `.pi/settings.json` 编辑。网页停止只读全局 `abortQueue`。`abortPolicy` 仍留在文件里，设置页不展示。
 - 设置搜索的服务端索引或 URL 深链。
 - 侧栏「自定义」视图 `CustomizeView` 的实质内容（仍占位；模型配置集中在 Setting「模型」区块）。
 
@@ -36,7 +36,7 @@ temperature、按工具开关、观测（Langfuse）、语言包、OAuth 登录�
 | ~~`Setting.tsx`：侧栏 `GROUPS` 两段捆包四类入口~~ **（S0 已做）** 侧栏 250px：**返回** + 四项平级按钮（通用 / 外观 / 模型 / 代理）+ 底部 `UserBar`；主区标题为当前类名，仅渲染该类占位演示 | 侧栏补 `SearchInput`（S1）；其余模块按 checklist 逐步替换占位 |
 | `UserBar.tsx`：读 `useProfileStore`（`/api/profile`） | 已接；改 Setting「通用」与侧栏同源 |
 | 模型：Composer 已接 `modelPicker` + `../api/models`；Setting「模型」已接默认模型、内置 key、自定义提供商 | 与 Composer 共用 `putDefaultModel` / `startModelList()`，不另建默认模型 store |
-| 代理类设置：服务端已实现，前端未接 | 新增 `../api/settings` 薄封装 + Setting 表单 |
+| 代理：Setting 已接对话中发送、出队、停止、删除 | 搜索关键词留到 S1 / S8 |
 
 ---
 
@@ -65,14 +65,14 @@ temperature、按工具开关、观测（Langfuse）、语言包、OAuth 登录�
 1. **通用** — 用户名、头像。
 2. **外观** — `ThemeSelector`（暗色选中 + 亮色禁用提示）。
 3. **模型** — 默认模型、内置提供商、自定义提供商列表/入口。
-4. **代理** — 出队、中止、删除策略。
+4. **代理** — 对话中发送、出队、停止、删除。
 
 侧栏顺序固定；点击切换主区，不是主区纵向堆叠四段。
 
 ### 搜索如何过滤
 
 - 每个可搜行在实现时注册**稳定元数据**（建议同文件内 `const SETTING_SEARCH_INDEX: { id; section; label; keywords? }[]`，渲染时由 map 生成行，避免文案与索引两套）。
-- 用户输入经 trim + 小写后，匹配行的 `label`、`description`、区块 `title`、可选 `keywords`（如 `steeringMode` →「插队」「出队」）。
+- 用户输入经 trim + 小写后，匹配行的 `label`、`description`、区块 `title`、可选 `keywords`（如 `followUpMode` →「出队」「一次一条」）。
 - **不匹配的行隐藏**；某 `SettingGroup` 内全无匹配则整组隐藏；某区块全无匹配则该区块标题一并隐藏。
 - 空结果：主区显示一行提示「没有匹配的设置」。
 - 不实现：高亮匹配子串、键盘在结果间跳转、搜索历史。
@@ -174,36 +174,32 @@ temperature、按工具开关、观测（Langfuse）、语言包、OAuth 登录�
 
 **做什么**
 
-对接 `app/server/src/config/settings.ts` 与 [`routes/settings.ts`](../app/server/src/routes/settings.ts)：
+对接 `app/server/src/config/settings.ts` 与 [`routes/settings.ts`](../app/server/src/routes/settings.ts)。设置页只露这几行：
 
 | 字段 | 含义 | 可选值 |
 |------|------|--------|
-| `steeringMode` | 多条 `steer` 出队 | `all` / `one-at-a-time` |
-| `followUpMode` | 多条 `followUp` 出队 | `all` / `one-at-a-time` |
-| `abortPolicy` | 中止时是否清队列 | `clear-then-abort` / `abort-only` |
+| `sendWhileBusy` | 生成中再发送 | `queue` / `interrupt` |
+| `followUpMode` | followUp 出队 | `one-at-a-time` / `all` |
+| `abortQueue` | 停止时队列 | `deliver` / `clear` |
 | `sessionDelete` | 会话删除方式 | `logical` / `physical` |
 | `projectDelete` | 项目删除方式 | `logical` / `physical` |
+
+`steeringMode` 和 `abortPolicy` 仍在接口和文件里，设置页不展示。网页排队走 followUp，见 [web-app.md](web-app.md)「发送与中止」。
 
 - 打开 Setting 时 **`GET /api/settings`** 填表；修改后 **`PATCH /api/settings`** 只传变更字段。
 - 文案用中文标签，值传英文枚举（与 API 一致）。
 
 **不做什么**
 
-- 编辑工作区 `.pi/settings.json`（项目层 `abortPolicy` 等仅在服务端按 cwd 合并，见 `abortPolicyFor`）。
-- 热路径上的 per-request 覆盖（不存在此类 API）。
+- 编辑工作区 `.pi/settings.json`。网页停止不读项目层 `abortPolicy`。
+- 把 `steer` 暴露成设置项。
 
 **数据**
 
-- 仅服务端 `~/.relax/agent/settings.json`（路径随 `home`）；前端**不**写入 `localStorage`。
-- `PATCH` 成功后以响应体为准更新本地 form state；失败 toast 或行内错误（复用项目已有错误展示惯例）。
+- 仅服务端 `~/.relax/agent/settings.json`（路径随 `home`）。`sendWhileBusy` 与 `abortQueue` 写在 `relax` 下。前端不写入 `localStorage`。
+- `PATCH` 成功后以响应体为准更新表单，并记下这份设置给对话发送用。失败用 `message.error`，这一行回到改之前的值。
 
-**实现要点**
-
-- 出队 / 中止：各一行 `Select` 或两选一 `Switch`（视语义清晰度）。
-- 删除方式：可合并为一个 `SettingGroup`「删除」，两行分别会话/项目。
-- 说明文字可摘自 [server-implemented.md](server-implemented.md) §会话行为、§设置。
-
-**建议顺序**：依赖新建 `api/settings.ts`；可与模型模块并行，但 UI 上建议放在模型区块之后（对话策略靠后更符合心智）。
+缺文件时 `sendWhileBusy` 为 `queue`，`abortQueue` 为 `deliver`，`followUpMode` 为 `one-at-a-time`。
 
 ---
 
@@ -225,11 +221,11 @@ temperature、按工具开关、观测（Langfuse）、语言包、OAuth 登录�
 - [ ] **S1 搜索骨架**：`SETTING_SEARCH_INDEX` + 过滤逻辑 + 空态文案（可先绑占位行，后换真实行）。
 - [x] **S2 通用 / 用户**：`/api/profile*` + `store/profile`；通用区块用户名与头像；`UserBar` 同源展示。
 - [x] **S3 外观**：`ThemeSelector` 暗色选中 + 亮色 disabled + tooltip「当前暂未实现」。
-- [ ] **S4 API 代理**：`app/web/src/api/settings.ts`（get + patch）；代理区块五行（或分组）接 API。
+- [x] **S4 API 代理**：`app/web/src/api/settings.ts`（get + patch）；代理页接对话中发送、出队、停止、删除。
 - [x] **S5 模型 · 默认**：默认模型行 + `putDefaultModel` + 刷新 `modelPicker`。
 - [x] **S6 模型 · 内置 key**：`api/providers` + 列表 UI + PUT/DELETE。
 - [x] **S7 模型 · 自定义**：`api/custom-providers` + 列表与 Modal 表单（最小字段，不含 `headers` / `authHeader`）。
-- [ ] **S8 收尾**：删掉 `Setting/SectionPlaceholder.tsx` 占位假数据；为每行补全搜索 keywords；必要时在 [web.md](web.md) 增一句 Setting 结构指向本文。
+- [ ] **S8 收尾**：占位文件已随 S4 删除。为每行补全搜索 keywords；必要时在 [web.md](web.md) 增一句 Setting 结构指向本文。
 
 ---
 
@@ -237,7 +233,7 @@ temperature、按工具开关、观测（Langfuse）、语言包、OAuth 登录�
 
 | 类型 | 路径 |
 |------|------|
-| 设置页壳 | [`app/web/src/components/Setting/`](../app/web/src/components/Setting/)（`index.tsx` 壳层；`General` / `Appearance` / `Models` / `Agents` 各一块；未落地块暂用 `SectionPlaceholder`） |
+| 设置页壳 | [`app/web/src/components/Setting/`](../app/web/src/components/Setting/)（`index.tsx` 壳层；`General` / `Appearance` / `Models` / `Agents` 各一块） |
 | 侧栏用户条 | [`app/web/src/components/UserBar.tsx`](../app/web/src/components/UserBar.tsx) |
 | 显隐 | [`app/web/src/store/common.ts`](../app/web/src/store/common.ts)（`settingOpen` / `toggleSetting`） |
 | 布局等本地持久化 | [`app/web/src/store/local.ts`](../app/web/src/store/local.ts)（不含 profile） |

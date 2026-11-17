@@ -5,8 +5,10 @@ import { StickToBottom, useStickToBottomContext } from 'use-stick-to-bottom'
 import { historyAssistantError, historyToMessages } from '../../conversation/historyMessages'
 import { translateHistory } from '../../conversation/translateHistory'
 import { createBlockRuntime, isRunBusy, type ConversationSnapshot } from '../../conversation'
+import { deleteSessionQueueItem } from '../../api/sessions'
 import {
 	abortConversation,
+	followUpTexts,
 	getOpenSessionHistory,
 	getStreamingDraft,
 	getTransportGeneration,
@@ -14,11 +16,12 @@ import {
 	promptConversation,
 	releaseOpenSession,
 	sendConversation,
+	subscribeFollowUps,
 	subscribeOpenSessionEvents,
 	subscribeTransport,
 } from '../../session'
 import { noteModelSession } from '../../session/modelPicker'
-import { enqueue, removePending, takeHead, type PendingMessage } from '../../session/pendingQueue'
+import { runtimeSettings } from '../../session/runtimeSettings'
 import { useCatalogStore } from '../../store'
 import { Composer } from '../Composer'
 import { AssistantErrorNotice } from '../AssistantErrorNotice'
@@ -31,20 +34,13 @@ interface Props {
 }
 
 type HistoryNotice = 'loading' | 'error' | null
+type PendingMessage = { id: string; text: string }
 
 const COLUMN = 'mx-auto w-full max-w-[800px] px-4'
 const COMPOSER_EASE = [0.22, 1, 0.36, 1] as const
 /** 库不认 CSS 的 smooth，对象才会走弹簧。只给「多了一条用户消息」那一下。 */
 const SEND_SCROLL = { damping: 0.85, stiffness: 0.04, mass: 1.2 } as const
 const SEND_SCROLL_MS = 800
-
-function sessionStatuses(pages: Record<string, { sessions: { id: string; status: string }[] }>): Record<string, string> {
-	const status: Record<string, string> = {}
-	for (const page of Object.values(pages)) {
-		for (const session of page.sessions) status[session.id] = session.status
-	}
-	return status
-}
 
 function catalogRunning(sessionId: string): boolean {
 	for (const page of Object.values(useCatalogStore.getState().sessionPages)) {
@@ -69,13 +65,8 @@ export function Conversation({ className }: Props) {
 		return 'idle' as const
 	})
 	const [notice, setNotice] = useState<HistoryNotice>(null)
-	const [queues, setQueues] = useState<Record<string, PendingMessage[]>>({})
 	const [sendNotice, setSendNotice] = useState<string | null>(null)
 	const [assistantError, setAssistantError] = useState<string | null>(null)
-	const queuesRef = useRef(queues)
-	const holdAuto = useRef(false)
-	const flight = useRef<Record<string, Promise<unknown>>>({})
-	queuesRef.current = queues
 	const busy = isRunBusy(snapshot.runPhase)
 	const generating = busy || catalogStatus === 'running'
 	const hasMessages = snapshot.messageOrder.length > 0
@@ -119,84 +110,28 @@ export function Conversation({ className }: Props) {
 	}, [transport.openSessionId, transport.phase])
 
 	const sessionId = transport.openSessionId
-	const pending = sessionId ? (queues[sessionId] ?? []) : []
-
-	const drop = (id: string, itemId: string) => {
-		const next = { ...queuesRef.current, [id]: removePending(queuesRef.current[id] ?? [], itemId) }
-		queuesRef.current = next
-		setQueues(next)
-	}
-
-	const flushHead = async (id: string) => {
-		if (flight.current[id]) return
-		const watching = getTransportSnapshot().openSessionId === id
-		if (holdAuto.current && watching) return
-		const head = takeHead(queuesRef.current[id] ?? [])?.head
-		if (!head) return
-		const job = (async () => {
-			const watching = getTransportSnapshot().openSessionId === id
-			if (watching) setSendNotice(null)
-			await promptConversation(id, head.text, watching)
-			if (queuesRef.current[id]?.[0]?.id === head.id) drop(id, head.id)
-		})()
-		flight.current[id] = job
-		let sent = false
-		try {
-			await job
-			sent = true
-		} catch (error) {
-			if (getTransportSnapshot().openSessionId === id) {
-				setSendNotice(error instanceof Error ? error.message : '发送失败')
-			}
-		} finally {
-			if (flight.current[id] === job) delete flight.current[id]
-		}
-		if (!sent || (holdAuto.current && getTransportSnapshot().openSessionId === id)) return
-		const open = getTransportSnapshot().openSessionId === id
-		const busy = catalogRunning(id) || (open && isRunBusy(runtime.getSnapshot().runPhase))
-		if (!busy) void flushHead(id)
-	}
-
-	const flushHeadRef = useRef(flushHead)
-	flushHeadRef.current = flushHead
-
-	useEffect(() => {
-		if (holdAuto.current || generating || !sessionId) return
-		void flushHeadRef.current(sessionId)
-	}, [generating, sessionId])
-
-	useEffect(() => {
-		let status = sessionStatuses(useCatalogStore.getState().sessionPages)
-		return useCatalogStore.subscribe((state) => {
-			const next = sessionStatuses(state.sessionPages)
-			for (const [id, value] of Object.entries(next)) {
-				if (status[id] === 'running' && value !== 'running') void flushHeadRef.current(id)
-			}
-			status = next
-		})
-	}, [])
+	const queued = useSyncExternalStore(
+		subscribeFollowUps,
+		() => followUpTexts(sessionId),
+		() => followUpTexts(sessionId),
+	)
+	const pending = queued.map((text, index) => ({ id: String(index), text }))
 
 	const sendNow = async (itemId: string) => {
 		if (!sessionId) return
-		const item = queuesRef.current[sessionId]?.find((row) => row.id === itemId)
-		if (!item) return
-		holdAuto.current = true
+		const index = Number(itemId)
+		const text = followUpTexts(sessionId)[index]
+		if (!text) return
 		setSendNotice(null)
 		try {
-			await flight.current[sessionId]?.catch(() => undefined)
-			const stillQueued = queuesRef.current[sessionId]?.some((row) => row.id === itemId)
-			if (stillQueued) {
-				if (catalogRunning(sessionId) || isRunBusy(runtime.getSnapshot().runPhase)) await abortConversation()
-				await sendConversation(item.text)
-				drop(sessionId, item.id)
+			await deleteSessionQueueItem(sessionId, index)
+			if (catalogRunning(sessionId) || isRunBusy(runtime.getSnapshot().runPhase)) {
+				await abortConversation('interrupt')
 			}
+			await promptConversation(sessionId, text)
 		} catch (error) {
 			setSendNotice(error instanceof Error ? error.message : '发送失败')
-		} finally {
-			holdAuto.current = false
 		}
-		const busy = catalogRunning(sessionId) || isRunBusy(runtime.getSnapshot().runPhase)
-		if (getTransportSnapshot().openSessionId === sessionId && !busy) void flushHeadRef.current(sessionId)
 	}
 
 	useEffect(() => {
@@ -298,25 +233,25 @@ export function Conversation({ className }: Props) {
 				}}
 				onRemove={(itemId) => {
 					if (!sessionId) return
-					drop(sessionId, itemId)
+					void deleteSessionQueueItem(sessionId, Number(itemId)).catch((error: unknown) => {
+						setSendNotice(error instanceof Error ? error.message : '取消失败')
+					})
 				}}
 				accessory={<ModelPicker onError={(message) => setSendNotice(message)} />}
 				onSubmit={async (text) => {
 					setSendNotice(null)
 					setAssistantError(null)
-					if (generating && sessionId) {
-						const next = {
-							...queuesRef.current,
-							[sessionId]: enqueue(queuesRef.current[sessionId] ?? [], {
-								id: crypto.randomUUID(),
-								text,
-							}),
-						}
-						queuesRef.current = next
-						setQueues(next)
-						return
-					}
 					try {
+						if (generating && sessionId) {
+							const settings = await runtimeSettings()
+							if (settings.sendWhileBusy === 'interrupt') {
+								await abortConversation('interrupt')
+								await sendConversation(text)
+								return
+							}
+							await sendConversation(text, 'followUp')
+							return
+						}
 						await sendConversation(text)
 					} catch (error) {
 						setSendNotice(error instanceof Error ? error.message : '发送失败')

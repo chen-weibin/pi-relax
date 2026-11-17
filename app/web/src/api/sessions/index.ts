@@ -52,9 +52,24 @@ export async function selectSessionModel(id: string, provider: string, model: st
 	return data
 }
 
-export async function abortSession(id: string): Promise<SessionRecord> {
-	const { data } = await http.post<SessionRecord>(`/api/sessions/${encodeURIComponent(id)}/abort`)
+export async function abortSession(id: string, intent?: 'interrupt'): Promise<SessionRecord> {
+	const { data } = await http.post<SessionRecord>(
+		`/api/sessions/${encodeURIComponent(id)}/abort`,
+		intent ? { intent } : {},
+	)
 	return data
+}
+
+export async function getSessionQueue(id: string): Promise<string[]> {
+	const { data } = await http.get<{ followUp: string[] }>(`/api/sessions/${encodeURIComponent(id)}/queue`)
+	return data.followUp
+}
+
+export async function deleteSessionQueueItem(id: string, index: number): Promise<string[]> {
+	const { data } = await http.delete<{ followUp: string[] }>(
+		`/api/sessions/${encodeURIComponent(id)}/queue/${index}`,
+	)
+	return data.followUp
 }
 
 export async function deleteSession(id: string): Promise<void> {

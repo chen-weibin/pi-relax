@@ -2,7 +2,7 @@
 
 查阅时机：改 `app/server`、定数据目录、接 pi 会话、文件同步或终端之前。某一块开工时以本文的能力剖面和性能上限为底。路径、接口、目录里实际有哪些文件，实现时写进本文，并和代码一起改。代码和本文不一致时，以改代码的同一次修改把本文补齐，不另开一轮补文档。
 
-本文是底座。对话、文件系统、终端均已接：会话文件、智能体类、路由与全局 SSE、`/api/fs` / `/ws/fs`、`/ws/pty`。`app/web` 已接会话 / SSE / 模型 / 项目 / FS / PTY，Setting「模型」已接内置 key 与自定义提供商；`GET`/`PATCH /api/settings` 前端尚未接。
+本文是底座。对话、文件系统、终端均已接：会话文件、智能体类、路由与全局 SSE、`/api/fs` / `/ws/fs`、`/ws/pty`。`app/web` 已接会话 / SSE / 模型 / 项目 / FS / PTY，Setting「模型」已接内置 key 与自定义提供商；Setting「代理」已接 `GET`/`PATCH /api/settings`。
 
 对接 pi 之前先读源码，不要只凭本文的 API 摘要选函数。本地克隆在仓库根的 `pi/`（已 git 忽略），会话相关源码在 `pi/packages/coding-agent/src/core/`，说明在 `pi/packages/coding-agent/docs/sdk.md`。运行时安装的是 `@earendil-works/pi-coding-agent@^1.5.0`（与 `pi-ai` 同版本）。类型或文档和源码不一致时，以源码为准，并把结论回写本文。
 
@@ -131,7 +131,7 @@ pi 暴露的加载点都要能指定到 `.relax` 或配置里的路径，不默�
 
 剖面本轮：`tools` 为八个内置工具、`codemode` 和四个联网工具。`customTools` 来自 `app/server/src/tools/`，目前是覆盖版的 `bash` 与 `powershell`。loader 不传 `noSkills`，技能走基座默认发现。`noExtensions` / `noContextFiles` / `noPromptTemplates` / `noThemes` 仍关。`noExtensions` 只停磁盘扫描；`additionalExtensionPaths` 指向 Langfuse 和 `pi-web-access`；`extensionFactories` 来自 `app/server/src/extensions/`，含 `createCodemodeExtension()`。模型用白名单里的内置提供商，`agentDir` 指向 `~/.relax/agent`。
 
-新对话：`SessionManager.create(cwd)` 后，用这条会话的 cwd 补项目行（没有行才插入），再立刻 `prompt`。文件等第一条 user 消息。思考档位默认 `medium`。正在回复时，不带 `streamingBehavior` 再 `prompt` 得 `BUSY`；`steer` 在当前回复及其工具结束后、下一次模型调用前插入，`followUp` 在本轮结束后再发。两者都不打断正在吐的字。插队失败不把这一轮标成空闲。多条排队的出队读全局 `~/.relax/agent/settings.json` 的 `steeringMode` / `followUpMode`（各自 `all` 或 `one-at-a-time`，缺省 `one-at-a-time`）。新建会话由基座 `SettingsManager` 合并该文件与工作区 `.pi/settings.json`，工厂里不调用 setter。`PATCH /api/settings` 之后，内存里的会话用 `setSteeringMode` / `setFollowUpMode` 立刻换模式。
+新对话：`SessionManager.create(cwd)` 后，用这条会话的 cwd 补项目行（没有行才插入），再立刻 `prompt`。文件等第一条 user 消息。思考档位默认 `medium`。正在回复时，不带 `streamingBehavior` 再 `prompt` 得 `BUSY`；`steer` 在当前回复及其工具结束后、下一次模型调用前插入，`followUp` 在本轮结束后再发。两者都不打断正在吐的字。插队失败不把这一轮标成空闲。多条排队的出队读全局 `~/.relax/agent/settings.json` 的 `steeringMode` / `followUpMode`（各自 `all` 或 `one-at-a-time`，缺省 `one-at-a-time`）。新建会话由基座 `SettingsManager` 合并该文件与工作区 `.pi/settings.json`，工厂里不调用 setter。`PATCH /api/settings` 之后，内存里的会话用 `setSteeringMode` / `setFollowUpMode` 立刻换模式。网页停止读全局 `relax.abortQueue`，不读项目层；`intent: interrupt` 只停、留下队列。
 
 历史：热会话用该 `sessionManager.buildSessionContext()`，并在后面附上还没落盘的 `streamingMessage`（同一条引用，或相同角色和时间戳，不重复）。否则用 `sessions` 表里的 `path` 打开再同样调用，不扫 `listAll`。没有行、已逻辑删、或文件不在则 404。返回 `{ messages, thinkingLevel, model }`，不手读 JSONL。
 
@@ -157,7 +157,9 @@ pi 暴露的加载点都要能指定到 `.relax` 或配置里的路径，不默�
 - `POST /api/sessions/:id/prompt` 续发，202。可选 `streamingBehavior`（`steer` | `followUp`）、`thinkingLevel`，以及一起出现的 `provider` 与 `model`。带了模型且与该会话上次不同时才写入会话
 - `POST /api/sessions/:id/model` 只把所选模型写成全局默认，不改这条会话的上次模型
 - `POST /api/sessions/:id/name` 手动设置 `name`，空字符串清空
-- `POST /api/sessions/:id/abort` 中止。热会话按 `relax.abortPolicy`：`clear-then-abort`（默认）先 `clearQueue` 再 `abort`；`abort-only` 只 `abort`，队列留下。响应是会话信息加上 `cleared: { steering, followUp }`。没有清队列、会话不在内存里时两个数组为空，`status` 为 `idle`
+- `GET /api/sessions/:id/queue` 热会话的 followUp 文本。不在内存里为空数组
+- `DELETE /api/sessions/:id/queue/:index` 按序号取消一条 followUp，留下的按原顺序再入队
+- `POST /api/sessions/:id/abort` 中止。不带 `intent` 时读全局 `relax.abortQueue`：`deliver`（缺省）停完后按 `followUpMode` 把 followUp 发出去，`all` 时拼成一条；`clear` 先清空再停。`intent: "interrupt"` 只停，队列留下。`cleared` 只在 `clear` 时带上被清掉的文本。删会话另走清空，不按 `abortQueue` 再发
 - `GET /api/providers` 内置白名单 + 自定义。带 `kind`；`configured` 表示基座认为该提供商已有凭证
 - `PUT /api/providers/:id` 写入或覆盖内置 api key。名单外（含自定义 id）404；自定义改配置走 `/api/custom-providers`
 - `DELETE /api/providers/:id` 删除 `auth.json` 里的这一条。环境变量仍可让基座认为可用
@@ -168,11 +170,11 @@ pi 暴露的加载点都要能指定到 `.relax` 或配置里的路径，不默�
 - `PUT /api/models/default` 修改全局默认，不改已经打开的会话
 - `POST /api/models/refresh` 手动从 pi.dev 更新白名单模型目录。测试不调用
 - `GET /api/models/thinking-levels?provider=&id=` 查询该模型可选思考档位和默认档位 `medium`。目录里没有 404
-- `GET /api/settings` 全局出队模式、中止策略、会话删除方式和项目删除方式。缺文件时返回默认值
-- `PATCH /api/settings` 改上述字段的子集。出队模式写入后套到热会话。两个删除方式写在 `relax.sessionDelete` 与 `relax.projectDelete`，缺省都是 `logical`
+- `GET /api/settings` 全局出队模式、`abortPolicy`、`sendWhileBusy`、`abortQueue`、会话删除方式和项目删除方式。缺文件时返回默认值
+- `PATCH /api/settings` 改上述字段的子集。出队模式写入后套到热会话。`sendWhileBusy` 与 `abortQueue` 写在 `relax` 下，缺省 `queue` 与 `deliver`
 - `GET /api/sessions/events` 全局 SSE，不进 api.html。`data` 为 `{ sessionId, event }`，内层是 pi 的 `AgentSessionEvent`
 
-SSE 断线不补，客户端用历史对齐。发送和中止走 HTTP。`app/web` 已接会话 / SSE / 模型与思考档位，Setting「模型」已接内置 key 与自定义提供商；settings 前端尚未接。
+SSE 断线不补，客户端用历史对齐。发送和中止走 HTTP。`app/web` 已接会话 / SSE / 模型与思考档位，Setting「模型」已接内置 key 与自定义提供商；Setting「代理」已接。
 
 `name` 在第一条用户消息写入时，若还没标题，就用这句文本。之后不覆盖。列表只返回 `name`。空字符串是清空。
 
@@ -201,7 +203,7 @@ SSE 断线不补，客户端用历史对齐。发送和中止走 HTTP。`app/web
 - **单会话单飞**。同一条会话已有生成时，不带 `streamingBehavior` 拒绝第二条（`BUSY`）。`steer` / `followUp` 只排队，不另开一条生成。
 - **流式**。服务端不另存一份完整正文。pi 追加 JSONL，我们转发事件。客户端读得慢就背压，缓冲有上限，满了断开这一条连接。
 - **历史**。只在打开该会话时读。单文件读取有上限。上下文体积靠 pi 自带压缩兜住。
-- **事件循环**。请求路径上不同步读大目录或大文件。订阅回调里的异常记到该会话，不让进程退出。中止按 `relax.abortPolicy`，默认先清空排队文本，再传到模型请求。
+- **事件循环**。请求路径上不同步读大目录或大文件。订阅回调里的异常记到该会话，不让进程退出。网页停止按全局 `relax.abortQueue`，缺省停完再把 followUp 发出去。删会话仍先清空队列。
 - **文件监听**。客户端订一个根目录，服务端递归监听这棵树，防抖后推这棵树上的变化路径，不推整棵目录表。同时存在的根由 `config.json` 的 `fs.watchMax` 限制，默认 16。同一根的多条连接只占 1。服务端不过滤名字。
 - **终端**。`/ws/pty` 在 listen 后挂上。PTY 个数有上限，回放缓冲约 100KB，关闭时必须释放文件描述符。
 - **工具**。已启用八个内置工具（含 `bash`、`powershell`）和 `codemode`，以及 `pi-web-access` 的四个联网工具。`bash` / `powershell` 这一步没有另加超时或路径限制，范围是该会话的 cwd。两者都多了一个必填的 `description` 参数，用来让界面显示「这条命令要干什么」。`powershell` 非 Windows 上由基座在调用时报错。
@@ -291,7 +293,7 @@ app/server/src/
   upgrade.ts            HTTP upgrade 分发：/ws/fs 与 /ws/pty 共用同一次握手
   config/server.ts      读 config.json，缺组、缺字段或类型不对用代码默认值
   config/home.ts        home、agentDir、PI_CODING_AGENT_DIR
-  config/settings.ts    全局 settings.json：出队模式、中止策略、会话与项目的删除方式
+  config/settings.ts    全局 settings.json：出队模式、abortQueue、sendWhileBusy、会话与项目的删除方式
   utils/errors.ts       错误类型与 Express 错误中间件
   utils/text.ts         消息纯文本
   utils/request.ts      请求体 text / cwd
@@ -341,6 +343,6 @@ app/server/test/
 
 ## 和 Cursor / Codex 的差距
 
-多项目、多会话、不选项目也能聊，这一层对齐。流式正文、思考、中止、历史回放，pi 够用，线上格式跟 pi。工具已按白名单打开。技能按基座默认目录加载，见「技能」。规则的 loader 行为还没核对。模型用白名单里的内置提供商，密钥在 `auth.json`。文件变化按调用方给定的根目录递归监听，`app/web` 的文件树与终端均已接。终端走 `/ws/pty`，不经过 pi。Setting「模型」已接内置 key 与自定义提供商；settings 前端尚未接。
+多项目、多会话、不选项目也能聊，这一层对齐。流式正文、思考、中止、历史回放，pi 够用，线上格式跟 pi。工具已按白名单打开。技能按基座默认目录加载，见「技能」。规则的 loader 行为还没核对。模型用白名单里的内置提供商，密钥在 `auth.json`。文件变化按调用方给定的根目录递归监听，`app/web` 的文件树与终端均已接。终端走 `/ws/pty`，不经过 pi。Setting「模型」已接内置 key 与自定义提供商；Setting「代理」已接。
 
 往后放的能力：分支和 fork、附件、检查点回滚、命令审批、多根工作区。用户名和头像已接，见「产品形态」与 [server-implemented.md](server-implemented.md) §用户展示。

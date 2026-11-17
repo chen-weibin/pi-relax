@@ -144,10 +144,30 @@ export function sessionsRouter(agent: Agent): Router {
 		}),
 	)
 
+	router.get(
+		'/api/sessions/:id/queue',
+		asyncHandler(async (req, res) => {
+			res.json({ followUp: await agent.followUps(req.params.id as string) })
+		}),
+	)
+
+	router.delete(
+		'/api/sessions/:id/queue/:index',
+		asyncHandler(async (req, res) => {
+			const index = Number(req.params.index)
+			if (!Number.isInteger(index)) throw new HttpError(400, 'BAD_REQUEST', 'queue index must be an integer')
+			res.json({ followUp: await agent.dropFollowUp(req.params.id as string, index) })
+		}),
+	)
+
 	router.post(
 		'/api/sessions/:id/abort',
 		asyncHandler(async (req, res) => {
-			res.json(await agent.abort(req.params.id as string))
+			const intent = optionalString(req.body, 'intent')
+			if (intent !== undefined && intent !== 'interrupt') {
+				throw new HttpError(400, 'BAD_REQUEST', 'intent must be interrupt')
+			}
+			res.json(await agent.abort(req.params.id as string, intent === 'interrupt' ? 'interrupt' : 'stop'))
 		}),
 	)
 

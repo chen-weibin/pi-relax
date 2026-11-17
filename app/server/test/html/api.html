@@ -831,24 +831,28 @@ ${ERROR_BODY}`,
 						name: "读取运行配置",
 						method: "GET",
 						path: "/api/settings",
-						summary: "读取全局 ~/.relax/agent/settings.json 里的出队模式、中止策略和两个删除方式。缺文件时返回默认值。不含项目 .pi/settings.json 的覆盖。",
+						summary: "读取全局 ~/.relax/agent/settings.json。缺文件时返回默认值。不含项目 .pi/settings.json 的覆盖。",
 						queryParams: [],
 						bodyParams: [],
 						body: "",
 						requestType: `/** 无参数。 */
 type GetSettingsRequest = Record<string, never>`,
-						responseType: `/** HTTP 200。缺文件或非法值时用默认：出队 one-at-a-time，中止 clear-then-abort，删除 logical。 */
+						responseType: `/** HTTP 200。缺文件或非法值时用默认：出队 one-at-a-time，abortPolicy clear-then-abort，删除 logical，sendWhileBusy queue，abortQueue deliver。 */
 type RuntimeSettings = {
 	/** 生成中 steer 的出队。all 为到达出队点时一次注入全部 */
 	steeringMode: "all" | "one-at-a-time"
 	/** 生成中 followUp 的出队。与 steeringMode 各自独立 */
 	followUpMode: "all" | "one-at-a-time"
-	/** clear-then-abort 先清队列再中止；abort-only 只中止当前轮，队列保留 */
+	/** 仍保存在文件里。网页停止不读它 */
 	abortPolicy: "clear-then-abort" | "abort-only"
 	/** 删会话。logical 写 deleted_at；physical 删 JSONL 和这一行 */
 	sessionDelete: "logical" | "physical"
 	/** 删项目。logical 写 deleted_at；physical 删掉项目行。都不改会话 */
 	projectDelete: "logical" | "physical"
+	/** 生成中再发送。queue 走 followUp；interrupt 先停再发这条。写入 relax */
+	sendWhileBusy: "queue" | "interrupt"
+	/** 网页停止。deliver 停完再按 followUpMode 发出队列；clear 先清空。写入 relax */
+	abortQueue: "clear" | "deliver"
 }
 
 ${ERROR_BODY}`,
@@ -858,41 +862,96 @@ ${ERROR_BODY}`,
 						name: "修改运行配置",
 						method: "PATCH",
 						path: "/api/settings",
-						summary: "改全局出队模式、中止策略或删除方式。只写传入的字段。出队模式会立刻套到内存里的热会话。删除方式在下一次删除时读取。",
+						summary: "改全局出队模式、停止时的队列、对话中发送或删除方式。只写传入的字段。出队模式会立刻套到内存里的热会话。",
 						queryParams: [],
 						bodyParams: [
 							{ name: "steeringMode", type: "string", required: false, description: "all 或 one-at-a-time", example: "all" },
 							{ name: "followUpMode", type: "string", required: false, description: "all 或 one-at-a-time", example: "one-at-a-time" },
-							{ name: "abortPolicy", type: "string", required: false, description: "clear-then-abort 或 abort-only", example: "abort-only" },
+							{ name: "abortPolicy", type: "string", required: false, description: "clear-then-abort 或 abort-only。网页停止不读", example: "abort-only" },
 							{ name: "sessionDelete", type: "string", required: false, description: "logical 或 physical", example: "logical" },
 							{ name: "projectDelete", type: "string", required: false, description: "logical 或 physical", example: "logical" },
+							{ name: "sendWhileBusy", type: "string", required: false, description: "queue 或 interrupt", example: "queue" },
+							{ name: "abortQueue", type: "string", required: false, description: "deliver 或 clear", example: "deliver" },
 						],
-						body: "{\n  \"steeringMode\": \"all\",\n  \"abortPolicy\": \"abort-only\"\n}",
-						requestType: `/** JSON body。五项至少传一项。空对象或未知字段 400 BAD_REQUEST。 */
+						body: "{\n  \"followUpMode\": \"all\",\n  \"abortQueue\": \"deliver\"\n}",
+						requestType: `/** JSON body。至少传一项。空对象或未知字段 400 BAD_REQUEST。 */
 type PatchSettingsRequest = {
 	/** steer 出队。all 一次注入全部，one-at-a-time 一次一条 */
 	steeringMode?: "all" | "one-at-a-time"
 	/** followUp 出队，与 steeringMode 独立 */
 	followUpMode?: "all" | "one-at-a-time"
-	/** 中止时是否先清空队列 */
+	/** 仍可写入。网页停止不读 */
 	abortPolicy?: "clear-then-abort" | "abort-only"
 	/** 删会话。写入 relax.sessionDelete */
 	sessionDelete?: "logical" | "physical"
 	/** 删项目。写入 relax.projectDelete */
 	projectDelete?: "logical" | "physical"
+	/** 生成中再发送。写入 relax.sendWhileBusy */
+	sendWhileBusy?: "queue" | "interrupt"
+	/** 网页停止时队列怎么处理。写入 relax.abortQueue */
+	abortQueue?: "clear" | "deliver"
 }`,
-						responseType: `/** HTTP 200。写入后的全局五项，不含项目层覆盖。 */
+						responseType: `/** HTTP 200。写入后的全局设置，不含项目层覆盖。 */
 type RuntimeSettings = {
 	/** steer 出队 */
 	steeringMode: "all" | "one-at-a-time"
 	/** followUp 出队 */
 	followUpMode: "all" | "one-at-a-time"
-	/** 中止策略 */
+	/** 仍保存在文件里。网页停止不读它 */
 	abortPolicy: "clear-then-abort" | "abort-only"
 	/** 删会话 */
 	sessionDelete: "logical" | "physical"
 	/** 删项目 */
 	projectDelete: "logical" | "physical"
+	/** 生成中再发送 */
+	sendWhileBusy: "queue" | "interrupt"
+	/** 网页停止时队列怎么处理 */
+	abortQueue: "clear" | "deliver"
+}
+
+${ERROR_BODY}`,
+					},
+					{
+						group: "会话",
+						name: "读取队列",
+						method: "GET",
+						path: "/api/sessions/:id/queue",
+						summary: "热会话里还没发出的 followUp。会话不在内存里是空数组。",
+						queryParams: [],
+						bodyParams: [],
+						body: "",
+						requestType: `/** 路径参数。 */
+type GetQueueRequest = {
+	/** 会话 id。找不到时 404 NOT_FOUND */
+	id: string
+}`,
+						responseType: `/** HTTP 200。 */
+type SessionQueue = {
+	/** 按入队顺序 */
+	followUp: string[]
+}
+
+${ERROR_BODY}`,
+					},
+					{
+						group: "会话",
+						name: "取消队列中的一条",
+						method: "DELETE",
+						path: "/api/sessions/:id/queue/:index",
+						summary: "按序号拿掉一条 followUp。清空后把 steer 和留下的 followUp 按原顺序再入队。",
+						queryParams: [],
+						bodyParams: [],
+						body: "",
+						requestType: `/** 路径参数。index 从 0 开始。 */
+type DropQueueRequest = {
+	/** 会话 id */
+	id: string
+	/** followUp 下标。越界或队列为空时 400 BAD_REQUEST */
+	index: string
+}`,
+						responseType: `/** HTTP 200。拿掉之后还在队列里的 followUp。 */
+type SessionQueue = {
+	followUp: string[]
 }
 
 ${ERROR_BODY}`,
@@ -902,16 +961,20 @@ ${ERROR_BODY}`,
 						name: "中止",
 						method: "POST",
 						path: "/api/sessions/:id/abort",
-						summary: "按 abortPolicy 中止。默认先清空排队文本再打断当前轮。没有生成中也成功。",
+						summary: "停止当前生成。不带 intent 时按 abortQueue：deliver 停完再发出 followUp，clear 先清空。intent 为 interrupt 时只停，队列留下。",
 						queryParams: [],
-						bodyParams: [],
-						body: "",
-						requestType: `/** 路径参数。无 body。 */
+						bodyParams: [
+							{ name: "intent", type: "string", required: false, description: "interrupt 表示只停、不发出队列", example: "interrupt" },
+						],
+						body: "{}",
+						requestType: `/** 路径参数。body 可省略。intent 只能是 interrupt。 */
 type AbortRequest = {
 	/** 会话 id。找不到时 404 NOT_FOUND */
 	id: string
+	/** 打断并保留队列。不传则按 abortQueue 处理 */
+	intent?: "interrupt"
 }`,
-						responseType: `/** HTTP 200。没有正在生成也成功，返回的 status 为 "idle"。clear-then-abort 时热会话先清空队列；abort-only 时 cleared 为空、队列保留。 */
+						responseType: `/** HTTP 200。deliver 并且发出了队列时 status 为 running。clear 时 cleared 带上被清掉的文本。 */
 
 ${SESSION_RECORD}
 
@@ -932,7 +995,7 @@ ${ERROR_BODY}`,
 						name: "删除",
 						method: "DELETE",
 						path: "/api/sessions/:id",
-						summary: "按 abortPolicy 停掉，再按 sessionDelete 删除。默认逻辑删，jsonl 留在磁盘上。physical 删掉 jsonl 和这一行。返回 204。",
+						summary: "先清空内存队列并停掉，再按 sessionDelete 删除。不按 abortQueue 再发。默认逻辑删，jsonl 留在磁盘上。physical 删掉 jsonl 和这一行。返回 204。",
 						queryParams: [],
 						bodyParams: [],
 						body: "",
@@ -941,7 +1004,7 @@ type DeleteSessionRequest = {
 	/** 会话 id。内存和磁盘都没有时 404 NOT_FOUND */
 	id: string
 }`,
-						responseType: `/** HTTP 204，响应体为空。按 abortPolicy 停掉。logical 写 deleted_at。physical 删 jsonl 再删行；删文件失败则不删行。 */
+						responseType: `/** HTTP 204，响应体为空。先清空队列再停。logical 写 deleted_at。physical 删 jsonl 再删行；删文件失败则不删行。 */
 
 ${ERROR_BODY}`,
 					},
