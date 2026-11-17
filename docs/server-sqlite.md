@@ -84,3 +84,33 @@ CREATE TABLE session_marks (
 | `id` | 会话 id，与 JSONL 头里的 id 相同 |
 | `cwd` | 当初标完成时该会话的工作区 |
 | `completed` | `1` 为已完成。只在把旧行补进 `sessions` 时读取 |
+
+## user_profile
+
+单用户展示资料。一行，`id` 固定为 `default`。自定义头像字节不在表里，在 `{home}/profile/avatar`（无扩展名），类型记在 `avatar_mime`。对外读图走 `GET /api/profile/avatar`，表不存 URL。
+
+```sql
+CREATE TABLE user_profile (
+  id TEXT PRIMARY KEY CHECK (id = 'default'),
+  display_name TEXT NOT NULL,
+  avatar_mode TEXT NOT NULL,
+  avatar_shape TEXT,
+  avatar_expression TEXT,
+  avatar_color TEXT,
+  avatar_mime TEXT,
+  modified TEXT NOT NULL
+);
+```
+
+| 字段 | 含义 |
+|---|---|
+| `id` | 固定 `'default'` |
+| `display_name` | 显示名，1–64 字符 |
+| `avatar_mode` | `generated`（内置 Avatar）或 `custom`（上传图） |
+| `avatar_shape` | `circle` / `blob` / `roundedSquare`；`generated` 时用 |
+| `avatar_expression` | Avatar 表情枚举；`generated` 时用 |
+| `avatar_color` | body 色 `#rrggbb`；`generated` 时用 |
+| `avatar_mime` | `custom` 时的 `image/png` / `image/jpeg` / `image/webp`；否则空 |
+| `modified` | 最近一次改名或改头像的时间，ISO；也用于自定义图 cache-bust |
+
+首次 `GET /api/profile` 时若没有行，插入默认：`display_name='chen'`，`avatar_mode='generated'`，`circle` / `neutral` / `#f4f4f1`。`avatar_mode='custom'` 但磁盘文件不在时，读接口按 `generated` 回退。

@@ -1,7 +1,9 @@
 import classNames from 'classnames'
 import { useEffect, useRef } from 'react'
 import {
+	avatarPalettes,
 	DEFAULT_CONFIG,
+	type AvatarColors,
 	type AvatarConfigPatch,
 	type AvatarExpression,
 	type AvatarFaceSize,
@@ -20,6 +22,13 @@ export type {
 	AvatarSize,
 } from './config.ts'
 export { ANIMATIONS, DEFAULT_CONFIG, EXPRESSIONS, FACE_SIZES, SHAPES, avatarPalettes } from './config.ts'
+
+/** Map a ColorSwatch body hex to a full Avatar palette (preset or custom body). */
+export function colorsFromBody(body: string): AvatarColors {
+	const match = avatarPalettes.find((p) => p.colors.body.toLowerCase() === body.toLowerCase())
+	if (match) return match.colors
+	return { body, face: '#1c1c20', outline: '#0b0b0d', background: '#151515' }
+}
 
 export type AvatarProps = {
 	/** Preset size, or a pixel number. */
@@ -60,7 +69,6 @@ function toPatch(props: {
 		faceSize: props.faceSize,
 		colors: {
 			...DEFAULT_CONFIG.colors,
-			background: 'transparent',
 			...props.colors,
 		},
 		outline: props.outline,
@@ -125,7 +133,7 @@ export function Avatar({
 		>
 			<svg
 				ref={svgRef}
-				viewBox="-1.45 -1.45 2.9 2.9"
+				viewBox="-1 -1 2 2"
 				preserveAspectRatio="xMidYMid meet"
 				aria-hidden
 				focusable="false"

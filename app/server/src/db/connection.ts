@@ -33,6 +33,17 @@ CREATE TABLE IF NOT EXISTS sessions (
   deleted_at TEXT
 );
 CREATE INDEX IF NOT EXISTS sessions_cwd_active ON sessions(cwd) WHERE deleted_at IS NULL;
+
+CREATE TABLE IF NOT EXISTS user_profile (
+  id TEXT PRIMARY KEY CHECK (id = 'default'),
+  display_name TEXT NOT NULL,
+  avatar_mode TEXT NOT NULL,
+  avatar_shape TEXT,
+  avatar_expression TEXT,
+  avatar_color TEXT,
+  avatar_mime TEXT,
+  modified TEXT NOT NULL
+);
 `
 
 let current: { path: string; db: DatabaseSync } | undefined

@@ -12,7 +12,7 @@
 
 本地单用户服务，形态接近 Cursor / Codex 桌面端：一个 OS 用户、一个进程、多个项目、每个项目多条会话。不选项目也能聊，落在默认工作区。
 
-登录和多用户以后可能会做，当前不做。用户名和头像只做本地展示，不进鉴权，优先级最低。
+登录和多用户以后可能会做，当前不做。用户名和头像不进鉴权：元数据在 `relax.sqlite` 的 `user_profile`，自定义图在 `{home}/profile/avatar`，接口 `/api/profile*`，见 [server-sqlite.md](server-sqlite.md) 与 [server-implemented.md](server-implemented.md)。
 
 进程内嵌 pi，不用 `pi --mode rpc`。产品要的是多个工作目录、多条会话同时打开或生成。`createAgentSession` 只创建一条 `AgentSession`。列表和打开文件用 `SessionManager`。`createAgentSessionRuntime` 是 CLI / RPC 那条「进程里只有当前这一条」：`switchSession` 会中止并 `dispose` 旧会话。稳定 SDK 没有多会话管理器，所以我们自己的智能体类按 sessionId 各握一份 `AgentSession`（工厂里会调一次 `createAgentSessionRuntime`，创建完只留 `.session`，不用它的切换 API）。实验性的 `SessionWorkerManager` 是每条会话一个子进程，不在稳定导出里，当前不用。
 
@@ -343,4 +343,4 @@ app/server/test/
 
 多项目、多会话、不选项目也能聊，这一层对齐。流式正文、思考、中止、历史回放，pi 够用，线上格式跟 pi。工具已按白名单打开。技能按基座默认目录加载，见「技能」。规则的 loader 行为还没核对。模型用白名单里的内置提供商，密钥在 `auth.json`。文件变化按调用方给定的根目录递归监听，`app/web` 的文件树与终端均已接。终端走 `/ws/pty`，不经过 pi。settings 与 custom-providers 前端尚未接。
 
-往后放的能力：分支和 fork、附件、检查点回滚、命令审批、多根工作区。用户名和头像优先级最低。
+往后放的能力：分支和 fork、附件、检查点回滚、命令审批、多根工作区。用户名和头像已接，见「产品形态」与 [server-implemented.md](server-implemented.md) §用户展示。

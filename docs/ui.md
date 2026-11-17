@@ -949,11 +949,11 @@
 | `md` | 40 |
 | `lg` | 52 |
 
-另导出 `avatarPalettes`(七套预设色)、`DEFAULT_CONFIG`、`SHAPES` / `EXPRESSIONS` / `ANIMATIONS`。挑主体色用 [`ColorSwatch`](#colorswatch)(默认色与 `avatarPalettes[].colors.body` 对齐),再映射到整套 `colors`。
+另导出 `avatarPalettes`(七套预设色)、`DEFAULT_CONFIG`、`SHAPES` / `EXPRESSIONS` / `ANIMATIONS`、`colorsFromBody(body)`(把 ColorSwatch 的 body hex 映射成整套 `AvatarColors`)。挑主体色用 [`ColorSwatch`](#colorswatch)(默认色与 `avatarPalettes[].colors.body` 对齐),再交给 `colorsFromBody`。
 
 **视觉与行为**:
 
-- 纯 SVG:`body` + 右下背光月牙(`fill-rule="evenodd"`) + 三块五官粗曲线。viewBox 固定 `-1.45 -1.45 2.9 2.9`,靠外框像素缩放。
+- 纯 SVG:`body` + 右下背光月牙(`fill-rule="evenodd"`) + 三块五官粗曲线。viewBox 固定 `-1 -1 2 2`(身体半径 1,贴满外框),靠外框像素缩放。弹跳等动画超出半径时由 SVG 视口裁切。
 - `background` 默认透明,方便嵌进 Sidebar / Composer;需要底色时显式传入 `colors.background`,或在外层铺色。
 - 页面隐藏时停 rAF;卸载 `dispose`。`prefers-reduced-motion: reduce` 时停循环,只画静态表情。
 - 数据层与 playground `#avatar4` 对齐;改表情 / 形状 / 动画时两边要一起改。

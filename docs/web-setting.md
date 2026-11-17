@@ -1,6 +1,6 @@
 # Web Setting 规划
 
-查阅时机：改 `app/web` 全屏设置页的信息架构、接 `/api/settings` / 模型与提供商 API、扩展 `localStorage` 用户展示字段，或拆掉现有四类侧栏占位导航时。外壳与挂载方式见 [web.md](web.md)「持久化 / Setting」；行内控件见 [ui.md](ui.md) 的 `SettingGroup` / `SettingRow`。
+查阅时机：改 `app/web` 全屏设置页的信息架构、接 `/api/settings` / `/api/profile` / 模型与提供商 API，或拆掉现有四类侧栏占位导航时。外壳与挂载方式见 [web.md](web.md)「持久化 / Setting」；行内控件见 [ui.md](ui.md) 的 `SettingGroup` / `SettingRow`。
 
 ## 目标与非目标
 
@@ -10,7 +10,7 @@
 - **去掉**侧栏里「通用+外观」与「模型+代理」的两层**成组** UI（原 `GROUPS` 嵌套），改为四个**平级**导航项；主区仍按 `activeKey` **切换**单类内容，不做一页滚完四段。
 - 设置内**纯前端搜索**：按关键词过滤可见行，不请求服务端。
 - 模块范围（本期规划）：
-  1. **通用 / 用户展示**：手动配置用户名、头像 URL，供 `UserBar` 等展示；无账号体系。
+  1. **通用 / 用户展示**：用户名与头像（内置 `Avatar` 或上传图），服务端 `/api/profile*` 持久化，供 `UserBar` 等展示；无账号体系。
   2. **外观**：主题用 `ThemeSelector` 迷你预览卡片；暗色为当前选中，**亮色禁用**并提示「当前暂未实现」，不切换 `data-theme`。
   3. **模型**：展示并配置内置提供商 key、自定义提供商、已配置状态；全局默认模型与 Composer **同一数据源**。
   4. **代理**（对话全局策略）：出队模式、中止策略、会话/项目删除方式，对接已有 `GET/PATCH /api/settings`。
@@ -34,7 +34,7 @@ temperature、按工具开关、观测（Langfuse）、语言包、OAuth 登录�
 | 现状 | 规划 |
 |------|------|
 | ~~`Setting.tsx`：侧栏 `GROUPS` 两段捆包四类入口~~ **（S0 已做）** 侧栏 250px：**返回** + 四项平级按钮（通用 / 外观 / 模型 / 代理）+ 底部 `UserBar`；主区标题为当前类名，仅渲染该类占位演示 | 侧栏补 `SearchInput`（S1）；其余模块按 checklist 逐步替换占位 |
-| `UserBar.tsx`：`USER_NAME` / `AVATAR_URL` 常量写死 | 读 `useLocalStore` 中的用户展示字段（见下） |
+| `UserBar.tsx`：读 `useProfileStore`（`/api/profile`） | 已接；改 Setting「通用」与侧栏同源 |
 | 模型：Composer 已接 `modelPicker` + `../api/models` | Setting「默认模型」调用同一 API / 同一写入路径，不另建 store |
 | 代理类设置：服务端已实现，前端未接 | 新增 `../api/settings` 薄封装 + Setting 表单 |
 
@@ -85,32 +85,28 @@ temperature、按工具开关、观测（Langfuse）、语言包、OAuth 登录�
 
 **做什么**
 
-- 编辑**显示名**（字符串，合理长度上限，如 64）。
-- 编辑**头像**：本期允许用户粘贴 **图片 URL**（与当前 DiceBear 常量同类）；保存后在 `UserBar` 与 Setting 内预览。
-- 提供「恢复默认」可选（清回默认名 + 默认头像 URL）。
+- 编辑**显示名**（1–64，失焦 / Enter 提交）。
+- 编辑**头像**：
+  - **内置**：项目 `Avatar` 组件；可配形状、颜色（`ColorSwatch`）、表情；**不配**展示大小。
+  - **自定义**：本地上传 PNG / JPEG / WebP（≤ 2 MiB）；可换图或「恢复内置」。
+- Setting 与侧栏 `UserBar` 同源展示。
 
 **不做什么**
 
-- 登录、token、与服务器用户表同步。
-- 本地上传文件（无 `/api`）；若 URL 无效仅前端展示裂图，不阻断保存。
+- 登录、token、多用户鉴权。
+- 粘贴外链头像 URL；把 profile 写进 `localStorage` 或 `/api/settings`。
 
 **数据**
 
-- **`localStorage`**，写入既有文档 `relax`（`store/local.ts`），**扩展** `LocalDocument`（`version` 仍为 `1`）例如：
-
-  ```ts
-  profile?: { displayName?: string; avatarUrl?: string }
-  ```
-
-- 缺字段时：`displayName` 默认 `'chen'`，`avatarUrl` 默认与当前 `UserBar.tsx` 中 DiceBear 链接一致，保证迁移前后观感连续。
-- 读写只经 `useLocalStore` 新 action（如 `setProfile`），禁止在组件内直接 `localStorage`。
+- 服务端 `GET/PATCH /api/profile`、`PUT/GET/DELETE /api/profile/avatar`（见 [server-implemented.md](server-implemented.md) §用户展示）。
+- 前端：[`app/web/src/api/profile.ts`](../app/web/src/api/profile.ts) + [`store/profile.ts`](../app/web/src/store/profile.ts) 内存态；**不**扩展 `LocalDocument`。
 
 **实现要点**
 
-- `UserBar.tsx` 改为订阅 `profile`，不再使用模块顶层常量。
-- 控件：`SettingRow` + 文本输入 / URL 输入；头像旁 `img` 预览。
+- `General.tsx`：无「用户」标题——首卡左头像（无方底）+ 紧挨用户名（默认无边框，双击进 `Input` 编辑，失焦 / Enter 保存）；次卡标题「头像设置」，首行 `Segmented variant="surface"` 内置/图片，选「图片」时上传按钮在分段控件右侧；内置时形状 → 颜色 → 表情各一行（形状/表情同样 `variant="surface"`，颜色 `ColorSwatch` 默认 7 色 + 自定义）。
+- `UserBar.tsx` 订阅 `useProfileStore`：generated → `<Avatar size={28}>`，custom → 圆形 `<img>`。
 
-**建议顺序**：可作为**第一步**（无后端依赖，验证侧栏切换壳层；搜索索引随 S1）。
+**建议顺序**：S2（依赖服务端 profile API）。
 
 ---
 
@@ -226,7 +222,7 @@ temperature、按工具开关、观测（Langfuse）、语言包、OAuth 登录�
 
 - [x] **S0 壳层**：侧栏去掉 `GROUPS` 两段成组，改为四项平级 nav + `activeKey` 切换主区；保留返回与 `UserBar`；搜索留 S1。
 - [ ] **S1 搜索骨架**：`SETTING_SEARCH_INDEX` + 过滤逻辑 + 空态文案（可先绑占位行，后换真实行）。
-- [ ] **S2 通用 / 用户**：扩展 `LocalDocument.profile` + `setProfile`；通用区块两行；`UserBar` 读 store。
+- [x] **S2 通用 / 用户**：`/api/profile*` + `store/profile`；通用区块用户名与头像；`UserBar` 同源展示。
 - [x] **S3 外观**：`ThemeSelector` 暗色选中 + 亮色 disabled + tooltip「当前暂未实现」。
 - [ ] **S4 API 代理**：`app/web/src/api/settings.ts`（get + patch）；代理区块五行（或分组）接 API。
 - [ ] **S5 模型 · 默认**：默认模型行 + `putDefaultModel` + 刷新 `modelPicker`。
@@ -243,7 +239,8 @@ temperature、按工具开关、观测（Langfuse）、语言包、OAuth 登录�
 | 设置页壳 | [`app/web/src/components/Setting/`](../app/web/src/components/Setting/)（`index.tsx` 壳层；`General` / `Appearance` / `Models` / `Agents` 各一块；未落地块暂用 `SectionPlaceholder`） |
 | 侧栏用户条 | [`app/web/src/components/UserBar.tsx`](../app/web/src/components/UserBar.tsx) |
 | 显隐 | [`app/web/src/store/common.ts`](../app/web/src/store/common.ts)（`settingOpen` / `toggleSetting`） |
-| 持久化 | [`app/web/src/store/local.ts`](../app/web/src/store/local.ts) |
+| 布局等本地持久化 | [`app/web/src/store/local.ts`](../app/web/src/store/local.ts)（不含 profile） |
+| 用户展示 | [`app/web/src/api/profile.ts`](../app/web/src/api/profile.ts)、[`app/web/src/store/profile.ts`](../app/web/src/store/profile.ts)；服务端见 [server-implemented.md](server-implemented.md) §用户展示 |
 | 模型（Composer 同源） | [`app/web/src/session/modelPicker.ts`](../app/web/src/session/modelPicker.ts)、[`app/web/src/api/models/`](../app/web/src/api/models/) |
 | 服务端设置 | [`app/server/src/routes/settings.ts`](../app/server/src/routes/settings.ts)、[`app/server/src/config/settings.ts`](../app/server/src/config/settings.ts) |
 | UI 行与组 | [`docs/ui.md`](ui.md) — `SettingGroup`、`SettingRow`、`ThemeSelector`、`SearchInput`、`Select`、`Switch` |

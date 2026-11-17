@@ -3,10 +3,10 @@ import {
 	Avatar,
 	avatarPalettes,
 	avatarSizes,
+	colorsFromBody,
 	EXPRESSIONS,
 	FACE_SIZES,
 	SHAPES,
-	type AvatarColors,
 	type AvatarExpression,
 	type AvatarFaceSize,
 	type AvatarShape,
@@ -20,12 +20,6 @@ const sizes = Object.keys(avatarSizes) as AvatarSize[]
 const shapes = Object.keys(SHAPES) as AvatarShape[]
 const expressions = Object.keys(EXPRESSIONS) as AvatarExpression[]
 const faceSizes = Object.keys(FACE_SIZES) as AvatarFaceSize[]
-
-function colorsFromBody(body: string): AvatarColors {
-	const match = avatarPalettes.find((p) => p.colors.body.toLowerCase() === body.toLowerCase())
-	if (match) return match.colors
-	return { body, face: '#1c1c20', outline: '#0b0b0d', background: '#151515' }
-}
 
 function AvatarDemo() {
 	const [size, setSize] = useState<AvatarSize>('md')

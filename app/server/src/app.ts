@@ -7,6 +7,7 @@ import { healthRouter } from './routes/health.js'
 import { modelsRouter } from './routes/models.js'
 import { sessionsRouter } from './routes/sessions.js'
 import { settingsRouter } from './routes/settings.js'
+import { profileRouter } from './routes/profile.js'
 import { fsRouter } from './routes/fs.js'
 import { projectsRouter } from './routes/projects.js'
 import { workspaceRouter } from './routes/workspace.js'
@@ -19,6 +20,7 @@ export function createApp(options: { agent?: Agent } = {}) {
 	app.use(healthRouter)
 	app.use(modelsRouter())
 	app.use(settingsRouter(agent))
+	app.use(profileRouter())
 	app.use(sessionsRouter(agent))
 	app.use(projectsRouter(agent))
 	app.use(workspaceRouter())

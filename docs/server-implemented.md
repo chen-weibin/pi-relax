@@ -48,6 +48,16 @@
 3. `PATCH /api/settings` 只改传入的字段。出队模式写在顶层，中止策略写在 `relax.abortPolicy`，两个删除方式写在 `relax.sessionDelete` 与 `relax.projectDelete`。文件里其它键保留。空对象、未知字段、非法枚举为 400。删除当时再读，不另做热更新。
 4. 接口只读写全局这一份。工作区 `.pi/settings.json` 仍可按基座规则盖过，新建会话和中止时会看到项目层。
 
+## 用户展示（profile）
+
+单用户，不鉴权。表结构见 [server-sqlite.md](server-sqlite.md) 的 `user_profile`。自定义图在 `{home}/profile/avatar`（无扩展名）。
+
+1. `GET /api/profile` 返回 `{ displayName, avatar }`。`avatar` 为 `{ mode: 'generated', shape, expression, color }` 或 `{ mode: 'custom', url }`（`url` 形如 `/api/profile/avatar?t=<modified>`，不入库）。无行时插入默认：`chen` + generated `circle` / `neutral` / `#f4f4f1`。
+2. `PATCH /api/profile` 只接受 `displayName`（trim，1–64）和/或 `avatar`（必须 `mode: 'generated'`，可选 `shape` / `expression` / `color`）。切到 generated 会删掉自定义文件。空对象、未知字段、非法值为 400。
+3. `PUT /api/profile/avatar`：raw body，`Content-Type` 为 `image/png` / `image/jpeg` / `image/webp`，上限 2 MiB，校验 magic；写入文件并设 `avatar_mode=custom`。
+4. `GET /api/profile/avatar` 返回自定义图字节；非 custom 或文件不在为 404。
+5. `DELETE /api/profile/avatar` 删文件并回到 generated（保留表里上次的 shape / expression / color）。
+
 ## 模型与思考档位
 
 1. 白名单在 `app/server/src/agent/models.ts`。只收一把 key 就能对话的内置提供商。`azure`、`openai-codex`、Bedrock、Vertex、Cloudflare、`typesafe` 不在里面。升 `@earendil-works/pi-ai` 后要对照 `providers/*.ts` 再核一次。
