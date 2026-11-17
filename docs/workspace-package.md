@@ -73,3 +73,5 @@ optimizeDeps: {
 `sharedOptions` 的 `clean` 是 `false`。扩展名从 `.mjs` 改成 `.js` 之后，旧的 `.mjs` 还留在 `dist/`。改扩展名时要自己删掉旧产物。
 
 仓库根 `.gitignore` 忽略 `dist/`，构建产物不提交。
+
+带 JSX、并把 `react` 放在 peer 里的包，见 [md-editor.md](md-editor.md)。查阅时机：给共享包加 JSX 或 peer 依赖时。
