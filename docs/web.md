@@ -403,7 +403,7 @@ src/
 
 **侧栏开关不进这份文档。** `sidebarOpen` / `mainView` / `settingOpen` 仍由 common store 持有，每次启动 sidebar 展开、`mainView='conversation'`、`settingOpen=false`。当前对话的右侧栏开没开写在 `extensions`；还没选中对话时 common store 的 `extensionOpen` 仍是收起。「项目」标题那一行的整块折叠也只活在组件里。
 
-Setting 由 `settingOpen` 控制显隐(`{settingOpen && <Setting />}`),在 `pages/Workspace.tsx` 内挂载。Setting `z-50`,在四区上方全屏渲染。模块划分、侧栏平级导航与分期落地见 [web-setting.md](web-setting.md)。
+Setting 由 `settingOpen` 控制显隐(`{settingOpen && <Setting />}`),在 `pages/Workspace.tsx` 内挂载。Setting `z-50`,在四区上方全屏渲染。模块划分、侧栏平级导航、跨分类搜索见 [web-setting.md](web-setting.md)。新增一项配置时按那篇「新增一项配置」登记搜索。
 
 ### Sidebar 动作区(SidebarActions)
 

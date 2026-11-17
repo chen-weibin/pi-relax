@@ -17,6 +17,9 @@ import { message } from '../../ui/Message'
 import { Segmented } from '../../ui/Segmented'
 import { SettingGroup } from '../../ui/SettingGroup'
 import { SettingRow } from '../../ui/SettingRow'
+import { SettingAnchor } from './SettingAnchor'
+import { type SettingPanelProps } from './settingSearch'
+import { useSettingScroll } from './useSettingScroll'
 
 const MODE_OPTIONS = ['内置', '图片'] as const
 type AvatarModeUi = (typeof MODE_OPTIONS)[number]
@@ -43,7 +46,7 @@ function mimeOf(file: File): string | undefined {
 	return undefined
 }
 
-export function General() {
+export function General({ focus }: SettingPanelProps) {
 	const {
 		profile,
 		loadError,
@@ -88,6 +91,8 @@ export function General() {
 		input?.focus()
 		input?.select()
 	}, [editingName])
+
+	useSettingScroll('general', focus, profile != null)
 
 	if (!profile) {
 		return (
@@ -184,7 +189,7 @@ export function General() {
 				onChange={(e) => void onFileChange(e.target.files?.[0])}
 			/>
 
-			{/* 无标题：左头像 + 紧挨用户名；展示区无方底，头像本身圆形裁切 */}
+			<SettingAnchor id="display-name">
 			<SettingGroup>
 				<div className="flex items-center gap-3">
 					{profile.avatar.mode === 'custom' ? (
@@ -236,8 +241,11 @@ export function General() {
 					)}
 				</div>
 			</SettingGroup>
+			</SettingAnchor>
 
+			<SettingAnchor id="avatar">
 			<SettingGroup title="头像设置">
+				<SettingAnchor id="avatar-source">
 				<SettingRow label="来源" description="内置卡通头像，或上传自定义图片">
 					<div className="flex items-center gap-2">
 						<Segmented
@@ -261,9 +269,11 @@ export function General() {
 						) : null}
 					</div>
 				</SettingRow>
+				</SettingAnchor>
 
 				{source === '内置' ? (
-					<SettingRow key="shape" label="形状" description="头像外轮廓">
+					<SettingAnchor id="avatar-shape">
+					<SettingRow label="形状" description="头像外轮廓">
 						<Segmented
 							size="sm"
 							variant="surface"
@@ -276,10 +286,12 @@ export function General() {
 							}}
 						/>
 					</SettingRow>
+					</SettingAnchor>
 				) : null}
 
 				{source === '内置' ? (
-					<SettingRow key="color" label="颜色" description="头像主体色">
+					<SettingAnchor id="avatar-color">
+					<SettingRow label="颜色" description="头像主体色">
 						<ColorSwatch
 							value={generated.color}
 							custom
@@ -288,10 +300,12 @@ export function General() {
 							aria-label="头像颜色"
 						/>
 					</SettingRow>
+					</SettingAnchor>
 				) : null}
 
 				{source === '内置' ? (
-					<SettingRow key="expression" label="表情" description="头像面部表情">
+					<SettingAnchor id="avatar-expression">
+					<SettingRow label="表情" description="头像面部表情">
 						<Segmented
 							size="sm"
 							variant="surface"
@@ -304,9 +318,11 @@ export function General() {
 							}}
 						/>
 					</SettingRow>
+					</SettingAnchor>
 				) : null}
 
 			</SettingGroup>
+			</SettingAnchor>
 		</section>
 	)
 }

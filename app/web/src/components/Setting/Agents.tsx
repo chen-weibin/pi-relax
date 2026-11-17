@@ -14,6 +14,9 @@ import { message } from '../../ui/Message'
 import { Select, type SelectOption } from '../../ui/Select'
 import { SettingGroup } from '../../ui/SettingGroup'
 import { SettingRow } from '../../ui/SettingRow'
+import { SettingAnchor } from './SettingAnchor'
+import { type SettingPanelProps } from './settingSearch'
+import { useSettingScroll } from './useSettingScroll'
 
 const SEND_OPTIONS: SelectOption<SendWhileBusy>[] = [
 	{ value: 'queue', label: '进入队列' },
@@ -35,7 +38,7 @@ const DELETE_OPTIONS: SelectOption<DeleteMode>[] = [
 	{ value: 'physical', label: '物理删除' },
 ]
 
-export function Agents() {
+export function Agents({ focus }: SettingPanelProps) {
 	const [settings, setSettings] = useState<RuntimeSettings | null>(null)
 	const [loadError, setLoadError] = useState<string | null>(null)
 	const [busyKey, setBusyKey] = useState<keyof SettingsPatch | null>(null)
@@ -56,6 +59,8 @@ export function Agents() {
 			cancelled = true
 		}
 	}, [])
+
+	useSettingScroll('agents', focus, settings != null)
 
 	if (!settings) {
 		return <div className="text-sm text-fg-3">{loadError ? `加载失败：${loadError}` : '加载中…'}</div>
@@ -81,58 +86,68 @@ export function Agents() {
 	return (
 		<div className="flex flex-col gap-6">
 			<SettingGroup title="发送">
-				<SettingRow label="对话中发送" description="正在生成时再发一条，排进队列，或停掉当前这次再发这条">
-					<Select
-						dropdownWidth={120}
-						value={settings.sendWhileBusy}
-						disabled={busyKey === 'sendWhileBusy'}
-						options={SEND_OPTIONS}
-						placement="bottom-end"
-						onChange={(value) => void change('sendWhileBusy', value)}
-					/>
-				</SettingRow>
-				<SettingRow label="队列出队" description="多条排队时，下一轮一次一条，或一次全部放进同一轮">
-					<Select
-						dropdownWidth={120}
-						value={settings.followUpMode}
-						disabled={busyKey === 'followUpMode'}
-						options={DRAIN_OPTIONS}
-						placement="bottom-end"
-						onChange={(value) => void change('followUpMode', value)}
-					/>
-				</SettingRow>
-				<SettingRow label="停止" description="没有队列就只停。有队列时，停完按出队方式发出去，或直接清空">
-					<Select
-						dropdownWidth={120}
-						value={settings.abortQueue}
-						disabled={busyKey === 'abortQueue'}
-						options={ABORT_OPTIONS}
-						placement="bottom-end"
-						onChange={(value) => void change('abortQueue', value)}
-					/>
-				</SettingRow>
+				<SettingAnchor id="send-while-busy">
+					<SettingRow label="对话中发送" description="正在生成时再发一条，排进队列，或停掉当前这次再发这条">
+						<Select
+							dropdownWidth={120}
+							value={settings.sendWhileBusy}
+							disabled={busyKey === 'sendWhileBusy'}
+							options={SEND_OPTIONS}
+							placement="bottom-end"
+							onChange={(value) => void change('sendWhileBusy', value)}
+						/>
+					</SettingRow>
+				</SettingAnchor>
+				<SettingAnchor id="follow-up">
+					<SettingRow label="队列出队" description="多条排队时，下一轮一次一条，或一次全部放进同一轮">
+						<Select
+							dropdownWidth={120}
+							value={settings.followUpMode}
+							disabled={busyKey === 'followUpMode'}
+							options={DRAIN_OPTIONS}
+							placement="bottom-end"
+							onChange={(value) => void change('followUpMode', value)}
+						/>
+					</SettingRow>
+				</SettingAnchor>
+				<SettingAnchor id="abort-queue">
+					<SettingRow label="停止" description="没有队列就只停。有队列时，停完按出队方式发出去，或直接清空">
+						<Select
+							dropdownWidth={120}
+							value={settings.abortQueue}
+							disabled={busyKey === 'abortQueue'}
+							options={ABORT_OPTIONS}
+							placement="bottom-end"
+							onChange={(value) => void change('abortQueue', value)}
+						/>
+					</SettingRow>
+				</SettingAnchor>
 			</SettingGroup>
 			<SettingGroup title="删除">
-				<SettingRow label="会话" description="逻辑删除只做标记。物理删除会删掉这一份会话文件">
-					<Select
-						dropdownWidth={120}
-						value={settings.sessionDelete}
-						disabled={busyKey === 'sessionDelete'}
-						options={DELETE_OPTIONS}
-						placement="bottom-end"
-						onChange={(value) => void change('sessionDelete', value)}
-					/>
-				</SettingRow>
-				<SettingRow label="项目" description="只改项目登记，不删会话，也不删工作区目录">
-					<Select
-						dropdownWidth={120}
-						value={settings.projectDelete}
-						disabled={busyKey === 'projectDelete'}
-						options={DELETE_OPTIONS}
-						placement="bottom-end"
-						onChange={(value) => void change('projectDelete', value)}
-					/>
-				</SettingRow>
+				<SettingAnchor id="session-delete">
+					<SettingRow label="会话" description="逻辑删除只做标记。物理删除会删掉这一份会话文件">
+						<Select
+							dropdownWidth={120}
+							value={settings.sessionDelete}
+							disabled={busyKey === 'sessionDelete'}
+							options={DELETE_OPTIONS}
+							placement="bottom-end"
+							onChange={(value) => void change('sessionDelete', value)}
+						/>
+					</SettingRow>
+				</SettingAnchor>
+				<SettingAnchor id="project-delete">
+					<SettingRow label="项目" description="只改项目登记，不删会话，也不删工作区目录">
+						<Select
+							dropdownWidth={120}
+							value={settings.projectDelete}
+							disabled={busyKey === 'projectDelete'}
+							options={DELETE_OPTIONS}
+							placement="bottom-end"
+							onChange={(value) => void change('projectDelete', value)}
+						/>
+					</SettingRow>
+				</SettingAnchor>
 			</SettingGroup>
 		</div>
 	)

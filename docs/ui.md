@@ -1613,6 +1613,7 @@ const [q, setQ] = useState('')
 **踩坑备忘**:
 
 - 上下无 padding,放进 [`SettingGroup`](#settinggroup) 时行间距由 group 的 `<div role="separator" className="my-3 h-px" />` 提供。如果放进不带分割线的容器,行会挤在一起。
+- 设置页里新增的一行还要登记搜索。目录、锚点和步骤见 [web-setting.md](web-setting.md)「新增一项配置」。`SettingRow` 本身不带搜索 id。
 - 左右用 `items-start` 顶对齐,允许消费方的控制 widget 比左边的文字高度更高(多行 desc / slider 带副标签)。
 - 控制 widget 本身应自带宽度;外层只在右侧容器加 `shrink-0` 保证 widget 不被 label 挤窄。
 

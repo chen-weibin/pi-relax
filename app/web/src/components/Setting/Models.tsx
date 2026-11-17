@@ -27,6 +27,9 @@ import { Select, type SelectOption } from '../../ui/Select'
 import { SettingGroup } from '../../ui/SettingGroup'
 import { SettingRow } from '../../ui/SettingRow'
 import { CustomProviderDialog } from './CustomProviderDialog'
+import { SettingAnchor, settingAnchorProps } from './SettingAnchor'
+import { type SettingPanelProps } from './settingSearch'
+import { useSettingScroll } from './useSettingScroll'
 
 type PageData = {
 	models: ModelSummary[]
@@ -53,7 +56,7 @@ function modelNames(models: ModelSummary[]) {
 	return models.length === 0 ? '无可用模型' : models.map((model) => model.name).join('、')
 }
 
-export function Models() {
+export function Models({ focus }: SettingPanelProps) {
 	const [data, setData] = useState<PageData | null>(null)
 	const [loading, setLoading] = useState(true)
 	const [savingDefault, setSavingDefault] = useState(false)
@@ -203,8 +206,11 @@ export function Models() {
 	}))
 	const defaultValue = data?.defaultModel ? modelKey(data.defaultModel.provider, data.defaultModel.id) : undefined
 
+	useSettingScroll('models', focus, true)
+
 	return (
 		<div className="flex flex-col gap-6">
+			<SettingAnchor id="default-model">
 			<SettingGroup>
 				<SettingRow label="默认模型" description="没有打开会话时，新建对话使用这个模型">
 					<Select
@@ -220,7 +226,9 @@ export function Models() {
 					/>
 				</SettingRow>
 			</SettingGroup>
+			</SettingAnchor>
 
+			<SettingAnchor id="configured">
 			<SettingGroup title="已配置">
 				{configuredBuiltin.length === 0 && configuredCustom.length === 0 ? (
 					<SettingRow label={loading ? '加载中' : '还没有已配置的提供商'}>
@@ -265,8 +273,9 @@ export function Models() {
 					]
 				)}
 			</SettingGroup>
+			</SettingAnchor>
 
-			<div>
+			<SettingAnchor id="builtin">
 				<div className="mb-3 flex items-center justify-between">
 					<h2 className="text-sm font-medium text-fg-2">内置提供商</h2>
 					<div className="flex items-center gap-2">
@@ -277,6 +286,7 @@ export function Models() {
 							loading={refreshing}
 							disabled={loading}
 							onClick={() => void refreshCatalog()}
+							{...settingAnchorProps('refresh-models')}
 						>
 							刷新模型列表
 						</Button>
@@ -285,6 +295,7 @@ export function Models() {
 							size="sm"
 							tone="inverse"
 							disabled={loading || !data}
+							{...settingAnchorProps('custom-provider')}
 							onClick={() => {
 								setFormProvider(null)
 								setFormOpen(true)
@@ -295,6 +306,7 @@ export function Models() {
 					</div>
 				</div>
 			<SettingGroup>
+				<SettingAnchor id="builtin-provider">
 				<SettingRow label="提供商" description="搜索并选择一个内置提供商来填写密钥">
 					<Select
 						className="w-[220px]"
@@ -312,7 +324,9 @@ export function Models() {
 						}}
 					/>
 				</SettingRow>
+				</SettingAnchor>
 				{selectedBuiltin ? (
+					<SettingAnchor id="api-key">
 					<SettingRow label="API Key" description={selectedBuiltin.configured ? '已配置' : '未配置'}>
 						{selectedBuiltin.configured && !editingKey ? (
 							<div className="flex items-center gap-1">
@@ -346,9 +360,10 @@ export function Models() {
 							</div>
 						)}
 					</SettingRow>
+					</SettingAnchor>
 				) : null}
 			</SettingGroup>
-			</div>
+			</SettingAnchor>
 
 			<CustomProviderDialog
 				open={formOpen}
