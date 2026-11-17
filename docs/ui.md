@@ -1664,7 +1664,7 @@ const [q, setQ] = useState('')
 
 ## Segmented
 
-单文件 `ui/Segmented.tsx`。分段控件:一排互斥选项 + 一个**滑动的胶囊指示器**。胶囊位置由选中项实测得到,用 `motion/react` 的 tween 驱动:平滑减速到位即停,**不过冲、不回弹**。三档尺寸对齐 [`Button`](#button) 的 sm / md / lg,两种胶囊样式:`default`(灰胶囊)和 `inverse`(白胶囊)。
+单文件 `ui/Segmented.tsx`。分段控件:一排互斥选项 + 一个**滑动的胶囊指示器**。胶囊位置由选中项实测得到,用 `motion/react` 的 tween 驱动:平滑减速到位即停,**不过冲、不回弹**。三档尺寸对齐 [`Button`](#button) 的 sm / md / lg。三种样式:`default`(黑底上的灰胶囊)、`inverse`(白胶囊)、`surface`(灰卡片上的深色槽 + 抬起胶囊)。
 
 **查阅时机**:想在几个互斥选项间切换、又不想要一个下拉(选项 ≤ 5 个、想一直看得见全部选项),或评估是否手写「一排 button + 绝对定位指示器」。
 
@@ -1690,7 +1690,7 @@ const [q, setQ] = useState('')
 | `options` | `readonly T[]` | 选项,按展示顺序;文案就是字符串本身 |
 | `onChange` | `(next: T) => void` | 选中项变化;非受控模式下可不传 |
 | `size` | `'sm' \| 'md' \| 'lg'` | 默认 `md`;档位对齐 Button(24 / 30 / 36px) |
-| `variant` | `'default' \| 'inverse'` | 默认 `default`;`inverse` 是白胶囊 + 深色选中字 |
+| `variant` | `'default' \| 'inverse' \| 'surface'` | 默认 `default`(黑底)。`inverse` 白胶囊。`surface` 给 `bg-surface` 灰卡片 |
 | `disabled` | `boolean` | 整体禁用 |
 | `className` | `string` | 透传到外层 track |
 
@@ -1712,11 +1712,12 @@ const [placement, setPlacement] = useState<Placement>('top')
 
 | 项 | 值 |
 |---|---|
-| 轨道 | `border border-border` + `p-0.5`,圆角 `rounded-sm / md / lg`(随尺寸) |
+| 轨道 | `border` + `p-0.5`,圆角 `rounded-sm / md / lg`(随尺寸)。边框色跟 variant |
 | 选项 | `h-6 / h-[30px] / h-9`,`px-2 / 2.5 / 3`,字号 `text-sm / base / lg` |
-| 胶囊 `default` | `bg-surface-hover`,圆角比轨道小一档(`rounded-xs / sm / md`) |
-| 胶囊 `inverse` | `bg-fg`(白),选中项文字改 `text-app`(深色)—— 与 `Button tone="inverse" variant="solid"` 同语义 |
-| 选中 / 未选中文字 | 选中 `text-fg`;未选中 `text-fg-3 hover:text-fg-2` |
+| `default` | 轨道 `border-border`;胶囊 `bg-surface-hover`。给 `--app` 黑底。灰卡片上边框和胶囊都贴着 `--surface`,选中不明显 |
+| `inverse` | 胶囊 `bg-fg`(白),选中字 `text-app`—— 与 `Button tone="inverse" variant="solid"` 同语义 |
+| `surface` | 轨道 `bg-app` + `border-border-hover`(沉进灰卡片的深色槽);胶囊 `bg-surface`,选中字 `text-fg-bright`。给 `bg-surface` 卡片 |
+| 未选中文字 | `text-fg-3 hover:text-fg-2`。`default` 选中字是 `text-fg` |
 | 缓动 | tween `240ms` + `cubic-bezier(0.22, 1, 0.36, 1)`(平滑减速,不过冲) |
 
 **实现**:外层 track(`relative inline-flex` + `p-0.5`)+ 一个绝对定位的胶囊 + 一排 `<button aria-pressed>`。布局期量一次选中按钮相对 track **内边距框**的 `x`(`rect.left - trackRect.left - track.clientLeft`)和 `width`,写进两个 MotionValue,再用 `animate(value, target, TWEEN)` 驱动;胶囊 `left-0 top-0.5 bottom-0.5`,所以它的盒子正好等于按钮的盒子。受控 / 非受控的判定与 `Switch` / `Select` 一致:`value !== undefined` 即受控。

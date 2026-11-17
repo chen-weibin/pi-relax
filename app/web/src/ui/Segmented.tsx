@@ -3,7 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { animate, motion, useMotionValue, useReducedMotion } from 'motion/react'
 
 export type SegmentedSize = 'sm' | 'md' | 'lg'
-export type SegmentedVariant = 'default' | 'inverse'
+export type SegmentedVariant = 'default' | 'inverse' | 'surface'
 
 export type SegmentedProps<T extends string> = {
 	/** 当前选中的值(受控);传了就走受控 */
@@ -28,9 +28,26 @@ const sizeClasses: Record<SegmentedSize, { track: string; option: string; radius
 	lg: { track: 'rounded-lg', option: 'h-9 px-3 text-lg', radius: 'rounded-md' },
 }
 
-const variantClasses: Record<SegmentedVariant, { pill: string; active: string; idle: string }> = {
-	default: { pill: 'bg-surface-hover', active: 'text-fg', idle: 'text-fg-3 hover:text-fg-2' },
-	inverse: { pill: 'bg-fg', active: 'text-app', idle: 'text-fg-3 hover:text-fg-2' },
+const variantClasses: Record<SegmentedVariant, { track: string; pill: string; active: string; idle: string }> = {
+	default: {
+		track: 'border-border',
+		pill: 'bg-surface-hover',
+		active: 'text-fg',
+		idle: 'text-fg-3 hover:text-fg-2',
+	},
+	inverse: {
+		track: 'border-border',
+		pill: 'bg-fg',
+		active: 'text-app',
+		idle: 'text-fg-3 hover:text-fg-2',
+	},
+	// 坐在 bg-surface 灰卡片上：轨道沉成 app 色槽，选中胶囊抬回 surface
+	surface: {
+		track: 'border-border-hover bg-app',
+		pill: 'bg-surface',
+		active: 'text-fg-bright',
+		idle: 'text-fg-3 hover:text-fg-2',
+	},
 }
 
 // 平滑过渡,到位即停:不过冲、不回弹
@@ -116,7 +133,8 @@ export function Segmented<T extends string>({
 		<div
 			ref={trackRef}
 			className={classNames(
-				'relative inline-flex items-center border border-border p-0.5',
+				'relative inline-flex items-center border p-0.5',
+				variants.track,
 				sizes.track,
 				className,
 			)}

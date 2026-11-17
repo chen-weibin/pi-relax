@@ -4,7 +4,7 @@ import { Preview } from './frame'
 
 const placements = ['top', 'bottom', 'left', 'right'] as const
 const sizes: SegmentedSize[] = ['sm', 'md', 'lg']
-const variants: SegmentedVariant[] = ['default', 'inverse']
+const variants: SegmentedVariant[] = ['default', 'inverse', 'surface']
 
 function SegmentedDemo() {
 	const [placement, setPlacement] = useState<(typeof placements)[number]>('top')
@@ -47,6 +47,28 @@ function SegmentedDemo() {
 					))}
 				</div>
 			</Preview>
+			<Preview label="灰底（Setting 卡片）">
+				<div className="flex w-full max-w-xl flex-col items-center gap-4 rounded-xl bg-surface p-6">
+					<div className="flex flex-col items-center gap-2">
+						<span className="text-sm text-fg-3">default · 黑底用，灰底上选中不明显</span>
+						<Segmented
+							variant="default"
+							value={placement}
+							options={placements}
+							onChange={setPlacement}
+						/>
+					</div>
+					<div className="flex flex-col items-center gap-2">
+						<span className="text-sm text-fg-3">surface · 深色槽 + 抬起的选中胶囊</span>
+						<Segmented
+							variant="surface"
+							value={placement}
+							options={placements}
+							onChange={setPlacement}
+						/>
+					</div>
+				</div>
+			</Preview>
 			<Preview label="控制">
 				<div className="flex flex-wrap items-center justify-center gap-6">
 					<div className="flex items-center gap-2">
@@ -80,7 +102,7 @@ function SegmentedDemo() {
 export const segmentedDoc = {
 	id: 'segmented',
 	heading: 'Segmented',
-	description: '分段控件。选中胶囊会滑动过去,三档尺寸、两种胶囊样式。',
+	description: '分段控件。选中胶囊会滑动过去。灰底对比里 surface 是深色槽。',
 	nav: ['Segmented'],
 	Demo: SegmentedDemo,
 }
