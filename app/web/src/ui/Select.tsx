@@ -180,6 +180,11 @@ export function Select<V = string>({
 	}, [open])
 
 	useEffect(() => {
+		if (!options || isLazy) return
+		setItems(options)
+	}, [options, isLazy])
+
+	useEffect(() => {
 		if (!open) return
 		if (options) {
 			setItems(options)

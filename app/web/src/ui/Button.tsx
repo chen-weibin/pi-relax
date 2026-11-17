@@ -86,7 +86,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
 			disabled={locked}
 			aria-busy={loading || undefined}
 			className={classNames(
-				'inline-flex cursor-pointer items-center justify-center transition-colors duration-100 disabled:pointer-events-none disabled:opacity-50',
+				'inline-flex shrink-0 cursor-pointer items-center justify-center whitespace-nowrap transition-colors duration-100 disabled:pointer-events-none disabled:opacity-50',
 				sizeClasses[size],
 				toneClasses[tone][variant],
 				block && 'w-full',

@@ -35,7 +35,7 @@ temperature、按工具开关、观测（Langfuse）、语言包、OAuth 登录�
 |------|------|
 | ~~`Setting.tsx`：侧栏 `GROUPS` 两段捆包四类入口~~ **（S0 已做）** 侧栏 250px：**返回** + 四项平级按钮（通用 / 外观 / 模型 / 代理）+ 底部 `UserBar`；主区标题为当前类名，仅渲染该类占位演示 | 侧栏补 `SearchInput`（S1）；其余模块按 checklist 逐步替换占位 |
 | `UserBar.tsx`：读 `useProfileStore`（`/api/profile`） | 已接；改 Setting「通用」与侧栏同源 |
-| 模型：Composer 已接 `modelPicker` + `../api/models` | Setting「默认模型」调用同一 API / 同一写入路径，不另建 store |
+| 模型：Composer 已接 `modelPicker` + `../api/models`；Setting「模型」已接默认模型、内置 key、自定义提供商 | 与 Composer 共用 `putDefaultModel` / `startModelList()`，不另建默认模型 store |
 | 代理类设置：服务端已实现，前端未接 | 新增 `../api/settings` 薄封装 + Setting 表单 |
 
 ---
@@ -139,8 +139,8 @@ temperature、按工具开关、观测（Langfuse）、语言包、OAuth 登录�
 **做什么**
 
 - **全局默认模型**：展示当前默认；可改为 `GET /api/models` 返回列表中的项；保存走 **`PUT /api/models/default`**（与 Composer 改下拉全局默认相同语义，见 [server-implemented.md](server-implemented.md) §模型）。
-- **内置提供商**：`GET /api/providers` 列表（`kind: 'builtin'`）；未配置 key 的项引导填写；提交 **`PUT /api/providers/:id`**，删除 key **`DELETE /api/providers/:id`**。响应不含明文 key，以「已配置 / 未配置」展示（`apiKeySet` 或等价字段以实际响应为准）。
-- **自定义提供商**：列表 `GET /api/custom-providers`；创建/编辑/删除对接 `POST/PUT/DELETE /api/custom-providers*`，字段与校验见 [server-custom-providers.md](server-custom-providers.md)。表单项可先做最小集（id/name/baseUrl/api/apiKey/models）。
+- **内置提供商**：`GET /api/providers` 里 `kind: 'builtin'`，一个可搜索下拉选中后再填 / 更换 / 清除。提交 **`PUT /api/providers/:id`**，删除 key **`DELETE /api/providers/:id`**。响应不含明文 key，以「已配置 / 未配置」展示（字段是 `configured`）。
+- **自定义提供商**：`GET /api/custom-providers`。已设密钥的出现在「已配置」；添加 / 编辑用 Modal，删除从同一行发起。对接 `POST/PUT/DELETE /api/custom-providers*`，字段与校验见 [server-custom-providers.md](server-custom-providers.md)。表单是 id / name / baseUrl / api / apiKey / models，不含 `headers` / `authHeader`。
 - **目录刷新**（可选一行）：`POST /api/models/refresh`（白名单目录；自定义不参与）。
 - **已配置状态**：以 providers + models 可用列表为准；无可用模型时与 Composer 一致展示「无可用模型」类文案。
 
@@ -155,15 +155,16 @@ temperature、按工具开关、观测（Langfuse）、语言包、OAuth 登录�
 | 能力 | 数据源 | 前端入口 |
 |------|--------|----------|
 | 可选模型列表、当前全局默认 | `GET /api/models`（及 `getDefaultModel`） | 复用 [`app/web/src/api/models/`](../app/web/src/api/models/)、[`session/modelPicker.ts`](../app/web/src/session/modelPicker.ts) 的加载与 `putDefaultModel` |
-| 提供商与 key | `GET/PUT/DELETE /api/providers` | 新建 `app/web/src/api/providers`（薄封装，风格对齐 `api/http.ts`） |
-| 自定义提供商 | `/api/custom-providers*` | 新建 `app/web/src/api/custom-providers` 或按资源拆文件 |
-| Composer 展示用模型 | `modelPicker` 内存态 | 在 Setting 成功 `putDefaultModel` 后调用既有 **`loadModelPicker()`** 或等价 refresh，使 Composer 标签与默认一致 |
+| 提供商与 key | `GET/PUT/DELETE /api/providers` | [`app/web/src/api/providers.ts`](../app/web/src/api/providers.ts) |
+| 自定义提供商 | `/api/custom-providers*` | [`app/web/src/api/custom-providers.ts`](../app/web/src/api/custom-providers.ts) |
+| Composer 展示用模型 | `modelPicker` 内存态 | Setting 写成功后调用 **`startModelList()`**。有会话打开时 Composer 仍显示会话模型 |
 
 **实现要点**
 
-- 默认模型行：`Select` + `loadOptions` 或静态 options 来自已拉取的 `listModels()`。
-- 内置 key：按 provider 分 `SettingGroup` 或一张表格式多行；密码型输入，保存后不清空为「已设置」态。
-- 自定义：列表 + 「添加」进抽屉/内联表单（UI 复杂度可分期：先列表 + 跳转联调页文案，再内嵌表单）。
+- 顺序：默认模型 → 已配置（内置在上、自定义在下，同一张分隔线卡片）→ 内置提供商（一个可搜索下拉，选中后再填 / 更换 / 清除 key）。自定义提供商不在这张卡片里重复列出。已配置里的内置「修改」只改 API Key；自定义「修改」打开编辑弹框，「移除」从这里发起。
+- 默认模型行：`Select` 的 options 来自已拉取的 `listModels()`。
+- 可用模型按 `listModels()` 的 `provider` 分组，不另请求。内置 key 不再逐行铺开。
+- 自定义表单字段是 id / name / baseUrl / api / apiKey / models。不含 `headers` / `authHeader`。编辑时 apiKey 留空则不提交，服务端保留原值。「内置提供商」标题右侧是描边「刷新模型列表」（`POST /api/models/refresh`，一次更新白名单内全部内置目录，自定义不参与），后面紧跟实心按钮「自定义」（打开添加弹框）。失败收成一条提示，列出失败的提供商 id。写成功后 `startModelList()`，不走 `chooseModel`。
 
 **建议顺序**：在 **`api/providers`、`api/custom-providers` 客户端**就绪后做；默认模型行可与 Composer 共用请求，放在内置 key 之前或之后均可。
 
@@ -225,9 +226,9 @@ temperature、按工具开关、观测（Langfuse）、语言包、OAuth 登录�
 - [x] **S2 通用 / 用户**：`/api/profile*` + `store/profile`；通用区块用户名与头像；`UserBar` 同源展示。
 - [x] **S3 外观**：`ThemeSelector` 暗色选中 + 亮色 disabled + tooltip「当前暂未实现」。
 - [ ] **S4 API 代理**：`app/web/src/api/settings.ts`（get + patch）；代理区块五行（或分组）接 API。
-- [ ] **S5 模型 · 默认**：默认模型行 + `putDefaultModel` + 刷新 `modelPicker`。
-- [ ] **S6 模型 · 内置 key**：`api/providers` + 列表 UI + PUT/DELETE。
-- [ ] **S7 模型 · 自定义**：`api/custom-providers` + 列表与表单（可分 S7a 只读列表、S7b CRUD）。
+- [x] **S5 模型 · 默认**：默认模型行 + `putDefaultModel` + 刷新 `modelPicker`。
+- [x] **S6 模型 · 内置 key**：`api/providers` + 列表 UI + PUT/DELETE。
+- [x] **S7 模型 · 自定义**：`api/custom-providers` + 列表与 Modal 表单（最小字段，不含 `headers` / `authHeader`）。
 - [ ] **S8 收尾**：删掉 `Setting/SectionPlaceholder.tsx` 占位假数据；为每行补全搜索 keywords；必要时在 [web.md](web.md) 增一句 Setting 结构指向本文。
 
 ---
@@ -245,6 +246,6 @@ temperature、按工具开关、观测（Langfuse）、语言包、OAuth 登录�
 | 服务端设置 | [`app/server/src/routes/settings.ts`](../app/server/src/routes/settings.ts)、[`app/server/src/config/settings.ts`](../app/server/src/config/settings.ts) |
 | UI 行与组 | [`docs/ui.md`](ui.md) — `SettingGroup`、`SettingRow`、`ThemeSelector`、`SearchInput`、`Select`、`Switch` |
 | 布局与挂载 | [`docs/web.md`](web.md) — Setting 全屏、localStorage 约定 |
-| 提供商 / 模型 API | [`docs/server-implemented.md`](server-implemented.md)、[`docs/server-custom-providers.md`](server-custom-providers.md) |
+| 提供商 / 模型 API | [`app/web/src/api/providers.ts`](../app/web/src/api/providers.ts)、[`app/web/src/api/custom-providers.ts`](../app/web/src/api/custom-providers.ts)；服务端见 [server-implemented.md](server-implemented.md)、[server-custom-providers.md](server-custom-providers.md) |
 
 实现某一 checklist 项时，以本节对应文件为入口，改完若行为与 [server-implemented.md](server-implemented.md) 不一致再回写服务端文档（代理/模型通常已 dokumented，以前端为准即可）。

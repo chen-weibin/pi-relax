@@ -1,6 +1,6 @@
 # 自定义提供商
 
-查阅时机：接 Ollama / LM Studio / 其它 OpenAI 兼容端点，改 `/api/custom-providers*`，或做前端配置表单时。服务端总览仍看 [server.md](server.md)；已实现清单看 [server-implemented.md](server-implemented.md)。
+查阅时机：接 Ollama / LM Studio / 其它 OpenAI 兼容端点，改 `/api/custom-providers*`，或做前端配置表单时。服务端总览仍看 [server.md](server.md)；已实现清单看 [server-implemented.md](server-implemented.md)。Setting 里的表单见 [web-setting.md](web-setting.md)「模型」（查阅时机：改添加 / 编辑弹框的字段时）。
 
 ## 机制
 

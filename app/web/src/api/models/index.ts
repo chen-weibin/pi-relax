@@ -18,6 +18,13 @@ export async function putDefaultModel(provider: string, model: string): Promise<
 	return data
 }
 
+export type ModelRefreshRow = { id: string; ok: boolean; error?: string }
+
+export async function refreshModels(): Promise<{ providers: ModelRefreshRow[] }> {
+	const { data } = await http.post<{ providers: ModelRefreshRow[] }>('/api/models/refresh')
+	return data
+}
+
 export async function getThinkingLevels(provider: string, id: string): Promise<ThinkingLevels> {
 	const { data } = await http.get<ThinkingLevels>('/api/models/thinking-levels', { params: { provider, id } })
 	return data

@@ -2,7 +2,7 @@
 
 查阅时机：改 `app/server`、定数据目录、接 pi 会话、文件同步或终端之前。某一块开工时以本文的能力剖面和性能上限为底。路径、接口、目录里实际有哪些文件，实现时写进本文，并和代码一起改。代码和本文不一致时，以改代码的同一次修改把本文补齐，不另开一轮补文档。
 
-本文是底座。对话、文件系统、终端均已接：会话文件、智能体类、路由与全局 SSE、`/api/fs` / `/ws/fs`、`/ws/pty`。`app/web` 已接会话 / SSE / 模型 / 项目 / FS / PTY；settings 与 custom-providers 前端尚未接。
+本文是底座。对话、文件系统、终端均已接：会话文件、智能体类、路由与全局 SSE、`/api/fs` / `/ws/fs`、`/ws/pty`。`app/web` 已接会话 / SSE / 模型 / 项目 / FS / PTY，Setting「模型」已接内置 key 与自定义提供商；`GET`/`PATCH /api/settings` 前端尚未接。
 
 对接 pi 之前先读源码，不要只凭本文的 API 摘要选函数。本地克隆在仓库根的 `pi/`（已 git 忽略），会话相关源码在 `pi/packages/coding-agent/src/core/`，说明在 `pi/packages/coding-agent/docs/sdk.md`。运行时安装的是 `@earendil-works/pi-coding-agent@^1.5.0`（与 `pi-ai` 同版本）。类型或文档和源码不一致时，以源码为准，并把结论回写本文。
 
@@ -172,7 +172,7 @@ pi 暴露的加载点都要能指定到 `.relax` 或配置里的路径，不默�
 - `PATCH /api/settings` 改上述字段的子集。出队模式写入后套到热会话。两个删除方式写在 `relax.sessionDelete` 与 `relax.projectDelete`，缺省都是 `logical`
 - `GET /api/sessions/events` 全局 SSE，不进 api.html。`data` 为 `{ sessionId, event }`，内层是 pi 的 `AgentSessionEvent`
 
-SSE 断线不补，客户端用历史对齐。发送和中止走 HTTP。`app/web` 已接会话 / SSE / 模型与思考档位；settings、custom-providers 前端尚未接。
+SSE 断线不补，客户端用历史对齐。发送和中止走 HTTP。`app/web` 已接会话 / SSE / 模型与思考档位，Setting「模型」已接内置 key 与自定义提供商；settings 前端尚未接。
 
 `name` 在第一条用户消息写入时，若还没标题，就用这句文本。之后不覆盖。列表只返回 `name`。空字符串是清空。
 
@@ -341,6 +341,6 @@ app/server/test/
 
 ## 和 Cursor / Codex 的差距
 
-多项目、多会话、不选项目也能聊，这一层对齐。流式正文、思考、中止、历史回放，pi 够用，线上格式跟 pi。工具已按白名单打开。技能按基座默认目录加载，见「技能」。规则的 loader 行为还没核对。模型用白名单里的内置提供商，密钥在 `auth.json`。文件变化按调用方给定的根目录递归监听，`app/web` 的文件树与终端均已接。终端走 `/ws/pty`，不经过 pi。settings 与 custom-providers 前端尚未接。
+多项目、多会话、不选项目也能聊，这一层对齐。流式正文、思考、中止、历史回放，pi 够用，线上格式跟 pi。工具已按白名单打开。技能按基座默认目录加载，见「技能」。规则的 loader 行为还没核对。模型用白名单里的内置提供商，密钥在 `auth.json`。文件变化按调用方给定的根目录递归监听，`app/web` 的文件树与终端均已接。终端走 `/ws/pty`，不经过 pi。Setting「模型」已接内置 key 与自定义提供商；settings 前端尚未接。
 
 往后放的能力：分支和 fork、附件、检查点回滚、命令审批、多根工作区。用户名和头像已接，见「产品形态」与 [server-implemented.md](server-implemented.md) §用户展示。
