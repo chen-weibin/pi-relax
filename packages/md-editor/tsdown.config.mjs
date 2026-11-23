@@ -7,6 +7,16 @@ export default defineConfig({
 	platform: 'neutral',
 	fixedExtension: false,
 	deps: {
-		neverBundle: ['react', 'react-dom'],
+		neverBundle: [
+			'react',
+			'react-dom',
+			'prosemirror-model',
+			'prosemirror-state',
+			'prosemirror-view',
+			'prosemirror-commands',
+			'prosemirror-keymap',
+			'prosemirror-history',
+			/\.css$/,
+		],
 	},
 })

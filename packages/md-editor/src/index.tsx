@@ -1,3 +1,1 @@
-export function MdEditor() {
-	return <p>md-editor</p>
-}
+export { MdEditor } from './MdEditor'
