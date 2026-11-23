@@ -6,6 +6,8 @@
 
 包在 `packages/md-editor`，包名 `@relax/md-editor`。当前只导出占位组件 `MdEditor`，渲染文本 `md-editor`。编辑器逻辑还没写。
 
+运行时依赖已经声明，版本范围与 `app/web` 里同一批包相同：`prosemirror-model`、`prosemirror-state`、`prosemirror-view`、`prosemirror-commands`、`prosemirror-keymap`、`prosemirror-history`。源码还没有 import 它们。`prosemirror-inputrules`、`prosemirror-schema-list`、`prosemirror-tables`、`markdown-it`、`mermaid` 还没加。
+
 测试页在 `app/mdplayground`，包名 `@relax/mdplayground`。页面只挂这个组件。开发命令是根目录的 `pnpm dev:mdplayground`。端口用 Vite 默认值，被占用就顺延。它不进 `pnpm dev`。
 
 ## React
