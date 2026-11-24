@@ -3,20 +3,21 @@ import { useEffect, useRef } from 'react'
 import { EditorCore } from './editor/EditorCore'
 import type { Keybindings } from './editor/plugins/keymap'
 import type { DocJson } from './editor/types'
+import { themeStyleVars, type MdEditorTheme, type MdEditorThemes } from './theme'
 import './styles/base.css'
-
-export type MdEditorTheme = 'light'
 
 const defaultPlaceholder = '请输入...'
 
 export function MdEditor({
 	theme = 'light',
+	themes,
 	placeholder = defaultPlaceholder,
 	value,
 	onChange,
 	keybindings,
 }: {
 	theme?: MdEditorTheme
+	themes?: MdEditorThemes
 	placeholder?: string
 	value?: DocJson
 	onChange?: (value: DocJson) => void
@@ -64,7 +65,10 @@ export function MdEditor({
 		editorRef.current?.setKeybindings(keybindings)
 	}, [keybindings])
 
-	const style = { '--md-editor-placeholder': JSON.stringify(placeholder) } as CSSProperties
+	const style = {
+		'--md-editor-placeholder': JSON.stringify(placeholder),
+		...themeStyleVars(themes?.[theme]),
+	} as CSSProperties
 
 	return (
 		<div className="min-h-4" data-theme={theme} style={style}>

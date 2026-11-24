@@ -4,7 +4,7 @@
 
 ## 现在有什么
 
-包在 `packages/md-editor`，包名 `@relax/md-editor`。对外从 `src/index.tsx` 导出 `MdEditor`、`DocJson`、`EditorCommand`、`Keybindings`。不导出 `EditorCore` 和 `createEmptyDocJson`。
+包在 `packages/md-editor`，包名 `@relax/md-editor`。对外从 `src/index.tsx` 导出 `MdEditor`、`DocJson`、`EditorCommand`、`Keybindings`、`MdEditorTheme`、`MdEditorThemeTokens`、`MdEditorThemes`。不导出 `EditorCore` 和 `createEmptyDocJson`。
 
 组件本体在 `src/MdEditor.tsx`。它把 `EditorCore` 挂到内部节点上，卸掉时 `destroy()`。不传 `value` 时非受控，初始文档是内部的 `createEmptyDocJson()`。可选 `value` / `onChange`：只有文档变化才通知；记下刚通知出去的那份对象，父组件把同一引用传回来时不 `setValue`。不支持使用中途从非受控改成受控。`placeholder` 默认 `请输入...`，写成外壳 CSS 变量 `--md-editor-placeholder`。
 
@@ -30,13 +30,21 @@
 
 `src/editor/state.test.ts` 用 `node --experimental-strip-types --test` 打在 `createEditorState` 上，不挂视图。被这条测试加载的相对 import 带 `.ts` 后缀，`tsconfig.json` 打开了 `allowImportingTsExtensions`。测试文件本身排除在 `tsc` 之外。包脚本是 `pnpm --filter @relax/md-editor test`。
 
-测试页在 `app/mdplayground`，包名 `@relax/mdplayground`。页面只挂这个组件，不另引 CSS。开发命令是根目录的 `pnpm dev:mdplayground`。端口用 Vite 默认值，被占用就顺延。它不进 `pnpm dev`。
+测试页在 `app/mdplayground`，包名 `@relax/mdplayground`。页面自己有一份壳层主题，变量前缀是 `--pg-`，数值和编辑器主题相同，样式表不互相引用。顶栏切换主题时，壳的 `data-theme` 和 `MdEditor` 的 `theme` 一起变。左侧空侧栏用 `motion` 改宽度，时长读 `--pg-duration`，叠放用 `--pg-z-fixed`。开发命令是根目录的 `pnpm dev:mdplayground`。端口用 Vite 默认值，被占用就顺延。它不进 `pnpm dev`。
 
 ## 主题
 
-`MdEditor` 只 `import './styles/base.css'`，不引 `prosemirror-view` 的样式。`base.css` 放两种主题共用的规则：空格、换行、连字、分隔图，以及 `.mded` 和 `.mded.ProseMirror-focused` 的 `outline: none`。会随主题变的值不写在这里。使用方不引 CSS。prop `theme` 目前只有 `'light'`，默认 `'light'`，写到外壳的 `data-theme`。外壳上有一条 Tailwind 工具类 `min-h-4`。
+`MdEditor` 只 `import './styles/base.css'`，不引 `prosemirror-view` 的样式。`base.css` 放两种主题共用的规则：空格、换行、连字、分隔图，以及 `.mded` 和 `.mded.ProseMirror-focused` 的 `outline: none`。会随主题变的值不写在这里。使用方不引 CSS。prop `theme` 是 `'light' | 'dark'`，默认 `'light'`，写到外壳的 `data-theme`。外壳上有一条 Tailwind 工具类 `min-h-4`。没有第三套主题，也不能注册新主题名。
 
-`base.css` 是 Tailwind v4 入口：`@import "tailwindcss" source("..")`，只扫描 `src/`。不建 `tailwind.config.js`。`tailwindcss`（`^4.3.3`）是这个包的依赖。playground 用 `@tailwindcss/vite`（`^4.3.3`）编译组件引入的这份 CSS。同一文件再 `@import "./light.css"`。`light.css` 只在 `[data-theme='light']` 上给变量赋值，现在只有 `--md-editor-placeholder-color`。暗色留到后面：加 `styles/dark.css`，由 `base.css` 引入，并把 `theme` 扩成 `'light' | 'dark'`。
+可选 `themes` 按当前 `theme` 局部覆盖。只把传入的键写成外壳 inline 变量，没传的键仍用样式表里的默认。默认值只在 CSS 里。切换主题不重建 `EditorCore`。占位文案仍是 `--md-editor-placeholder`，不在 token 表里。token 键到变量名的映射在 `src/theme.ts` 的 `themeTokenVars`。`src/theme.test.ts` 断言传入的键会写上、没传的键不出现。
+
+`base.css` 是 Tailwind v4 入口：`@import "tailwindcss" source("..")`，只扫描 `src/`。不建 `tailwind.config.js`。`tailwindcss`（`^4.3.3`）是这个包的依赖。playground 用 `@tailwindcss/vite`（`^4.3.3`）编译组件引入的这份 CSS。同一文件再 `@import "./light.css"` 和 `@import "./dark.css"`。两份都在对应的 `[data-theme]` 上赋值，变量前缀 `--md-editor-`。
+
+token 分组：语义色（含页面底 `--md-editor-bg`、表面、边框、三级文字、品牌、信息、成功、警告、错误和各自的 soft、inverse）、中性色阶、品牌色阶 50–950、圆角、间距、字号阶梯、四档阴影、八档层级、三档时长。圆角、间距、字号、层级、时长和正文字体两边默认相同，仍各写一份。阴影、语义色和品牌色阶 500 及以后两边不同。亮色品牌 500 是 `#6478E8`，暗色是 `#8492FF`。色值来自 `tmp/design-system-preview.html`。这一期不从色阶再推背景、边框、填充。
+
+编辑器正文专用、可单边覆盖：`--md-editor-font-family`、`--md-editor-font-size`（`16px`）、`--md-editor-line-height`（`1.78`）、`--md-editor-paragraph-gap`（`17px`）。字体栈和这三项间距来自参考编辑器。占位色用三级文字，光标用品牌色，选区是品牌色 0.28 透明度，分隔线用默认边框色。
+
+这一期 `base.css` 只让 `.mded` 使用文字、背景、光标、字号、行高、字体，`::selection` 使用选区色，段落使用下边距，空段占位使用占位色，`.mded hr` 使用 1px 分隔色。其余变量先定义，后面的块、菜单、浮层再引用。编辑器还没有浮层，层级和时长只放在主题上。
 
 tsdown 不处理 CSS。`deps.neverBundle` 里的 `/\.css$/` 让产物保留 `import "./styles/base.css"`，不把 Tailwind 打进 `dist`。构建把 `src/styles/*.css` 抄到 `dist/styles/`，`base.css` 里的相对 `@import` 才能找到主题文件。开发时 Vite 读源码，不走这份拷贝。
 

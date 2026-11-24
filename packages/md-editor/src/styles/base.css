@@ -1,8 +1,15 @@
 @import "tailwindcss" source("..");
 @import "./light.css";
+@import "./dark.css";
 
 .mded {
 	position: relative;
+	color: var(--md-editor-text);
+	background: var(--md-editor-bg);
+	caret-color: var(--md-editor-caret);
+	font-family: var(--md-editor-font-family);
+	font-size: var(--md-editor-font-size);
+	line-height: var(--md-editor-line-height);
 	word-wrap: break-word;
 	white-space: pre-wrap;
 	white-space: break-spaces;
@@ -10,6 +17,24 @@
 	font-variant-ligatures: none;
 	font-feature-settings: "liga" 0;
 	outline: none;
+}
+
+.mded ::selection {
+	background: var(--md-editor-selection);
+}
+
+.mded ::-moz-selection {
+	background: var(--md-editor-selection);
+}
+
+.mded p {
+	margin: 0 0 var(--md-editor-paragraph-gap);
+}
+
+.mded hr {
+	margin: 0;
+	border: 0;
+	border-top: 1px solid var(--md-editor-rule);
 }
 
 .mded.ProseMirror-focused {

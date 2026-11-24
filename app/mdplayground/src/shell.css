@@ -1,0 +1,65 @@
+@import "./theme.css";
+
+html,
+body,
+#root {
+	height: 100%;
+	margin: 0;
+}
+
+.shell {
+	display: flex;
+	height: 100%;
+	background: var(--pg-bg);
+	color: var(--pg-text);
+	font-family: var(--pg-font-family);
+}
+
+.sidebar {
+	flex: none;
+	height: 100%;
+	overflow: hidden;
+	background: var(--pg-surface);
+	border-right: 1px solid var(--pg-border);
+	z-index: var(--pg-z-fixed);
+}
+
+.main {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	min-width: 0;
+	height: 100%;
+}
+
+.header {
+	display: flex;
+	flex: none;
+	align-items: center;
+	justify-content: space-between;
+	height: 56px;
+	padding: 0 12px;
+	border-bottom: 1px solid var(--pg-border);
+}
+
+.header button {
+	height: 28px;
+	padding: 0 12px;
+	border: 1px solid var(--pg-border);
+	border-radius: var(--pg-radius-md);
+	background: var(--pg-surface);
+	color: var(--pg-text);
+	font: 600 12px/1 var(--pg-font-family);
+	cursor: pointer;
+}
+
+.editor-pane {
+	flex: 1;
+	min-height: 0;
+	overflow: auto;
+	background: var(--pg-bg);
+}
+
+.editor-pane > div {
+	min-height: 100%;
+}
