@@ -45,8 +45,9 @@ describe('blockquote', () => {
 		const emptyQuote = emptied.content[0]
 		assert.equal(emptyQuote?.type, 'blockquote')
 		assert.equal(emptyQuote?.type === 'blockquote' && emptyQuote.content.length, 1)
-		assert.equal(emptyQuote?.type === 'blockquote' && emptyQuote.content[0]?.type, 'paragraph')
-		assert.equal(emptyQuote?.type === 'blockquote' && emptyQuote.content[0]?.content, undefined)
+		const inner = emptyQuote?.type === 'blockquote' ? emptyQuote.content[0] : undefined
+		assert.equal(inner?.type, 'paragraph')
+		assert.equal(inner?.type === 'paragraph' && inner.content, undefined)
 	})
 
 	it('wraps a paragraph on > and joins a following quote', () => {

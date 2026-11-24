@@ -85,9 +85,10 @@
 }
 
 .mded hr {
-	margin: 0;
+	height: 0;
+	margin: var(--md-editor-space-16) 0;
 	border: 0;
-	border-top: 1px solid var(--md-editor-rule);
+	border-top: 2px solid var(--md-editor-rule);
 }
 
 .mded.ProseMirror-focused {

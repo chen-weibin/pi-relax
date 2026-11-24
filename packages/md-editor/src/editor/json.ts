@@ -32,6 +32,11 @@ function parseBlocks(tokens: Token[]): BlockJson[] {
 			index = close + 1
 			continue
 		}
+		if (depth === 0 && token.type === 'hr') {
+			blocks.push({ type: 'horizontal_rule' })
+			index += 1
+			continue
+		}
 		if (depth === 0 && (token.type === 'heading_open' || token.type === 'paragraph_open')) {
 			const close = token.type === 'heading_open' ? 'heading_close' : 'paragraph_close'
 			const inline = tokens[index + 1]
@@ -102,6 +107,7 @@ function serializeBlock(block: BlockJson): string {
 			.map((line) => `> ${line}`)
 			.join('\n')
 	}
+	if (block.type === 'horizontal_rule') return '---'
 	const text = block.content?.map((node) => node.text).join('') ?? ''
 	if (block.type === 'heading') return `${'#'.repeat(block.attrs.level)} ${text}`
 	return text

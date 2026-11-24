@@ -38,8 +38,9 @@ describe('heading', () => {
 		assert.equal(docJsonToMarkdown(empty), '')
 
 		const dropped = markdownToDocJson('- 项')
-		assert.equal(dropped.content[0]?.type, 'paragraph')
-		assert.equal(dropped.content[0]?.content, undefined)
+		const droppedBlock = dropped.content[0]
+		assert.equal(droppedBlock?.type, 'paragraph')
+		assert.equal(droppedBlock?.type === 'paragraph' && droppedBlock.content, undefined)
 
 		assert.equal(docJsonToMarkdown(markdownToDocJson('标题\n===')), '# 标题')
 		assert.equal(docJsonToMarkdown(markdownToDocJson('# **粗**')), '# 粗')
