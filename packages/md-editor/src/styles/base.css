@@ -72,6 +72,18 @@
 	font-size: var(--md-editor-font-sm);
 }
 
+.mded blockquote {
+	margin: 0 0 var(--md-editor-paragraph-gap);
+	border-left: 3px solid var(--md-editor-brand);
+	padding: var(--md-editor-space-8) var(--md-editor-space-16);
+	background: var(--md-editor-quote-bg);
+	color: var(--md-editor-text-2);
+}
+
+.mded blockquote > :last-child {
+	margin-bottom: 0;
+}
+
 .mded hr {
 	margin: 0;
 	border: 0;

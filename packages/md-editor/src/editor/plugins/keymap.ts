@@ -3,7 +3,7 @@ import { redo, undo } from 'prosemirror-history'
 import { keymap } from 'prosemirror-keymap'
 import { type Command, type Plugin } from 'prosemirror-state'
 import { editorSchema } from '../schema.ts'
-import { headingInputRules } from './inputRules.ts'
+import { blockInputRules } from './inputRules.ts'
 import { placeholderPlugin } from './placeholder.ts'
 
 export type MdEditorMode = 'edit' | 'read'
@@ -65,7 +65,7 @@ export function createEditorPlugins(
 	if (mode === 'read') return [placeholderPlugin]
 	return [
 		historyPlugin,
-		headingInputRules,
+		blockInputRules,
 		keymap(commandBindings(keybindings)),
 		keymap(baseKeymap),
 		placeholderPlugin,

@@ -6,7 +6,7 @@ import type { EditorView } from 'prosemirror-view'
 import { createEditorState } from './EditorCore.ts'
 import { createEmptyDocJson, docJsonToMarkdown, markdownToDocJson } from './json.ts'
 import { commandBindings, createEditorPlugins } from './plugins/keymap.ts'
-import { headingInputRules } from './plugins/inputRules.ts'
+import { blockInputRules } from './plugins/inputRules.ts'
 import type { DocJson } from './types.ts'
 
 const titled = {
@@ -37,7 +37,7 @@ describe('heading', () => {
 		assert.deepEqual(empty, createEmptyDocJson())
 		assert.equal(docJsonToMarkdown(empty), '')
 
-		const dropped = markdownToDocJson('> 引用')
+		const dropped = markdownToDocJson('- 项')
 		assert.equal(dropped.content[0]?.type, 'paragraph')
 		assert.equal(dropped.content[0]?.content, undefined)
 
@@ -54,12 +54,13 @@ describe('heading', () => {
 				view.state = view.state.apply(transaction)
 			},
 		}
-		const handled = headingInputRules.props.handleTextInput?.call(
-			headingInputRules,
+		const handled = blockInputRules.props.handleTextInput?.call(
+			blockInputRules,
 			view as unknown as EditorView,
 			1,
 			1,
 			'# ',
+			() => view.state.tr,
 		)
 		assert.equal(handled, true)
 		assert.equal(view.state.doc.firstChild?.type.name, 'heading')
@@ -69,7 +70,9 @@ describe('heading', () => {
 
 	it('binds Mod-Alt heading keys and lets an empty list clear one', () => {
 		const bindings = commandBindings()
-		const turned = applyCommand(createEditorState(titled, createEditorPlugins(history())), bindings['Mod-Alt-2'])
+		const setHeading = bindings['Mod-Alt-2']
+		assert.ok(setHeading)
+		const turned = applyCommand(createEditorState(titled, createEditorPlugins(history())), setHeading)
 		assert.equal(turned.handled, true)
 		assert.equal(turned.state.doc.firstChild?.type.name, 'heading')
 		assert.equal(turned.state.doc.firstChild?.attrs.level, 2)

@@ -26,6 +26,12 @@ function parseBlocks(tokens: Token[]): BlockJson[] {
 	while (index < tokens.length) {
 		const token = tokens[index]
 		if (!token) break
+		if (depth === 0 && token.type === 'blockquote_open') {
+			const close = closeAt(tokens, index, 'blockquote_open', 'blockquote_close')
+			blocks.push(blockquoteBlock(parseBlocks(tokens.slice(index + 1, close))))
+			index = close + 1
+			continue
+		}
 		if (depth === 0 && (token.type === 'heading_open' || token.type === 'paragraph_open')) {
 			const close = token.type === 'heading_open' ? 'heading_close' : 'paragraph_close'
 			const inline = tokens[index + 1]
@@ -40,6 +46,12 @@ function parseBlocks(tokens: Token[]): BlockJson[] {
 	}
 
 	return blocks
+}
+
+function blockquoteBlock(inner: BlockJson[]): BlockJson {
+	const first = inner[0]
+	if (!first) return { type: 'blockquote', content: [{ type: 'paragraph' }] }
+	return { type: 'blockquote', content: [first, ...inner.slice(1)] }
 }
 
 function headingBlock(open: Token, inline: Token | undefined): BlockJson | null {
@@ -81,7 +93,15 @@ function closeAt(tokens: Token[], start: number, open: string, close: string) {
 	return tokens.length - 1
 }
 
-function serializeBlock(block: BlockJson) {
+function serializeBlock(block: BlockJson): string {
+	if (block.type === 'blockquote') {
+		return block.content
+			.map(serializeBlock)
+			.join('\n\n')
+			.split('\n')
+			.map((line) => `> ${line}`)
+			.join('\n')
+	}
 	const text = block.content?.map((node) => node.text).join('') ?? ''
 	if (block.type === 'heading') return `${'#'.repeat(block.attrs.level)} ${text}`
 	return text

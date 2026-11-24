@@ -6,6 +6,7 @@ import './shell.css'
 
 const sidebarWidth = 240
 const sidebarOpenKey = 'mdplayground.sidebar-open'
+const themeKey = 'mdplayground.theme'
 const docKey = 'mdplayground.doc'
 const emptyDoc: DocJson = { type: 'doc', content: [{ type: 'paragraph' }] }
 
@@ -29,6 +30,22 @@ function writeDoc(doc: DocJson) {
 	}
 }
 
+function readTheme(): MdEditorTheme {
+	try {
+		return localStorage.getItem(themeKey) === 'dark' ? 'dark' : 'light'
+	} catch {
+		return 'light'
+	}
+}
+
+function writeTheme(theme: MdEditorTheme) {
+	try {
+		localStorage.setItem(themeKey, theme)
+	} catch {
+		// 无痕或配额满时这次切换仍生效，只是刷新后回到亮色。
+	}
+}
+
 function readSidebarOpen() {
 	try {
 		return localStorage.getItem(sidebarOpenKey) !== '0'
@@ -47,7 +64,7 @@ function writeSidebarOpen(open: boolean) {
 
 export function App() {
 	const shellRef = useRef<HTMLDivElement>(null)
-	const [theme, setTheme] = useState<MdEditorTheme>('light')
+	const [theme, setTheme] = useState(readTheme)
 	const [mode, setMode] = useState<MdEditorMode>('edit')
 	const [doc, setDoc] = useState(readDoc)
 	const [open, setOpen] = useState(readSidebarOpen)
@@ -94,7 +111,16 @@ export function App() {
 					>
 						{open ? '收起' : '展开'}
 					</Button>
-					<Button size="sm" onClick={() => setTheme((value) => (value === 'light' ? 'dark' : 'light'))}>
+					<Button
+						size="sm"
+						onClick={() =>
+							setTheme((value) => {
+								const next = value === 'light' ? 'dark' : 'light'
+								writeTheme(next)
+								return next
+							})
+						}
+					>
 						{theme === 'light' ? '亮色' : '暗色'}
 					</Button>
 				</header>
