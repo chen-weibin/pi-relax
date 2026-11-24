@@ -11,8 +11,9 @@
 		}
 	},
 	"scripts": {
-		"build": "tsdown && mkdir -p dist/styles && cp src/styles/light.css dist/styles/light.css",
-		"typecheck": "tsc --noEmit"
+		"build": "tsdown && mkdir -p dist/styles && cp src/styles/*.css dist/styles/",
+		"typecheck": "tsc --noEmit",
+		"test": "node --experimental-strip-types --test \"src/**/*.test.ts\""
 	},
 	"dependencies": {
 		"prosemirror-commands": "^1.7.2",

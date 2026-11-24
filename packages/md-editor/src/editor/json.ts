@@ -1,4 +1,4 @@
-import { editorSchema } from './schema'
+import { editorSchema } from './schema.ts'
 import type { DocJson } from './types'
 
 export function createEmptyDocJson(): DocJson {

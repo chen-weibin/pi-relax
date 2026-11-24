@@ -1,6 +1,6 @@
-import { doc } from './doc'
-import { paragraph } from './paragraph'
-import { text } from './text'
+import { doc } from './doc.ts'
+import { paragraph } from './paragraph.ts'
+import { text } from './text.ts'
 
 export const nodes = {
 	doc,
