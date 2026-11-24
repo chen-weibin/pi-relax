@@ -4,9 +4,9 @@
 
 ## 现在有什么
 
-包在 `packages/md-editor`，包名 `@relax/md-editor`。对外从 `src/index.tsx` 导出 `MdEditor`、`DocJson`、`EditorCommand`、`Keybindings`、`MdEditorTheme`、`MdEditorThemeTokens`、`MdEditorThemes`。不导出 `EditorCore` 和 `createEmptyDocJson`。
+包在 `packages/md-editor`，包名 `@relax/md-editor`。对外从 `src/index.tsx` 导出 `MdEditor`、`DocJson`、`EditorCommand`、`Keybindings`、`MdEditorMode`、`MdEditorTheme`、`MdEditorThemeTokens`、`MdEditorThemes`。不导出 `EditorCore` 和 `createEmptyDocJson`。
 
-组件本体在 `src/MdEditor.tsx`。它把 `EditorCore` 挂到内部节点上，卸掉时 `destroy()`。不传 `value` 时非受控，初始文档是内部的 `createEmptyDocJson()`。可选 `value` / `onChange`：只有文档变化才通知；记下刚通知出去的那份对象，父组件把同一引用传回来时不 `setValue`。不支持使用中途从非受控改成受控。`placeholder` 默认 `请输入...`，写成外壳 CSS 变量 `--md-editor-placeholder`。
+组件本体在 `src/MdEditor.tsx`。它把 `EditorCore` 挂到内部节点上，卸掉时 `destroy()`。不传 `value` 时非受控，初始文档是内部的 `createEmptyDocJson()`。可选 `value` / `onChange`：只有文档变化才通知；记下刚通知出去的那份对象，父组件把同一引用传回来时不 `setValue`。不支持使用中途从非受控改成受控。`placeholder` 默认 `请输入...`，写成外壳 CSS 变量 `--md-editor-placeholder`。`mode` 是 `'edit' | 'read'`，默认 `'edit'`。切换不重建 `EditorCore`。可选 `className` 接到外壳 class 后面，可选 `style` 写在主题变量之后，同名项以传入的为准。
 
 编辑器内核在 `src/editor/`。`markdown/` 和 `marks/` 还没有。插件在 `src/editor/plugins/`：`keymap.ts`、`placeholder.ts`。
 
@@ -20,9 +20,9 @@
 
 `src/editor/json.ts` 的 `createEmptyDocJson()` 用 schema 造一个 doc，里面一个空 paragraph，再 `toJSON()`。空文档的 JSON 是 `{ type: 'doc', content: [{ type: 'paragraph' }] }`。`markdownToDocJson` / `docJsonToMarkdown` 等 4.1 再补进这个文件。
 
-`src/editor/EditorCore.ts` 是类，不从包入口导出。构造收 `mount`、可选 `initialValue`、`onChange`、`keybindings`。缺省文档用 `createEmptyDocJson()`。`getValue()` 返回断言后的 `DocJson`。`setValue(json)` 用共用的 `createEditorState` 建一份新 state 再 `updateState`，选区和新的撤销栈都从头算。`setKeybindings` 用 `state.reconfigure` 只换命令 keymap，同一份 `history()` 留着，撤销栈还在。`focus()` 调用 `view.focus()`。`destroy()` 调用 `view.destroy()`。视图默认可编辑。自定义 `dispatchTransaction` 在 `docChanged` 时调用 `onChange`；`setValue` 不走这条路径。
+`src/editor/EditorCore.ts` 是类，不从包入口导出。构造收 `mount`、可选 `initialValue`、`onChange`、`keybindings`、`mode`。缺省文档用 `createEmptyDocJson()`。`getValue()` 返回断言后的 `DocJson`。`setValue(json)` 用共用的 `createEditorState` 建一份新 state 再 `updateState`，选区和新的撤销栈都从头算。`setKeybindings` 用 `state.reconfigure` 只换命令 keymap，同一份 `history()` 留着，撤销栈还在。`setMode` 也走 `reconfigure`，文档和选区留着。`editable` 在编辑态为 true，阅读态为 false，DOM 上是 `contenteditable`。阅读态打不进字，也不走 `onChange`。`focus()` 调用 `view.focus()`。`destroy()` 调用 `view.destroy()`。自定义 `dispatchTransaction` 在 `docChanged` 时调用 `onChange`；`setValue` 不走这条路径。
 
-`createEditorState` 和 `createEditorPlugins` 是构造和 `setValue` 的同一条路。插件顺序：`history()`、命令 keymap、`keymap(baseKeymap)`、占位装饰。`baseKeymap` 负责 Enter、Backspace，这一期不进命令表。命令 id 目前是 `undo` | `redo`。默认键是 `undo` → `Mod-z`，`redo` → `Mod-Shift-z` 和 `Mod-y`。`keybindings` 按命令给键数组：省略的命令用默认键，传入的数组整份替换该命令（空数组表示没有键）。`Mod-` 由 `prosemirror-keymap` 区分 Cmd / Ctrl。
+`createEditorState` 和 `createEditorPlugins` 是构造和 `setValue` 的同一条路。编辑态插件顺序：`history()`、命令 keymap、`keymap(baseKeymap)`、占位装饰。阅读态只有占位。阅读态卸下 `history` 插件后撤销栈丢掉，切回编辑态同一实例重新 `init`，栈是空的。阅读态调用 `setKeybindings` 只记下绑定，回到编辑态再生效。`baseKeymap` 负责 Enter、Backspace，这一期不进命令表。命令 id 目前是 `undo` | `redo`。默认键是 `undo` → `Mod-z`，`redo` → `Mod-Shift-z` 和 `Mod-y`。`keybindings` 按命令给键数组：省略的命令用默认键，传入的数组整份替换该命令（空数组表示没有键）。`Mod-` 由 `prosemirror-keymap` 区分 Cmd / Ctrl。
 
 占位插件在文档恰好一个空段落时给该段加 class `mded-empty`。我们自己加的类都以 `mded-` 开头。视图通过 `attributes.class` 再加根类 `mded`，基座的 `ProseMirror` 仍在。文案不进插件，由 `base.css` 的 `.mded p.mded-empty::before` 读 `--md-editor-placeholder`，字色读 `--md-editor-placeholder-color`。
 
@@ -30,11 +30,11 @@
 
 `src/editor/state.test.ts` 用 `node --experimental-strip-types --test` 打在 `createEditorState` 上，不挂视图。被这条测试加载的相对 import 带 `.ts` 后缀，`tsconfig.json` 打开了 `allowImportingTsExtensions`。测试文件本身排除在 `tsc` 之外。包脚本是 `pnpm --filter @relax/md-editor test`。
 
-测试页在 `app/mdplayground`，包名 `@relax/mdplayground`。页面自己有一份壳层主题，变量前缀是 `--pg-`，数值和编辑器主题相同，样式表不互相引用。壳是三块：左侧空侧栏、右侧顶栏、顶栏下面的主区域。侧栏底色是 `--pg-surface-2`，顶栏和主区域是 `--pg-bg`。亮色里 `--pg-bg` 和 `--pg-surface` 都是白色，侧栏不用 `--pg-surface`。侧栏和右侧之间没有分割线。`shell.css` 用 `@import "tailwindcss"`，再用 `@theme inline` 把 `--pg-*` 映成 `app`、`sidebar`、`surface`、`fg`、`border`。`--pg-*` 只写在 `[data-theme]` 上，所以同一组映射在这个选择器上再写一遍，工具类才能跟着主题变。`surface-active` 没有现成变量，用 `color-mix` 把 `--pg-surface-2` 混一点 `--pg-text`。`fg-bright` 没有更亮的一档，映到 `--pg-text`。顶栏的收起和主题用 `src/ui/Button.tsx`，默认 `tone="brand"`、`solid`。变体分档与 `app/web/src/ui/Button.tsx` 相同，色调多一档 `brand`，class 用 `classnames` 拼接。尺寸跟壳层主题：sm / md / lg 高 24 / 32 / 40px，圆角 `--pg-radius-sm` / `md` / `lg`（6 / 8 / 12px），字号 `--pg-font-xs` / `sm` / `base`（12 / 14 / 16px）。`brand` 实底在亮色是 `--pg-brand` 配 `--pg-inverse-text`（白字压 `#6478E8`），悬停 `--pg-brand-600`，按下 `--pg-brand-700`。暗色的 `--pg-brand` 是 `#8492FF`，铺满会在深底上发亮，所以实底改成 `--pg-brand-soft`，字用 `--pg-brand`。悬停把 soft 混进一点 brand。字重 400。`neutral` 的 `solid` 仍用 `--pg-surface-2`，因为亮色里 `--pg-surface` 和页面底同为白色。没有单独的按钮样式表，也没有 `loading`。顶栏切换主题时，壳的 `data-theme` 和 `MdEditor` 的 `theme` 一起变。左侧空侧栏用 `motion` 改宽度，时长读 `--pg-duration`，叠放用 `--pg-z-fixed`。开发命令是根目录的 `pnpm dev:mdplayground`。端口用 Vite 默认值，被占用就顺延。它不进 `pnpm dev`。
+测试页在 `app/mdplayground`，包名 `@relax/mdplayground`。页面自己有一份壳层主题，变量前缀是 `--pg-`，数值和编辑器主题相同，暗色正文除外，样式表不互相引用。壳是三块：左侧侧栏、右侧顶栏、顶栏下面的主区域。侧栏放模式按钮，显示当前是编辑还是阅读，收起时按钮跟着藏起来。后面的 playground 控制也放这栏。侧栏底色是 `--pg-surface-2`，顶栏和主区域是 `--pg-bg`。亮色里 `--pg-bg` 和 `--pg-surface` 都是白色，侧栏不用 `--pg-surface`。侧栏和右侧之间没有分割线。`shell.css` 用 `@import "tailwindcss"`，再用 `@theme inline` 把 `--pg-*` 映成 `app`、`sidebar`、`surface`、`fg`、`border`。`--pg-*` 只写在 `[data-theme]` 上，所以同一组映射在这个选择器上再写一遍，工具类才能跟着主题变。`surface-active` 没有现成变量，用 `color-mix` 把 `--pg-surface-2` 混一点 `--pg-text`。`fg-bright` 没有更亮的一档，映到 `--pg-text`。顶栏的收起和主题用 `src/ui/Button.tsx`，默认 `tone="brand"`、`solid`。变体分档与 `app/web/src/ui/Button.tsx` 相同，色调多一档 `brand`，class 用 `classnames` 拼接。尺寸跟壳层主题：sm / md / lg 高 24 / 32 / 40px，圆角 `--pg-radius-sm` / `md` / `lg`（6 / 8 / 12px），字号 `--pg-font-xs` / `sm` / `base`（12 / 14 / 16px）。`brand` 实底在亮色是 `--pg-brand` 配 `--pg-inverse-text`（白字压 `#6478E8`），悬停 `--pg-brand-600`，按下 `--pg-brand-700`。暗色的 `--pg-brand` 是 `#8492FF`，铺满会在深底上发亮，所以实底改成 `--pg-brand-soft`，字用 `--pg-brand`。悬停把 soft 混进一点 brand。字重 400。`neutral` 的 `solid` 仍用 `--pg-surface-2`，因为亮色里 `--pg-surface` 和页面底同为白色。没有单独的按钮样式表，也没有 `loading`。顶栏切换主题时，壳的 `data-theme` 和 `MdEditor` 的 `theme` 一起变。左侧侧栏用 `motion` 改宽度，时长读 `--pg-duration`，叠放用 `--pg-z-fixed`。主区域里正文栏由页面决定：宽 `min(820px, calc(100% - 96px))`，水平居中；窄于 700px 时改成 `min(760px, calc(100% - 32px))`。`MdEditor` 铺满这一栏，自己不收 `maxWidth`。开发命令是根目录的 `pnpm dev:mdplayground`。端口用 Vite 默认值，被占用就顺延。它不进 `pnpm dev`。
 
 ## 主题
 
-`MdEditor` 只 `import './styles/base.css'`，不引 `prosemirror-view` 的样式。`base.css` 放两种主题共用的规则：空格、换行、连字、分隔图，以及 `.mded` 和 `.mded.ProseMirror-focused` 的 `outline: none`。会随主题变的值不写在这里。使用方不引 CSS。prop `theme` 是 `'light' | 'dark'`，默认 `'light'`，写到外壳的 `data-theme`。外壳上有一条 Tailwind 工具类 `min-h-4`。没有第三套主题，也不能注册新主题名。
+`MdEditor` 只 `import './styles/base.css'`，不引 `prosemirror-view` 的样式。`base.css` 放两种主题共用的规则：空格、换行、连字、分隔图，以及 `.mded` 和 `.mded.ProseMirror-focused` 的 `outline: none`。会随主题变的值不写在这里。使用方不引 CSS。prop `theme` 是 `'light' | 'dark'`，默认 `'light'`，写到外壳的 `data-theme`。外壳是 `flex min-h-full flex-col`，挂载节点 `flex-1`，让 `.mded` 在父级有高度时铺满。没有第三套主题，也不能注册新主题名。
 
 可选 `themes` 按当前 `theme` 局部覆盖。只把传入的键写成外壳 inline 变量，没传的键仍用样式表里的默认。默认值只在 CSS 里。切换主题不重建 `EditorCore`。占位文案仍是 `--md-editor-placeholder`，不在 token 表里。token 键到变量名的映射在 `src/theme.ts` 的 `themeTokenVars`。`src/theme.test.ts` 断言传入的键会写上、没传的键不出现。
 
@@ -42,9 +42,13 @@
 
 token 分组：语义色（含页面底 `--md-editor-bg`、表面、边框、三级文字、品牌、信息、成功、警告、错误和各自的 soft、inverse）、中性色阶、品牌色阶 50–950、圆角、间距、字号阶梯、四档阴影、八档层级、三档时长。圆角、间距、字号、层级、时长和正文字体两边默认相同，仍各写一份。阴影、语义色和品牌色阶 500 及以后两边不同。亮色品牌 500 是 `#6478E8`，暗色是 `#8492FF`。色值来自 `tmp/design-system-preview.html`。这一期不从色阶再推背景、边框、填充。
 
-编辑器正文专用、可单边覆盖：`--md-editor-font-family`、`--md-editor-font-size`（`16px`）、`--md-editor-line-height`（`1.78`）、`--md-editor-paragraph-gap`（`17px`）。字体栈和这三项间距来自参考编辑器。占位色用三级文字，光标用品牌色，选区是品牌色 0.28 透明度，分隔线用默认边框色。
+编辑器正文专用、可单边覆盖：`--md-editor-font-family`、`--md-editor-font-size`（`16px`）、`--md-editor-line-height`（`1.78`）、`--md-editor-paragraph-gap`（`16px`）。字体栈、字号和行高来自参考编辑器。参考段落下边距是 17px，这里改成偶数 16px。占位色用三级文字，光标用品牌色，选区是品牌色 0.28 透明度，分隔线用默认边框色。暗色正文 `--md-editor-text` 是 `#d8d8d8`，不跟壳层的 `#f1f1f1`，黑底上不发白。亮色仍是 `#171717`。
 
-这一期 `base.css` 只让 `.mded` 使用文字、背景、光标、字号、行高、字体，`::selection` 使用选区色，段落使用下边距，空段占位使用占位色，`.mded hr` 使用 1px 分隔色。其余变量先定义，后面的块、菜单、浮层再引用。编辑器还没有浮层，层级和时长只放在主题上。
+`.mded` 使用文字、背景、光标、字号、行高、字体，`::selection` 使用选区色，段落使用下边距，空段占位使用占位色，`.mded hr` 使用 1px 分隔色。其余变量先定义，后面的块、菜单、浮层再引用。编辑器还没有浮层，层级和时长只放在主题上。
+
+正文内边距写在 `.mded` 上，不进 `themes`。`--md-editor-pad-top` 用 `--md-editor-space-8`（8px），`--md-editor-pad-x` 用 `--md-editor-space-32`（32px），`--md-editor-pad-bottom` 是 32px 的 3 倍（96px）。`box-sizing: border-box`，`min-height: 100%`。栏宽仍由使用方决定，这两层不叠：页边在栏外，这圈在栏内。
+
+`.mded` 行高 `1.78`，`.mded p` 的 margin 是 `0 0 16px`（`--md-editor-paragraph-gap`）。段与段之间只有这一截下边距，上边距是 0。
 
 tsdown 不处理 CSS。`deps.neverBundle` 里的 `/\.css$/` 让产物保留 `import "./styles/base.css"`，不把 Tailwind 打进 `dist`。构建把 `src/styles/*.css` 抄到 `dist/styles/`，`base.css` 里的相对 `@import` 才能找到主题文件。开发时 Vite 读源码，不走这份拷贝。
 

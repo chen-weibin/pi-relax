@@ -5,6 +5,7 @@ import type { EditorState } from 'prosemirror-state'
 import { createEditorState } from './EditorCore.ts'
 import { createEmptyDocJson } from './json.ts'
 import { commandBindings, createEditorPlugins } from './plugins/keymap.ts'
+import { placeholderPlugin } from './plugins/placeholder.ts'
 import type { DocJson } from './types.ts'
 
 function stateFrom(value?: DocJson, keybindings?: Parameters<typeof createEditorPlugins>[1]) {
@@ -49,5 +50,16 @@ describe('editor state', () => {
 		const again = applyUndo(next.apply(next.tr.insertText('x')))
 		assert.equal(again.handled, true)
 		assert.equal(again.state.doc.textContent, '新')
+	})
+
+	it('keeps editing plugins in edit mode and only the placeholder in read mode', () => {
+		const historyPlugin = history()
+		const edit = createEditorPlugins(historyPlugin)
+		assert.equal(edit.length, 4)
+		assert.equal(edit[0], historyPlugin)
+		assert.equal(edit[3], placeholderPlugin)
+
+		const read = createEditorPlugins(historyPlugin, undefined, 'read')
+		assert.deepEqual(read, [placeholderPlugin])
 	})
 })

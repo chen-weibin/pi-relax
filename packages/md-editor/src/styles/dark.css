@@ -5,7 +5,7 @@
 	--md-editor-surface-2: #262626;
 	--md-editor-border: #303030;
 	--md-editor-border-strong: #414141;
-	--md-editor-text: #f1f1f1;
+	--md-editor-text: #d8d8d8;
 	--md-editor-text-2: #c6c6c6;
 	--md-editor-text-3: #929292;
 	--md-editor-muted: #929292;
@@ -83,7 +83,7 @@
 	--md-editor-font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
 	--md-editor-font-size: 16px;
 	--md-editor-line-height: 1.78;
-	--md-editor-paragraph-gap: 17px;
+	--md-editor-paragraph-gap: 16px;
 	--md-editor-placeholder-color: #929292;
 	--md-editor-caret: #8492ff;
 	--md-editor-selection: rgb(132 146 255 / 0.28);

@@ -4,6 +4,8 @@ import { keymap } from 'prosemirror-keymap'
 import { type Command, type Plugin } from 'prosemirror-state'
 import { placeholderPlugin } from './placeholder.ts'
 
+export type MdEditorMode = 'edit' | 'read'
+
 export type EditorCommand = 'undo' | 'redo'
 
 export type Keybindings = Partial<Record<EditorCommand, readonly string[]>>
@@ -23,6 +25,11 @@ export function commandBindings(keybindings?: Keybindings): Record<string, Comma
 	return bindings
 }
 
-export function createEditorPlugins(historyPlugin: Plugin, keybindings?: Keybindings): Plugin[] {
+export function createEditorPlugins(
+	historyPlugin: Plugin,
+	keybindings?: Keybindings,
+	mode: MdEditorMode = 'edit',
+): Plugin[] {
+	if (mode === 'read') return [placeholderPlugin]
 	return [historyPlugin, keymap(commandBindings(keybindings)), keymap(baseKeymap), placeholderPlugin]
 }

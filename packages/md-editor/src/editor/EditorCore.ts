@@ -2,7 +2,7 @@ import { history } from 'prosemirror-history'
 import { EditorState, type Plugin, type Transaction } from 'prosemirror-state'
 import { EditorView } from 'prosemirror-view'
 import { createEmptyDocJson } from './json.ts'
-import { createEditorPlugins, type Keybindings } from './plugins/keymap.ts'
+import { createEditorPlugins, type Keybindings, type MdEditorMode } from './plugins/keymap.ts'
 import { editorSchema } from './schema.ts'
 import type { DocJson } from './types'
 
@@ -11,6 +11,7 @@ export type EditorCoreOptions = {
 	initialValue?: DocJson
 	onChange?: (value: DocJson) => void
 	keybindings?: Keybindings
+	mode?: MdEditorMode
 }
 
 export function createEditorState(value: DocJson | undefined, plugins: readonly Plugin[]) {
@@ -23,19 +24,22 @@ export class EditorCore {
 	private readonly historyPlugin = history()
 	private readonly onChange?: (value: DocJson) => void
 	private keybindings?: Keybindings
+	private mode: MdEditorMode
 
 	constructor(options: EditorCoreOptions) {
 		this.onChange = options.onChange
 		this.keybindings = options.keybindings
+		this.mode = options.mode ?? 'edit'
 		this.view = new EditorView(options.mount, {
 			state: createEditorState(options.initialValue, this.plugins()),
 			attributes: { class: 'mded' },
+			editable: () => this.mode === 'edit',
 			dispatchTransaction: (transaction) => this.dispatch(transaction),
 		})
 	}
 
 	private plugins() {
-		return createEditorPlugins(this.historyPlugin, this.keybindings)
+		return createEditorPlugins(this.historyPlugin, this.keybindings, this.mode)
 	}
 
 	getValue(): DocJson {
@@ -48,6 +52,13 @@ export class EditorCore {
 
 	setKeybindings(keybindings?: Keybindings) {
 		this.keybindings = keybindings
+		this.view.updateState(this.view.state.reconfigure({ plugins: this.plugins() }))
+	}
+
+	setMode(mode: MdEditorMode) {
+		if (this.mode === mode) return
+		this.mode = mode
+		// 阅读态卸下 history 插件，撤销栈丢掉。切回编辑态同一实例会重新 init。
 		this.view.updateState(this.view.state.reconfigure({ plugins: this.plugins() }))
 	}
 
