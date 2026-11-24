@@ -5,15 +5,26 @@ import { editorSchema } from '../schema.ts'
 
 const hashes = /^(#{1,6})\s$/
 const quote = /^\s*>\s$/
+const bullet = /^\s*([-+*])\s$/
+const ordered = /^(\d+)\.\s$/
 const ruleText = /^(-{3,}|\*{3,})$/
 const rule = /^(-{3,}|\*{3,}) $/
 
+const { heading, blockquote, bullet_list, ordered_list, horizontal_rule } = editorSchema.nodes
+
 export const blockInputRules = inputRules({
 	rules: [
-		textblockTypeInputRule(hashes, editorSchema.nodes.heading, (match) => ({
+		textblockTypeInputRule(hashes, heading, (match) => ({
 			level: match[1]?.length ?? 1,
 		})),
-		wrappingInputRule(quote, editorSchema.nodes.blockquote),
+		wrappingInputRule(quote, blockquote),
+		wrappingInputRule(bullet, bullet_list),
+		wrappingInputRule(
+			ordered,
+			ordered_list,
+			(match) => ({ order: Number(match[1]) }),
+			(match, node) => node.childCount + node.attrs.order === Number(match[1]),
+		),
 		horizontalRuleRule(),
 	],
 })
@@ -24,6 +35,7 @@ function horizontalRuleRule() {
 		const parent = $start.parent
 		if (!parent.isTextblock || parent.content.size !== end - start) return null
 		if (!ruleText.test(parent.textContent)) return null
+		if (!canReplaceTextblock($start)) return null
 		return replaceWithRule(state, $start)
 	})
 }
@@ -32,12 +44,19 @@ export const horizontalRuleOnEnter: Command = (state, dispatch) => {
 	const { $from, empty } = state.selection
 	if (!empty || !$from.parent.isTextblock || $from.parentOffset !== $from.parent.content.size) return false
 	if (!ruleText.test($from.parent.textContent)) return false
+	if (!canReplaceTextblock($from)) return false
 	dispatch?.(replaceWithRule(state, $from))
 	return true
 }
 
+function canReplaceTextblock($inside: ResolvedPos) {
+	const depth = $inside.depth - 1
+	if (depth < 0) return false
+	return $inside.node(depth).canReplaceWith($inside.index(depth), $inside.index(depth) + 1, horizontal_rule)
+}
+
 function replaceWithRule(state: EditorState, $inside: ResolvedPos): Transaction {
-	const hr = editorSchema.nodes.horizontal_rule.create()
+	const hr = horizontal_rule.create()
 	const from = $inside.before()
 	let tr = state.tr.replaceWith(from, $inside.after(), hr)
 	const $hr = tr.doc.resolve(from)

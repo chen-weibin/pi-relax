@@ -99,8 +99,30 @@
 	white-space: pre-wrap;
 }
 
+.mded ul,
+.mded ol {
+	margin: 0 0 var(--md-editor-paragraph-gap);
+	padding-left: 1.5em;
+}
+
+.mded ul {
+	list-style: disc;
+}
+
+.mded ol {
+	list-style: decimal;
+}
+
 .mded li {
 	position: relative;
+}
+
+.mded li::marker {
+	color: var(--md-editor-brand);
+}
+
+.mded li > p {
+	margin-bottom: 0;
 }
 
 .mded.ProseMirror-hideselection *::selection {

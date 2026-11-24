@@ -37,7 +37,7 @@ describe('heading', () => {
 		assert.deepEqual(empty, createEmptyDocJson())
 		assert.equal(docJsonToMarkdown(empty), '')
 
-		const dropped = markdownToDocJson('- 项')
+		const dropped = markdownToDocJson('```\ncode\n```')
 		const droppedBlock = dropped.content[0]
 		assert.equal(droppedBlock?.type, 'paragraph')
 		assert.equal(droppedBlock?.type === 'paragraph' && droppedBlock.content, undefined)

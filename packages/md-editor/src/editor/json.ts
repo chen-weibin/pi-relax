@@ -1,6 +1,6 @@
 import MarkdownIt, { type Token } from 'markdown-it'
 import { editorSchema } from './schema.ts'
-import type { BlockJson, DocJson, InlineJson } from './types'
+import type { BlockJson, DocJson, InlineJson, ListItemJson } from './types'
 
 const md = new MarkdownIt({ html: false, linkify: false, typographer: false })
 
@@ -32,6 +32,18 @@ function parseBlocks(tokens: Token[]): BlockJson[] {
 			index = close + 1
 			continue
 		}
+		if (depth === 0 && (token.type === 'bullet_list_open' || token.type === 'ordered_list_open')) {
+			const ordered = token.type === 'ordered_list_open'
+			const close = closeAt(tokens, index, token.type, ordered ? 'ordered_list_close' : 'bullet_list_close')
+			const items = parseListItems(tokens.slice(index + 1, close))
+			const first = items[0]
+			if (first) {
+				const content: [ListItemJson, ...ListItemJson[]] = [first, ...items.slice(1)]
+				blocks.push(ordered ? orderedListBlock(token, content) : { type: 'bullet_list', content })
+			}
+			index = close + 1
+			continue
+		}
 		if (depth === 0 && token.type === 'hr') {
 			blocks.push({ type: 'horizontal_rule' })
 			index += 1
@@ -51,6 +63,35 @@ function parseBlocks(tokens: Token[]): BlockJson[] {
 	}
 
 	return blocks
+}
+
+function parseListItems(tokens: Token[]) {
+	const items: ListItemJson[] = []
+	let index = 0
+	while (index < tokens.length) {
+		const token = tokens[index]
+		if (!token) break
+		if (token.type !== 'list_item_open') {
+			index += 1
+			continue
+		}
+		const close = closeAt(tokens, index, 'list_item_open', 'list_item_close')
+		items.push(listItemBlock(parseBlocks(tokens.slice(index + 1, close))))
+		index = close + 1
+	}
+	return items
+}
+
+function listItemBlock(inner: BlockJson[]): ListItemJson {
+	const first = inner[0]
+	if (first?.type === 'paragraph') return { type: 'list_item', content: [first, ...inner.slice(1)] }
+	return { type: 'list_item', content: [{ type: 'paragraph' }, ...inner] }
+}
+
+function orderedListBlock(open: Token, content: [ListItemJson, ...ListItemJson[]]): BlockJson {
+	const raw = Number(open.attrGet('start') ?? 1)
+	const order = Number.isInteger(raw) && raw >= 1 ? raw : 1
+	return { type: 'ordered_list', attrs: { order }, content }
 }
 
 function blockquoteBlock(inner: BlockJson[]): BlockJson {
@@ -108,7 +149,30 @@ function serializeBlock(block: BlockJson): string {
 			.join('\n')
 	}
 	if (block.type === 'horizontal_rule') return '---'
+	if (block.type === 'bullet_list') return serializeList(block.content, null)
+	if (block.type === 'ordered_list') return serializeList(block.content, block.attrs.order)
 	const text = block.content?.map((node) => node.text).join('') ?? ''
 	if (block.type === 'heading') return `${'#'.repeat(block.attrs.level)} ${text}`
 	return text
+}
+
+function serializeList(items: readonly ListItemJson[], start: number | null) {
+	return items.map((item, index) => serializeListItem(item, start == null ? '- ' : `${start + index}. `)).join('\n')
+}
+
+function serializeListItem(item: ListItemJson, marker: string) {
+	const pad = ' '.repeat(marker.length)
+	const lines: string[] = []
+	item.content.forEach((block, index) => {
+		const blockLines = serializeBlock(block).split('\n')
+		if (index === 0) {
+			lines.push(`${marker}${blockLines[0] ?? ''}`)
+			for (const line of blockLines.slice(1)) lines.push(`${pad}${line}`)
+			return
+		}
+		const nested = block.type === 'bullet_list' || block.type === 'ordered_list'
+		if (!nested) lines.push('')
+		for (const line of blockLines) lines.push(`${pad}${line}`)
+	})
+	return lines.join('\n')
 }

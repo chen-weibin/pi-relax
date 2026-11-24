@@ -5,6 +5,7 @@ declare module 'markdown-it' {
 		content: string
 		nesting: number
 		children: Token[] | null
+		attrGet(name: string): string | null
 	}
 
 	export default class MarkdownIt {

@@ -17,6 +17,7 @@ export default defineConfig({
 			'prosemirror-keymap',
 			'prosemirror-history',
 			'prosemirror-inputrules',
+			'prosemirror-schema-list',
 			'markdown-it',
 			/\.css$/,
 		],

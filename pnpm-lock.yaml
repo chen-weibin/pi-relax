@@ -285,6 +285,9 @@ importers:
       prosemirror-model:
         specifier: ^1.25.11
         version: 1.25.11
+      prosemirror-schema-list:
+        specifier: ^1.6.1
+        version: 1.6.1
       prosemirror-state:
         specifier: ^1.4.4
         version: 1.4.4
@@ -3881,6 +3884,9 @@ packages:
 
   prosemirror-model@1.25.11:
     resolution: {integrity: sha512-QWg9RhnpLlogAmp3p96uEFrE5txQpFynd4vhBAELkwgOCWQs/X0yCzB3/hrHqiPwf91RG5KyWq6553zs9JqIOQ==}
+
+  prosemirror-schema-list@1.6.1:
+    resolution: {integrity: sha512-QiL/QjgCWr+3Mhukm48E5d3XCC8lVEIanixGkXbWKUyxCUGy4ntVffFapmMwQ4vxhZw+8i7117W2N6FSyqyWfA==}
 
   prosemirror-state@1.4.4:
     resolution: {integrity: sha512-6jiYHH2CIGbCfnxdHbXZ12gySFY/fz/ulZE333G6bPqIZ4F+TXo9ifiR86nAHpWnfoNjOb3o5ESi7J8Uz1jXHw==}
@@ -8674,6 +8680,12 @@ snapshots:
   prosemirror-model@1.25.11:
     dependencies:
       orderedmap: 2.1.1
+
+  prosemirror-schema-list@1.6.1:
+    dependencies:
+      prosemirror-model: 1.25.11
+      prosemirror-state: 1.4.4
+      prosemirror-transform: 1.12.1
 
   prosemirror-state@1.4.4:
     dependencies:

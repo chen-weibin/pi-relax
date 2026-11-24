@@ -41,7 +41,7 @@ describe('blockquote', () => {
 		assert.equal(pairQuote?.type === 'blockquote' && pairQuote.content.length, 2)
 		assert.equal(docJsonToMarkdown(pair), '> 甲\n> \n> 乙')
 
-		const emptied = markdownToDocJson('> - 项')
+		const emptied = markdownToDocJson('> ```\n> code\n> ```')
 		const emptyQuote = emptied.content[0]
 		assert.equal(emptyQuote?.type, 'blockquote')
 		assert.equal(emptyQuote?.type === 'blockquote' && emptyQuote.content.length, 1)
