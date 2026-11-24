@@ -7,8 +7,8 @@
 	box-sizing: border-box;
 	min-height: 100%;
 	--md-editor-pad-top: var(--md-editor-space-8);
-	--md-editor-pad-x: var(--md-editor-space-32);
-	--md-editor-pad-bottom: calc(var(--md-editor-space-32) * 3);
+	--md-editor-pad-x: var(--md-editor-space-24);
+	--md-editor-pad-bottom: calc(var(--md-editor-space-24) * 2);
 	padding: var(--md-editor-pad-top) var(--md-editor-pad-x) var(--md-editor-pad-bottom);
 	color: var(--md-editor-text);
 	background: var(--md-editor-bg);

@@ -16,9 +16,9 @@ export type ButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'prefix'
 }
 
 const sizeClasses: Record<ButtonSize, string> = {
-	sm: 'h-6 rounded-[var(--pg-radius-sm)] px-2 text-[length:var(--pg-font-xs)] [&_svg]:h-3 [&_svg]:w-3',
-	md: 'h-8 rounded-[var(--pg-radius-md)] px-3 text-[length:var(--pg-font-sm)] [&_svg]:h-3.5 [&_svg]:w-3.5',
-	lg: 'h-10 rounded-[var(--pg-radius-lg)] px-4 text-[length:var(--pg-font-base)] [&_svg]:h-4 [&_svg]:w-4',
+	sm: 'h-6 rounded-[var(--pg-radius-sm)] px-2 text-[length:var(--pg-font-sm)] [&_svg]:h-3 [&_svg]:w-3',
+	md: 'h-[30px] rounded-[var(--pg-radius-md)] px-2.5 text-[length:var(--pg-font-base)] [&_svg]:h-3.5 [&_svg]:w-3.5',
+	lg: 'h-9 rounded-[var(--pg-radius-lg)] px-3 text-[length:var(--pg-font-lg)] [&_svg]:h-4 [&_svg]:w-4',
 }
 
 const clusterGap: Record<ButtonSize, string> = {
