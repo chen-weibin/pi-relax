@@ -1,65 +1,54 @@
+@import "tailwindcss";
 @import "./theme.css";
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@theme inline {
+	--color-app: var(--pg-bg);
+	--color-sidebar: var(--pg-surface-2);
+	--color-surface: var(--pg-surface);
+	--color-surface-hover: var(--pg-surface-2);
+	--color-surface-active: color-mix(in srgb, var(--pg-surface-2) 82%, var(--pg-text));
+	--color-fg: var(--pg-text);
+	--color-fg-2: var(--pg-text-2);
+	--color-fg-bright: var(--pg-text);
+	--color-border: var(--pg-border);
+	--color-border-hover: var(--pg-border-strong);
+	--color-brand: var(--pg-brand);
+	--color-brand-hover: var(--pg-brand-600);
+	--color-brand-active: var(--pg-brand-700);
+	--color-brand-soft: var(--pg-brand-soft);
+	--color-brand-soft-hover: color-mix(in srgb, var(--pg-brand-soft) 78%, var(--pg-brand));
+	--color-on-brand: var(--pg-inverse-text);
+}
+
+/*
+ * `@theme inline` 把颜色变量写在 :root。`--pg-*` 只在 `[data-theme]` 上，
+ * :root 上解析不到。同一选择器再写一遍，壳子里面的工具类才能跟着主题变。
+ */
+[data-theme='light'],
+[data-theme='dark'] {
+	--color-app: var(--pg-bg);
+	--color-sidebar: var(--pg-surface-2);
+	--color-surface: var(--pg-surface);
+	--color-surface-hover: var(--pg-surface-2);
+	--color-surface-active: color-mix(in srgb, var(--pg-surface-2) 82%, var(--pg-text));
+	--color-fg: var(--pg-text);
+	--color-fg-2: var(--pg-text-2);
+	--color-fg-bright: var(--pg-text);
+	--color-border: var(--pg-border);
+	--color-border-hover: var(--pg-border-strong);
+	--color-brand: var(--pg-brand);
+	--color-brand-hover: var(--pg-brand-600);
+	--color-brand-active: var(--pg-brand-700);
+	--color-brand-soft: var(--pg-brand-soft);
+	--color-brand-soft-hover: color-mix(in srgb, var(--pg-brand-soft) 78%, var(--pg-brand));
+	--color-on-brand: var(--pg-inverse-text);
+}
 
 html,
 body,
 #root {
 	height: 100%;
 	margin: 0;
-}
-
-.shell {
-	display: flex;
-	height: 100%;
-	background: var(--pg-bg);
-	color: var(--pg-text);
-	font-family: var(--pg-font-family);
-}
-
-.sidebar {
-	flex: none;
-	height: 100%;
-	overflow: hidden;
-	background: var(--pg-surface);
-	border-right: 1px solid var(--pg-border);
-	z-index: var(--pg-z-fixed);
-}
-
-.main {
-	display: flex;
-	flex: 1;
-	flex-direction: column;
-	min-width: 0;
-	height: 100%;
-}
-
-.header {
-	display: flex;
-	flex: none;
-	align-items: center;
-	justify-content: space-between;
-	height: 56px;
-	padding: 0 12px;
-	border-bottom: 1px solid var(--pg-border);
-}
-
-.header button {
-	height: 28px;
-	padding: 0 12px;
-	border: 1px solid var(--pg-border);
-	border-radius: var(--pg-radius-md);
-	background: var(--pg-surface);
-	color: var(--pg-text);
-	font: 600 12px/1 var(--pg-font-family);
-	cursor: pointer;
-}
-
-.editor-pane {
-	flex: 1;
-	min-height: 0;
-	overflow: auto;
-	background: var(--pg-bg);
-}
-
-.editor-pane > div {
-	min-height: 100%;
 }

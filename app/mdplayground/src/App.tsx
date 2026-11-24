@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import { motion, useReducedMotion } from 'motion/react'
 import { MdEditor, type MdEditorTheme } from '@relax/md-editor'
+import { Button } from './ui/Button'
 import './shell.css'
 
 const sidebarWidth = 240
@@ -21,23 +22,27 @@ export function App() {
 	}, [theme, reduceMotion])
 
 	return (
-		<div className="shell" data-theme={theme} ref={shellRef}>
+		<div
+			className="flex h-full bg-app text-fg [font-family:var(--pg-font-family)]"
+			data-theme={theme}
+			ref={shellRef}
+		>
 			<motion.aside
-				className="sidebar"
+				className="z-[var(--pg-z-fixed)] h-full shrink-0 overflow-hidden bg-sidebar"
 				initial={false}
 				animate={{ width: open ? sidebarWidth : 0 }}
 				transition={{ duration }}
 			/>
-			<div className="main">
-				<header className="header">
-					<button type="button" onClick={() => setOpen((value) => !value)}>
+			<div className="flex h-full min-w-0 flex-1 flex-col">
+				<header className="flex h-14 shrink-0 items-center justify-between px-3">
+					<Button onClick={() => setOpen((value) => !value)}>
 						{open ? '收起' : '展开'}
-					</button>
-					<button type="button" onClick={() => setTheme((value) => (value === 'light' ? 'dark' : 'light'))}>
+					</Button>
+					<Button onClick={() => setTheme((value) => (value === 'light' ? 'dark' : 'light'))}>
 						{theme === 'light' ? '亮色' : '暗色'}
-					</button>
+					</Button>
 				</header>
-				<div className="editor-pane">
+				<div className="min-h-0 flex-1 overflow-auto bg-app [&>div]:min-h-full">
 					<MdEditor theme={theme} />
 				</div>
 			</div>

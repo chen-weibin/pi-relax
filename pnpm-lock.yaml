@@ -42,6 +42,9 @@ importers:
       '@relax/md-editor':
         specifier: workspace:*
         version: link:../../packages/md-editor
+      classnames:
+        specifier: ^2.5.1
+        version: 2.5.1
       motion:
         specifier: ^13.3.0
         version: 13.3.0(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
