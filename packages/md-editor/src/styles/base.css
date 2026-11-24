@@ -37,6 +37,41 @@
 	margin: 0 0 var(--md-editor-paragraph-gap);
 }
 
+.mded h1,
+.mded h2,
+.mded h3,
+.mded h4,
+.mded h5,
+.mded h6 {
+	margin: 0 0 var(--md-editor-paragraph-gap);
+	font-weight: 600;
+	line-height: var(--md-editor-line-height);
+}
+
+.mded h1 {
+	font-size: var(--md-editor-font-4xl);
+}
+
+.mded h2 {
+	font-size: var(--md-editor-font-2xl);
+}
+
+.mded h3 {
+	font-size: var(--md-editor-font-xl);
+}
+
+.mded h4 {
+	font-size: var(--md-editor-font-lg);
+}
+
+.mded h5 {
+	font-size: var(--md-editor-font-base);
+}
+
+.mded h6 {
+	font-size: var(--md-editor-font-sm);
+}
+
 .mded hr {
 	margin: 0;
 	border: 0;

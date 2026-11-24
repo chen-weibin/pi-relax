@@ -1,25 +1,57 @@
-import { baseKeymap } from 'prosemirror-commands'
+import { baseKeymap, setBlockType } from 'prosemirror-commands'
 import { redo, undo } from 'prosemirror-history'
 import { keymap } from 'prosemirror-keymap'
 import { type Command, type Plugin } from 'prosemirror-state'
+import { editorSchema } from '../schema.ts'
+import { headingInputRules } from './inputRules.ts'
 import { placeholderPlugin } from './placeholder.ts'
 
 export type MdEditorMode = 'edit' | 'read'
 
-export type EditorCommand = 'undo' | 'redo'
+export type EditorCommand =
+	| 'undo'
+	| 'redo'
+	| 'paragraph'
+	| 'heading1'
+	| 'heading2'
+	| 'heading3'
+	| 'heading4'
+	| 'heading5'
+	| 'heading6'
 
 export type Keybindings = Partial<Record<EditorCommand, readonly string[]>>
+
+const { paragraph, heading } = editorSchema.nodes
 
 const defaultKeys: Record<EditorCommand, readonly string[]> = {
 	undo: ['Mod-z'],
 	redo: ['Mod-Shift-z', 'Mod-y'],
+	paragraph: ['Mod-Alt-0'],
+	heading1: ['Mod-Alt-1'],
+	heading2: ['Mod-Alt-2'],
+	heading3: ['Mod-Alt-3'],
+	heading4: ['Mod-Alt-4'],
+	heading5: ['Mod-Alt-5'],
+	heading6: ['Mod-Alt-6'],
 }
 
-const commands: Record<EditorCommand, Command> = { undo, redo }
+const commands: Record<EditorCommand, Command> = {
+	undo,
+	redo,
+	paragraph: setBlockType(paragraph),
+	heading1: setBlockType(heading, { level: 1 }),
+	heading2: setBlockType(heading, { level: 2 }),
+	heading3: setBlockType(heading, { level: 3 }),
+	heading4: setBlockType(heading, { level: 4 }),
+	heading5: setBlockType(heading, { level: 5 }),
+	heading6: setBlockType(heading, { level: 6 }),
+}
+
+const commandIds = Object.keys(defaultKeys) as EditorCommand[]
 
 export function commandBindings(keybindings?: Keybindings): Record<string, Command> {
 	const bindings: Record<string, Command> = {}
-	for (const id of ['undo', 'redo'] as const) {
+	for (const id of commandIds) {
 		for (const key of keybindings?.[id] ?? defaultKeys[id]) bindings[key] = commands[id]
 	}
 	return bindings
@@ -31,5 +63,11 @@ export function createEditorPlugins(
 	mode: MdEditorMode = 'edit',
 ): Plugin[] {
 	if (mode === 'read') return [placeholderPlugin]
-	return [historyPlugin, keymap(commandBindings(keybindings)), keymap(baseKeymap), placeholderPlugin]
+	return [
+		historyPlugin,
+		headingInputRules,
+		keymap(commandBindings(keybindings)),
+		keymap(baseKeymap),
+		placeholderPlugin,
+	]
 }

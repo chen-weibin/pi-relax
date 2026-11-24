@@ -55,9 +55,9 @@ describe('editor state', () => {
 	it('keeps editing plugins in edit mode and only the placeholder in read mode', () => {
 		const historyPlugin = history()
 		const edit = createEditorPlugins(historyPlugin)
-		assert.equal(edit.length, 4)
+		assert.equal(edit.length, 5)
 		assert.equal(edit[0], historyPlugin)
-		assert.equal(edit[3], placeholderPlugin)
+		assert.equal(edit[4], placeholderPlugin)
 
 		const read = createEditorPlugins(historyPlugin, undefined, 'read')
 		assert.deepEqual(read, [placeholderPlugin])

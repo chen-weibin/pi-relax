@@ -1,11 +1,33 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import { motion, useReducedMotion } from 'motion/react'
-import { MdEditor, type MdEditorMode, type MdEditorTheme } from '@relax/md-editor'
+import { MdEditor, type DocJson, type MdEditorMode, type MdEditorTheme } from '@relax/md-editor'
 import { Button } from './ui/Button'
 import './shell.css'
 
 const sidebarWidth = 240
 const sidebarOpenKey = 'mdplayground.sidebar-open'
+const docKey = 'mdplayground.doc'
+const emptyDoc: DocJson = { type: 'doc', content: [{ type: 'paragraph' }] }
+
+function readDoc(): DocJson {
+	try {
+		const raw = localStorage.getItem(docKey)
+		if (!raw) return emptyDoc
+		const parsed = JSON.parse(raw) as DocJson
+		if (parsed?.type === 'doc' && Array.isArray(parsed.content) && parsed.content.length > 0) return parsed
+		return emptyDoc
+	} catch {
+		return emptyDoc
+	}
+}
+
+function writeDoc(doc: DocJson) {
+	try {
+		localStorage.setItem(docKey, JSON.stringify(doc))
+	} catch {
+		// 无痕或配额满时这次输入仍留在页面上，只是刷新后回到空段落。
+	}
+}
 
 function readSidebarOpen() {
 	try {
@@ -27,6 +49,7 @@ export function App() {
 	const shellRef = useRef<HTMLDivElement>(null)
 	const [theme, setTheme] = useState<MdEditorTheme>('light')
 	const [mode, setMode] = useState<MdEditorMode>('edit')
+	const [doc, setDoc] = useState(readDoc)
 	const [open, setOpen] = useState(readSidebarOpen)
 	const reduceMotion = useReducedMotion()
 	const [duration, setDuration] = useState(0)
@@ -77,7 +100,15 @@ export function App() {
 				</header>
 				<div className="min-h-0 flex-1 overflow-auto bg-app">
 					<div className="mx-auto min-h-full w-[min(760px,calc(100%-64px))] max-[700px]:w-[min(720px,calc(100%-32px))]">
-						<MdEditor theme={theme} mode={mode} />
+						<MdEditor
+							theme={theme}
+							mode={mode}
+							value={doc}
+							onChange={(next) => {
+								setDoc(next)
+								writeDoc(next)
+							}}
+						/>
 					</div>
 				</div>
 			</div>
