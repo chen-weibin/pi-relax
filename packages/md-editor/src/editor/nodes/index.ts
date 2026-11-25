@@ -6,6 +6,8 @@ import { horizontalRule } from './horizontalRule.ts'
 import { listItem } from './listItem.ts'
 import { orderedList } from './orderedList.ts'
 import { paragraph } from './paragraph.ts'
+import { taskItem } from './taskItem.ts'
+import { taskList } from './taskList.ts'
 import { text } from './text.ts'
 
 export const nodes = {
@@ -17,5 +19,7 @@ export const nodes = {
 	bullet_list: bulletList,
 	ordered_list: orderedList,
 	list_item: listItem,
+	task_list: taskList,
+	task_item: taskItem,
 	text,
 }

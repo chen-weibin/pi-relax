@@ -8,6 +8,7 @@ import { createEditorState } from './EditorCore.ts'
 import { docJsonToMarkdown, markdownToDocJson } from './json.ts'
 import { commandBindings, createEditorPlugins, enterCommand } from './plugins/keymap.ts'
 import { blockInputRules } from './plugins/inputRules.ts'
+import { isTaskCheckboxPoint } from './plugins/taskList.ts'
 import type { DocJson } from './types.ts'
 
 function applyCommand(state: EditorState, command: ReturnType<typeof commandBindings>[string]) {
@@ -88,8 +89,10 @@ describe('lists', () => {
 		assert.equal(docJsonToMarkdown(markdownToDocJson('1) 甲')), '1. 甲')
 
 		const task = markdownToDocJson('- [ ] 待办')
-		const taskItem = task.content[0]
-		assert.equal(taskItem?.type, 'bullet_list')
+		const taskList = task.content[0]
+		assert.equal(taskList?.type, 'task_list')
+		assert.equal(taskList?.type === 'task_list' && taskList.content[0]?.attrs.checked, false)
+		assert.equal(taskList?.type === 'task_list' && taskList.content[0]?.content[0]?.content?.[0]?.text, '待办')
 		assert.equal(docJsonToMarkdown(task), '- [ ] 待办')
 
 		const quoted = markdownToDocJson('> - 甲\n> - 乙')
@@ -219,5 +222,120 @@ describe('lists', () => {
 		const kept = typeAt(ruled, textEnd(ruled, '---'), ' ')
 		assert.equal(kept.handled, false)
 		assert.equal(kept.state.doc.firstChild?.type.name, 'bullet_list')
+	})
+})
+
+describe('task lists', () => {
+	it('round-trips task markers and leaves ordered text alone', () => {
+		assert.equal(docJsonToMarkdown(markdownToDocJson('- [x] 完成')), '- [x] 完成')
+		assert.equal(docJsonToMarkdown(markdownToDocJson('- [X] 完成')), '- [x] 完成')
+		const checked = markdownToDocJson('- [x] 完成').content[0]
+		assert.equal(checked?.type === 'task_list' && checked.content[0]?.attrs.checked, true)
+
+		const literal = markdownToDocJson('- [ ]待办')
+		assert.equal(literal.content[0]?.type, 'bullet_list')
+		assert.equal(docJsonToMarkdown(literal), '- [ ]待办')
+
+		const ordered = markdownToDocJson('1. [x] 正文')
+		assert.equal(ordered.content[0]?.type, 'ordered_list')
+		assert.equal(docJsonToMarkdown(ordered), '1. [x] 正文')
+
+		const mixed = markdownToDocJson('- 普通\n- [ ] 任务')
+		assert.equal(mixed.content[0]?.type, 'bullet_list')
+		assert.equal(mixed.content[1]?.type, 'task_list')
+		assert.equal(docJsonToMarkdown(mixed), '- 普通\n\n- [ ] 任务')
+		assert.equal(docJsonToMarkdown(markdownToDocJson('+ [ ] 甲')), '- [ ] 甲')
+	})
+
+	it('wraps a textblock and nests inside an existing list item', () => {
+		const plain = typeAt({ type: 'doc', content: [{ type: 'paragraph' }] }, 1, '[ ] ')
+		assert.equal(plain.handled, true)
+		assert.equal(plain.state.doc.firstChild?.type.name, 'task_list')
+		assert.equal(plain.state.doc.firstChild?.firstChild?.attrs.checked, false)
+		assert.equal(plain.state.doc.textContent, '')
+
+		const done = typeAt({ type: 'doc', content: [{ type: 'paragraph' }] }, 1, '[x] ')
+		assert.equal(done.state.doc.firstChild?.firstChild?.attrs.checked, true)
+
+		const kept = typeAt({ type: 'doc', content: [{ type: 'paragraph' }] }, 1, '[] ')
+		assert.equal(kept.handled, false)
+		assert.equal(kept.state.doc.firstChild?.type.name, 'paragraph')
+
+		const ordered = {
+			type: 'doc',
+			content: [
+				{
+					type: 'ordered_list',
+					attrs: { order: 1 },
+					content: [{ type: 'list_item', content: [{ type: 'paragraph' }] }],
+				},
+			],
+		} as DocJson
+		const nested = typeAt(ordered, contentPos(ordered), '[ ] ')
+		assert.equal(nested.handled, true)
+		assert.equal(nested.state.doc.firstChild?.firstChild?.firstChild?.type.name, 'task_list')
+		assert.equal(docJsonToMarkdown(nested.state.doc.toJSON() as DocJson), '1. \n   - [ ] ')
+
+		const bullet = {
+			type: 'doc',
+			content: [
+				{
+					type: 'bullet_list',
+					content: [{ type: 'list_item', content: [{ type: 'paragraph' }] }],
+				},
+			],
+		} as DocJson
+		const inside = typeAt(bullet, contentPos(bullet), '[x] ')
+		assert.equal(inside.handled, true)
+		assert.equal(inside.state.doc.firstChild?.firstChild?.firstChild?.type.name, 'task_list')
+		assert.equal(inside.state.doc.firstChild?.firstChild?.firstChild?.firstChild?.attrs.checked, true)
+
+		const again = typeAt(markdownToDocJson('- [ ] 待办'), contentPos(markdownToDocJson('- [ ] 待办')), '[ ] ')
+		assert.equal(again.handled, false)
+		assert.equal(again.state.doc.firstChild?.type.name, 'task_list')
+		assert.equal(again.state.doc.textContent, '待办')
+	})
+
+	it('splits a filled task item into an unchecked one and lifts an empty one', () => {
+		const filled = markdownToDocJson('- [x] 甲')
+		const split = enterAt(filled, textEnd(filled, '甲'))
+		assert.equal(split.handled, true)
+		const list = split.state.doc.firstChild
+		assert.equal(list?.childCount, 2)
+		assert.equal(list?.firstChild?.attrs.checked, true)
+		assert.equal(list?.lastChild?.attrs.checked, false)
+
+		const emptied = {
+			type: 'doc',
+			content: [
+				{
+					type: 'task_list',
+					content: [
+						{
+							type: 'task_item',
+							attrs: { checked: false },
+							content: [{ type: 'paragraph', content: [{ type: 'text', text: '甲' }] }],
+						},
+						{ type: 'task_item', attrs: { checked: false }, content: [{ type: 'paragraph' }] },
+					],
+				},
+			],
+		} as DocJson
+		const lifted = enterAt(emptied, contentPos(emptied))
+		assert.equal(lifted.handled, true)
+		assert.equal(lifted.state.doc.childCount, 2)
+		assert.equal(lifted.state.doc.firstChild?.type.name, 'task_list')
+		assert.equal(lifted.state.doc.lastChild?.type.name, 'paragraph')
+	})
+
+	it('hits the checkbox box and misses the text', () => {
+		const fontSize = 16
+		const itemLeft = 40
+		const itemTop = 20
+		assert.equal(
+			isTaskCheckboxPoint({ x: itemLeft - fontSize * 1.45, y: itemTop + fontSize * 0.3, itemLeft, itemTop, fontSize }),
+			true,
+		)
+		assert.equal(isTaskCheckboxPoint({ x: itemLeft + 4, y: itemTop + 4, itemLeft, itemTop, fontSize }), false)
 	})
 })

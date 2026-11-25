@@ -1,10 +1,18 @@
 import type { NodeSpec } from 'prosemirror-model'
 import type { BlockJson, ParagraphJson } from '../types'
+import type { TaskListJson } from './taskList'
 
 export const listItem: NodeSpec = {
-	content: 'paragraph block*',
+	content: '(paragraph | task_list) block*',
 	defining: true,
-	parseDOM: [{ tag: 'li' }],
+	parseDOM: [
+		{
+			tag: 'li',
+			getAttrs(dom) {
+				return (dom as HTMLElement).classList.contains('mded-task') ? false : null
+			},
+		},
+	],
 	toDOM() {
 		return ['li', 0]
 	},
@@ -12,5 +20,5 @@ export const listItem: NodeSpec = {
 
 export type ListItemJson = {
 	type: 'list_item'
-	content: [ParagraphJson, ...BlockJson[]]
+	content: [ParagraphJson | TaskListJson, ...BlockJson[]]
 }

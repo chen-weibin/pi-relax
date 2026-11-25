@@ -1,6 +1,6 @@
 import MarkdownIt, { type Token } from 'markdown-it'
 import { editorSchema } from './schema.ts'
-import type { BlockJson, DocJson, InlineJson, ListItemJson } from './types'
+import type { BlockJson, DocJson, InlineJson, ListItemJson, ParagraphJson, TaskItemJson, TaskListJson } from './types'
 
 const md = new MarkdownIt({ html: false, linkify: false, typographer: false })
 
@@ -39,7 +39,8 @@ function parseBlocks(tokens: Token[]): BlockJson[] {
 			const first = items[0]
 			if (first) {
 				const content: [ListItemJson, ...ListItemJson[]] = [first, ...items.slice(1)]
-				blocks.push(ordered ? orderedListBlock(token, content) : { type: 'bullet_list', content })
+				if (ordered) blocks.push(orderedListBlock(token, content))
+				else blocks.push(...bulletOrTaskBlocks(content))
 			}
 			index = close + 1
 			continue
@@ -84,8 +85,59 @@ function parseListItems(tokens: Token[]) {
 
 function listItemBlock(inner: BlockJson[]): ListItemJson {
 	const first = inner[0]
-	if (first?.type === 'paragraph') return { type: 'list_item', content: [first, ...inner.slice(1)] }
+	if (first?.type === 'paragraph' || first?.type === 'task_list') {
+		return { type: 'list_item', content: [first, ...inner.slice(1)] }
+	}
 	return { type: 'list_item', content: [{ type: 'paragraph' }, ...inner] }
+}
+
+function bulletOrTaskBlocks(items: readonly ListItemJson[]): BlockJson[] {
+	const blocks: BlockJson[] = []
+	let plain: ListItemJson[] = []
+	let tasks: TaskItemJson[] = []
+	const flush = () => {
+		const plainFirst = plain[0]
+		if (plainFirst) {
+			blocks.push({ type: 'bullet_list', content: [plainFirst, ...plain.slice(1)] })
+			plain = []
+		}
+		const taskFirst = tasks[0]
+		if (taskFirst) {
+			blocks.push({ type: 'task_list', content: [taskFirst, ...tasks.slice(1)] })
+			tasks = []
+		}
+	}
+	for (const item of items) {
+		const task = taskItemFromListItem(item)
+		if (task) {
+			if (plain.length > 0) flush()
+			tasks.push(task)
+			continue
+		}
+		if (tasks.length > 0) flush()
+		plain.push(item)
+	}
+	flush()
+	return blocks
+}
+
+function taskItemFromListItem(item: ListItemJson): TaskItemJson | null {
+	const first = item.content[0]
+	if (first?.type !== 'paragraph') return null
+	const text = paragraphText(first)
+	const match = /^\[([ xX])\]\s(.*)$/s.exec(text)
+	if (!match) return null
+	const paragraph: ParagraphJson = { type: 'paragraph' }
+	if (match[2]) paragraph.content = [{ type: 'text', text: match[2] }]
+	return {
+		type: 'task_item',
+		attrs: { checked: match[1]?.toLowerCase() === 'x' },
+		content: [paragraph, ...item.content.slice(1)],
+	}
+}
+
+function paragraphText(paragraph: ParagraphJson) {
+	return paragraph.content?.map((node) => node.text).join('') ?? ''
 }
 
 function orderedListBlock(open: Token, content: [ListItemJson, ...ListItemJson[]]): BlockJson {
@@ -151,26 +203,38 @@ function serializeBlock(block: BlockJson): string {
 	if (block.type === 'horizontal_rule') return '---'
 	if (block.type === 'bullet_list') return serializeList(block.content, null)
 	if (block.type === 'ordered_list') return serializeList(block.content, block.attrs.order)
+	if (block.type === 'task_list') return serializeTaskList(block)
 	const text = block.content?.map((node) => node.text).join('') ?? ''
 	if (block.type === 'heading') return `${'#'.repeat(block.attrs.level)} ${text}`
 	return text
 }
 
 function serializeList(items: readonly ListItemJson[], start: number | null) {
-	return items.map((item, index) => serializeListItem(item, start == null ? '- ' : `${start + index}. `)).join('\n')
+	return items.map((item, index) => serializeListItem(item.content, start == null ? '- ' : `${start + index}. `)).join('\n')
 }
 
-function serializeListItem(item: ListItemJson, marker: string) {
+function serializeTaskList(block: TaskListJson) {
+	return block.content
+		.map((item) => serializeListItem(item.content, item.attrs.checked ? '- [x] ' : '- [ ] '))
+		.join('\n')
+}
+
+function serializeListItem(content: readonly BlockJson[], marker: string) {
 	const pad = ' '.repeat(marker.length)
 	const lines: string[] = []
-	item.content.forEach((block, index) => {
+	content.forEach((block, index) => {
 		const blockLines = serializeBlock(block).split('\n')
+		const nested = block.type === 'bullet_list' || block.type === 'ordered_list' || block.type === 'task_list'
 		if (index === 0) {
+			if (block.type === 'task_list') {
+				lines.push(marker)
+				for (const line of blockLines) lines.push(`${pad}${line}`)
+				return
+			}
 			lines.push(`${marker}${blockLines[0] ?? ''}`)
 			for (const line of blockLines.slice(1)) lines.push(`${pad}${line}`)
 			return
 		}
-		const nested = block.type === 'bullet_list' || block.type === 'ordered_list'
 		if (!nested) lines.push('')
 		for (const line of blockLines) lines.push(`${pad}${line}`)
 	})

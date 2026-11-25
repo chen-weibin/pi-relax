@@ -6,6 +6,7 @@ import { type Command, type Plugin } from 'prosemirror-state'
 import { editorSchema } from '../schema.ts'
 import { blockInputRules, horizontalRuleOnEnter } from './inputRules.ts'
 import { placeholderPlugin } from './placeholder.ts'
+import { taskListPlugin } from './taskList.ts'
 
 export type MdEditorMode = 'edit' | 'read'
 
@@ -26,9 +27,13 @@ export type EditorCommand =
 
 export type Keybindings = Partial<Record<EditorCommand, readonly string[]>>
 
-const { paragraph, heading, bullet_list, ordered_list, list_item } = editorSchema.nodes
+const { paragraph, heading, bullet_list, ordered_list, list_item, task_item } = editorSchema.nodes
 
-export const enterCommand = chainCommands(horizontalRuleOnEnter, splitListItem(list_item))
+export const enterCommand = chainCommands(
+	horizontalRuleOnEnter,
+	splitListItem(task_item, { checked: false }),
+	splitListItem(list_item),
+)
 
 const defaultKeys: Record<EditorCommand, readonly string[]> = {
 	undo: ['Mod-z'],
@@ -85,5 +90,6 @@ export function createEditorPlugins(
 		keymap({ Enter: enterCommand }),
 		keymap(baseKeymap),
 		placeholderPlugin,
+		taskListPlugin,
 	]
 }

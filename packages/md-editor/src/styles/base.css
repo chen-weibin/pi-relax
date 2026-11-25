@@ -172,6 +172,50 @@
 	margin-bottom: 0;
 }
 
+.mded ul.mded-task-list {
+	list-style: none;
+	padding-left: 1.7em;
+	--mded-task-size: 1em;
+	--mded-task-left: -1.45em;
+}
+
+.mded li.mded-task {
+	list-style: none;
+}
+
+.mded li.mded-task::before {
+	content: '';
+	position: absolute;
+	left: var(--mded-task-left);
+	top: calc((var(--md-editor-line-height) * 1em - var(--mded-task-size)) / 2);
+	width: var(--mded-task-size);
+	height: var(--mded-task-size);
+	box-sizing: border-box;
+	border: 1.5px solid var(--md-editor-border);
+	border-radius: 14.3%;
+}
+
+[data-theme='dark'] .mded li.mded-task::before {
+	border-color: var(--md-editor-neutral-400);
+}
+
+.mded li.mded-task[data-checked='true']::before {
+	border: 0;
+	background-color: var(--md-editor-success);
+	mask: center / 100% 100% no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1024 1024'%3E%3Cpath fill='%23000' d='M0 146.285714c0-80.457143 65.828571-146.285714 146.285714-146.285714h731.428572c80.457143 0 146.285714 65.828571 146.285714 146.285714v731.428572c0 80.457143-65.828571 146.285714-146.285714 146.285714H146.285714c-80.457143 0-146.285714-65.828571-146.285714-146.285714V146.285714z'/%3E%3C/svg%3E");
+}
+
+.mded li.mded-task[data-checked='true']::after {
+	content: '';
+	position: absolute;
+	left: var(--mded-task-left);
+	top: calc((var(--md-editor-line-height) * 1em - var(--mded-task-size)) / 2);
+	width: var(--mded-task-size);
+	height: var(--mded-task-size);
+	background-color: #fff;
+	mask: center / 100% 100% no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1024 1024'%3E%3Cpath fill='%23000' d='M182.857143 438.857143c-21.942857 29.257143-21.942857 73.142857 0 109.714286l197.485714 285.257142c7.314286 14.628571 21.942857 21.942857 36.571429 21.942858h14.628571c14.628571 0 21.942857-7.314286 36.571429-21.942858L841.142857 292.571429c21.942857-29.257143 21.942857-73.142857 0-102.4-21.942857-29.257143-51.2-29.257143-73.142857 0l-336.457143 497.371428L256 438.857143c-14.628571-29.257143-51.2-29.257143-73.142857 0z'/%3E%3C/svg%3E");
+}
+
 .mded.ProseMirror-hideselection *::selection {
 	background: transparent;
 }
