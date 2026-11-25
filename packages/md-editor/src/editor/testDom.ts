@@ -149,6 +149,8 @@ class HTMLElementBase extends ElementBase {
 
 	matches(selector: string): boolean {
 		if (selector.includes(',')) return selector.split(',').some((part) => this.matches(part.trim()))
+		const attrAt = selector.indexOf('[')
+		if (attrAt > 0) return this.nodeName === selector.slice(0, attrAt).toUpperCase() && this.matches(selector.slice(attrAt))
 		if (selector.startsWith('.')) return classes(this).includes(selector.slice(1))
 		if (selector.startsWith('[')) {
 			const body = selector.slice(1, -1)

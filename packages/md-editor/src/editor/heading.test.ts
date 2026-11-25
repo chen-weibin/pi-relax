@@ -43,7 +43,7 @@ describe('heading', () => {
 		assert.equal(droppedBlock?.type === 'paragraph' && droppedBlock.content, undefined)
 
 		assert.equal(docJsonToMarkdown(markdownToDocJson('标题\n===')), '# 标题')
-		assert.equal(docJsonToMarkdown(markdownToDocJson('# **粗**')), '# 粗')
+		assert.equal(docJsonToMarkdown(markdownToDocJson('# **粗**')), '# **粗**')
 	})
 
 	it('turns a hash prefix into a level-1 heading', () => {

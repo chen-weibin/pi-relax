@@ -1,10 +1,11 @@
-import { baseKeymap, chainCommands, setBlockType } from 'prosemirror-commands'
+import { baseKeymap, chainCommands, setBlockType, toggleMark } from 'prosemirror-commands'
 import { redo, undo } from 'prosemirror-history'
 import { keymap } from 'prosemirror-keymap'
 import { liftListItem, sinkListItem, splitListItem, wrapInList } from 'prosemirror-schema-list'
 import { type Command, type Plugin } from 'prosemirror-state'
 import { editorSchema } from '../schema.ts'
-import { blockInputRules, horizontalRuleOnEnter } from './inputRules.ts'
+import { blockInputRules, horizontalRuleOnEnter, linkSyntaxPlugin } from './inputRules.ts'
+import { linkClickPlugin } from './linkClick.ts'
 import { placeholderPlugin } from './placeholder.ts'
 import { taskListPlugin } from './taskList.ts'
 
@@ -24,10 +25,16 @@ export type EditorCommand =
 	| 'orderedList'
 	| 'sinkListItem'
 	| 'liftListItem'
+	| 'bold'
+	| 'italic'
+	| 'code'
+	| 'strike'
+	| 'link'
 
 export type Keybindings = Partial<Record<EditorCommand, readonly string[]>>
 
 const { paragraph, heading, bullet_list, ordered_list, list_item, task_item } = editorSchema.nodes
+const { strong, em, code, strike, link } = editorSchema.marks
 
 export const enterCommand = chainCommands(
 	horizontalRuleOnEnter,
@@ -49,6 +56,11 @@ const defaultKeys: Record<EditorCommand, readonly string[]> = {
 	orderedList: ['Mod-Shift-7'],
 	sinkListItem: ['Tab'],
 	liftListItem: ['Shift-Tab'],
+	bold: ['Mod-b'],
+	italic: ['Mod-i'],
+	code: ['Mod-e'],
+	strike: ['Mod-Shift-x'],
+	link: ['Mod-k'],
 }
 
 const commands: Record<EditorCommand, Command> = {
@@ -65,6 +77,11 @@ const commands: Record<EditorCommand, Command> = {
 	orderedList: wrapInList(ordered_list),
 	sinkListItem: sinkListItem(list_item),
 	liftListItem: liftListItem(list_item),
+	bold: toggleMark(strong),
+	italic: toggleMark(em),
+	code: toggleMark(code),
+	strike: toggleMark(strike),
+	link: toggleMark(link),
 }
 
 const commandIds = Object.keys(defaultKeys) as EditorCommand[]
@@ -82,14 +99,16 @@ export function createEditorPlugins(
 	keybindings?: Keybindings,
 	mode: MdEditorMode = 'edit',
 ): Plugin[] {
-	if (mode === 'read') return [placeholderPlugin]
+	if (mode === 'read') return [placeholderPlugin, linkClickPlugin('read')]
 	return [
 		historyPlugin,
 		blockInputRules,
+		linkSyntaxPlugin,
 		keymap(commandBindings(keybindings)),
 		keymap({ Enter: enterCommand }),
 		keymap(baseKeymap),
 		placeholderPlugin,
 		taskListPlugin,
+		linkClickPlugin('edit'),
 	]
 }

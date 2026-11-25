@@ -7,7 +7,10 @@ import type { OrderedListJson } from './nodes/orderedList'
 import type { ParagraphJson } from './nodes/paragraph'
 import type { TaskItemJson } from './nodes/taskItem'
 import type { TaskListJson } from './nodes/taskList'
+import type { MarkJson } from './marks/index.ts'
 import type { TextJson } from './nodes/text'
+
+export type { MarkJson, TextJson }
 
 export type {
 	BlockquoteJson,
@@ -19,7 +22,6 @@ export type {
 	ParagraphJson,
 	TaskItemJson,
 	TaskListJson,
-	TextJson,
 }
 
 export type InlineJson = TextJson

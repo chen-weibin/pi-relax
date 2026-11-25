@@ -72,6 +72,47 @@
 	font-size: var(--md-editor-font-sm);
 }
 
+.mded strong {
+	font-weight: 700;
+}
+
+.mded em {
+	font-style: italic;
+}
+
+.mded s {
+	text-decoration: line-through;
+}
+
+.mded code {
+	padding: 2px var(--md-editor-space-4);
+	border-radius: var(--md-editor-radius-sm);
+	background: var(--md-editor-neutral-200);
+	color: var(--md-editor-text);
+	font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+	font-size: 0.88em;
+}
+
+[data-theme='dark'] .mded code {
+	background: var(--md-editor-neutral-700);
+}
+
+.mded a {
+	color: var(--md-editor-brand);
+	text-decoration: none;
+	border-bottom: 1px solid color-mix(in srgb, var(--md-editor-brand) 40%, transparent);
+	cursor: pointer;
+}
+
+.mded a:hover {
+	color: var(--md-editor-brand-600);
+	border-bottom-color: color-mix(in srgb, var(--md-editor-brand) 72%, transparent);
+}
+
+.mded a:active {
+	color: var(--md-editor-brand-700);
+}
+
 .mded blockquote {
 	margin: 0 0 var(--md-editor-paragraph-gap);
 	border-left: 3px solid var(--md-editor-brand);

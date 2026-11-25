@@ -1,5 +1,6 @@
 import MarkdownIt, { type Token } from 'markdown-it'
 import { editorSchema } from './schema.ts'
+import type { MarkJson } from './marks/index.ts'
 import type { BlockJson, DocJson, InlineJson, ListItemJson, ParagraphJson, TaskItemJson, TaskListJson } from './types'
 
 const md = new MarkdownIt({ html: false, linkify: false, typographer: false })
@@ -127,8 +128,9 @@ function taskItemFromListItem(item: ListItemJson): TaskItemJson | null {
 	const text = paragraphText(first)
 	const match = /^\[([ xX])\]\s(.*)$/s.exec(text)
 	if (!match) return null
+	const rest = stripInlinePrefix(first.content ?? [], text.length - (match[2]?.length ?? 0))
 	const paragraph: ParagraphJson = { type: 'paragraph' }
-	if (match[2]) paragraph.content = [{ type: 'text', text: match[2] }]
+	if (rest.length > 0) paragraph.content = rest
 	return {
 		type: 'task_item',
 		attrs: { checked: match[1]?.toLowerCase() === 'x' },
@@ -168,13 +170,89 @@ function paragraphBlock(inline: Token | undefined): BlockJson {
 	return block
 }
 
+const openMark: Record<string, (token: Token) => MarkJson> = {
+	strong_open: () => ({ type: 'strong' }),
+	em_open: () => ({ type: 'em' }),
+	s_open: () => ({ type: 'strike' }),
+	link_open: (token) => ({ type: 'link', attrs: { href: token.attrGet('href') ?? '' } }),
+}
+
+const closeMark: Record<string, MarkJson['type']> = {
+	strong_close: 'strong',
+	em_close: 'em',
+	s_close: 'strike',
+	link_close: 'link',
+}
+
 function inlineText(token: Token | undefined): InlineJson[] {
 	if (!token || token.type !== 'inline') return []
-	let text = ''
+	const nodes: InlineJson[] = []
+	const stack: MarkJson[] = []
 	for (const child of token.children ?? []) {
-		if (child.type === 'text') text += child.content
+		const open = openMark[child.type]
+		if (open) {
+			stack.push(open(child))
+			continue
+		}
+		const closing = closeMark[child.type]
+		if (closing) {
+			for (let index = stack.length - 1; index >= 0; index -= 1) {
+				if (stack[index]?.type === closing) {
+					stack.splice(index, 1)
+					break
+				}
+			}
+			continue
+		}
+		if (child.type === 'code_inline') {
+			pushInline(nodes, child.content, [{ type: 'code' }])
+			continue
+		}
+		if (child.type === 'text') pushInline(nodes, child.content, stack)
 	}
-	return text ? [{ type: 'text', text }] : []
+	return nodes
+}
+
+function pushInline(nodes: InlineJson[], text: string, marks: readonly MarkJson[]) {
+	if (!text) return
+	const next = marks.length > 0 ? marks.slice() : undefined
+	const last = nodes[nodes.length - 1]
+	if (last && sameMarks(last.marks, next)) {
+		last.text += text
+		return
+	}
+	const node: InlineJson = { type: 'text', text }
+	if (next) node.marks = next
+	nodes.push(node)
+}
+
+function sameMarks(left: readonly MarkJson[] | undefined, right: readonly MarkJson[] | undefined) {
+	const a = left ?? []
+	const b = right ?? []
+	if (a.length !== b.length) return false
+	return a.every((mark, index) => {
+		const other = b[index]
+		if (!other || mark.type !== other.type) return false
+		return mark.type !== 'link' || other.type !== 'link' || mark.attrs.href === other.attrs.href
+	})
+}
+
+function stripInlinePrefix(nodes: readonly InlineJson[], count: number): InlineJson[] {
+	const result: InlineJson[] = []
+	let left = count
+	for (const node of nodes) {
+		if (left <= 0) {
+			pushInline(result, node.text, node.marks ?? [])
+			continue
+		}
+		if (node.text.length <= left) {
+			left -= node.text.length
+			continue
+		}
+		pushInline(result, node.text.slice(left), node.marks ?? [])
+		left = 0
+	}
+	return result
 }
 
 function closeAt(tokens: Token[], start: number, open: string, close: string) {
@@ -204,9 +282,42 @@ function serializeBlock(block: BlockJson): string {
 	if (block.type === 'bullet_list') return serializeList(block.content, null)
 	if (block.type === 'ordered_list') return serializeList(block.content, block.attrs.order)
 	if (block.type === 'task_list') return serializeTaskList(block)
-	const text = block.content?.map((node) => node.text).join('') ?? ''
+	const text = serializeInline(block.content)
 	if (block.type === 'heading') return `${'#'.repeat(block.attrs.level)} ${text}`
 	return text
+}
+
+const wrapOrder = ['link', 'em', 'strong', 'strike', 'code'] as const
+
+function serializeInline(nodes: readonly InlineJson[] | undefined) {
+	if (!nodes || nodes.length === 0) return ''
+	let out = ''
+	let pending = ''
+	let marks: readonly MarkJson[] | undefined
+	for (const node of nodes) {
+		if (pending && !sameMarks(marks, node.marks)) {
+			out += wrapMarks(pending, marks ?? [])
+			pending = ''
+		}
+		pending += node.text
+		marks = node.marks
+	}
+	return out + wrapMarks(pending, marks ?? [])
+}
+
+function wrapMarks(text: string, marks: readonly MarkJson[]) {
+	let value = text
+	for (let index = wrapOrder.length - 1; index >= 0; index -= 1) {
+		const name = wrapOrder[index]
+		const mark = marks.find((item) => item.type === name)
+		if (!mark || !name) continue
+		if (name === 'code') value = `\`${value}\``
+		else if (name === 'strike') value = `~~${value}~~`
+		else if (name === 'strong') value = `**${value}**`
+		else if (name === 'em') value = `*${value}*`
+		else value = `[${value}](${mark.type === 'link' ? mark.attrs.href : ''})`
+	}
+	return value
 }
 
 function serializeList(items: readonly ListItemJson[], start: number | null) {
