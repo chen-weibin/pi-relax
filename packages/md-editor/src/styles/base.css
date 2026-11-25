@@ -164,6 +164,7 @@
 
 .mded li::marker {
 	color: var(--md-editor-brand);
+	font-weight: 600;
 }
 
 .mded li > p,
