@@ -1,7 +1,7 @@
 import { baseKeymap, chainCommands, setBlockType } from 'prosemirror-commands'
 import { redo, undo } from 'prosemirror-history'
 import { keymap } from 'prosemirror-keymap'
-import { splitListItem, wrapInList } from 'prosemirror-schema-list'
+import { liftListItem, sinkListItem, splitListItem, wrapInList } from 'prosemirror-schema-list'
 import { type Command, type Plugin } from 'prosemirror-state'
 import { editorSchema } from '../schema.ts'
 import { blockInputRules, horizontalRuleOnEnter } from './inputRules.ts'
@@ -21,6 +21,8 @@ export type EditorCommand =
 	| 'heading6'
 	| 'bulletList'
 	| 'orderedList'
+	| 'sinkListItem'
+	| 'liftListItem'
 
 export type Keybindings = Partial<Record<EditorCommand, readonly string[]>>
 
@@ -40,6 +42,8 @@ const defaultKeys: Record<EditorCommand, readonly string[]> = {
 	heading6: ['Mod-Alt-6'],
 	bulletList: ['Mod-Shift-8'],
 	orderedList: ['Mod-Shift-7'],
+	sinkListItem: ['Tab'],
+	liftListItem: ['Shift-Tab'],
 }
 
 const commands: Record<EditorCommand, Command> = {
@@ -54,6 +58,8 @@ const commands: Record<EditorCommand, Command> = {
 	heading6: setBlockType(heading, { level: 6 }),
 	bulletList: wrapInList(bullet_list),
 	orderedList: wrapInList(ordered_list),
+	sinkListItem: sinkListItem(list_item),
+	liftListItem: liftListItem(list_item),
 }
 
 const commandIds = Object.keys(defaultKeys) as EditorCommand[]

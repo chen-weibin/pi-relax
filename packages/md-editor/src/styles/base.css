@@ -105,8 +105,53 @@
 	padding-left: 1.5em;
 }
 
+/* ponytail: 无序标记按 disc、circle、square 循环，选择器写到 12 层。再深仍停在第 12 层的 square。 */
 .mded ul {
 	list-style: disc;
+}
+
+.mded :is(ul, ol) ul {
+	list-style: circle;
+}
+
+.mded :is(ul, ol) :is(ul, ol) ul {
+	list-style: square;
+}
+
+.mded :is(ul, ol) :is(ul, ol) :is(ul, ol) ul {
+	list-style: disc;
+}
+
+.mded :is(ul, ol) :is(ul, ol) :is(ul, ol) :is(ul, ol) ul {
+	list-style: circle;
+}
+
+.mded :is(ul, ol) :is(ul, ol) :is(ul, ol) :is(ul, ol) :is(ul, ol) ul {
+	list-style: square;
+}
+
+.mded :is(ul, ol) :is(ul, ol) :is(ul, ol) :is(ul, ol) :is(ul, ol) :is(ul, ol) ul {
+	list-style: disc;
+}
+
+.mded :is(ul, ol) :is(ul, ol) :is(ul, ol) :is(ul, ol) :is(ul, ol) :is(ul, ol) :is(ul, ol) ul {
+	list-style: circle;
+}
+
+.mded :is(ul, ol) :is(ul, ol) :is(ul, ol) :is(ul, ol) :is(ul, ol) :is(ul, ol) :is(ul, ol) :is(ul, ol) ul {
+	list-style: square;
+}
+
+.mded :is(ul, ol) :is(ul, ol) :is(ul, ol) :is(ul, ol) :is(ul, ol) :is(ul, ol) :is(ul, ol) :is(ul, ol) :is(ul, ol) ul {
+	list-style: disc;
+}
+
+.mded :is(ul, ol) :is(ul, ol) :is(ul, ol) :is(ul, ol) :is(ul, ol) :is(ul, ol) :is(ul, ol) :is(ul, ol) :is(ul, ol) :is(ul, ol) ul {
+	list-style: circle;
+}
+
+.mded :is(ul, ol) :is(ul, ol) :is(ul, ol) :is(ul, ol) :is(ul, ol) :is(ul, ol) :is(ul, ol) :is(ul, ol) :is(ul, ol) :is(ul, ol) :is(ul, ol) ul {
+	list-style: square;
 }
 
 .mded ol {
@@ -121,7 +166,9 @@
 	color: var(--md-editor-brand);
 }
 
-.mded li > p {
+.mded li > p,
+.mded li > ul,
+.mded li > ol {
 	margin-bottom: 0;
 }
 

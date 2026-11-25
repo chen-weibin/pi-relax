@@ -56,6 +56,11 @@ function textEnd(value: DocJson, text: string) {
 	return pos
 }
 
+function selectText(value: DocJson, text: string) {
+	const state = createEditorState(value, createEditorPlugins(history()))
+	return state.apply(state.tr.setSelection(TextSelection.create(state.doc, textEnd(value, text))))
+}
+
 function enterAt(value: DocJson, at: number) {
 	const state = createEditorState(value, createEditorPlugins(history()))
 	const placed = state.apply(state.tr.setSelection(TextSelection.create(state.doc, at)))
@@ -160,6 +165,30 @@ describe('lists', () => {
 		assert.equal(lifted.state.doc.firstChild?.type.name, 'bullet_list')
 		assert.equal(lifted.state.doc.firstChild?.childCount, 1)
 		assert.equal(lifted.state.doc.lastChild?.type.name, 'paragraph')
+	})
+
+	it('sinks the current item and lifts it back', () => {
+		const bindings = commandBindings()
+		const sink = bindings.Tab
+		const lift = bindings['Shift-Tab']
+		assert.ok(sink)
+		assert.ok(lift)
+
+		const bullets = markdownToDocJson('- 甲\n- 乙')
+		const sunk = applyCommand(selectText(bullets, '乙'), sink)
+		assert.equal(sunk.handled, true)
+		assert.equal(docJsonToMarkdown(sunk.state.doc.toJSON() as DocJson), '- 甲\n  - 乙')
+		const lifted = applyCommand(sunk.state, lift)
+		assert.equal(lifted.handled, true)
+		assert.equal(docJsonToMarkdown(lifted.state.doc.toJSON() as DocJson), '- 甲\n- 乙')
+
+		const first = applyCommand(selectText(bullets, '甲'), sink)
+		assert.equal(first.handled, false)
+
+		const ordered = markdownToDocJson('1. 甲\n2. 乙')
+		const numbered = applyCommand(selectText(ordered, '乙'), sink)
+		assert.equal(numbered.handled, true)
+		assert.equal(docJsonToMarkdown(numbered.state.doc.toJSON() as DocJson), '1. 甲\n   1. 乙')
 	})
 
 	it('binds list shortcuts and keeps --- inside an item', () => {
